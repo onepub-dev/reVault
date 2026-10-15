@@ -1,0 +1,10 @@
+{
+  "archive": "sample-evidence.tar.gz",
+  "sha256": "fadf95c4570f36a416280cb9c011c371de2c7e03f8262de9473eab17b1f8452c",
+  "file_count": 5435,
+  "archive_bytes": 1324246,
+  "manifest": "sample-evidence-sha256.txt",
+  "verified_extracted_files": 5435,
+  "restore_under": "worker-crossover-batch",
+  "note": "All per-case sample, command, admission, stdout/stderr, round and audit bytes preserved; original directories also retained in ignored rust/target backup. Top-level summaries and identities remain directly reviewable."
+}

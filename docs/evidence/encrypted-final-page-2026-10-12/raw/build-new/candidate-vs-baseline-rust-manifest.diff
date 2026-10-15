@@ -1,0 +1,20 @@
+--- docs/evidence/protected-write-current-2026-10-12/raw/build/runtime-source-manifest.pre-rust.sha256	2026-10-12 16:18:20.998513250 +1100
++++ docs/evidence/encrypted-final-page-2026-10-12/raw/build-new/runtime-source-manifest-pre-rust.sha256	2026-10-12 16:50:16.690601969 +1100
+@@ -185,7 +185,7 @@
+ a154b5faf6bdaac7e05a09ec6ed5e340fa2f5b9dd7e63074eb21b1446c0988aa  rust/revault_lockbox_api/src/file_format/key_directory.rs
+ 4d0ae79f15620ed1596b2fa30a48fd70efefc7aff3046c7f4ce16bfa2513e3d1  rust/revault_lockbox_api/src/file_format/metadata_budget.rs
+ 512257f479bddaf78cca0bdf342aff6fa075a8fed8d57ba33ff7b0ecc0f95591  rust/revault_lockbox_api/src/file_format/mod.rs
+-fc761b204fe897fdc2bf25512693ffd7d5a78232f19110bb7f23ca7f352f4f31  rust/revault_lockbox_api/src/file_format/page.rs
++b14faaaf77c62583492da1cf058f3fec011ebfcadd611b029b93658cf5bb3db0  rust/revault_lockbox_api/src/file_format/page.rs
+ 6d8d6d2bf2bb37d7b9aea52544eea52a6131585ccce8e0622e35ce835c8a6529  rust/revault_lockbox_api/src/file_format/page/secure_storage.rs
+ d2dc2e28e40170f3521f3b0d145b63147159a89a936fedd9e3028e1c52b39dd3  rust/revault_lockbox_api/src/file_format/page/secure_storage/prepared.rs
+ 1b1466ba4a84fcb78a33bdab2eb1ed8d57cbd973719a92b29244670702d13b16  rust/revault_lockbox_api/src/file_format/page_buffer.rs
+@@ -222,7 +222,7 @@
+ cd0bca684c19d1ba7722e2a1d1164b09cf346fe6630a8c9105dc0336eec90847  rust/revault_lockbox_api/src/file_format/secure_segments/tests.rs
+ c85c7cdf4a61cf681f296a68f635a2fad7eb0ce6db1575b2b6ff934ca3ed98ed  rust/revault_lockbox_api/src/file_format/shared_control_model.rs
+ a3b0eea2c06b954adca0e006f96f8494fd0e7b86403a8145d9c3ce53edb4173e  rust/revault_lockbox_api/src/fixture_artifact_tests.rs
+-a9d2d654eb76efb0f3d59468cc00d7f24d8bb1c85641cf9e3ee2cae071c2a8c9  rust/revault_lockbox_api/src/keys/crypto.rs
++3863346c08c51f7206276cb1558d9b1adfefd945139c49443a99d55cfbd7956f  rust/revault_lockbox_api/src/keys/crypto.rs
+ 4095880c44ba5319d332d78fbdab56c07fc50c84bba73b23f52a1a62fd9c6de8  rust/revault_lockbox_api/src/keys/key_derivation.rs
+ fcfb73739f406ef765df67b146f0e9c47f86334ddfbcdc84ee83bee4f36a1cc3  rust/revault_lockbox_api/src/keys/key_slot.rs
+ 4e21c23eb21f1d5bfef8441894fe5adc87542a6fc52adb4cb4115c9b3c9895fb  rust/revault_lockbox_api/src/keys/key_wrap.rs

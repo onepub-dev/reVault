@@ -1,0 +1,32 @@
+{
+  "command": [
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-A-default",
+    "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/A/archive.lbox",
+    "extract",
+    "--to",
+    "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/A/verified-extract"
+  ],
+  "environment": {
+    "HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/A/private-home",
+    "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/A/private-config",
+    "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/A/private-cache",
+    "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/A/private-state",
+    "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/A/private-data",
+    "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/A/private-agent",
+    "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/A/private-vault",
+    "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+    "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+    "PATH": "/usr/bin:/bin"
+  },
+  "destination": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/A/verified-extract",
+  "extraction_mode": "public CLI archive extract --to; ExtractMany, single-file content ReadMostly",
+  "expected_bytes": 67108864,
+  "actual_bytes": 67108864,
+  "expected_sha256": "18d0a72115ed0bf4c9f329de52542cd1f5a7de42360bc7e00c28693aaa00daed",
+  "actual_sha256": "18d0a72115ed0bf4c9f329de52542cd1f5a7de42360bc7e00c28693aaa00daed",
+  "directory_entries": [
+    "file-000000.bin"
+  ],
+  "bytewise_compare_passed": true,
+  "verified": true
+}

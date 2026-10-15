@@ -180,6 +180,8 @@ static void archive_lifecycle() {
   box.set_workload_profile("read-mostly");
   box.set_worker_policy("single", 1);
   check(!box.runtime_options().workload_profile.empty(), "runtime options");
+  box.set_cache_limit("bytes", 8192); check(box.cache_stats().limit_bytes == 8192, "cache limit");
+  box.set_cache_limit("auto", 0); pass("lockbox_set_cache_limit");
   pass("lockbox_set_workload_profile");
   pass("lockbox_set_worker_policy");
   pass("lockbox_runtime_options");
@@ -403,6 +405,8 @@ static void advanced_archive() {
   auto password_open = Lockbox::open_with_password(password_archive, "archive password");
   check(password_open.get_file("/password.txt") == bytes("password protected"), "password open");
   pass("lockbox_open_password", 2);
+  auto budget_open = Lockbox::open_with_password_budget(password_archive, "archive password", 1);
+  check(budget_open.get_file("/password.txt") == bytes("password protected"), "budget password bytes"); pass("lockbox_open_password_with_budget", 2);
   auto contact_box = Lockbox::create_for_contact(contact_public);
   contact_box.add_file("/contact.txt", bytes("contact protected"));
   contact_box.commit();
@@ -428,6 +432,8 @@ static void advanced_archive() {
   box.extract_file("/account.txt", (extract_root / "account.txt").string(), false);
   check(fs::exists(extract_root / "account.txt"), "file extracted");
   pass("lockbox_extract_file", 2);
+  box.extract_file_with_policy("/account.txt", (extract_root / "account.txt").string(), 1 << 20, 1 << 20, 1, true, true);
+  check(read(extract_root / "account.txt") == box.get_file("/account.txt"), "policy extracted bytes"); pass("lockbox_extract_file_with_policy", 2);
   box.extract_directory((extract_root / "tree").string(), 1024 * 1024,
                         4 * 1024 * 1024, 100, false, true, false);
   check(fs::exists(extract_root / "tree"), "directory extracted");
@@ -437,6 +443,7 @@ static void advanced_archive() {
 }
 
 static void vault_lifecycle() {
+  const auto alias_path = fs::absolute(artifact_root() / "remembered-alias-target.lbox").string();
   const auto root = artifact_root() / "vault";
   fs::create_directories(root);
   const std::string password = "vault password";
@@ -508,10 +515,16 @@ static void vault_lifecycle() {
     pass("vault_directory_store_backup");
     pass("vault_directory_backup_count");
     pass("vault_directory_load_backup", 3);
-    vault.remember_lockbox(id, "/tmp/example.lbox");
+    vault.remember_lockbox(id, alias_path);
     check(vault.list_known_lockboxes().size() == 1, "known lockboxes");
     pass("vault_directory_remember_lockbox");
     pass("vault_directory_list_known_lockboxes");
+    vault.set_lockbox_alias("portable", id); vault.set_lockbox_alias("portable", id);
+    check(vault.list_lockbox_aliases().size() == 1 && vault.list_lockbox_aliases()[0].name == "portable", "alias repeat and list");
+    check(vault.resolve_lockbox_alias("portable").path == alias_path, "alias resolution");
+    pass("vault_directory_set_lockbox_alias", 2); pass("vault_directory_list_lockbox_aliases", 2); pass("vault_directory_resolve_lockbox_alias");
+    vault.remove_lockbox_alias("portable"); vault.remove_lockbox_alias("portable");
+    check(vault.list_lockbox_aliases().empty(), "alias removal repeat"); pass("vault_directory_remove_lockbox_alias", 3);
     vault.remember_access_slot_label(id, 7, "primary");
     check(vault.list_access_slot_labels(id).size() == 1, "access labels");
     check(vault.find_access_slot_labels(id, "primary").size() == 1,
@@ -539,7 +552,7 @@ static void vault_lifecycle() {
     check(vault.list_form_aliases().size() > 0, "form aliases");
     pass("vault_directory_list_form_aliases");
     vault.forget_access_slot_label(id, 7);
-    vault.forget_lockbox("/tmp/example.lbox");
+    vault.forget_lockbox(alias_path);
     vault.delete_contact("bob");
     pass("vault_directory_forget_access_slot_label");
     pass("vault_directory_forget_lockbox");
@@ -550,6 +563,7 @@ static void vault_lifecycle() {
     check(vault.private_key_exists("alice"), "private key restored");
     pass("vault_directory_delete_private_key", 2);
     pass("vault_directory_restore_private_key", 2);
+    vault.remember_lockbox(id, alias_path); vault.set_lockbox_alias("portable", id);
   }
   pass("vault_directory_free");
   // The writable vault's scope must end before an independent path probe.
@@ -563,6 +577,9 @@ static void vault_lifecycle() {
     check(readonly.list_form_aliases().size() > 0, "read-only form aliases");
     (void)readonly.list_known_lockboxes();
     pass("vault_read_only_open");
+    check(readonly.list_lockbox_aliases().size() == 1 && readonly.list_lockbox_aliases()[0].name == "portable", "persisted read-only alias");
+    check(readonly.resolve_lockbox_alias("portable").path == alias_path, "read-only alias resolution");
+    pass("vault_read_only_list_lockbox_aliases", 2); pass("vault_read_only_resolve_lockbox_alias");
     pass("vault_read_only_list_profile_names", 2);
     pass("vault_read_only_list_contact_names");
     pass("vault_read_only_list_form_aliases", 2);

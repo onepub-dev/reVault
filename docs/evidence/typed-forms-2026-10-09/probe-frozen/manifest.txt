@@ -1,0 +1,17 @@
+Frozen guarded form aggregate probe
+Worktree: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance
+Rust cwd: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust
+HEAD at freeze: 71e7723f348a6e1a0d7d429881acd1d4e3374c1b
+Working tree has uncommitted typed-form implementation and tests. Tracked diff is tracked-source.patch; untracked Rust files are preserved as .rs.txt under untracked-sources/.
+Exact build/test command that generated this test executable: cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib tree_tests::forms:: -- --test-threads=1 --nocapture
+Features/profile: external-source, release optimized test harness. Strict archive Clippy also passed before the probe.
+Executable: /tmp/revault-typed-forms-2026-10-09/probe-frozen/revault_lockbox_api-tests
+Executable SHA-256: c95cdeb6a93e91bac4e7454ffd45193edfe60fca48eb0f04d453869b02249da3
+Compiler/toolchain pin: rustc 1.88.0 (6b00bc388 2025-06-23), x86_64-unknown-linux-gnu, LLVM 20.1.5; exact rustc -Vv in rustc-Vv.txt; repo pin ../rust-toolchain.toml.
+System C compiler: /usr/bin/cc, version/hash in cc-version.txt.
+Cargo.lock SHA-256: 18a3e003d76bc847bc1fb849fda615d55cda140a64c268b92d31ed98fdde57f1
+Cargo.toml hash and all changed/new tracked source hashes: changed-file-hashes.sha256.
+Tracked source patch SHA-256: bbe8fe772a2dd30d524ef3273dd48830e0546ae77a244a55db3ade0813801736.
+Frozen pre-probe test transcript: /tmp/revault-typed-forms-2026-10-09/final-correctness/forms-module.log. Strict Clippy transcript: /tmp/revault-typed-forms-2026-10-09/final-correctness/archive-clippy.log.
+Probe invocation: binary filter `typed_form_aggregate_guarded_snapshot_probe --ignored --test-threads=1 --nocapture`, once per format mode 0..15; environment REVAULT_FORM_MODE and REVAULT_FORM_IMAGE. Each destination is a new absolute .lbox path under ../aggregate/.
+Probe-only setting: RLIMIT_MEMLOCK 8,388,608 bytes (8192 KiB). This is functional/resource endpoint evidence only, not timing samples or ratios.

@@ -1,0 +1,111 @@
+{
+  "kind": "curated_native_package_and_hosted_wasm_qualification",
+  "version": "0.5.0-dev.1",
+  "target": "linux-x86_64-gnu",
+  "base_head": "cc2909a005f4f7065ace3038a1d9459832432402",
+  "scope": "Current reviewed pre-hook source; local package only, no publication or all-platform qualification.",
+  "native_archive": "/tmp/package-conformance-wasm-20261013/native-build-final-cfix2/dist/revault-api-native-0.5.0-dev.1-linux-x86_64-gnu.tar.gz",
+  "native_archive_sha256": "854c65adb5b530ca2a937fac1396740c4d1a0e0c1b49575c83c94d8feabe4d44",
+  "native_shared_library_sha256": "f724dc263bcae20af8a3396e068ab866388f5bb8dfa23b10ec320354bbab697c",
+  "native_static_library_sha256": "c3bce9456b0a6ffc3892774328eb9e2f085d569e550f119801ba0f728805499c",
+  "wasm_sha256": "9191f2ec8a27e63f20c5098df811dd380a2646abaf5e68df0221abd3fecfadf5",
+  "phase_exit_codes": {
+    "stage": 0,
+    "assemble": 0,
+    "check-bindings": 0,
+    "package-conformance": 0
+  },
+  "check_bindings": {
+    "public_rust_names": 342,
+    "abi_declarations": 230,
+    "operations": 229
+  },
+  "normal_package_lifecycle": "Installs real native, JavaScript and hosted-WASM npm packages; persisted lifecycle includes aliases and read-only reopen, with explicit WASM dispatch checks. Exit 0 is one complete package-conformance gate, not a new per-test count.",
+  "failed_attempts": [
+    "Initial Ruby shim link failure: four alias functions called extern symbols instead of selected-carrier pointers; corrected C forwarding and NULL output guards, no second carrier linked.",
+    "Packaging-only preparation initially omitted owned TMPDIR; corrected before compilation.",
+    "First package conformance launcher lacked npm PATH; no test body executed.",
+    "A separate launcher typo exited127 before creating its run root.",
+    "Next actual package lifecycle failed on bare set_lockbox_alias dispatch; fixed hosted persistent-Vault mapping and recognized renamed ReadOnlyVault, preserving ABI operation inventory."
+  ],
+  "qualified_source_sha256": {
+    "bindings/ruby/native/revault_ruby_shim.c": "2db0fd87b3ef4a0582da9f8f4d5c7c59d399e48293420861de914e95e899acc5",
+    "bindings/wasm/index.js": "ffd7fe414e54c8dd9272b8262810987c293ec7aca37b6ee2aa0bbe540a6ed303",
+    "bindings/e2e/javascript/conformance.js": "29fba7304c5c1639ef20dd90e8fedcf5f5456bd6e070ff4884555876f1a68f07",
+    "rust/revault_wasm_bindings/operations.tsv": "aaec1bffc7d6ec6d32ca12ae45b9741b779e1db3f47a05b8e950c67488e58f62",
+    "rust/revault_bindings/revault_api.h": "4a5008ae9ac75d56f61b67fff22899bda2fd4c7d034f0abe8a0857d456ffadaa"
+  },
+  "ruby_runtime": "Unavailable locally; shim compiles/packages, Ruby lifecycle remains for CI.",
+  "owned_context_inventory": [
+    {
+      "run": "wasm-package-final",
+      "entries": {
+        "agent": 0,
+        "vault": 0
+      },
+      "both_empty": true
+    },
+    {
+      "run": "wasm-package-final2",
+      "entries": {
+        "agent": 0,
+        "vault": 0
+      },
+      "both_empty": true
+    },
+    {
+      "run": "wasm-package-final3",
+      "entries": {
+        "agent": 0,
+        "vault": 0
+      },
+      "both_empty": true
+    }
+  ],
+  "cleanup_scope": "At terminal, recorded agent/Vault directories are empty and no sockets remain; executor observed no live owned session. Empty private DBus services directories remain. This does not assert removal of all package/cache/E2E output directories.",
+  "original_evidence_metadata_only": [
+    {
+      "original_path": "/tmp/package-conformance-wasm-20261013/wasm-package-final3/inputs.json",
+      "sha256": "5ecabea4568fca195e4f1c56d419e6a0f619222ae792aaee77896ebeb2f09ef4",
+      "bytes": 1086,
+      "contents_copied": false
+    },
+    {
+      "original_path": "/tmp/package-conformance-wasm-20261013/wasm-package-final3/package-conformance.stdout.log",
+      "sha256": "38fbd5c579f18b9b3a9a2a94b237e09cc1465e9055c9beed499e43966c10eb7c",
+      "bytes": 918,
+      "contents_copied": false
+    },
+    {
+      "original_path": "/tmp/package-conformance-wasm-20261013/wasm-package-final3/package-conformance.stderr.log",
+      "sha256": "a0eafc5160c496a6ff9f35b94cb691dcb8a6d666f899c00670b39c16f8fb679e",
+      "bytes": 4517,
+      "contents_copied": false
+    },
+    {
+      "original_path": "/tmp/package-conformance-wasm-20261013/wasm-package-final3/check-bindings.stdout.log",
+      "sha256": "cb0dd2628ef96c1b86354dfd8b38782bec288cbf7c55f0dfdac5c87e65744cc6",
+      "bytes": 565,
+      "contents_copied": false
+    },
+    {
+      "original_path": "/tmp/package-conformance-wasm-20261013/wasm-package-final3/fresh-wasm-package-overlay.sha256",
+      "sha256": "538cca9be22a06c7f95cb733d758de81838d15385a4acdb9ec88ee76ba063841",
+      "bytes": 778,
+      "contents_copied": false
+    },
+    {
+      "original_path": "/tmp/package-conformance-wasm-20261013/native-build-final/source.after-build.json",
+      "sha256": "fdd2a4b7d415cb92a597afed1d3aa6419f20b3a7028be466087b25fb734757c4",
+      "bytes": 211949,
+      "contents_copied": false
+    },
+    {
+      "original_path": "/tmp/package-conformance-wasm-20261013/native-build-final/package-native.stderr.log",
+      "sha256": "677e7ff19df60b3e69bd49652ea92ea00ffe1593302955737e530286c7b38bac",
+      "bytes": 5065,
+      "contents_copied": false
+    }
+  ],
+  "retention": "Curated statuses, fixed operation descriptions and hashes only. No raw scripts/commands/logs, credentials, generated private fixture state or approval-held signing material copied."
+}

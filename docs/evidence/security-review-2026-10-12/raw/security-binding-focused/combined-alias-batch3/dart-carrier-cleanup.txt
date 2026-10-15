@@ -1,0 +1,8 @@
+staged carrier absent after cleanup; source asset preserved
+ 15478130      0 drwxrwxr-x   1 bsutton  bsutton         8 Oct 13 10:13 bindings/e2e/dart/bindings
+ 15478131      0 drwxrwxr-x   1 bsutton  bsutton         6 Oct 13 10:13 bindings/e2e/dart/bindings/dart
+ 15478132      0 drwxrwxr-x   1 bsutton  bsutton         6 Oct 13 10:13 bindings/e2e/dart/bindings/dart/lib
+ 15478133      0 drwxrwxr-x   1 bsutton  bsutton        12 Oct 13 10:13 bindings/e2e/dart/bindings/dart/lib/src
+ 15478134      0 drwxrwxr-x   1 bsutton  bsutton        32 Oct 13 10:13 bindings/e2e/dart/bindings/dart/lib/src/native
+ 15478135      0 drwxrwxr-x   1 bsutton  bsutton         0 Oct 13 10:13 bindings/e2e/dart/bindings/dart/lib/src/native/linux-x86_64-gnu
+Removed only empty incorrect-path directories created by the failed Dart setup.

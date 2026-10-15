@@ -1,0 +1,88 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `tree`
+  --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/selected_source.rs:11:13
+   |
+11 |  let source=tree::SelectedSource::open(storage,archive(),mode,authority,key(mode),base,retired.clone())?;
+   |             ^^^^ use of unresolved module or unlinked crate `tree`
+   |
+   = help: if you wanted to use a crate named `tree`, use `cargo add tree` to add it to your `Cargo.toml`
+note: struct `crate::file_format::candidate_files::tree_image::variables::tree::SelectedSource` exists but is inaccessible
+  --> revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update/source.rs:5:1
+   |
+5  | pub(crate) struct SelectedSource {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not accessible
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `tree`
+  --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/selected_source.rs:16:11
+   |
+16 |  let plan=tree::PreparedStoragePayloadPlan{source,retired,pages,payload:Box::new(move|mut n,view|{for(count,callback)in &mut callbacks{if...
+   |           ^^^^ use of unresolved module or unlinked crate `tree`
+   |
+   = help: if you wanted to use a crate named `tree`, use `cargo add tree` to add it to your `Cargo.toml`
+help: consider importing this module
+   |
+2  + use crate::file_format::candidate_files::tests::tree_tests::shared::tree;
+   |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `tree`
+  --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/selected_source.rs:17:2
+   |
+17 |  tree::rewrite_prepared_storage_payload_records(storage,archive(),mode,authority,mode.signed().then_some(owner),key(mode),records,plan)
+   |  ^^^^ use of unresolved module or unlinked crate `tree`
+   |
+   = help: if you wanted to use a crate named `tree`, use `cargo add tree` to add it to your `Cargo.toml`
+help: consider importing this module
+   |
+2  + use crate::file_format::candidate_files::tests::tree_tests::shared::tree;
+   |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `tree`
+  --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/selected_source.rs:38:50
+   |
+38 |  for bad in invalid{storage.reads.set(0);assert!(tree::SelectedSource::open(&storage,archive(),mode,&authority,key(mode),base,bad).is_err...
+   |                                                  ^^^^ use of unresolved module or unlinked crate `tree`
+   |
+   = help: if you wanted to use a crate named `tree`, use `cargo add tree` to add it to your `Cargo.toml`
+note: struct `crate::file_format::candidate_files::tree_image::variables::tree::SelectedSource` exists but is inaccessible
+  --> revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update/source.rs:5:1
+   |
+5  | pub(crate) struct SelectedSource {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not accessible
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `tree`
+  --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/selected_source.rs:39:10
+   |
+39 |  assert!(tree::SelectedSource::open(&storage,archive(),mode,&authority,key(mode),[0;32],extents.clone()).is_err());assert_eq!(storage.rea...
+   |          ^^^^ use of unresolved module or unlinked crate `tree`
+   |
+   = help: if you wanted to use a crate named `tree`, use `cargo add tree` to add it to your `Cargo.toml`
+note: struct `crate::file_format::candidate_files::tree_image::variables::tree::SelectedSource` exists but is inaccessible
+  --> revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update/source.rs:5:1
+   |
+5  | pub(crate) struct SelectedSource {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not accessible
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `tree`
+  --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/selected_source.rs:40:13
+   |
+40 |  let source=tree::SelectedSource::open(&storage,archive(),mode,&authority,key(mode),base,vec![extents[0]]).unwrap();let mut view=source.v...
+   |             ^^^^ use of unresolved module or unlinked crate `tree`
+   |
+   = help: if you wanted to use a crate named `tree`, use `cargo add tree` to add it to your `Cargo.toml`
+note: struct `crate::file_format::candidate_files::tree_image::variables::tree::SelectedSource` exists but is inaccessible
+  --> revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update/source.rs:5:1
+   |
+5  | pub(crate) struct SelectedSource {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not accessible
+
+warning: unused imports: `PreparedStoragePayloadPlan`, `SelectedSource`, and `rewrite_prepared_storage_payload_records`
+   --> revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs:265:5
+    |
+265 |     rewrite_prepared_storage_payload_records, PreparedStoragePayloadPlan, ReadView, SelectedSource, StoragePayloadCallback,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^            ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` on by default
+
+For more information about this error, try `rustc --explain E0433`.
+warning: `revault_lockbox_api` (lib test) generated 1 warning
+error: could not compile `revault_lockbox_api` (lib test) due to 6 previous errors; 1 warning emitted

@@ -1,0 +1,8 @@
+error: unexpected argument '--release' found
+
+  tip: a similar argument exists: '--examples'
+  tip: to pass '--release' as a value, use '-- --release'
+
+Usage: cargo bench --package [<SPEC>] --examples [BENCHNAME] [-- [ARGS]...]
+
+For more information, try '--help'.

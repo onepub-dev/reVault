@@ -1,0 +1,15 @@
+
+running 10 tests
+test bounded_sensitive_workspace_construction_and_encoding_stay_in_caller_storage ... ok
+test caller_byte_buffer_encoder_covers_representative_strategies ... ok
+test caller_byte_buffers_accept_every_relevant_start_alignment ... ok
+test caller_byte_buffers_support_allocation_free_roundtrip ... ok
+test capacity_queries_and_errors_are_deterministic ... ok
+test encoder_workspace_recovers_after_capacity_errors_without_allocating ... ok
+test encoder_workspace_reuse_does_not_leak_state_between_inputs ... ok
+test owned_decoder_operation_does_not_allocate ... ok
+test prepared_decoder_dictionaries_do_not_allocate ... ok
+test prepared_encoder_operations_do_not_allocate_at_representative_levels ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 53.92s
+

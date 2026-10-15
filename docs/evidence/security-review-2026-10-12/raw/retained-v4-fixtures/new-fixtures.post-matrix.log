@@ -1,0 +1,6 @@
+rust/revault_migration/tests/retained/archive-v4/expected.json: OK
+rust/revault_migration/tests/retained/archive-v4/manifest.json: OK
+rust/revault_migration/tests/retained/archive-v4/native.bin: OK
+rust/revault_migration/tests/retained/vault-v3-container-v4/expected.json: OK
+rust/revault_migration/tests/retained/vault-v3-container-v4/manifest.json: OK
+rust/revault_migration/tests/retained/vault-v3-container-v4/native.bin: OK

@@ -1,0 +1,7 @@
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... CANDIDATE_SAMPLE {"binary_sha256":"b0065af9b9fe7e89cd2cf684f1e552385d7f344d1ca71d0d961021665beffa0e","bytes_per_file":4096,"files":512,"kind":"dense_recovery_comparison","results":[{"complete_files":511,"damage":"one payload byte","incomplete_file_bytes":4096,"incomplete_files":1,"layout":"C-control","recovered_bytes_verified":true},{"complete_files":448,"damage":"64KiB payload region","incomplete_file_bytes":262144,"incomplete_files":64,"layout":"C-control","recovered_bytes_verified":true},{"complete_files":511,"damage":"one payload byte","incomplete_file_bytes":4096,"incomplete_files":1,"layout":"shared-control","recovered_bytes_verified":true},{"complete_files":336,"damage":"64KiB payload region","incomplete_file_bytes":720896,"incomplete_files":176,"layout":"shared-control","recovered_bytes_verified":true}],"scope":"read-only corruption comparison, no performance claim","source_archives_unchanged":true}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 498 filtered out; finished in 0.07s
+

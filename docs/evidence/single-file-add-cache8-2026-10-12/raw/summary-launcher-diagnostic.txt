@@ -1,0 +1,10 @@
+Summary output inspection diagnostic provenance
+
+The repeated text `Failed to create stream fd: Operation not permitted` was emitted by the tool/launcher while reading evidence with `functions.exec`/`exec_command`; it was not present in the redirected summary output. The diagnostic appeared before command output during two read-only inspection calls: one reading `summary-run.log` and listing raw files, and one reading `paired-complete.json`, `paired-identities.json`, and `metrics-summary.json`.
+
+Exact observed text (three lines on each affected tool result):
+Failed to create stream fd: Operation not permitted
+Failed to create stream fd: Operation not permitted
+Failed to create stream fd: Operation not permitted
+
+The summary command had already exited 0. `summary-run.log` contains the successful retention result and no stream-FD diagnostic. No trial or summary was rerun, and frozen logs were not modified.

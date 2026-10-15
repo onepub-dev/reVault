@@ -1,0 +1,4 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+void main(){final f=File('/home/bsutton/.cache/revault-protected-20261011-evidence/run.dart');f.copySync('${f.path}.before-smoke-namespace.txt');f.writeAsStringSync(f.readAsStringSync().replaceAll('-smoke\$','-smoke-v2\$'));print(green('Fixed interpolated smoke namespace; previous refusal retained.'));}

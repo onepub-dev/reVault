@@ -1,0 +1,43 @@
+Base: e9695331 plus separated metadata mirror/repair changes.
+Local date: 2026-09-27. Linux 7.0.0-31-generic x86_64.
+AMD Ryzen 7 3700X; CPU 2 affinity for measurements; frequency boost enabled.
+rustc 1.88.0 (6b00bc388 2025-06-23), cargo 1.88.0 (873a06493 2025-05-10).
+
+Pre-hook checks:
+cargo test -p revault_lockbox_api --release --lib file_format:: -- --nocapture
+104 passed, 0 failed, 3 ignored manual resource probes; 317 filtered out.
+
+cargo test -p revault_lockbox_api --release --features native-block-layout,external-source --lib file_format:: -- --nocapture
+104 passed, 0 failed, 3 ignored manual resource probes; 328 filtered out.
+Native run additionally includes explicit repair refusal for the forged live-child
+pending range; this assertion was added after the default compilation began.
+
+cargo clippy -p revault_lockbox_api --all-targets --features native-block-layout,external-source -- -D warnings
+Passed.
+
+Test cases: 148 whole aligned-region damage cases; metadata repair 223 mutation
+failures and 1784 power-loss cases; allocator 265 mutation failures and 1584
+power-loss cases. Existing journal real process-death matrix: 66 cases.
+No production activation. These tests do not fix the two existing native recovery
+failures or establish CLI/binding/migration/platform compatibility.
+
+Measurement command:
+rustc --edition=2021 /tmp/revault-region-series.rs -o /tmp/revault-region-series
+taskset -c 2 /tmp/revault-region-series /tmp/revault-allocation-arena-resource /tmp/revault-regions-resource > /tmp/revault-region-aging.jsonl 2> /tmp/revault-region-aging-progress.log
+
+The runner initially failed compilation under rustc's default 2015 edition due to
+array into_iter semantics; specifying edition 2021 corrected this before timing.
+No failed run supplies performance observations.
+Both binaries run the unchanged allocation_aging_resource_probe. Adjacent baseline
+source and prior qualification are in ../allocation-accounting-2026-09-27/.
+No owned compilation/tests ran concurrently with measurement. The host was not
+otherwise exclusively reserved; sampled load average was 2.29/2.01/1.21.
+
+Aging completed: 20 fresh processes, 5,600 operations, all independent reopen,
+content, no-change and physical accounting assertions passed. Summary retains
+all twenty totals and raw file retains all 5,600 per-operation observations.
+
+Post-hook validation:
+Default release file_format suite: 104 passed, 0 failed, 3 ignored.
+All-targets native-block-layout,external-source Clippy -D warnings: passed.
+Documentation links/whitespace: 37 relative links passed before commit.

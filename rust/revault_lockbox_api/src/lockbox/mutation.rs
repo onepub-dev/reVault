@@ -345,6 +345,7 @@ impl<State> Lockbox<State> {
                 record_offset: 0,
                 record_len: 0,
                 record_object_id: 0,
+                record_digest: [0; 32],
                 deleted: false,
                 node_kind: NodeKind::Directory,
                 permissions,

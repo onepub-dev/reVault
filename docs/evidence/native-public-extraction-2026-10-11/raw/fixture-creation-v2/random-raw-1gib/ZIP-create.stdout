@@ -1,0 +1,1 @@
+{"archive_bytes":1073741952,"archive_sha256":"f6d5258ad27006cde6bd8dcf3000c49905056cb1edcf9456421bc082b6489ab0","backend":"zip","baseline_peak_rss_kib":5344,"kind":"fixture_create","peak_rss_kib":5600,"resources":{"cpu_seconds":2.2648589999999995,"major_faults":0,"system_seconds":2.163731,"user_seconds":0.10112800000000001},"verified":true,"wall_seconds":2.293066738}

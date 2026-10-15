@@ -51,6 +51,11 @@ internal static partial class RevaultNative
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern IntPtr lockbox_open_with_options(IntPtr archive, nuint archive_len, IntPtr key, nuint key_len, IntPtr cache_mode, nuint cache_len, ulong cache_bytes, IntPtr workload, nuint workload_len, IntPtr worker, nuint worker_len, nuint jobs);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr lockbox_open_password_with_budget(IntPtr archive, nuint archive_len, IntPtr password, nuint password_len, uint max_derivations);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    public static extern bool lockbox_extract_file_with_policy(IntPtr handle, IntPtr source, nuint source_len, IntPtr destination, nuint destination_len, ulong max_file_bytes, ulong max_total_bytes, nuint max_files, [MarshalAs(UnmanagedType.I1)] bool restore_permissions, [MarshalAs(UnmanagedType.I1)] bool overwrite);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern IntPtr lockbox_open_password(IntPtr archive, nuint archive_len, IntPtr password, nuint password_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern IntPtr lockbox_open_contact(IntPtr archive, nuint archive_len, IntPtr contact);
@@ -92,6 +97,9 @@ internal static partial class RevaultNative
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
     public static extern bool lockbox_set_workload_profile(IntPtr handle, IntPtr profile, nuint profile_len);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    public static extern bool lockbox_set_cache_limit(IntPtr handle, IntPtr mode, nuint mode_len, ulong bytes);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
     public static extern bool lockbox_set_worker_policy(IntPtr handle, IntPtr mode, nuint mode_len, nuint jobs);
@@ -374,6 +382,20 @@ internal static partial class RevaultNative
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
     public static extern bool vault_directory_remember_lockbox(IntPtr handle, IntPtr id, nuint id_len, IntPtr path, nuint path_len);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    public static extern bool vault_directory_set_lockbox_alias(IntPtr handle, IntPtr name, nuint name_len, IntPtr id, nuint id_len);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern RevaultBuffer vault_directory_list_lockbox_aliases(IntPtr handle);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    public static extern bool vault_directory_remove_lockbox_alias(IntPtr handle, IntPtr name, nuint name_len);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern RevaultBuffer vault_directory_resolve_lockbox_alias(IntPtr handle, IntPtr name, nuint name_len);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern RevaultBuffer vault_read_only_list_lockbox_aliases(IntPtr handle);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern RevaultBuffer vault_read_only_resolve_lockbox_alias(IntPtr handle, IntPtr name, nuint name_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern RevaultBuffer vault_directory_list_known_lockboxes(IntPtr handle);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]

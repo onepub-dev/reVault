@@ -1,0 +1,20 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 1m 10s
+     Running unittests src/lib.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 10 tests
+test file_format::preparation_journal::compact::tests::compact_journal_binds_context_and_refuses_invalid_overflow_placement ... ok
+test file_format::preparation_journal::compact::tests::compact_journal_preserves_full_reservation_capacity_and_separated_overflow ... ok
+test file_format::preparation_journal::compact::tests::compact_journal_read_errors_are_not_treated_as_missing_copies ... ok
+test file_format::preparation_journal::compact::tests::every_torn_stub_prefix_retains_the_old_or_new_complete_record ... ok
+test file_format::preparation_journal::compact::tests::missing_new_overflow_cannot_restore_an_older_reservation_set ... ok
+test file_format::preparation_journal::compact::tests::overflow_session_recovery_can_itself_be_interrupted ... OVERFLOW_RECOVERY_POWER_LOSS_CASES 864
+ok
+test file_format::preparation_journal::compact::tests::overflow_session_refuses_wrong_base_small_records_and_excess_capacity_without_writes ... ok
+test file_format::preparation_journal::compact::tests::overflow_session_stages_full_capacity_and_unlinks_before_arena_erasure ... ok
+test file_format::preparation_journal::compact::tests::overflow_session_survives_torn_staging_unlink_and_cleanup ... OVERFLOW_SESSION_POWER_LOSS_CASES 696
+ok
+test file_format::preparation_journal::compact::tests::stub_record_identity_and_malformed_inline_counts_are_rejected ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 659 filtered out; finished in 1.71s
+

@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "/usr/bin/timeout",
+    "--kill-after=10s",
+    "180",
+    "/usr/bin/time",
+    "-f",
+    "%e %U %S %M %R %F %w %c %I %O",
+    "-o",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/extraction-last-use-diagnostic-2026-10-12/raw/c3-m0-p0-old.time",
+    "/usr/bin/taskset",
+    "-c",
+    "0-4",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/encrypted-final-page-20261012/bin/lockbox-new",
+    "/home/bsutton/.cache/rv-many-zstd-20261012/fixture1/archive.lbox",
+    "extract",
+    "--to",
+    "/home/bsutton/.cache/rv-lud-20261012/output-c3-m0-p0-old"
+  ],
+  "exit_code": 0,
+  "timed_out": false
+}

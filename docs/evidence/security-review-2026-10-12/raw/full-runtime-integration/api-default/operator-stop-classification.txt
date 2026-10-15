@@ -1,0 +1,8 @@
+Classification: interrupted by parent-directed stop; not a passing suite and not a test failure.
+Parent stop instruction followed a separately confirmed CLI runtime codec ownership failure.
+Only the exact child PID recorded by the owned runner was signalled: kill -TERM 1847315 (SIGTERM). No unrelated process was targeted.
+Runner terminal record: child exit_code -15, status=failed because the runner maps any nonzero child exit to failed; detected_failure_line=null.
+Observed libtest terminal records: 288 passed, 0 failed, 0 ignored of 729 inventory; suite incomplete.
+The latest output before stop showed typed_form_field_upgrade_guarded_atomic_recovery_faults had been running for over 60 seconds; this is not an observed failure result.
+Runner elapsed_seconds=1448.419, resource samples=290. Runner captures are preserved unchanged.
+Postterminal source manifest unchanged=true; HEAD and test binary SHA match pinned identities.

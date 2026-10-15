@@ -498,6 +498,20 @@ func OpenFile(path string, contentKey []byte, signer *ProfileSigningKeyPair) (*L
 	return lockboxFile(path, "open", "content-key", contentKey, nil, signing, LockboxOptions{CacheMode: "bytes", CacheBytes: 64 << 20, Workload: "interactive", Worker: "auto"})
 }
 
+// OpenFileWithAccess selects shared read or exclusive write access independently of signer.
+// Unsigned archives accept a nil signer for writes; signed archives require their owner key.
+func OpenFileWithAccess(path string, contentKey []byte, signer *ProfileSigningKeyPair, writable bool) (*Lockbox, error) {
+	var signing unsafe.Pointer
+	if signer != nil {
+		signing = signer.handle
+	}
+	mode := "read"
+	if writable {
+		mode = "write"
+	}
+	return lockboxFile(path, mode, "content-key", contentKey, nil, signing, LockboxOptions{CacheMode: "bytes", CacheBytes: 64 << 20, Workload: "interactive", Worker: "auto"})
+}
+
 // Open opens open.
 // BEGIN generated file operation route
 func lockboxFile(path, mode, credential string, secret []byte, contact, signer unsafe.Pointer, options LockboxOptions) (*Lockbox, error) {
@@ -519,6 +533,16 @@ func OpenWithOptions(archive, key []byte, options LockboxOptions) (*Lockbox, err
 		return nil, err
 	}
 	return adoptLockbox(C.lockbox_open_with_options(bytePointer(archive), C.size_t(len(archive)), bytePointer(key), C.size_t(len(key)), charPointer(options.CacheMode), C.size_t(len(options.CacheMode)), C.uint64_t(options.CacheBytes), charPointer(options.Workload), C.size_t(len(options.Workload)), charPointer(options.Worker), C.size_t(len(options.Worker)), C.size_t(options.Jobs)))
+}
+
+// OpenWithPasswordBudget sets a per-credential KDF work allowance.
+func OpenWithPasswordBudget(archive, password []byte, maxDerivations uint32) (*Lockbox, error) {
+	return adoptLockbox(C.lockbox_open_password_with_budget(bytePointer(archive), C.size_t(len(archive)), bytePointer(password), C.size_t(len(password)), C.uint32_t(maxDerivations)))
+}
+
+// ExtractFileWithPolicy applies limits and final permissions before publication.
+func (box *Lockbox) ExtractFileWithPolicy(source, destination string, maxFileBytes, maxTotalBytes uint64, maxFiles uint, restorePermissions, overwrite bool) error {
+	return require(bool(C.lockbox_extract_file_with_policy(box.handle, charPointer(source), C.size_t(len(source)), charPointer(destination), C.size_t(len(destination)), C.uint64_t(maxFileBytes), C.uint64_t(maxTotalBytes), C.size_t(maxFiles), C.bool(restorePermissions), C.bool(overwrite))))
 }
 
 // OpenWithPassword opens with password.
@@ -685,6 +709,11 @@ func SalvageLockbox(archive, key []byte, signing *ProfileSigningKeyPair) (*Lockb
 // SetWorkloadProfile sets workload profile.
 func (box *Lockbox) SetWorkloadProfile(profile string) error {
 	return require(bool(C.lockbox_set_workload_profile(box.handle, charPointer(profile), C.size_t(len(profile)))))
+}
+
+// SetCacheLimit sets a soft cache limit (auto, disabled, or bytes).
+func (box *Lockbox) SetCacheLimit(mode string, bytes uint64) error {
+	return require(bool(C.lockbox_set_cache_limit(box.handle, charPointer(mode), C.size_t(len(mode)), C.uint64_t(bytes))))
 }
 
 // SetWorkerPolicy sets worker policy.
@@ -1263,6 +1292,27 @@ func (vault *vaultStore) RememberLockbox(id []byte, path string) error {
 }
 
 // ListKnownLockboxes lists known lockboxes.
+// SetLockboxAlias Sets or replaces a normalized alias for a remembered identity.
+func (vault *vaultStore) SetLockboxAlias(name string, id []byte) error {
+	return require(bool(C.vault_directory_set_lockbox_alias(vault.handle, charPointer(name), C.size_t(len(name)), bytePointer(id), C.size_t(len(id)))))
+}
+
+// ListLockboxAliases Lists aliases without opening their targets.
+func (vault *vaultStore) ListLockboxAliases() ([]LockboxAlias, error) {
+	return decodeResult(C.vault_directory_list_lockbox_aliases(vault.handle), decodeLockboxAliasList)
+}
+
+// RemoveLockboxAlias Removes only the alias, preserving the target.
+func (vault *vaultStore) RemoveLockboxAlias(name string) error {
+	return require(bool(C.vault_directory_remove_lockbox_alias(vault.handle, charPointer(name), C.size_t(len(name)))))
+}
+
+// ResolveLockboxAlias Resolves metadata; verify target identity before opening its path.
+func (vault *vaultStore) ResolveLockboxAlias(name string) (*KnownLockbox, error) {
+	return decodeResult(C.vault_directory_resolve_lockbox_alias(vault.handle, charPointer(name), C.size_t(len(name))), decodeKnownLockbox)
+}
+
+// ListKnownLockboxes lists remembered identities and paths.
 func (vault *vaultStore) ListKnownLockboxes() ([]KnownLockbox, error) {
 	return decodeResult(C.vault_directory_list_known_lockboxes(vault.handle), decodeKnownLockboxList)
 }
@@ -1361,6 +1411,17 @@ func (vault *ReadOnlyVault) ListFormAliases() ([]string, error) {
 }
 
 // ListKnownLockboxes lists known lockboxes.
+// ListLockboxAliases Lists aliases without opening their targets.
+func (vault *ReadOnlyVault) ListLockboxAliases() ([]LockboxAlias, error) {
+	return decodeResult(C.vault_read_only_list_lockbox_aliases(vault.handle), decodeLockboxAliasList)
+}
+
+// ResolveLockboxAlias Resolves metadata; verify target identity before opening its path.
+func (vault *ReadOnlyVault) ResolveLockboxAlias(name string) (*KnownLockbox, error) {
+	return decodeResult(C.vault_read_only_resolve_lockbox_alias(vault.handle, charPointer(name), C.size_t(len(name))), decodeKnownLockbox)
+}
+
+// ListKnownLockboxes lists remembered identities and paths.
 func (vault *ReadOnlyVault) ListKnownLockboxes() ([]KnownLockbox, error) {
 	return decodeResult(C.vault_read_only_list_known_lockboxes(vault.handle), decodeKnownLockboxList)
 }

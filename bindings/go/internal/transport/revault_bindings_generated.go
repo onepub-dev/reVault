@@ -3754,6 +3754,249 @@ func ProfileHistoryEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
 
+type LockboxAliasT struct {
+	Name      string `json:"name"`
+	LockboxId []byte `json:"lockbox_id"`
+}
+
+func (t *LockboxAliasT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+	if t == nil {
+		return 0
+	}
+	nameOffset := flatbuffers.UOffsetT(0)
+	if t.Name != "" {
+		nameOffset = builder.CreateString(t.Name)
+	}
+	lockboxIdOffset := flatbuffers.UOffsetT(0)
+	if t.LockboxId != nil {
+		lockboxIdOffset = builder.CreateByteString(t.LockboxId)
+	}
+	LockboxAliasStart(builder)
+	LockboxAliasAddName(builder, nameOffset)
+	LockboxAliasAddLockboxId(builder, lockboxIdOffset)
+	return LockboxAliasEnd(builder)
+}
+
+func (rcv *LockboxAlias) UnPackTo(t *LockboxAliasT) {
+	t.Name = string(rcv.Name())
+	t.LockboxId = rcv.LockboxIdBytes()
+}
+
+func (rcv *LockboxAlias) UnPack() *LockboxAliasT {
+	if rcv == nil {
+		return nil
+	}
+	t := &LockboxAliasT{}
+	rcv.UnPackTo(t)
+	return t
+}
+
+type LockboxAlias struct {
+	_tab flatbuffers.Table
+}
+
+func GetRootAsLockboxAlias(buf []byte, offset flatbuffers.UOffsetT) *LockboxAlias {
+	n := flatbuffers.GetUOffsetT(buf[offset:])
+	x := &LockboxAlias{}
+	x.Init(buf, n+offset)
+	return x
+}
+
+func FinishLockboxAliasBuffer(builder *flatbuffers.Builder, offset flatbuffers.UOffsetT) {
+	builder.Finish(offset)
+}
+
+func GetSizePrefixedRootAsLockboxAlias(buf []byte, offset flatbuffers.UOffsetT) *LockboxAlias {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &LockboxAlias{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
+func FinishSizePrefixedLockboxAliasBuffer(builder *flatbuffers.Builder, offset flatbuffers.UOffsetT) {
+	builder.FinishSizePrefixed(offset)
+}
+
+func (rcv *LockboxAlias) Init(buf []byte, i flatbuffers.UOffsetT) {
+	rcv._tab.Bytes = buf
+	rcv._tab.Pos = i
+}
+
+func (rcv *LockboxAlias) Table() flatbuffers.Table {
+	return rcv._tab
+}
+
+func (rcv *LockboxAlias) Name() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *LockboxAlias) LockboxId(j int) byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
+	if o != 0 {
+		a := rcv._tab.Vector(o)
+		return rcv._tab.GetByte(a + flatbuffers.UOffsetT(j*1))
+	}
+	return 0
+}
+
+func (rcv *LockboxAlias) LockboxIdLength() int {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
+	if o != 0 {
+		return rcv._tab.VectorLen(o)
+	}
+	return 0
+}
+
+func (rcv *LockboxAlias) LockboxIdBytes() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *LockboxAlias) MutateLockboxId(j int, n byte) bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
+	if o != 0 {
+		a := rcv._tab.Vector(o)
+		return rcv._tab.MutateByte(a+flatbuffers.UOffsetT(j*1), n)
+	}
+	return false
+}
+
+func LockboxAliasStart(builder *flatbuffers.Builder) {
+	builder.StartObject(2)
+}
+func LockboxAliasAddName(builder *flatbuffers.Builder, name flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(name), 0)
+}
+func LockboxAliasAddLockboxId(builder *flatbuffers.Builder, lockboxId flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(1, flatbuffers.UOffsetT(lockboxId), 0)
+}
+func LockboxAliasStartLockboxIdVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
+	return builder.StartVector(1, numElems, 1)
+}
+func LockboxAliasEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+	return builder.EndObject()
+}
+
+type LockboxAliasListT struct {
+	Values []*LockboxAliasT `json:"values"`
+}
+
+func (t *LockboxAliasListT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+	if t == nil {
+		return 0
+	}
+	valuesOffset := flatbuffers.UOffsetT(0)
+	if t.Values != nil {
+		valuesLength := len(t.Values)
+		valuesOffsets := make([]flatbuffers.UOffsetT, valuesLength)
+		for j := 0; j < valuesLength; j++ {
+			valuesOffsets[j] = t.Values[j].Pack(builder)
+		}
+		LockboxAliasListStartValuesVector(builder, valuesLength)
+		for j := valuesLength - 1; j >= 0; j-- {
+			builder.PrependUOffsetT(valuesOffsets[j])
+		}
+		valuesOffset = builder.EndVector(valuesLength)
+	}
+	LockboxAliasListStart(builder)
+	LockboxAliasListAddValues(builder, valuesOffset)
+	return LockboxAliasListEnd(builder)
+}
+
+func (rcv *LockboxAliasList) UnPackTo(t *LockboxAliasListT) {
+	valuesLength := rcv.ValuesLength()
+	t.Values = make([]*LockboxAliasT, valuesLength)
+	for j := 0; j < valuesLength; j++ {
+		x := LockboxAlias{}
+		rcv.Values(&x, j)
+		t.Values[j] = x.UnPack()
+	}
+}
+
+func (rcv *LockboxAliasList) UnPack() *LockboxAliasListT {
+	if rcv == nil {
+		return nil
+	}
+	t := &LockboxAliasListT{}
+	rcv.UnPackTo(t)
+	return t
+}
+
+type LockboxAliasList struct {
+	_tab flatbuffers.Table
+}
+
+func GetRootAsLockboxAliasList(buf []byte, offset flatbuffers.UOffsetT) *LockboxAliasList {
+	n := flatbuffers.GetUOffsetT(buf[offset:])
+	x := &LockboxAliasList{}
+	x.Init(buf, n+offset)
+	return x
+}
+
+func FinishLockboxAliasListBuffer(builder *flatbuffers.Builder, offset flatbuffers.UOffsetT) {
+	builder.Finish(offset)
+}
+
+func GetSizePrefixedRootAsLockboxAliasList(buf []byte, offset flatbuffers.UOffsetT) *LockboxAliasList {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &LockboxAliasList{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
+func FinishSizePrefixedLockboxAliasListBuffer(builder *flatbuffers.Builder, offset flatbuffers.UOffsetT) {
+	builder.FinishSizePrefixed(offset)
+}
+
+func (rcv *LockboxAliasList) Init(buf []byte, i flatbuffers.UOffsetT) {
+	rcv._tab.Bytes = buf
+	rcv._tab.Pos = i
+}
+
+func (rcv *LockboxAliasList) Table() flatbuffers.Table {
+	return rcv._tab
+}
+
+func (rcv *LockboxAliasList) Values(obj *LockboxAlias, j int) bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
+	if o != 0 {
+		x := rcv._tab.Vector(o)
+		x += flatbuffers.UOffsetT(j) * 4
+		x = rcv._tab.Indirect(x)
+		obj.Init(rcv._tab.Bytes, x)
+		return true
+	}
+	return false
+}
+
+func (rcv *LockboxAliasList) ValuesLength() int {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
+	if o != 0 {
+		return rcv._tab.VectorLen(o)
+	}
+	return 0
+}
+
+func LockboxAliasListStart(builder *flatbuffers.Builder) {
+	builder.StartObject(1)
+}
+func LockboxAliasListAddValues(builder *flatbuffers.Builder, values flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(values), 0)
+}
+func LockboxAliasListStartValuesVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
+	return builder.StartVector(4, numElems, 4)
+}
+func LockboxAliasListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+	return builder.EndObject()
+}
+
 type KnownLockboxT struct {
 	LockboxId      []byte `json:"lockbox_id"`
 	Path           string `json:"path"`
@@ -5718,6 +5961,7 @@ type SleepSupportT struct {
 	SuspendNotifications bool `json:"suspend_notifications"`
 	SleepInhibition      bool `json:"sleep_inhibition"`
 	Supported            bool `json:"supported"`
+	CacheClearingActive  bool `json:"cache_clearing_active"`
 }
 
 func (t *SleepSupportT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -5728,6 +5972,7 @@ func (t *SleepSupportT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT 
 	SleepSupportAddSuspendNotifications(builder, t.SuspendNotifications)
 	SleepSupportAddSleepInhibition(builder, t.SleepInhibition)
 	SleepSupportAddSupported(builder, t.Supported)
+	SleepSupportAddCacheClearingActive(builder, t.CacheClearingActive)
 	return SleepSupportEnd(builder)
 }
 
@@ -5735,6 +5980,7 @@ func (rcv *SleepSupport) UnPackTo(t *SleepSupportT) {
 	t.SuspendNotifications = rcv.SuspendNotifications()
 	t.SleepInhibition = rcv.SleepInhibition()
 	t.Supported = rcv.Supported()
+	t.CacheClearingActive = rcv.CacheClearingActive()
 }
 
 func (rcv *SleepSupport) UnPack() *SleepSupportT {
@@ -5817,8 +6063,20 @@ func (rcv *SleepSupport) MutateSupported(n bool) bool {
 	return rcv._tab.MutateBoolSlot(8, n)
 }
 
+func (rcv *SleepSupport) CacheClearingActive() bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
+	if o != 0 {
+		return rcv._tab.GetBool(o + rcv._tab.Pos)
+	}
+	return false
+}
+
+func (rcv *SleepSupport) MutateCacheClearingActive(n bool) bool {
+	return rcv._tab.MutateBoolSlot(10, n)
+}
+
 func SleepSupportStart(builder *flatbuffers.Builder) {
-	builder.StartObject(3)
+	builder.StartObject(4)
 }
 func SleepSupportAddSuspendNotifications(builder *flatbuffers.Builder, suspendNotifications bool) {
 	builder.PrependBoolSlot(0, suspendNotifications, false)
@@ -5828,6 +6086,9 @@ func SleepSupportAddSleepInhibition(builder *flatbuffers.Builder, sleepInhibitio
 }
 func SleepSupportAddSupported(builder *flatbuffers.Builder, supported bool) {
 	builder.PrependBoolSlot(2, supported, false)
+}
+func SleepSupportAddCacheClearingActive(builder *flatbuffers.Builder, cacheClearingActive bool) {
+	builder.PrependBoolSlot(3, cacheClearingActive, false)
 }
 func SleepSupportEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

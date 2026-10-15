@@ -41,6 +41,8 @@ void *lockbox_file(const char *path, size_t path_len, const char *mode, size_t m
 // END generated file operation abi
 void * lockbox_open(const uint8_t * archive, size_t archive_len, const uint8_t * key, size_t key_len);
 void * lockbox_open_with_options(const uint8_t * archive, size_t archive_len, const uint8_t * key, size_t key_len, const char * cache_mode, size_t cache_len, uint64_t cache_bytes, const char * workload, size_t workload_len, const char * worker, size_t worker_len, size_t jobs);
+void *lockbox_open_password_with_budget(const uint8_t *, size_t, const uint8_t *, size_t, uint32_t);
+bool lockbox_extract_file_with_policy(const void *, const char *, size_t, const char *, size_t, uint64_t, uint64_t, size_t, bool, bool);
 void * lockbox_open_password(const uint8_t * archive, size_t archive_len, const uint8_t * password, size_t password_len);
 void * lockbox_open_contact(const uint8_t * archive, size_t archive_len, const void * contact);
 bool lockbox_add_file(void * handle, const char * path, size_t path_len, const uint8_t * data, size_t data_len, bool replace);
@@ -59,6 +61,7 @@ RevaultBuffer lockbox_recovery_report_render(const void * handle, bool verbose, 
 RevaultBuffer lockbox_recovery_scan_path(const char * path, size_t path_len, const uint8_t * key, size_t key_len);
 uint64_t lockbox_storage_len(const void * handle);
 bool lockbox_set_workload_profile(void * handle, const char * profile, size_t profile_len);
+bool lockbox_set_cache_limit(void * handle, const char * mode, size_t mode_len, uint64_t bytes);
 bool lockbox_set_worker_policy(void * handle, const char * mode, size_t mode_len, size_t jobs);
 RevaultBuffer lockbox_runtime_options(const void * handle);
 bool lockbox_commit(void * handle);
@@ -181,6 +184,12 @@ void * vault_directory_load_contact_signing_key(const void * handle, const char 
 RevaultBuffer vault_directory_list_profile_generations(const void * handle, const char * name, size_t name_len);
 RevaultBuffer vault_directory_rotate_private_key(const void * handle, const char * name, size_t name_len);
 bool vault_directory_remember_lockbox(const void * handle, const uint8_t * id, size_t id_len, const char * path, size_t path_len);
+bool vault_directory_set_lockbox_alias(const void *handle, const char *name, size_t name_len, const uint8_t *id, size_t id_len);
+RevaultBuffer vault_directory_list_lockbox_aliases(const void *handle);
+bool vault_directory_remove_lockbox_alias(const void *handle, const char *name, size_t name_len);
+RevaultBuffer vault_directory_resolve_lockbox_alias(const void *handle, const char *name, size_t name_len);
+RevaultBuffer vault_read_only_list_lockbox_aliases(const void *handle);
+RevaultBuffer vault_read_only_resolve_lockbox_alias(const void *handle, const char *name, size_t name_len);
 RevaultBuffer vault_directory_list_known_lockboxes(const void * handle);
 bool vault_directory_forget_lockbox(const void * handle, const char * path, size_t path_len);
 bool vault_directory_remember_access_slot_label(const void * handle, const uint8_t * id, size_t id_len, uint64_t slot_id, const char * name, size_t name_len);
@@ -306,6 +315,7 @@ local child_fields = {
   FormRecord = { { "values", "FormValue", true } },
   FormRecordList = { { "values", "FormRecord", true } },
   KeySlotList = { { "values", "KeySlot", true } },
+  LockboxAliasList = { { "values", "LockboxAlias", true } },
   KnownLockboxList = { { "values", "KnownLockbox", true } },
   LockboxEntryList = { { "entries", "LockboxEntry", true } },
   OptionalFormRecord = { { "value", "FormRecord", false } },
@@ -403,6 +413,12 @@ model("KeySlot")
 --- Ordered KeySlot values returned by the corresponding list operation.
 -- @type KeySlotList
 model("KeySlotList")
+--- A local Vault alias mapping a normalized name to a stable lockbox identity; resolution does not open the target.
+-- @type LockboxAlias
+model("LockboxAlias")
+--- Ordered LockboxAlias values returned by the corresponding list operation.
+-- @type LockboxAliasList
+model("LockboxAliasList")
 --- A lockbox identifier and host path remembered by the local vault for later discovery.
 -- @type KnownLockbox
 model("KnownLockbox")
@@ -593,6 +609,16 @@ function Operations:lockbox_open_with_options(archive, key, cache_mode, cache_by
   return value
 end
 
+function Operations:lockbox_open_password_with_budget(archive, password, max_derivations)
+  if type(max_derivations) ~= "number" or max_derivations ~= math.floor(max_derivations) or max_derivations < 0 or max_derivations > 4294967295 then error("max_derivations must be an unsigned 32-bit integer", 2) end
+  local value = native.lockbox_open_password_with_budget(archive, #archive, password, #password, max_derivations)
+  if value == nil then error(last_error(), 2) end
+  return value
+end
+function Operations:lockbox_extract_file_with_policy(handle, source, destination, max_file_bytes, max_total_bytes, max_files, restore_permissions, overwrite)
+  if not native.lockbox_extract_file_with_policy(handle, source, #source, destination, #destination, max_file_bytes, max_total_bytes, max_files, restore_permissions, overwrite) then error(last_error(), 2) end
+  return true
+end
 function Operations:lockbox_open_password(archive, password)
   local value = native.lockbox_open_password(archive, #archive, password, #password)
   if value == nil then error(last_error(), 2) end
@@ -672,6 +698,11 @@ end
 
 function Operations:lockbox_set_workload_profile(handle, profile)
   if not native.lockbox_set_workload_profile(handle, profile, #profile) then error(last_error(), 2) end
+  return true
+end
+
+function Operations:lockbox_set_cache_limit(handle, mode, bytes)
+  if not native.lockbox_set_cache_limit(handle, mode, #mode, bytes) then error(last_error(), 2) end
   return true
 end
 
@@ -1243,6 +1274,32 @@ function Operations:vault_directory_remember_lockbox(handle, id, path)
   return true
 end
 
+function Operations:vault_directory_set_lockbox_alias(handle, name, id)
+  if not native.vault_directory_set_lockbox_alias(handle, name, #name, id, #id) then error(last_error(), 2) end
+  return true
+end
+
+function Operations:vault_directory_list_lockbox_aliases(handle)
+  return Models.LockboxAliasList.decode(take(native.vault_directory_list_lockbox_aliases(handle)))
+end
+
+function Operations:vault_directory_remove_lockbox_alias(handle, name)
+  if not native.vault_directory_remove_lockbox_alias(handle, name, #name) then error(last_error(), 2) end
+  return true
+end
+
+function Operations:vault_directory_resolve_lockbox_alias(handle, name)
+  return Models.KnownLockbox.decode(take(native.vault_directory_resolve_lockbox_alias(handle, name, #name)))
+end
+
+function Operations:vault_read_only_list_lockbox_aliases(handle)
+  return Models.LockboxAliasList.decode(take(native.vault_read_only_list_lockbox_aliases(handle)))
+end
+
+function Operations:vault_read_only_resolve_lockbox_alias(handle, name)
+  return Models.KnownLockbox.decode(take(native.vault_read_only_resolve_lockbox_alias(handle, name, #name)))
+end
+
 function Operations:vault_directory_list_known_lockboxes(handle)
   return Models.KnownLockboxList.decode(take(native.vault_directory_list_known_lockboxes(handle)))
 end
@@ -1651,6 +1708,10 @@ function Revault:lockbox_open_with_options(archive, key, cache_mode, cache_bytes
 end
 
 --- Opens serialized Lockbox bytes with the supplied password.
+function Revault:lockbox_open_password_with_budget(archive, password, max_derivations)
+  return Lockbox.new(self.operations, self.operations:lockbox_open_password_with_budget(archive, password, max_derivations))
+end
+--- Opens with the default per-credential password work budget.
 function Revault:lockbox_open_password(archive, password)
   return Lockbox.new(self.operations, self.operations:lockbox_open_password(archive, password))
 end
@@ -1871,6 +1932,10 @@ function Lockbox:get_file(path)
 end
 
 --- Writes one Lockbox file to the host filesystem.
+function Lockbox:extract_file_with_policy(source, destination, max_file_bytes, max_total_bytes, max_files, restore_permissions, overwrite)
+  return self.operations:lockbox_extract_file_with_policy(self.handle, source, destination, max_file_bytes, max_total_bytes, max_files, restore_permissions, overwrite)
+end
+--- Extracts one file using the legacy permission policy.
 function Lockbox:extract_file(source, destination, replace)
   return self.operations:lockbox_extract_file(self.handle, source, destination, replace)
 end
@@ -1923,6 +1988,11 @@ end
 --- Sets workload profile.
 function Lockbox:set_workload_profile(profile)
   return self.operations:lockbox_set_workload_profile(self.handle, profile)
+end
+
+--- Sets a soft cache limit (auto, disabled, or bytes).
+function Lockbox:set_cache_limit(mode, bytes)
+  return self.operations:lockbox_set_cache_limit(self.handle, mode, bytes)
 end
 
 --- Sets worker policy.
@@ -2413,6 +2483,27 @@ function VaultStore:remember_lockbox(id, path)
 end
 
 --- Lists known lockboxes.
+--- Set or replace a normalized alias for a remembered identity.
+function VaultStore:set_lockbox_alias(name, id)
+  return self.operations:vault_directory_set_lockbox_alias(self.handle, name, id)
+end
+
+--- List persisted aliases without opening target archives.
+function VaultStore:list_lockbox_aliases()
+  return self.operations:vault_directory_list_lockbox_aliases(self.handle)
+end
+
+--- Remove only an alias, preserving its target.
+function VaultStore:remove_lockbox_alias(name)
+  return self.operations:vault_directory_remove_lockbox_alias(self.handle, name)
+end
+
+--- Resolve metadata; verify target identity when opening its path.
+function VaultStore:resolve_lockbox_alias(name)
+  return self.operations:vault_directory_resolve_lockbox_alias(self.handle, name)
+end
+
+--- Lists remembered identities and paths.
 function VaultStore:list_known_lockboxes()
   return self.operations:vault_directory_list_known_lockboxes(self.handle)
 end
@@ -2499,6 +2590,17 @@ function ReadOnlyVault:list_form_aliases()
 end
 
 --- Lists known lockboxes.
+--- List persisted aliases without opening target archives.
+function ReadOnlyVault:list_lockbox_aliases()
+  return self.operations:vault_read_only_list_lockbox_aliases(self.handle)
+end
+
+--- Resolve metadata; verify target identity when opening its path.
+function ReadOnlyVault:resolve_lockbox_alias(name)
+  return self.operations:vault_read_only_resolve_lockbox_alias(self.handle, name)
+end
+
+--- Lists remembered identities and paths.
 function ReadOnlyVault:list_known_lockboxes()
   return self.operations:vault_read_only_list_known_lockboxes(self.handle)
 end
@@ -2770,7 +2872,9 @@ end
 --- Opens with a shared lock; supply signing_key for exclusive write access.
 --- Example: local box = Lockbox.open(path, {password=password}); print(box:get_file('/hello')); box:close()
 function Lockbox.open(path, options)
-  return file_handle(path, 'open', options)
+  local mode = 'open'
+  if options and options.writable ~= nil then mode = options.writable and 'write' or 'read' end
+  return file_handle(path, mode, options)
 end
 
 Lockbox.close = Lockbox.free

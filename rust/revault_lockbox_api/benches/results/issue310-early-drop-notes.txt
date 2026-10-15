@@ -1,0 +1,57 @@
+Issue 310: reject earlier compressed-buffer release in native writes
+
+Base b6d6b30, production source ff9716c. Candidate is fully reverted.
+The native writer seals a page into its own immutable zeroizing allocation,
+then stages/prepares/flushes the page and publishes chunk references. Its input
+PreparedCompressionFrame.stored otherwise remains alive until function exit.
+Prototype explicitly dropped that ZeroizingBytes immediately after successful
+page encoding, before sequence allocation, preparation/storage I/O and reference
+publication. Same full-capacity wipe, earlier in the operation; no skipped
+cleanup, changed page bytes or dependency changes. Failure before sealing kept
+normal RAII cleanup. Remaining prepared fields were moved normally afterwards.
+Page-write telemetry would include cleanup in this prototype; total benchmark
+time is the metric used below, not an apparent change in per-stage attribution.
+
+Rationale/hypothesis: the codec's oversized allocation could be released before
+preparation allocations and storage work, potentially reducing allocation
+pressure. No allocation/peak-memory measurement was performed, so no memory
+improvement or allocator-causation claim is made.
+
+Validation before timings:
+- staged_native_pages_use_preparation_and_abort_append_and_reused_extents passed
+  with native-block-layout,external-source.
+- all-targets Clippy with those features and -D warnings passed.
+- Full suites were not repeated for this rejected candidate. Production files
+  restored exactly from HEAD; prior complete suite results remain in the
+  shared-window notes.
+
+Native protection_gate baseline target/issue310-wipe256-before SHA256
+7337d7ebb8deca0becc3d6398bcb725e1c11036222c518733d0a47b439646252
+This is the fresh ff9716c production binary built BEFORE the rejected wipe-width
+experiment. Its filename does not mean it contains that rejected change.
+Candidate target/issue310-early-drop-after SHA256
+b24a7ef69b8e019f9542aca33d737d5d24e545c977b50e16f41a4c3cce4f7460
+Candidate built cargo bench -p revault_lockbox_api --features native-block-layout
+--bench protection_gate --no-run. No timing instrumentation. Rust cwd,
+TMPDIR=$PWD/target/issue310-sign-tmp, taskset CPU2, warm OS caches; all owned
+builds/tests completed before timing. Unrelated host work uncontrolled.
+
+Fixed encrypted-only compressed pattern focus: 8MiB payload, default padding,
+synthetic content key/no password KDF, 15 ABBA/BAAB groups, six samples per child
+with first discarded. 300 measured writes plus60 warmups, all independently
+reopened and persisted bytes compared outside the create/add/commit/drop timer.
+Runner exited successfully. CSV main=production, branch=prototype.
+
+Pooled medians: 17.357851 ms before,17.345941 ms candidate.
+Whole-pair median time change -1.855%, bootstrap95% [-2.852,+4.209], 15 groups.
+Existing summary bootstraps5000 whole groups; pooled medians and paired change
+are distinct estimators. This does not establish an end-to-end improvement.
+Decision: reject and restore; do not keep an unproven performance change or
+claim an unmeasured memory benefit. Raw/summary CSVs, zero-context rejected
+patch and runner source retained. No broad matrix or layout parity claim.
+
+The protected-write gap is not resolved by the two tested local cleanup changes
+(wider stores and earlier release). Codec output-capacity reduction remains a
+measured lead, but requires a growth/truncation cleanup guarantee before use.
+Native remains opt-in. Broader read/write parity, recovery and release work
+remain open. No remote changes were made.

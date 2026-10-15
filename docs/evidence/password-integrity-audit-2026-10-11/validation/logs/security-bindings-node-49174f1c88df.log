@@ -1,0 +1,12 @@
+✔ password default supports explicit writes and read intent overrides signer (511.947074ms)
+✔ native file lifecycle, shared readers, writer exclusion and replacement (348.964252ms)
+✔ password and contact files preserve native credentials and write access (577.004806ms)
+﹣ read-only bind mount (0.158072ms) # SKIP
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 1524.652991

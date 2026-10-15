@@ -1,0 +1,7 @@
+
+running 1 test
+test file_format::candidate_files::tests::tree_tests::forms::field_aggregate::typed_form_field_upgrade_aggregate_probe ... FORM_FIELD_AGGREGATE {"after_caller":{"vm_hwm_kib":78908,"vm_lck_kib":2908,"vm_rss_kib":21204},"after_read":{"vm_hwm_kib":78908,"vm_lck_kib":4068,"vm_rss_kib":22748},"after_salvage":{"vm_hwm_kib":78908,"vm_lck_kib":4068,"vm_rss_kib":22876},"after_setup":{"vm_hwm_kib":78908,"vm_lck_kib":2908,"vm_rss_kib":21076},"after_upgrade":{"vm_hwm_kib":78908,"vm_lck_kib":4068,"vm_rss_kib":22684},"archive_before":10878976,"archive_bytes":20381696,"before_setup":{"vm_hwm_kib":6912,"vm_lck_kib":128,"vm_rss_kib":6912},"logical_bytes":9437479,"mode":6,"stored_payload_bytes":9487207}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 621 filtered out; finished in 10.39s
+

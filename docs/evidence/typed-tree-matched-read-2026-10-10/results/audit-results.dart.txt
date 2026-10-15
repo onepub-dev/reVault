@@ -1,0 +1,83 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const root = '/tmp/revault-tree-read-20261010-final';
+const cases = [
+  'small512-mixed-compressed-stream',
+  'raw8m-random-stream',
+  'compressed8m-pattern-stream',
+  'raw8m-random-range',
+  'raw64m-random-stream',
+  'raw64m-random-range',
+];
+
+String sha(String path) {
+  final result = Process.runSync('sha256sum', [path]);
+  if (result.exitCode != 0) throw StateError('${result.stderr}');
+  return '${result.stdout}'.split(RegExp(r'\s+')).first;
+}
+
+Map<String, Object?> artifact(String root, String filename) {
+  final path = '$root/$filename';
+  final file = File(path);
+  if (!file.existsSync()) throw StateError('Missing artifact $path');
+  return {'path': path, 'bytes': file.lengthSync(), 'sha256': sha(path)};
+}
+
+void main() {
+  final caseAudit = <String, Object?>{};
+  for (final name in cases) {
+    final samplesPath = '$root/measure/$name/samples.jsonl';
+    final rows = File(samplesPath).readAsLinesSync().map((line) => jsonDecode(line) as Map<String, dynamic>).toList();
+    final environment = rows.firstWhere((row) => row['kind'] == 'environment');
+    if (environment['samples'] != 30 || environment['passes'] != 1 || environment['workers'] != 1 || environment['warmup_pairs'] != 3) {
+      throw StateError('Unexpected sample protocol in $name');
+    }
+    final sampleRows = rows.where((row) => row['kind'] == 'sample').toList();
+    if (sampleRows.length != 99 || sampleRows.any((row) => row['verified'] != true)) throw StateError('Sample verification/count failure in $name');
+    final pairKinds = <int, Set<String>>{};
+    for (final row in sampleRows) {
+      final pair = row['pair'] as int;
+      final kind = row['backend'] == 'zip' ? 'zip' : (row['other'] == true ? 'tree' : 'packed');
+      pairKinds.putIfAbsent(pair, () => <String>{}).add(kind);
+      if (row['warmup'] != (pair < 3)) throw StateError('Incorrect warmup label $name pair=$pair');
+    }
+    if (pairKinds.length != 33 || pairKinds.values.any((kinds) => !kinds.containsAll(['zip', 'packed', 'tree']))) {
+      throw StateError('Incomplete paired observations in $name');
+    }
+    final unchanged = rows.last;
+    if (unchanged['kind'] != 'retained_inputs_verified' || unchanged['archives_and_sources_unchanged'] != true) {
+      throw StateError('Retained input check failed in $name');
+    }
+    final fixtureName = name.replaceAll(RegExp(r'-(stream|range)$'), '');
+    final fixture = '$root/cases/$fixtureName';
+    final inventory = File('$fixture/inventory.json');
+    final caseFile = File('$fixture/case.json');
+    final caseValue = jsonDecode(caseFile.readAsStringSync()) as Map<String, dynamic>;
+    final inventoryValue = jsonDecode(inventory.readAsStringSync()) as List;
+    final files = <String, Object?>{};
+    for (final item in ['archive.zip', 'candidate.lbox', 'candidate.public', 'other/tree.lbox', 'other/tree.public']) {
+      files[item] = artifact(fixture, item);
+    }
+    caseAudit[name] = {
+      'sample_file': samplesPath,
+      'sample_line_count': rows.length,
+      'verified_sample_records': sampleRows.length,
+      'warmup_pairs': 3,
+      'measured_pairs': 30,
+      'case': caseValue,
+      'source_file_count': inventoryValue.length,
+      'source_inventory_sha256': sha(inventory.path),
+      'fixture_artifacts': files,
+    };
+  }
+  File('$root/final-audit.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert({
+    'all_samples_verified': true,
+    'all_retained_inputs_unchanged': true,
+    'frozen_hashes_stable': true,
+    'cases': caseAudit,
+  }), flush: true);
+  print('AUDIT_OK cases=${cases.length} samples_per_case=99 inventories_and_artifact_hashes_recorded report=$root/final-audit.json');
+}

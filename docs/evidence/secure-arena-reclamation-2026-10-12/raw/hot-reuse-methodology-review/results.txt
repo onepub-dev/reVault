@@ -1,0 +1,12 @@
+Execution mode: hot-reuse-fixed-56-v1. The sole 56-process run completed with runner exit 0 and a single summary analysis exit 0. No retries or extra samples.
+
+Schedule: sizes 64 B × 100000 iterations and 65536 B × 10000 iterations; 14 rounds; 2 variants per size each round; alternating old/new order; rounds 0–1 excluded; 12 measured rounds paired as six adjacent blocks per size. Inner loop ran allocation, exact scoped byte verification, drop; no output or /proc sampling in the timer. CPU affinity 0–4. Whole-process wall time was measured by Dart Stopwatch and recorded separately from inner-loop nanoseconds. Each process used the 120-second timeout clamped by the 15-minute batch budget. Runner exit 0 confirms the internal whole-batch cap and identity checks passed.
+
+All 56 process rows passed admission: exit 0; exact kind/variant/size/iterations; byte verification true; weakened policy false; both memlock limits 8388608; baseline VmLck=0; prewarm/live, before-inner, and after-inner VmLck equal, positive, and <=8388608. The single analyzer used 10,000 SplitMix64 seeded paired-block bootstrap draws, upper one-sided 95th percentile order index 9500.
+
+Non-inferiority upper95 ratios (new/old; threshold 1.05):
+- 64 B inner per-operation: 1.0003125766776102 (pass)
+- 64 B whole-process: 1.000398757250911 (pass)
+- 65536 B inner per-operation: 1.00746242780785 (pass)
+- 65536 B whole-process: 1.0075644941088002 (pass)
+All four gates passed. Full block ratios and endpoint seeds are in analysis.json. All raw per-process commands, output streams, statuses, admitted rows, and frozen before/after identities are preserved in this directory. Final inputs and process artifact digests are in frozen-hot-inputs.sha256 and process-artifacts.sha256.

@@ -1,0 +1,9 @@
+    Finished `release` profile [optimized] target(s) in 0.10s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 1 test
+test file_format::candidate_files::tests::tree_tests::forms::definitions::typed_form_definition_and_empty_record_atomic_recovery_faults ... FORM_DEFINITION_CREATE_FAULTS cases=3168 interrupted_recovery=1164
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 627 filtered out; finished in 512.14s
+

@@ -1,0 +1,160 @@
+diff --git a/rust/revault_lockbox_api/benches/protection_gate.rs b/rust/revault_lockbox_api/benches/protection_gate.rs
+index 2eda9853..bd5a1f65 100644
+--- a/rust/revault_lockbox_api/benches/protection_gate.rs
++++ b/rust/revault_lockbox_api/benches/protection_gate.rs
+@@ -36,6 +36,7 @@ fn main() {
+     let write_profile =
+         writing && std::env::var("REVAULT_GATE_WRITE_PROFILE").is_ok_and(|v| v == "1");
+     let stream_input = std::env::var("REVAULT_GATE_STREAM_INPUT").is_ok_and(|v| v == "1");
++    let workers = std::env::var("REVAULT_GATE_WORKERS").ok().map(|v| v.parse::<usize>().unwrap());
+     let size_padding = if std::env::var("REVAULT_GATE_NO_SIZE_PADDING").is_ok_and(|v| v == "1") {
+         revault_lockbox_api::SizePadding::None
+     } else {
+@@ -137,6 +138,7 @@ fn main() {
+                     },
+                 )
+                 .unwrap();
++                if let Some(workers) = workers { lb.set_worker_policy(revault_lockbox_api::WorkerPolicy::Threads(workers)); }
+                 let created = write_profile.then(Instant::now);
+                 if stream_input {
+                     lb.add_file_from_reader(&path, std::io::Cursor::new(&payload), false)
+diff --git a/rust/revault_lockbox_api/src/api_tests.rs b/rust/revault_lockbox_api/src/api_tests.rs
+index f80af187..596b9aee 100644
+--- a/rust/revault_lockbox_api/src/api_tests.rs
++++ b/rust/revault_lockbox_api/src/api_tests.rs
+@@ -4365,3 +4365,51 @@ fn streamed_encoder_handles_fragmented_reads_empty_input_and_midstream_errors()
+         }
+     }
+ }
++
++#[test]
++fn parallel_encoder_handles_fragmented_reads_empty_input_and_midstream_errors() {
++    use crate::{Compression, Encryption, LockboxCreateOptions, Signing};
++    struct Fragmented { remaining: usize, fail: bool }
++    impl std::io::Read for Fragmented {
++        fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
++            if self.remaining == 0 {
++                return if self.fail { Err(std::io::Error::other("injected reader failure")) } else { Ok(0) };
++            }
++            let count = bytes.len().min(8191).min(self.remaining);
++            bytes[..count].fill(42);
++            self.remaining -= count;
++            Ok(count)
++        }
++    }
++    let signer = OwnerSigningKeyPair::generate().unwrap();
++    let path = p("/stream.bin");
++    for encrypted in [false, true] {
++        for signed in [false, true] {
++            let open = || if encrypted {
++                LockboxOpen::ContentKey(SecretVec::try_from_slice(&[71;32]).unwrap())
++            } else { LockboxOpen::Unencrypted };
++            let mut archive = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
++                compression: Compression::default(),
++                ..LockboxCreateOptions::new(
++                    if encrypted { Encryption::Encrypted(LockboxProtection::ContentKey(SecretVec::try_from_slice(&[71;32]).unwrap())) } else { Encryption::None },
++                    if signed { Signing::Owner(&signer) } else { Signing::None },
++                )
++            }).unwrap();
++            archive.set_worker_policy(WorkerPolicy::Threads(4));
++            archive.add_file(&path, b"original", false).unwrap();
++            archive.commit().unwrap();
++            for remaining in [0, 2*1024*1024+99, 12*1024*1024+99] {
++                assert!(matches!(archive.add_file_from_reader(&path, Fragmented { remaining, fail: true }, true), Err(Error::Io(_))));
++                archive.abort().unwrap();
++                let reopened = Lockbox::open_bytes(archive.to_bytes(), open()).unwrap();
++                assert_eq!(reopened.get_file(&path).unwrap(), b"original");
++            }
++            for remaining in [0, 65537, 12*1024*1024+17] {
++                archive.add_file_from_reader(&path, Fragmented { remaining, fail: false }, true).unwrap();
++                archive.commit().unwrap();
++                let reopened = Lockbox::open_bytes(archive.to_bytes(), open()).unwrap();
++                assert_eq!(reopened.get_file(&path).unwrap(), vec![42;remaining]);
++            }
++        }
++    }
++}
+diff --git a/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs b/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs
+index c80de337..6db0fc1a 100644
+--- a/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs
++++ b/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs
+@@ -208,9 +208,15 @@ impl FileImportPipeline {
+             .collect()
+     }
+ 
+-    pub(super) fn prepare_parallel_job(
++    #[cfg(test)]
++    pub(super) fn prepare_parallel_job(self, job: ParallelCompressionJob) -> ParallelCompressionResult {
++        self.prepare_parallel_job_with_encoder(job, &mut |payload| self.encode(payload))
++    }
++
++    pub(super) fn prepare_parallel_job_with_encoder(
+         self,
+         mut job: ParallelCompressionJob,
++        encode: &mut FrameEncoder<'_>,
+     ) -> ParallelCompressionResult {
+         let prepare_start = Instant::now();
+         let index = job.index;
+@@ -222,25 +228,15 @@ impl FileImportPipeline {
+             compression_frame_offset: 0,
+             len: job.data.len() as u64,
+         };
+-        let frame = self.prepare_payload(
++        let frame = self.prepare_payload_with_encoder(
+             Cow::Owned(std::mem::take(&mut job.data)),
+             vec![slice],
+             prepare_start,
++            encode,
+         );
+         ParallelCompressionResult { index, frame }
+     }
+ 
+-    fn prepare_payload(
+-        self,
+-        payload: Cow<'_, [u8]>,
+-        slices: Vec<CompressionFrameSlice>,
+-        prepare_start: Instant,
+-    ) -> PreparedCompressionFrame {
+-        self.prepare_payload_with_encoder(payload, slices, prepare_start, &mut |payload| {
+-            self.encode(payload)
+-        })
+-    }
+-
+     fn encode(self, payload: &[u8]) -> (u8, Vec<u8>) {
+         match self.compression {
+             Some(compression) => crate::compression::encode_with_compression(payload, compression),
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index d158fca5..b32406e5 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -771,18 +771,19 @@ impl<State> Lockbox<State> {
+             for _ in 0..jobs {
+                 let job_rx = Arc::clone(&job_rx);
+                 let result_tx = result_tx.clone();
+-                scope.spawn(move || loop {
+-                    let job = match job_rx.lock() {
+-                        Ok(rx) => rx.recv(),
+-                        Err(_) => return,
++                scope.spawn(move || {
++                    let receive = || match job_rx.lock() {
++                        Ok(rx) => rx.recv().ok(),
++                        Err(_) => None,
+                     };
+-                    let Ok(job) = job else {
+-                        return;
+-                    };
+-                    let result = pipeline.prepare_parallel_job(job);
+-                    if result_tx.send(result).is_err() {
+-                        return;
+-                    }
++                    let Some(mut job) = receive() else { return; };
++                    let first = pipeline.encoder_frame(&job.data);
++                    pipeline.with_encoder(first, |encode| loop {
++                        let result = pipeline.prepare_parallel_job_with_encoder(job, encode);
++                        if result_tx.send(result).is_err() { return; }
++                        let Some(next) = receive() else { return; };
++                        job = next;
++                    });
+                 });
+             }
+             drop(result_tx);

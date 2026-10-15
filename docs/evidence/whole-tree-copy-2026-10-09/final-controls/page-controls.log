@@ -1,0 +1,20 @@
+    Finished `release` profile [optimized] target(s) in 0.09s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 13 tests
+test file_format::page::secure_storage::prepared::tests::prepared_secure_pages_reproduce_all_modes_and_refuse_changed_source_before_seal ... ok
+test file_format::page::secure_storage::tests::secure_staging_matches_plaintext_wire_and_secure_reader_all_modes ... ok
+test file_format::page::tests::arithmetic_page_sizes_match_serialized_bodies_in_every_explicit_mode ... ok
+test file_format::page::tests::arithmetic_sizing_handles_shared_secure_payloads_and_physical_limits ... ok
+test file_format::page::tests::clear_text_page_uses_page_checksum_for_body_integrity ... ok
+test file_format::page::tests::page_rejects_public_header_checksum_tampering ... ok
+test file_format::page::tests::page_rejects_tampering ... ok
+test file_format::page::tests::page_round_trips_objects_and_has_fixed_size ... ok
+test file_format::page::tests::physical_length_recovery_preserves_checksum_and_rejects_other_damage ... ok
+test file_format::page::tests::secure_payload_can_be_read_only_through_scoped_access ... ok
+test file_format::page_buffer::tests::byte_wiping_handles_empty_and_partial_allocations ... ok
+test file_format::page_buffer::tests::spare_wiping_covers_uninitialized_and_unaligned_regions ... ok
+test file_format::page_buffer::tests::wide_wiping_covers_unaligned_slices_without_touching_neighbours ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 623 filtered out; finished in 0.35s
+

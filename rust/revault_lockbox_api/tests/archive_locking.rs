@@ -234,3 +234,30 @@ fn waiting_reader_retries_after_inode_replacement() {
     );
     fs::remove_dir_all(root).unwrap();
 }
+#[test]
+fn fresh_publication_preserves_existing_destination_and_the_held_lock() {
+    let root = public_api_unique_dir("archive-exclusive-publication");
+    fs::create_dir_all(&root).unwrap();
+    let path = root.join("archive.lbox");
+    let held = create(&path);
+    let before = fs::read(&path).unwrap();
+    assert!(matches!(
+        Lockbox::create_file(&path, LockboxProtection::ContentKey(key()), &signing_key()),
+        Err(Error::AlreadyExists(_))
+    ));
+    assert_eq!(fs::read(&path).unwrap(), before);
+    child(&path, "read", true);
+    drop(held);
+    let reopened = Lockbox::open(&path, LockboxOpen::ContentKey(key())).unwrap();
+    assert_eq!(
+        reopened.get_file(&p("/secret")).unwrap(),
+        b"exact secret bytes\0\xff"
+    );
+    drop(reopened);
+    assert_eq!(
+        fs::read_dir(&root).unwrap().count(),
+        1,
+        "no publication temporary remains"
+    );
+    fs::remove_dir_all(root).unwrap();
+}

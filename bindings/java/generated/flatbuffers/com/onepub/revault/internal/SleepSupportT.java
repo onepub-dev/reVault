@@ -23,6 +23,7 @@ public class SleepSupportT {
   private boolean suspendNotifications;
   private boolean sleepInhibition;
   private boolean supported;
+  private boolean cacheClearingActive;
 
   public boolean getSuspendNotifications() { return suspendNotifications; }
 
@@ -36,10 +37,15 @@ public class SleepSupportT {
 
   public void setSupported(boolean supported) { this.supported = supported; }
 
+  public boolean getCacheClearingActive() { return cacheClearingActive; }
+
+  public void setCacheClearingActive(boolean cacheClearingActive) { this.cacheClearingActive = cacheClearingActive; }
+
 
   public SleepSupportT() {
     this.suspendNotifications = false;
     this.sleepInhibition = false;
     this.supported = false;
+    this.cacheClearingActive = false;
   }
 }

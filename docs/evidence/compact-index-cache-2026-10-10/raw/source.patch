@@ -1,0 +1,153 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/authenticated_index/borrowed.rs b/rust/revault_lockbox_api/src/file_format/authenticated_index/borrowed.rs
+index c975bdc7..b6bd50b8 100644
+--- a/rust/revault_lockbox_api/src/file_format/authenticated_index/borrowed.rs
++++ b/rust/revault_lockbox_api/src/file_format/authenticated_index/borrowed.rs
+@@ -100,6 +100,13 @@ impl Index {
+     pub(super) fn decode(&self, bytes: &[u8], sealed: u64) -> Result<Node> {
+         self.with_decoded(bytes, sealed, |node| node.into_owned())
+     }
++    pub(super) fn decode_cached_node(&self, bytes: &[u8], sealed: u64) -> Result<super::cache::CachedNode> {
++        self.with_decoded(bytes,sealed,|node| Ok(match node {
++            NodeView::Leaf(entries) => super::cache::CachedNode::Leaf(super::cache::Leaf::new(entries)),
++            NodeView::Branch(Node::Branch {height,children}) => super::cache::CachedNode::Branch {height,children},
++            NodeView::Branch(Node::Leaf(_)) => unreachable!("branch decoder yields branch nodes"),
++        }))
++    }
+     fn with_decoded<T>(
+         &self,
+         bytes: &[u8],
+diff --git a/rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs b/rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs
+index 96699f93..5563656c 100644
+--- a/rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs
++++ b/rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs
+@@ -7,7 +7,7 @@ const CACHE_PAGES: usize = 16;
+ 
+ #[derive(Default)]
+ pub(crate) struct PageCache {
+-    pages: VecDeque<(RootRef, Node)>,
++    pages: VecDeque<(RootRef, CachedNode)>,
+     scope: Option<(LockboxId, u16, RootRef, u64)>,
+     key: Option<Zeroizing<[u8; 32]>>,
+ }
+@@ -41,7 +41,7 @@ impl Index {
+                 if let Some(position) = cache.pages.iter().position(|(r, _)| *r == reference) {
+                     position
+                 } else {
+-                    let node = self.read(storage, reference, sealed)?;
++                    let node = self.read_cached_node(storage, reference, sealed)?;
+                     if cache.pages.len() == CACHE_PAGES {
+                         cache.pages.pop_front();
+                     }
+@@ -61,13 +61,8 @@ impl Index {
+                 }
+             }
+             match node {
+-                Node::Leaf(entries) => {
+-                    return Ok(entries
+-                        .binary_search_by(|e| e.identity().cmp(&identity))
+-                        .ok()
+-                        .map(|i| entries[i].clone()))
+-                }
+-                Node::Branch { height, children } => {
++                CachedNode::Leaf(leaf) => return leaf.get(identity),
++                CachedNode::Branch { height, children } => {
+                     let position = children.partition_point(|c| c.first.identity() <= identity);
+                     if position == 0 {
+                         return Ok(None);
+@@ -114,3 +109,96 @@ fn page_cache_evicts_at_its_fixed_bound_and_preserves_exact_lookups() {
+     }
+     assert_eq!(cache.pages.len(), CACHE_PAGES);
+ }
++
++// One compact allocation owns the private bytes in a decoded leaf. Offsets
++// replace per-record key/value allocations without retaining borrowed storage.
++// The shared decoder validates the entire page before this representation exists.
++pub(super) enum CachedNode {
++    Leaf(Leaf),
++    Branch { height: u8, children: Vec<Link> },
++}
++pub(super) struct Leaf {
++    bytes: ZeroizingBytes,
++    rows: Vec<Row>,
++}
++struct Row {
++    namespace: u8,
++    start: usize,
++    key_end: usize,
++    end: usize,
++}
++impl Leaf {
++    pub(super) fn new(entries: Vec<EntryRef<'_>>) -> Self {
++        let size = entries.iter().map(|e| e.key.len() + e.value.len()).sum();
++        let mut bytes = ZeroizingBytes::new(Vec::with_capacity(size));
++        let mut rows = Vec::with_capacity(entries.len());
++        for entry in entries {
++            let start = bytes.len();
++            bytes.extend_from_slice(entry.key);
++            let key_end = bytes.len();
++            bytes.extend_from_slice(entry.value);
++            rows.push(Row { namespace: entry.namespace, start, key_end, end: bytes.len() });
++        }
++        Self { bytes, rows }
++    }
++    fn identity(&self, row: &Row) -> (u8, &[u8]) {
++        (row.namespace, &self.bytes[row.start..row.key_end])
++    }
++    fn get(&self, identity: (u8, &[u8])) -> Result<Option<Entry>> {
++        self.rows.binary_search_by(|row| self.identity(row).cmp(&identity)).ok()
++            .map(|i| {
++                let row = &self.rows[i];
++                Entry::new(row.namespace, &self.bytes[row.start..row.key_end], &self.bytes[row.key_end..row.end])
++            }).transpose()
++    }
++}
++impl CachedNode {
++    fn height(&self) -> u8 { match self { Self::Leaf(_) => 0, Self::Branch {height,..} => *height } }
++    fn count(&self) -> u64 { match self { Self::Leaf(leaf) => leaf.rows.len() as u64, Self::Branch {children,..} => children.iter().map(|c| c.count).sum() } }
++    fn first(&self) -> Option<(u8,&[u8])> { match self { Self::Leaf(leaf) => leaf.rows.first().map(|row| leaf.identity(row)), Self::Branch {children,..} => children.first().map(|c| c.first.identity()) } }
++    fn last(&self) -> Option<(u8,&[u8])> { match self { Self::Leaf(leaf) => leaf.rows.last().map(|row| leaf.identity(row)), Self::Branch {children,..} => children.last().map(|c| c.first.identity()) } }
++}
++impl Index {
++    fn read_cached_node(&self, storage: &impl Storage, reference: RootRef, sealed: u64) -> Result<CachedNode> {
++        validate_ref(reference,sealed)?;
++        let bytes = ZeroizingBytes::new(reference.read_verified(storage)?);
++        self.decode_cached_node(&bytes,sealed)
++    }
++}
++
++#[test]
++fn compact_leaf_preserves_binary_empty_and_boundary_records_all_modes() {
++    // Private representation check: experimental index pages cannot be created
++    // by the public CLI. Both representations use the same validating decoder.
++    use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
++    let archive = LockboxId::from_bytes([83;16]);
++    for bits in 0..16 {
++        let encrypted = bits & 1 != 0;
++        let mode = crate::creation_options::FormatMode::new(LockboxFormatOptions {
++            encryption: if encrypted { EncryptionMode::ChaCha20Poly1305 } else { EncryptionMode::None },
++            signing: if bits & 2 != 0 { SigningMode::Owner } else { SigningMode::None },
++            compression: if bits & 4 != 0 { Compression::default() } else { Compression::None },
++            size_padding: if bits & 8 != 0 { SizePadding::None } else { SizePadding::Default },
++        });
++        let index = Index::new(archive,mode,encrypted.then_some([84;32].as_slice())).unwrap();
++        for entries in [
++            vec![],
++            vec![Entry::new(0,&[],&[]).unwrap(), Entry::new(1,&[],&[0,255,0]).unwrap(), Entry::new(255,&[255;MAX_KEY],&[0;MAX_VALUE]).unwrap()],
++            (0u32..MAX_ITEMS as u32).map(|n| Entry::new(3,&n.to_be_bytes(),&[n as u8;8]).unwrap()).collect(),
++        ] {
++            let bytes=index.encode(&Node::Leaf(entries.clone())).unwrap();
++            let compact=index.decode_cached_node(&bytes,u64::MAX).unwrap();
++            let CachedNode::Leaf(leaf)=compact else {panic!("leaf expected")};
++            assert_eq!(leaf.rows.len(),entries.len());
++            assert_eq!(leaf.bytes.len(),entries.iter().map(|e|e.key.len()+e.value.len()).sum::<usize>());
++            assert!(leaf.bytes.len()<=MAX_BODY);
++            for expected in entries {
++                let actual=leaf.get(expected.identity()).unwrap().unwrap();
++                assert_eq!(actual.identity(),expected.identity());
++                assert_eq!(actual.value,expected.value);
++            }
++            assert!(leaf.get((254,b"absent")).unwrap().is_none());
++            assert!(index.decode_cached_node(&bytes[..bytes.len()-1],u64::MAX).is_err());
++        }
++    }
++}

@@ -1,0 +1,4 @@
+case,metric,main_us,branch_us,paired_change_pct,low95_pct,high95_pct,pairs
+encrypted-signed/false/stream-content,open,976.496,1001.117,2.061,-0.030,2.795,25
+encrypted-signed/false/stream-content,read,19014.203,17156.082,-10.148,-11.434,-8.225,25
+encrypted-signed/false/stream-content,total,23289.626,19775.857,-15.628,-16.765,-13.546,25

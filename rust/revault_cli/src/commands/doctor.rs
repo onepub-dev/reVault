@@ -80,18 +80,22 @@ fn run_global() -> CliResult<()> {
         }
     );
     println!(
-        "  suspend management: {}",
+        "  compiled suspend management: {}",
         yes_no(sleep_support.supported())
     );
     println!(
-        "  suspend notifications: {}",
+        "  compiled suspend notifications: {}",
         yes_no(sleep_support.suspend_notifications)
     );
     println!(
-        "  sleep prevention: {}",
+        "  compiled sleep prevention: {}",
         yes_no(sleep_support.sleep_inhibition)
     );
     println!("  running: {}", yes_no(is_running()));
+    match revault_vault_api::suspend_cache_clearing_active() {
+        Ok(active) => println!("  cache suspend clearing active: {}", yes_no(active)),
+        Err(err) => println!("  cache suspend clearing active: unknown: {err}"),
+    }
     match list() {
         Ok(lockboxes) => println!("  open lockboxes: {}", lockboxes.len()),
         Err(err) => println!("  open lockboxes: unknown: {err}"),
@@ -159,6 +163,13 @@ fn run_lockbox(lockbox_path: &str, access: &Access, verbose: bool) -> CliResult<
     println!("  path: {lockbox_path}");
     println!("  size: {}", human_size(metadata.len()));
     if let Some(options) = inspection.format_options {
+        println!(
+            "  size padding: {}",
+            match options.size_padding {
+                revault_lockbox_api::SizePadding::Default => "default",
+                revault_lockbox_api::SizePadding::None => "none",
+            }
+        );
         println!(
             "  encryption: {}",
             match options.encryption {
@@ -258,7 +269,7 @@ fn print_local_vault(path: &Path) -> CliResult<Option<VaultDirectory>> {
     // Probe only the stable discriminator through the read-only core reader.
     // This does not open historical Vault records for normal CLI operations.
     match &version {
-        Ok(2 | 3) => {
+        Ok(version) if *version == revault_lockbox_api::LOCKBOX_FORMAT_VERSION => {
             let structure = (|| -> CliResult<Option<u32>> {
                 let Some(password) = vault_password_noninteractive()? else {
                     return Ok(None);
@@ -287,7 +298,7 @@ fn print_local_vault(path: &Path) -> CliResult<Option<VaultDirectory>> {
     if let Ok(version) = version {
         if version != revault_lockbox_api::LOCKBOX_FORMAT_VERSION {
             if version < revault_lockbox_api::LOCKBOX_FORMAT_VERSION {
-                println!("  status: upgrade required; run: lbx doctor migrate vault --replace; or migrate the Vault and all known Lockboxes: lbx doctor migrate all --replace");
+                println!("  status: local vault upgrade required; migrate the Vault and all known Lockboxes: lbx doctor migrate all --replace; or migrate only the Vault: lbx doctor migrate vault --replace");
             } else {
                 println!("  status: unsupported container; upgrade reVault. Automatic downgrade is not supported");
             }

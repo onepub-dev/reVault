@@ -1,0 +1,124 @@
+use revault_page_api::{allocation_chunk_bytes, weakened_allocation_allowed, SecureVec};
+use std::{error::Error, fs, io, time::Instant};
+
+const LIMIT: u64 = 8 * 1024 * 1024;
+
+fn status_kib(key: &str) -> Result<u64, Box<dyn Error>> {
+    let text = fs::read_to_string("/proc/self/status")?;
+    let line = text
+        .lines()
+        .find(|line| line.starts_with(&format!("{key}:")))
+        .ok_or_else(|| io::Error::other(format!("missing {key}")))?;
+    Ok(line
+        .split_whitespace()
+        .nth(1)
+        .ok_or_else(|| io::Error::other(format!("missing {key} value")))?
+        .parse()?)
+}
+
+fn vm_lck_bytes() -> Result<u64, Box<dyn Error>> {
+    status_kib("VmLck")?
+        .checked_mul(1024)
+        .ok_or_else(|| io::Error::other("VmLck overflow").into())
+}
+
+fn memlock_limits() -> Result<(u64, u64), Box<dyn Error>> {
+    let text = fs::read_to_string("/proc/self/limits")?;
+    let fields = text
+        .lines()
+        .find(|line| line.starts_with("Max locked memory"))
+        .ok_or_else(|| io::Error::other("missing memlock limit"))?
+        .split_whitespace()
+        .collect::<Vec<_>>();
+    if fields.len() != 6 || fields[5] != "bytes" {
+        return Err(io::Error::other("unexpected memlock limit format").into());
+    }
+    Ok((fields[3].parse()?, fields[4].parse()?))
+}
+
+fn execute(variant: &str, size: usize, iterations: usize) -> Result<(), Box<dyn Error>> {
+    let required_iterations = match size {
+        64 => 100_000,
+        65_536 => 10_000,
+        _ => return Err(io::Error::other("size must be 64 or 65536").into()),
+    };
+    if iterations != required_iterations {
+        return Err(io::Error::other("iteration count does not match fixed protocol").into());
+    }
+    if weakened_allocation_allowed() {
+        return Err(io::Error::other("weakened allocation policy must remain false").into());
+    }
+    if allocation_chunk_bytes() != 65_536 {
+        return Err(io::Error::other("default allocation chunk is not 65536").into());
+    }
+    let (soft, hard) = memlock_limits()?;
+    if soft != LIMIT || hard != LIMIT {
+        return Err(io::Error::other(format!("memlock changed: {soft}/{hard}")).into());
+    }
+
+    let baseline_vm_lck = vm_lck_bytes()?;
+    if baseline_vm_lck != 0 {
+        return Err(io::Error::other(format!("fresh-process baseline VmLck is {baseline_vm_lck}, expected 0")).into());
+    }
+    let input = vec![0xA7; size];
+    let prewarm = SecureVec::try_from_slice(&input)?;
+    if prewarm.len() != size || !prewarm.with_bytes(|bytes| bytes == input.as_slice())? {
+        return Err(io::Error::other("prewarm byte verification failed").into());
+    }
+    let prewarm_live_vm_lck = vm_lck_bytes()?;
+    if prewarm_live_vm_lck > LIMIT {
+        return Err(io::Error::other("prewarm VmLck exceeds limit").into());
+    }
+    drop(prewarm);
+    let before_inner_vm_lck = vm_lck_bytes()?;
+    if before_inner_vm_lck > LIMIT {
+        return Err(io::Error::other("pre-inner VmLck exceeds limit").into());
+    }
+
+    let timer = Instant::now();
+    for _ in 0..iterations {
+        let value = SecureVec::try_from_slice(&input)?;
+        if value.len() != size || !value.with_bytes(|bytes| bytes == input.as_slice())? {
+            return Err(io::Error::other("inner byte verification failed").into());
+        }
+        drop(value);
+    }
+    let inner_elapsed_ns = timer.elapsed().as_nanos();
+    let after_inner_vm_lck = vm_lck_bytes()?;
+    let (after_soft, after_hard) = memlock_limits()?;
+    if after_soft != LIMIT || after_hard != LIMIT || after_inner_vm_lck > LIMIT {
+        return Err(io::Error::other("post-inner memlock gate failed").into());
+    }
+    if prewarm_live_vm_lck == 0
+        || before_inner_vm_lck == 0
+        || after_inner_vm_lck == 0
+        || prewarm_live_vm_lck != before_inner_vm_lck
+        || before_inner_vm_lck != after_inner_vm_lck
+    {
+        return Err(io::Error::other("VmLck must remain equal and positive through prewarm/drop/reuse").into());
+    }
+
+    println!(
+        "{{\"kind\":\"hot_reuse\",\"variant\":\"{variant}\",\"size_bytes\":{size},\"iterations\":{iterations},\"byte_verification_ok\":true,\"inner_elapsed_ns\":{inner_elapsed_ns},\"baseline_VmLck_bytes\":{baseline_vm_lck},\"prewarm_live_VmLck_bytes\":{prewarm_live_vm_lck},\"before_inner_VmLck_bytes\":{before_inner_vm_lck},\"after_inner_VmLck_bytes\":{after_inner_vm_lck},\"weak_policy\":false,\"memlock_soft_bytes\":{soft},\"memlock_hard_bytes\":{hard}}}"
+    );
+    Ok(())
+}
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let variant = args.next().unwrap_or_default();
+    let size = args.next().and_then(|value| value.parse::<usize>().ok());
+    let iterations = args.next().and_then(|value| value.parse::<usize>().ok());
+    let (Some(size), Some(iterations)) = (size, iterations) else {
+        eprintln!("usage: securevec_hot_reuse <old|new> <64|65536> <iterations>");
+        std::process::exit(2);
+    };
+    if variant != "old" && variant != "new" {
+        eprintln!("variant must be old or new");
+        std::process::exit(2);
+    }
+    if let Err(error) = execute(&variant, size, iterations) {
+        eprintln!("hot reuse failed: {error}");
+        std::process::exit(1);
+    }
+}

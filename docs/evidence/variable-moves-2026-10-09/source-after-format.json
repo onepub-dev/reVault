@@ -1,0 +1,8 @@
+{
+  "commit": "ab0fc021",
+  "sha256": {
+    "rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs": "999ff94bea5366ef77d73c974f88f714ff4e543401f404451a661c27dd2f6d31",
+    "rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs": "db2c5beae0663d7adb4cabf6e4c7b5ce7949ad34bee51205a16dbfb320c67107",
+    "rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/moves.rs": "57bab6f34e511fa1a241370a87ae615c7c13d35f789a50c04bca4de1f86e4a3d"
+  }
+}

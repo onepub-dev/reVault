@@ -79,7 +79,7 @@ An interruption before rename leaves the original; after rename the new archive 
 
 ## Limits and security scope
 
-Redaction manifests are bounded to 65,536 coalesced ranges, 262,144 scheduled page-object references, 16 manifest pages, 1,049,088 manifest payload bytes and 1 PiB of scheduled redaction bytes. Counts, chains, offsets, overlaps, extents and checkpoint totals are checked. Secure variable/form pages retain their fixed 128 KiB physical allocation when accounting for erasure and reuse.
+Redaction manifests are bounded to 65,536 coalesced ranges, 262,144 scheduled page-object references, 16 manifest pages, 1,049,728 manifest payload bytes and 1 PiB of scheduled redaction bytes. Counts, chains, offsets, overlaps, extents and checkpoint totals are checked. With default padding, secure variable/form pages retain their fixed 128 KiB physical allocation when accounting for erasure and reuse. Unpadded mode uses its actual encoded extent.
 
 Zeroing protects the updated archive's reusable space. It cannot erase filesystem snapshots, previous copies, device-level remnants, backups or plaintext held elsewhere. Compaction and migration likewise cannot erase copies outside their replacement archive.
 

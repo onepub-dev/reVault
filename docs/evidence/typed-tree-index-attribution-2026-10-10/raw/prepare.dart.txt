@@ -1,0 +1,19 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+
+void main() {
+  const out = '/tmp/revault-tree-index-attribution-20261010';
+  const rust = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust';
+  var build = File('/tmp/revault-tree-storage-meter-20261010/build-meter.dart').readAsStringSync();
+  build = build.replaceFirst("const out='/tmp/revault-tree-storage-meter-20261010';", "const out='$out';");
+  build = build.replaceFirst("'storage_meter':'\$rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe/storage_meter.rs','cargo_lock'", "'storage_meter':'\$rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe/storage_meter.rs','auth_index':'\$rust/revault_lockbox_api/src/file_format/authenticated_index.rs','publication_anchor':'\$rust/revault_lockbox_api/src/file_format/publication_anchor.rs','file_format_mod':'\$rust/revault_lockbox_api/src/file_format/mod.rs','diagnostic_timing':'\$rust/revault_lockbox_api/src/file_format/diagnostic_timing.rs','cargo_lock'");
+  File('$out/build-attribution.dart').writeAsStringSync(build, flush: true);
+
+  var runner = File('/tmp/revault-tree-storage-meter-20261010/run-meter.dart').readAsStringSync();
+  runner = runner.replaceFirst("const base='/tmp/revault-tree-storage-meter-20261010';", "const base='$out';");
+  runner = runner.replaceFirst("'storage_meter':'\$rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe/storage_meter.rs','cargo_lock'", "'storage_meter':'\$rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe/storage_meter.rs','auth_index':'\$rust/revault_lockbox_api/src/file_format/authenticated_index.rs','publication_anchor':'\$rust/revault_lockbox_api/src/file_format/publication_anchor.rs','file_format_mod':'\$rust/revault_lockbox_api/src/file_format/mod.rs','diagnostic_timing':'\$rust/revault_lockbox_api/src/file_format/diagnostic_timing.rs','cargo_lock'");
+  runner = runner.replaceAll("reuse:f.name=='small512-mixed-compressed'", "reuse:false");
+  File('$out/run-attribution.dart').writeAsStringSync(runner, flush: true);
+  Process.runSync('chmod', ['+x', '$out/build-attribution.dart', '$out/run-attribution.dart']);
+  print('Prepared attribution scripts at $out');
+}

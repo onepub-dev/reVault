@@ -1,0 +1,62 @@
+Issue #310: current layout write gate after wide spare wiping and borrowed input
+Source revision: f4b1d91. Evidence only; no production changes in this checkpoint.
+Default protection_gate SHA256:
+0e150f89ab8717e8d4e69144840ec6562746b84fb026832c9ff8190697e94a41
+Native protection_gate SHA256:
+791178ff9a9de09314f4fe6cc4bdaff89c54d0c0fb8fdbf066866ed8f6c019a3
+Both freshly rebuilt from identical current source. Native alone enables
+native-block-layout. CSV main=default, branch=native, not before/after-change.
+Both builds contain wide spare-capacity wiping and direct large-slice ingestion.
+
+Repeat the established protocol: 8 MiB pattern/random, four protection modes,
+raw/compressed, default padding, synthetic content keys, no password KDF. Five
+ABBA/BAAB groups per corpus, three child samples, first discarded: 640 broad
+rows. Prespecified encrypted-signed/compressed/pattern focus: 15 groups, six
+samples per child, first discarded: 300 rows. Timed create/add/commit/drop
+excludes key generation and independent persisted byte comparison afterward.
+CPU 2, warm OS caches, no owned builds/tests overlap. Unrelated host work was
+not controlled. This is not ZIP timing or a power-loss/CLI lifecycle gate.
+Commands match cc7e382 evidence with both executables rebuilt at f4b1d91.
+
+Raw pattern writes have central reductions 48.5-62.9%; all random cases reduce
+48.2-61.6%. Every corresponding upper 95% bound is below zero. Compressed
+pattern central changes range +0.746% to +21.825%; all upper bounds exceed +5%.
+The broad encrypted-only compressed case is +21.825% [15.569%,42.506%].
+
+Prespecified encrypted-signed focus: +4.283%, 95% [-0.468%,+7.698%]. Pooled
+medians default 19.166150 ms, native 19.766960 ms. This does not establish a
+slowdown at 95%, but still FAILS the <=5% non-regression gate because the upper
+bound exceeds +5%. Earlier cc7e382 focus was +6.378% [1.064%,9.837%]; separate
+sessions and revisions must not be pooled or treated as a proven improvement
+trend. The common optimizations helped native before/after measurements but
+do not establish layout parity.
+
+The broad encrypted-only result prompted one fixed larger follow-up of that
+case: 15 ABBA/BAAB groups, six samples/child, first discarded, 300 measured rows.
+REVAULT_GATE_CHILD_SAMPLES=6 taskset -c 2 NATIVE compare-write DEFAULT NATIVE
+ROOT 8388608 pattern 15 encrypted/true/write
+Result: +10.169%, 95% [+6.179%,+17.034%]. Pooled medians default 15.936333 ms,
+native 17.420486 ms. This also FAILS the +5% gate, with the interval entirely
+above +5%. The follow-up was selected after seeing broad data; retain both
+observations and do not represent it as initially prespecified or pool them.
+It narrows investigation to encrypted compressed writes without signing cost.
+It does not prove any particular encoder, flush, allocator or syscall is causal.
+
+The existing summary bootstraps 5000 samples of whole paired groups using
+per-group median ratios, not independent correlated child samples. Pooled
+medians are descriptive and need not equal the paired estimate. Five-group
+broad intervals have limited precision; focused cases use 15 groups.
+All 1240 measured rows plus 440 warmup writes passed independent persisted byte
+verification. Both release builds succeeded. No new correctness tests claimed:
+f4b1d91 already records default + external-source 347 unit tests and executed
+integration/doc tests passing; native 351 passing plus two known recovery
+failures, followed by the new lifecycle test passing separately; Clippy passes.
+
+Next investigation: profile encrypted-only compressed writes and distinguish
+per-frame encoding/preparation and flush costs from codec work. Existing
+flush_discardable_pages invokes begin_preparation when dirty pages exist; its
+recovery and reused-extent protocol must be understood before changing flush
+frequency. The previously rejected compression-preparation batching experiment
+is not a test of all possible bounded flush strategies.
+Broad read parity, cold I/O, layout write gates, CLI write lifecycles, signed
+recovery and migration/binding/release work remain open. Native stays opt-in.

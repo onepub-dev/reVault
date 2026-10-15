@@ -3,6 +3,7 @@ use crate::commit_auth::{commit_auth_digest, commit_auth_message, encode_commit_
 use crate::commit_root::{encode_commit_root, CommitRoot};
 use crate::file_format::current_header::publish_header;
 use crate::file_format::header_v2::{self, Publication};
+use crate::file_format::page_commitment::PageCommitment;
 use crate::file_format::redaction_manifest::{
     bounded_ranges, encode_page as encode_redaction_manifest_page, RedactionManifestPage,
     RANGES_PER_PAGE,
@@ -118,13 +119,17 @@ impl Lockbox<crate::Writable> {
         self.flush_dirty_pages()?;
         self.retire_unreferenced_allocations()?;
         self.reserve_control_pages()?;
-        self.free_index_offset = self.write_free_index()?;
-        self.post_cleanup_free_index_offset = self.write_post_cleanup_free_index()?;
+        (self.free_index_offset, self.free_index_commitment) = self.write_free_index()?;
+        (
+            self.post_cleanup_free_index_offset,
+            self.post_cleanup_free_index_commitment,
+        ) = self.write_post_cleanup_free_index()?;
         self.sequence += 1;
         let redaction_ranges = self.redacted_free_slots.clone();
-        let (manifest_offset, range_count, total_bytes) =
+        let (manifest_offset, manifest_commitment, range_count, total_bytes) =
             self.append_redaction_manifest_pages(&redaction_ranges)?;
         self.redaction_manifest_offset = manifest_offset;
+        self.redaction_manifest_commitment = manifest_commitment;
         if !self.control_reservations.is_empty() {
             return Err(Error::CorruptRecord);
         }
@@ -140,15 +145,26 @@ impl Lockbox<crate::Writable> {
         let commit_root_payload = encode_commit_root(&CommitRoot {
             sequence: self.sequence,
             toc_root_offset,
+            toc_root_commitment: self.toc_root_commitment,
             variable_root_offset: self.variable_root_offset,
+            variable_root_commitment: self.variable_root_commitment,
             form_root_offset: self.forms.tree.root_offset,
+            form_root_commitment: self.form_root_commitment,
             free_index_root_offset: self.free_index_offset,
+            free_index_root_commitment: self.free_index_commitment,
             post_cleanup_free_index_root_offset: self.post_cleanup_free_index_offset,
+            post_cleanup_free_index_root_commitment: self.post_cleanup_free_index_commitment,
             key_directory_offset: self.key_directory.primary_offset,
             key_directory_mirror_offset: self.key_directory.mirror_offset,
             key_directory_generation: self.key_directory.generation,
+            key_directory_digest: crate::key_directory::key_directory_digest(
+                &self.key_slots,
+                self.lockbox_id,
+                self.key_directory.generation,
+            )?,
             previous_commit_root_offset: self.commit_root_offset,
             redaction_manifest_offset: self.redaction_manifest_offset,
+            redaction_manifest_commitment: self.redaction_manifest_commitment,
             redaction_range_count: u64::from(self.redaction_range_count),
             redaction_total_bytes: self.redaction_total_bytes,
             flags: u64::from(self.format_mode.0),
@@ -158,11 +174,6 @@ impl Lockbox<crate::Writable> {
         let lockbox_id = self.lockbox_id;
         let sequence = self.sequence;
         let commit_root_offset = self.commit_root_offset;
-        let content_digest = if self.format_mode.plaintext() && self.format_mode.signed() {
-            Some(self.signed_content_digest()?)
-        } else {
-            None
-        };
         let signer = if self.format_mode.signed() {
             Some(self.require_owner_signing_key()?)
         } else {
@@ -176,7 +187,6 @@ impl Lockbox<crate::Writable> {
             previous_auth_offset: previous_commit_auth_offset,
             previous_auth_digest: previous_commit_auth_digest,
             flags: u64::from(self.format_mode.0),
-            content_digest,
             signatures: signer
                 .map(|signer| signer.empty_signatures())
                 .unwrap_or_default(),
@@ -204,6 +214,7 @@ impl Lockbox<crate::Writable> {
             self.cleanup_published_redactions(|_| {})?;
             self.publish_transaction_header(self.sequence)?;
             self.free_index_offset = self.post_cleanup_free_index_offset;
+            self.free_index_commitment = self.post_cleanup_free_index_commitment;
         } else {
             // Keep both slots on the sealed publication even when no erasure
             // was necessary. Losing one slot must not revive an empty base.
@@ -262,15 +273,17 @@ impl Lockbox<crate::Writable> {
             return Ok(());
         }
         let old_offsets = self.key_directory.offsets();
+        let old_len = self.key_directory.physical_len;
         if self.key_slots.is_empty() {
             self.key_directory.clear();
             for offset in old_offsets {
-                self.zero_key_directory_page(offset)?;
+                self.zero_key_directory_page(offset, old_len)?;
             }
             return Ok(());
         }
         let key_slots = self.key_slots.clone();
         let mut offsets = [0u64; 2];
+        let mut physical_len = 0;
         for copy_index in 0..offsets.len() {
             let key_directory = encode_key_directory(
                 &key_slots,
@@ -278,8 +291,11 @@ impl Lockbox<crate::Writable> {
                 self.key_directory.generation,
                 copy_index as u32,
             )?;
-            let object =
-                PageObject::new(PageObjectKind::KeyDirectory, self.sequence, key_directory);
+            let object = PageObject::new(
+                PageObjectKind::KeyDirectory,
+                self.key_directory.generation,
+                key_directory,
+            );
             let page_size = crate::page::page_size_for_encoded_objects_with_format(
                 std::slice::from_ref(&object),
                 self.format_mode,
@@ -289,12 +305,14 @@ impl Lockbox<crate::Writable> {
             } else {
                 self.allocate_key_directory_mirror_offset(page_size, offsets[0])?
             };
-            self.write_decoded_page_at(page_offset, self.sequence, vec![object])?;
+            self.write_decoded_page_at(page_offset, self.key_directory.generation, vec![object])?;
+            physical_len = page_size;
             offsets[copy_index] = page_offset;
         }
         self.key_directory.publish(offsets);
+        self.key_directory.physical_len = physical_len;
         for offset in old_offsets {
-            self.zero_key_directory_page(offset)?;
+            self.zero_key_directory_page(offset, old_len)?;
         }
         Ok(())
     }
@@ -314,9 +332,11 @@ impl Lockbox<crate::Writable> {
         self.next_append_page_offset()
     }
 
-    fn zero_key_directory_page(&mut self, offset: u64) -> Result<()> {
+    fn zero_key_directory_page(&mut self, offset: u64, page_len: u64) -> Result<()> {
         if offset != 0 {
-            let page_len = self.page_len_at(offset)?;
+            if page_len == 0 {
+                return Err(Error::CorruptRecord);
+            }
             self.zero_page_and_free(crate::free_slot::FreeSlot {
                 offset,
                 len: page_len,
@@ -341,11 +361,13 @@ impl Lockbox<crate::Writable> {
     fn rebuild_toc_btree(&mut self) -> Result<u64> {
         let entries = self.toc_entries.values().cloned().collect::<Vec<_>>();
         if entries.is_empty() {
-            let offset = self.write_toc_leaf(&[])?;
+            let (offset, commitment) = self.write_toc_leaf(&[])?;
             let leaf = TocLeaf {
                 offset,
+                commitment,
                 entries: Vec::new(),
             };
+            self.toc_root_commitment = commitment;
             self.toc_tree.root = Some(TocTreeNode::Leaf(leaf.clone()));
             self.toc_tree.leaves = vec![leaf];
             return Ok(offset);
@@ -353,14 +375,16 @@ impl Lockbox<crate::Writable> {
 
         let mut leaves = Vec::new();
         for chunk in toc_leaf_groups(&entries)? {
-            let offset = self.write_toc_leaf(chunk)?;
+            let (offset, commitment) = self.write_toc_leaf(chunk)?;
             leaves.push(TocLeaf {
                 offset,
+                commitment,
                 entries: chunk.to_vec(),
             });
         }
         let root_node = self.write_toc_tree_for_leaves(&leaves)?;
         let root = root_node.offset();
+        self.toc_root_commitment = root_node.commitment();
         self.toc_tree.replace_topology(root_node, leaves);
         Ok(root)
     }
@@ -377,9 +401,10 @@ impl Lockbox<crate::Writable> {
                 LeafRewrite::Reuse(leaf) => rebuilt_leaves.push(leaf),
                 LeafRewrite::Write(entries) => {
                     for chunk in toc_leaf_groups(&entries)? {
-                        let offset = self.write_toc_leaf(chunk)?;
+                        let (offset, commitment) = self.write_toc_leaf(chunk)?;
                         rebuilt_leaves.push(TocLeaf {
                             offset,
+                            commitment,
                             entries: chunk.to_vec(),
                         });
                     }
@@ -387,9 +412,10 @@ impl Lockbox<crate::Writable> {
             }
         }
         if rebuilt_leaves.is_empty() {
-            let offset = self.write_toc_leaf(&[])?;
+            let (offset, commitment) = self.write_toc_leaf(&[])?;
             rebuilt_leaves.push(TocLeaf {
                 offset,
+                commitment,
                 entries: Vec::new(),
             });
         }
@@ -401,6 +427,7 @@ impl Lockbox<crate::Writable> {
             self.write_toc_tree_for_leaves(&rebuilt_leaves)?
         };
         let root = root_node.offset();
+        self.toc_root_commitment = root_node.commitment();
         self.toc_tree.replace_topology(root_node, rebuilt_leaves);
         Ok(root)
     }
@@ -424,17 +451,19 @@ impl Lockbox<crate::Writable> {
                     Ok(TocChild {
                         first_path: crate::LockboxPath::from_stored(node.first_path(), false)?,
                         offset: node.offset(),
+                        commitment: node.commitment(),
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
             for chunk in toc_child_groups(&children)? {
-                let offset = self.write_toc_internal(chunk)?;
+                let (offset, commitment) = self.write_toc_internal(chunk)?;
                 let start = child_cursor;
                 let end = start + chunk.len();
                 child_cursor = end;
                 let child_nodes = level[start..end].to_vec();
                 next_level.push(TocTreeNode::Internal(TocInternal {
                     offset,
+                    commitment,
                     children: child_nodes,
                 }));
             }
@@ -462,6 +491,7 @@ impl Lockbox<crate::Writable> {
             }
             TocTreeNode::Internal(old_internal) => {
                 let old_offset = old_internal.offset;
+                let old_commitment = old_internal.commitment;
                 let mut changed = false;
                 let mut children = Vec::with_capacity(old_internal.children.len());
                 for child in old_internal.children {
@@ -478,6 +508,7 @@ impl Lockbox<crate::Writable> {
                 if !changed {
                     return Ok(TocTreeNode::Internal(TocInternal {
                         offset: old_offset,
+                        commitment: old_commitment,
                         children,
                     }));
                 }
@@ -487,46 +518,69 @@ impl Lockbox<crate::Writable> {
                         Ok(TocChild {
                             first_path: crate::LockboxPath::from_stored(child.first_path(), false)?,
                             offset: child.offset(),
+                            commitment: child.commitment(),
                         })
                     })
                     .collect::<Result<Vec<_>>>()?;
-                let offset = self.write_toc_internal(&toc_children)?;
-                Ok(TocTreeNode::Internal(TocInternal { offset, children }))
+                let (offset, commitment) = self.write_toc_internal(&toc_children)?;
+                Ok(TocTreeNode::Internal(TocInternal {
+                    offset,
+                    commitment,
+                    children,
+                }))
             }
         }
     }
 
-    fn write_toc_leaf(&mut self, entries: &[crate::toc_entry::TocEntry]) -> Result<u64> {
+    fn write_toc_leaf(
+        &mut self,
+        entries: &[crate::toc_entry::TocEntry],
+    ) -> Result<(u64, PageCommitment)> {
         let payload = encode_toc_leaf(entries)?;
         self.sequence += 1;
         self.append_toc_page(PageObjectKind::TocLeaf, payload)
     }
 
-    fn write_toc_internal(&mut self, children: &[TocChild]) -> Result<u64> {
+    fn write_toc_internal(&mut self, children: &[TocChild]) -> Result<(u64, PageCommitment)> {
         let payload = encode_toc_internal(children)?;
         self.sequence += 1;
         self.append_toc_page(PageObjectKind::TocInternal, payload)
     }
 
-    fn append_toc_page(&mut self, kind: PageObjectKind, payload: Vec<u8>) -> Result<u64> {
+    fn append_toc_page(
+        &mut self,
+        kind: PageObjectKind,
+        payload: Vec<u8>,
+    ) -> Result<(u64, PageCommitment)> {
         let object = PageObject::new(kind, self.sequence, payload);
-        let page_offset =
-            self.allocate_page_offset(crate::page::page_size_for_encoded_objects_with_format(
-                std::slice::from_ref(&object),
-                self.format_mode,
-            )? as u64)?;
-        self.write_decoded_page_at(page_offset, self.sequence, vec![object])?;
-        Ok(page_offset)
+        let page_size = crate::page::page_size_for_encoded_objects_with_format(
+            std::slice::from_ref(&object),
+            self.format_mode,
+        )? as u64;
+        let page_offset = self.allocate_page_offset(page_size)?;
+        let page = crate::page::DecodedPage {
+            page_id: page_offset,
+            sequence: self.sequence,
+            objects: vec![object],
+        };
+        let commitment =
+            PageCommitment::from_page(self.lockbox_id, self.format_mode, page_size, &page)?;
+        self.write_decoded_page_at(page_offset, self.sequence, page.objects)?;
+        Ok((page_offset, commitment))
     }
 
-    fn write_free_index(&mut self) -> Result<u64> {
+    fn write_free_index(
+        &mut self,
+    ) -> Result<(u64, crate::file_format::page_commitment::PageCommitment)> {
         let slots = self.free_space.slots_by_offset();
         self.write_free_index_slots(&slots)
     }
 
-    fn write_post_cleanup_free_index(&mut self) -> Result<u64> {
+    fn write_post_cleanup_free_index(
+        &mut self,
+    ) -> Result<(u64, crate::file_format::page_commitment::PageCommitment)> {
         if self.redacted_free_slots.is_empty() {
-            return Ok(0);
+            return Ok((0, Default::default()));
         }
         let mut post_cleanup = self.free_space.clone();
         for slot in self.redacted_free_slots.iter().copied() {
@@ -536,40 +590,49 @@ impl Lockbox<crate::Writable> {
         self.write_free_index_slots(&slots)
     }
 
-    fn write_free_index_slots(&mut self, slots: &[crate::free_slot::FreeSlot]) -> Result<u64> {
+    fn write_free_index_slots(
+        &mut self,
+        slots: &[crate::free_slot::FreeSlot],
+    ) -> Result<(u64, crate::file_format::page_commitment::PageCommitment)> {
         if slots.is_empty() {
-            return Ok(0);
+            return Ok((0, Default::default()));
         }
         self.sequence += 1;
         let mut level = Vec::new();
         for group in free_index_leaf_groups(slots) {
-            let offset = self.write_free_index_page(
+            let (offset, commitment) = self.write_free_index_page(
                 PageObjectKind::FreeIndexLeaf,
                 encode_free_index_leaf(group),
             )?;
             level.push(FreeIndexChild {
                 first_offset: group[0].offset,
                 offset,
+                commitment,
             });
         }
         while level.len() > 1 {
             let mut next = Vec::new();
             for group in free_index_child_groups(&level) {
-                let offset = self.write_free_index_page(
+                let (offset, commitment) = self.write_free_index_page(
                     PageObjectKind::FreeIndexInternal,
                     encode_free_index_internal(group),
                 )?;
                 next.push(FreeIndexChild {
                     first_offset: group[0].first_offset,
                     offset,
+                    commitment,
                 });
             }
             level = next;
         }
-        Ok(level[0].offset)
+        Ok((level[0].offset, level[0].commitment))
     }
 
-    fn write_free_index_page(&mut self, kind: PageObjectKind, payload: Vec<u8>) -> Result<u64> {
+    fn write_free_index_page(
+        &mut self,
+        kind: PageObjectKind,
+        payload: Vec<u8>,
+    ) -> Result<(u64, crate::file_format::page_commitment::PageCommitment)> {
         self.write_control_page(kind, payload)
     }
 
@@ -590,10 +653,15 @@ impl Lockbox<crate::Writable> {
     fn append_redaction_manifest_pages(
         &mut self,
         ranges: &[crate::free_slot::FreeSlot],
-    ) -> Result<(u64, u32, u64)> {
+    ) -> Result<(
+        u64,
+        crate::file_format::page_commitment::PageCommitment,
+        u32,
+        u64,
+    )> {
         let ranges = bounded_ranges(ranges)?;
         if ranges.is_empty() {
-            return Ok((0, 0, 0));
+            return Ok((0, Default::default(), 0, 0));
         }
         let total_range_count = u32::try_from(ranges.len()).map_err(|_| {
             Error::SecurityLimitExceeded("redaction range count exceeds u32".to_string())
@@ -610,18 +678,26 @@ impl Lockbox<crate::Writable> {
             )));
         }
         let mut next_page_offset = 0;
+        let mut next_page_commitment = Default::default();
         for chunk in ranges.chunks(RANGES_PER_PAGE).rev() {
             let payload = encode_redaction_manifest_page(&RedactionManifestPage {
                 transaction_sequence: self.sequence,
                 next_page_offset,
+                next_page_commitment,
                 total_range_count,
                 ranges: chunk.to_vec(),
             })?;
-            let page_offset =
+            let (page_offset, commitment) =
                 self.write_control_page(PageObjectKind::RedactionManifest, payload)?;
             next_page_offset = page_offset;
+            next_page_commitment = commitment;
         }
-        Ok((next_page_offset, total_range_count, total_bytes))
+        Ok((
+            next_page_offset,
+            next_page_commitment,
+            total_range_count,
+            total_bytes,
+        ))
     }
 }
 
@@ -766,6 +842,7 @@ mod tests {
     use crate::constants::DEFAULT_FILE_PERMISSIONS;
     use crate::lockbox_path::LockboxPath;
     use crate::node_kind::NodeKind;
+    use crate::storage::StorageBackend;
     use crate::toc_entry::TocEntry;
     use crate::{
         Error, FormFieldDefinition, FormFieldKind, LockboxOpen, LockboxProtection,
@@ -777,6 +854,263 @@ mod tests {
 
     fn p(path: impl AsRef<str>) -> LockboxPath {
         LockboxPath::new(path).unwrap()
+    }
+
+    // Adversarial native format-4 audit: direct byte changes deliberately model attackers,
+    // not supported editing APIs. These tests record current limitations in both
+    // signed and unsigned encrypted archives; they do not change format policy.
+    #[test]
+    fn signature_audit_authenticated_empty_state_reopens_and_commits() {
+        let key = b"synthetic-empty-archive-key";
+        let mut archive = Lockbox::create(key);
+        let bytes = archive.storage.read_all().unwrap();
+        let header = crate::file_format::read_header(&bytes).unwrap();
+        assert_eq!(header.sequence, 0);
+        assert_ne!(header.metadata_auth_tag, [0; 24]);
+        let empty = Lockbox::open_storage(
+            StorageBackend::memory(bytes.clone()),
+            key,
+            crate::LockboxOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(empty.sequence, 0);
+        assert!(Lockbox::open_storage(
+            StorageBackend::memory(bytes.clone()),
+            b"wrong key",
+            crate::LockboxOptions::default(),
+        )
+        .is_err());
+        let mut unauthenticated = bytes;
+        unauthenticated[128..152].fill(0);
+        let checksum = crate::crypto::strong_checksum(&unauthenticated[..160]);
+        unauthenticated[160..192].copy_from_slice(&checksum);
+        assert!(Lockbox::open_storage(
+            StorageBackend::memory(unauthenticated),
+            key,
+            crate::LockboxOptions::default(),
+        )
+        .is_err());
+        archive
+            .set_variable(&VariableName::new("VALUE").unwrap(), "first")
+            .unwrap();
+        archive.commit().unwrap();
+        let reopened = Lockbox::open_storage(
+            StorageBackend::memory(archive.to_bytes()),
+            key,
+            crate::LockboxOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            reopened
+                .get_variable(&VariableName::new("VALUE").unwrap())
+                .unwrap()
+                .as_deref(),
+            Some("first")
+        );
+    }
+
+    fn signature_audit_archive(signed: bool) -> Lockbox {
+        let signer = OwnerSigningKeyPair::generate().unwrap();
+        let mut archive = Lockbox::create_in_memory_with_options(crate::LockboxCreateOptions {
+            compression: crate::Compression::None,
+            ..crate::LockboxCreateOptions::new(
+                crate::Encryption::Encrypted(LockboxProtection::ContentKey(
+                    crate::SecretVec::try_from_slice(b"signature-audit-content-key").unwrap(),
+                )),
+                if signed {
+                    crate::Signing::Owner(&signer)
+                } else {
+                    crate::Signing::None
+                },
+            )
+        })
+        .unwrap();
+        archive
+            .add_password(&SecretString::try_from_slice(b"signature-audit-password").unwrap())
+            .unwrap();
+        archive
+            .set_variable(&VariableName::new("VALUE").unwrap(), "alpha")
+            .unwrap();
+        archive.commit().unwrap();
+        archive
+    }
+
+    fn signature_audit_open(
+        bytes: Vec<u8>,
+        cache_limit: crate::CacheLimit,
+    ) -> crate::Result<Lockbox<crate::ReadOnly>> {
+        let opened = Lockbox::open_bytes_with_password(
+            &bytes,
+            &SecretString::try_from_slice(b"signature-audit-password").unwrap(),
+        )?;
+        Ok(Lockbox::open_storage_with_secret_key(
+            StorageBackend::memory(bytes),
+            opened.try_clone_key()?,
+            crate::LockboxOptions {
+                cache_limit,
+                ..crate::LockboxOptions::default()
+            },
+        )?
+        .into_state())
+    }
+
+    #[test]
+    fn signature_audit_ciphertext_bitflips_and_mode_downgrades_are_rejected() {
+        for (signed, cache) in [false, true].into_iter().flat_map(|signed| {
+            [
+                crate::CacheLimit::Bytes(0),
+                crate::CacheLimit::Bytes(4 * 1024 * 1024),
+            ]
+            .map(|cache| (signed, cache))
+        }) {
+            let archive = signature_audit_archive(signed);
+            for offset in [archive.commit_root_offset, archive.commit_auth_offset] {
+                let mut bytes = archive.to_bytes();
+                bytes[offset as usize + crate::page::PAGE_HEADER_LEN + 4] ^= 1;
+                assert!(signature_audit_open(bytes, cache).is_err());
+            }
+            let mut bytes = archive.to_bytes();
+            let header = crate::file_format::read_header(&bytes).unwrap();
+            let start = header.slot_index * crate::file_format::header_v2::SLOT_LEN;
+            bytes[start + 10] ^= 2;
+            let checksum = crate::crypto::strong_checksum(&bytes[start..start + 160]);
+            bytes[start + 160..start + 192].copy_from_slice(&checksum);
+            assert!(signature_audit_open(bytes, cache).is_err());
+        }
+    }
+
+    #[test]
+    fn signature_audit_zero_sequence_header_cannot_hide_committed_content() {
+        for (signed, cache) in [false, true].into_iter().flat_map(|signed| {
+            [
+                crate::CacheLimit::Bytes(0),
+                crate::CacheLimit::Bytes(4 * 1024 * 1024),
+            ]
+            .map(|cache| (signed, cache))
+        }) {
+            let archive = signature_audit_archive(signed);
+            let mut bytes = archive.to_bytes();
+            let header = crate::file_format::read_header(&bytes).unwrap();
+            let start = header.slot_index * crate::file_format::header_v2::SLOT_LEN;
+            // Outsider uses only the public checksum, not a MAC or owner key.
+            bytes[start + 24..start + 40].fill(0); // root and sequence
+            bytes[start + 72..start + 104].fill(0); // auth and cleanup
+            let checksum = crate::crypto::strong_checksum(&bytes[start..start + 160]);
+            bytes[start + 160..start + 192].copy_from_slice(&checksum);
+            assert!(signature_audit_open(bytes, cache).is_err());
+        }
+    }
+
+    #[test]
+    fn signature_audit_old_variable_ciphertext_is_rejected_without_keys() {
+        for (signed, cache) in [false, true].into_iter().flat_map(|signed| {
+            [
+                crate::CacheLimit::Bytes(0),
+                crate::CacheLimit::Bytes(4 * 1024 * 1024),
+            ]
+            .map(|cache| (signed, cache))
+        }) {
+            let mut archive = signature_audit_archive(signed);
+            let old_bytes = archive.to_bytes();
+            let old_offset = archive.variable_root_offset as usize;
+            let old_page = crate::page::page_decode_slice(&old_bytes, old_offset)
+                .unwrap()
+                .to_vec();
+            archive
+                .set_variable(&VariableName::new("VALUE").unwrap(), "bravo")
+                .unwrap();
+            archive.commit().unwrap();
+            let mut latest = archive.to_bytes();
+            let latest_offset = archive.variable_root_offset as usize;
+            let latest_page = crate::page::page_decode_slice(&latest, latest_offset).unwrap();
+            assert_eq!(old_page.len(), latest_page.len());
+            assert_eq!(
+                signature_audit_open(latest.clone(), cache)
+                    .unwrap()
+                    .get_variable(&VariableName::new("VALUE").unwrap())
+                    .unwrap()
+                    .as_deref(),
+                Some("bravo")
+            );
+            // Copy an earlier authenticated page verbatim; no password/content
+            // key/owner signing key is used to perform the substitution.
+            latest[latest_offset..latest_offset + old_page.len()].copy_from_slice(&old_page);
+            let rejected = match signature_audit_open(latest, cache) {
+                Err(_) => true,
+                Ok(opened) => opened
+                    .get_variable(&VariableName::new("VALUE").unwrap())
+                    .is_err(),
+            };
+            assert!(
+                rejected,
+                "replayed variable ciphertext must not be returned"
+            );
+        }
+    }
+
+    #[test]
+    fn signature_audit_public_key_slot_ids_cannot_be_changed_without_keys() {
+        for (signed, cache) in [false, true].into_iter().flat_map(|signed| {
+            [
+                crate::CacheLimit::Bytes(0),
+                crate::CacheLimit::Bytes(4 * 1024 * 1024),
+            ]
+            .map(|cache| (signed, cache))
+        }) {
+            let archive = signature_audit_archive(signed);
+            let mut bytes = archive.to_bytes();
+            for offset in [
+                archive.key_directory.primary_offset,
+                archive.key_directory.mirror_offset,
+            ] {
+                let mut directory = crate::key_directory::read_key_directory(
+                    &bytes,
+                    offset,
+                    Some(archive.lockbox_id),
+                )
+                .unwrap();
+                for slot in &mut directory.slots {
+                    match slot {
+                        crate::key_slot::KeySlot::Password { id, .. }
+                        | crate::key_slot::KeySlot::HybridContact { id, .. } => *id += 100,
+                    }
+                }
+                let page = crate::page::page_decode_slice(&bytes, offset as usize).unwrap();
+                let page_size = crate::page::physical_page_size_from_page_slice(page).unwrap();
+                let mut decoded = crate::page::decode_page(page, archive.lockbox_id, &[]).unwrap();
+                let object = decoded
+                    .objects
+                    .iter_mut()
+                    .find(|object| object.kind == PageObjectKind::KeyDirectory)
+                    .unwrap();
+                object.payload = crate::page::PagePayload::normal(
+                    crate::key_directory::encode_key_directory(
+                        &directory.slots,
+                        directory.lockbox_id,
+                        directory.generation,
+                        directory.copy_index,
+                    )
+                    .unwrap(),
+                );
+                // Key-directory pages are public; only public checksums change.
+                let replacement = crate::page::encode_page_with_format(
+                    page_size,
+                    archive.lockbox_id,
+                    decoded.page_id,
+                    decoded.sequence,
+                    &[],
+                    &decoded.objects,
+                    archive.format_mode,
+                )
+                .unwrap();
+                bytes[offset as usize..offset as usize + replacement.len()]
+                    .copy_from_slice(&replacement);
+            }
+            assert!(
+                signature_audit_open(bytes, cache).is_err(),
+                "modified access metadata must reject after unlocking"
+            );
+        }
     }
 
     fn add_file<State>(
@@ -1181,14 +1515,41 @@ mod tests {
 
         let survivor = lb.toc_entries.get(contents[40].0.as_str()).unwrap();
         let segment = &survivor.chunks[0].segments[0];
-        let relocated = lb.read_page(segment.page_offset).unwrap();
-        assert_eq!(
-            segment.page_len,
-            crate::page::page_size_for_objects(&relocated.objects) as u64
-        );
+        if let Some(reference) = &survivor.chunks[0].block_frame {
+            let bytes = lb.to_bytes();
+            let relocated = lb
+                .key
+                .with_bytes(|key| {
+                    crate::file_format::indexed_frame::block_page::scan(
+                        &bytes,
+                        segment.page_offset as usize,
+                        lb.lockbox_id,
+                        lb.format_mode,
+                        key,
+                    )
+                })
+                .unwrap()
+                .unwrap();
+            assert_eq!(segment.page_len, relocated.physical_len as u64);
+            assert_eq!(segment.object_id, relocated.page_id);
+            assert_eq!(reference.descriptor, relocated.descriptor);
+            assert_eq!(reference.sequence, relocated.sequence);
+        } else {
+            let relocated = lb.read_page(segment.page_offset).unwrap();
+            assert_eq!(
+                segment.page_len,
+                crate::page::page_size_for_objects(&relocated.objects) as u64
+            );
+        }
 
         let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
         assert_eq!(reopened.get_file(&contents[40].0).unwrap(), contents[40].1);
+        reopened.inspector().verify_storage().unwrap();
+        for (index, (path, _)) in contents.iter().enumerate() {
+            if index != 40 {
+                assert!(reopened.get_file(path).is_err());
+            }
+        }
     }
 
     #[test]
@@ -1312,7 +1673,9 @@ mod tests {
     fn reopened_transaction_state(bytes: Vec<u8>) -> ReopenedTransactionState {
         match Lockbox::open_bytes_with_key(bytes, "secret") {
             Ok(opened) => {
+                assert_eq!(opened.get_file(&p("/docs/keep.txt")).unwrap(), b"keep");
                 if opened.get_file(&p("/docs/new.txt")).is_ok() {
+                    assert_eq!(opened.get_file(&p("/docs/new.txt")).unwrap(), b"new");
                     assert!(matches!(
                         opened.get_file(&p("/docs/remove.txt")),
                         Err(Error::NotFound(_))
@@ -1351,20 +1714,61 @@ mod tests {
         recovering.to_bytes()
     }
 
-    fn redaction_transaction() -> Lockbox {
+    fn redaction_transaction_base(mode: crate::creation_options::FormatMode) -> Lockbox {
         let mut lb = Lockbox::create("secret");
+        // Unit-only mode selection keeps one known raw recovery key across all
+        // modes. Public creation/persistence is covered by native_layout.rs.
+        lb.set_creation_format(mode);
         add_file(&mut lb, &p("/docs/remove.txt"), b"remove me", false).unwrap();
         add_file(&mut lb, &p("/docs/keep.txt"), b"keep", false).unwrap();
         lb.commit().unwrap();
-        lb.delete(&p("/docs/remove.txt")).unwrap();
-        add_file(&mut lb, &p("/docs/new.txt"), b"new", false).unwrap();
         lb
+    }
+
+    fn stage_redaction_transaction(lb: &mut Lockbox) -> Result<()> {
+        lb.delete(&p("/docs/remove.txt"))?;
+        add_file(lb, &p("/docs/new.txt"), b"new", false)
+    }
+
+    fn retry_redaction_transaction(lb: &mut Lockbox, staged: bool) {
+        if !staged {
+            lb.abort().unwrap();
+            stage_redaction_transaction(lb).unwrap();
+        }
+        lb.commit().unwrap();
+        assert_eq!(
+            reopened_transaction_state(lb.to_bytes()),
+            ReopenedTransactionState::PublishedCommit
+        );
     }
 
     #[test]
     fn every_storage_failure_yields_previous_published_or_recoverable_state() {
-        let mut successful = redaction_transaction();
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            for signing in [SigningMode::None, SigningMode::Owner] {
+                for compression in [Compression::None, Compression::default()] {
+                    for size_padding in [SizePadding::Default, SizePadding::None] {
+                        let mode = crate::creation_options::FormatMode::new(LockboxFormatOptions {
+                            encryption,
+                            signing,
+                            compression,
+                            size_padding,
+                        });
+                        assert_every_storage_failure(mode);
+                    }
+                }
+            }
+        }
+    }
+
+    fn assert_every_storage_failure(mode: crate::creation_options::FormatMode) {
+        let mut successful = redaction_transaction_base(mode);
         successful.storage.reset_memory_operation_count();
+        // Native packed-page deletion can publish preparation and write the
+        // survivor before commit. Inject across the entire mutation lifecycle,
+        // not only commit. There is no public API for storage fault injection.
+        stage_redaction_transaction(&mut successful).unwrap();
         successful.commit().unwrap();
         let operation_count = successful.storage.memory_operation_count();
         assert!(
@@ -1378,28 +1782,28 @@ mod tests {
         let mut saw_published = false;
 
         for failure_after in 0..operation_count {
-            let mut lb = redaction_transaction();
+            let mut lb = redaction_transaction_base(mode);
             lb.storage
                 .fail_memory_operation_after_successes(failure_after);
+            let mutation = stage_redaction_transaction(&mut lb);
+            let staged = mutation.is_ok();
             assert!(
-                lb.commit().is_err(),
+                mutation.and_then(|_| lb.commit()).is_err(),
                 "operation {failure_after} did not fail"
             );
             let bytes = lb.to_bytes();
 
             match reopened_transaction_state(bytes.clone()) {
                 ReopenedTransactionState::PreviousCommit => {
-                    assert_eq!(lb.get_file(&p("/docs/new.txt")).unwrap(), b"new");
+                    if staged {
+                        assert_eq!(lb.get_file(&p("/docs/new.txt")).unwrap(), b"new");
+                    }
                     if lb.poisoned.is_some() {
                         saw_previous_poisoned = true;
                         assert!(lb.commit().is_err(), "poisoned handle allowed a retry");
                     } else {
                         saw_previous_retryable = true;
-                        lb.commit().unwrap();
-                        assert_eq!(
-                            reopened_transaction_state(lb.to_bytes()),
-                            ReopenedTransactionState::PublishedCommit
-                        );
+                        retry_redaction_transaction(&mut lb, staged);
                     }
                 }
                 ReopenedTransactionState::RecoveryRequired => {
@@ -1416,11 +1820,7 @@ mod tests {
                     );
                     if header.preparing && lb.poisoned.is_none() {
                         saw_previous_retryable = true;
-                        lb.commit().unwrap();
-                        assert_eq!(
-                            reopened_transaction_state(lb.to_bytes()),
-                            ReopenedTransactionState::PublishedCommit
-                        );
+                        retry_redaction_transaction(&mut lb, staged);
                     }
                     assert_eq!(recover_memory_transaction(recovered.clone()), recovered);
                 }
@@ -1440,6 +1840,10 @@ mod tests {
         assert!(
             saw_published,
             "no ambiguous final publication was exercised"
+        );
+        eprintln!(
+            "fault sweep mode={} boundaries={operation_count}: all publication states covered",
+            mode.0
         );
     }
 
@@ -1815,7 +2219,11 @@ mod tests {
         let mut post_cleanup_space = crate::free_slot::FreeSpace::default();
         post_cleanup_space.replace_slots(
             recovering
-                .read_free_index_slots(recovering.post_cleanup_free_index_offset, 0)
+                .read_free_index_slots(
+                    recovering.post_cleanup_free_index_offset,
+                    recovering.post_cleanup_free_index_commitment,
+                    0,
+                )
                 .unwrap(),
         );
         assert!(post_cleanup_space.contains(removed_slot));
@@ -2105,8 +2513,10 @@ mod tests {
     fn access_widening_compacts_abandoned_prepare_pages_out_of_the_archive() {
         let old_password = crate::SecretString::try_from_bytes(b"old password".to_vec()).unwrap();
         let new_password = crate::SecretString::try_from_bytes(b"new password".to_vec()).unwrap();
-        let mut lb = Lockbox::create_with_password(&old_password).unwrap();
-        let signing_key = lb.require_owner_signing_key().unwrap().try_clone().unwrap();
+        let signing_key = OwnerSigningKeyPair::generate().unwrap();
+        let mut lb =
+            Lockbox::create_in_memory(LockboxProtection::Password(&old_password), &signing_key)
+                .unwrap();
         add_file(&mut lb, &p("/docs/live.txt"), b"live", false).unwrap();
         lb.commit().unwrap();
 
@@ -2179,6 +2589,7 @@ mod tests {
                 record_offset: 0,
                 record_len: 0,
                 record_object_id: 1,
+                record_digest: [0; 32],
                 deleted: false,
                 node_kind: NodeKind::File,
                 permissions: DEFAULT_FILE_PERMISSIONS,

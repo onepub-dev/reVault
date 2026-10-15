@@ -1,5 +1,59 @@
 # Changelog
 
+## Unreleased
+
+- Invalidate retired cached pages during authenticated cleanup, preventing
+  stale control-page entries from blocking later native file allocations.
+  Overlap checks and pending-write protection remain enforced.
+
+- Recover signed native files when stale data trails an otherwise intact
+  publication. Recovery authenticates a private copy bounded to the published
+  length; header tags, owner signatures and content verification remain required.
+
+- Skip the unused legacy whole-frame checksum during native import preparation.
+  Native block/index verification and the single codec pass remain unchanged;
+  legacy writes still compute and require their original whole-frame checksum.
+
+- Reduce duplicate source validation and intermediate buffer copying in the
+  experimental native reader. Full padded extents, per-block integrity checks,
+  and external failure latching remain enforced; failed direct reads wipe the
+  caller's buffer. This does not change compression or archive bytes.
+
+- Add the non-default `native-block-layout` experiment for public-API/CLI and
+  performance testing of one indexed layout across all protection modes. Normal
+  builds retain the existing writer pending migration and performance gates;
+  ZIP parity is not yet achieved. Experimental readers preserve the public
+  content-key length contract and authenticate repaired-header recovery copies.
+
+- Keep page-flush length accounting current when retrying a partially appended
+  file page, so the following page is not preceded by an unintended gap.
+
+- Extend storage source-current checks to external-source cancellation,
+  revision/length changes and latched transport failures.
+
+- Avoid copying full file frames merely to size their page allocations. Raw
+  page sizes are calculated from framing and payload lengths; compression,
+  encryption and stored bytes are unchanged by this optimization.
+
+- Add creation-time `SizePadding::None` and CLI `--no-size-padding` for compact
+  small lockboxes. The choice is persisted in native v4 and applies to every
+  encryption/signing mode; default size-hiding padding is unchanged. Opting out
+  reveals more about stored content lengths and does not remove headers,
+  signatures, encryption tags, recovery metadata or reusable free space.
+- Refresh the in-memory free index after interrupted-commit cleanup so the
+  recovered write handle can immediately account for and reuse reclaimed space.
+
+- Reduce large-file read copying and secure-buffer wiping overhead, and share
+  verified raw-page data with seekable readers. These reader improvements also
+  apply to existing archives; checksum, encryption and signature checks remain
+  in place.
+- Allow concurrent Unix positional reads on a shared archive handle while
+  retaining exclusive access for writes and truncation.
+- Preserve compression of repetitive binary data that previously looked
+  incompressible to the entropy heuristic. Keep the requested Zstd encoder
+  single-pass: the experimental second encoder was withdrawn because it slowed
+  writes. Existing-archive reader improvements do not require recompression.
+
 ## 0.0.11 - 2026-09-08
 
 - Give newer lockbox formats direct upgrade guidance instead of suggesting

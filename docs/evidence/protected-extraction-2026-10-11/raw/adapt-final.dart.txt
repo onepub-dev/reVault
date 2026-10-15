@@ -1,0 +1,36 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const e='/home/bsutton/.cache/revault-protected-20261011-evidence';
+String hash(String p){final r=Process.runSync('sha256sum',[p]);if(r.exitCode!=0)throw StateError('hash failed');return '${r.stdout}'.split(' ').first;}
+void main(){
+ var s=File('$e/recovery-run.dart').readAsStringSync();
+ s=s.replaceFirst("spec.name == 'source-expanded-1gib-compressed-encrypted' || spec.name.startsWith('random-1gib')","spec.name.startsWith('random-1gib')");
+ s=s.replaceAll('recovery-buffered-batch','final-buffered-batch');
+ s=s.replaceAll('extract-output/protected-recovery','extract-output/protected-final');
+ s=s.replaceFirst('final cacheGate = _evictAndInspect(inputPath);','final cacheGate = await _admitCold(inputPath);');
+ final insert=s.indexOf('Never usage()');
+ s=s.substring(0,insert)+r'''
+Future<Map<String,dynamic>> _admitCold(String path) async {
+ final attempts=<Map<String,dynamic>>[];
+ for(var attempt=0;attempt<3;attempt++) {
+  if(attempt>0)await Future<void>.delayed(const Duration(milliseconds:100));
+  final result=_evictAndInspect(path);
+  attempts.add({'attempt':attempt,...result});
+  if(result['success']==true || result['sync_exit_code']!=0 || result['fadvise_exit_code']!=0 || result['fincore_exit_code']!=0 || attempt==2) {
+   return {...result,'eviction_attempts':attempts,'maximum_eviction_attempts':3,'inter_attempt_delay_ms':100,'admission_selection':'exact zero residency only; no extraction started for failed attempts; independent of timing'};
+  }
+ }
+ throw StateError('Unreachable admission loop');
+}
+''' + s.substring(insert);
+ s=s.replaceFirst("'calibration_sha256': _sha('\$evidenceRoot/physical-read-calibration.json'),", "'calibration_sha256': _sha('\$evidenceRoot/physical-read-calibration.json'),\n    'final_admission_policy_sha256': _sha('\$evidenceRoot/final-admission-policy.json'),");
+ s=s.replaceFirst("'source_revision', 'worktree_status', 'source_hashes', 'runner_sha256',", "'source_revision', 'worktree_status', 'source_hashes', 'runner_sha256', 'final_admission_policy_sha256',");
+ File('$e/final-run.dart').writeAsStringSync(s);
+ final recovery=jsonDecode(File('$e/recovery-executables.json').readAsStringSync()) as Map;
+ for(final prefix in ['tree','zip'])if(hash(recovery['${prefix}_path'] as String)!=recovery['${prefix}_sha256'])throw StateError('Recovery binaries changed');
+ final dest=File('$e/final-admission-policy.json');if(dest.existsSync())throw StateError('Refuse refreezing');
+ dest.writeAsStringSync(const JsonEncoder.withIndent('  ').convert({'change':'bounded pre-process advisory-eviction retry only; no native source, codec, integrity, storage-read threshold, sample-count or timing changes','cases':['random-1gib-raw-encrypted','random-1gib-compressed-encrypted'],'rounds_each':16,'excluded_preparatory_each':4,'measured_each':12,'max_eviction_attempts':3,'inter_attempt_delay_ms':100,'required_archive_resident_bytes':0,'nonzero_residency_attempts_recorded':true,'stop_on_final_failure':true,'storage_gate':'unchanged50% independent full-archive calibrated physicalreadminimum','previous_failure':'sample06 typed-tree4 randomrawencrypted had1572864 residentbytes; candidate neverstarted; all24partialcase5samplesexcluded','recovery_executable_manifest_sha256':hash('$e/recovery-executables.json'),'tree_sha256':recovery['tree_sha256'],'zip_sha256':recovery['zip_sha256'],'source_hashes':recovery['source_hashes'],'protocol_sha256':hash('$e/protocol.json'),'calibration_sha256':hash('$e/physical-read-calibration.json'),'runner_sha256':hash('$e/final-run.dart'),'frozen_utc':DateTime.now().toUtc().toIso8601String()}),flush:true);
+ print(green('Prepared final two-case admission epoch; thresholds unchanged.'));
+}

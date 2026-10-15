@@ -2673,6 +2673,171 @@ internal class revault_internal__ProfileHistoryT: NativeObject {
   internal func serialize() -> ByteBuffer { return serialize(type: revault_internal__ProfileHistory.self) }
 
 }
+internal struct revault_internal__LockboxAlias: FlatBufferObject, Verifiable, ObjectAPIPacker {
+
+  static func validateVersion() { FlatBuffersVersion_25_2_10() }
+  internal var __buffer: ByteBuffer! { return _accessor.bb }
+  private var _accessor: Table
+
+  private init(_ t: Table) { _accessor = t }
+  internal init(_ bb: ByteBuffer, o: Int32) { _accessor = Table(bb: bb, position: o) }
+
+  private enum VTOFFSET: VOffset {
+    case name = 4
+    case lockboxId = 6
+    var v: Int32 { Int32(self.rawValue) }
+    var p: VOffset { self.rawValue }
+  }
+
+  internal var name: String? { let o = _accessor.offset(VTOFFSET.name.v); return o == 0 ? nil : _accessor.string(at: o) }
+  internal var nameSegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.name.v) }
+  internal var hasLockboxId: Bool { let o = _accessor.offset(VTOFFSET.lockboxId.v); return o == 0 ? false : true }
+  internal var lockboxIdCount: Int32 { let o = _accessor.offset(VTOFFSET.lockboxId.v); return o == 0 ? 0 : _accessor.vector(count: o) }
+  internal func lockboxId(at index: Int32) -> UInt8 { let o = _accessor.offset(VTOFFSET.lockboxId.v); return o == 0 ? 0 : _accessor.directRead(of: UInt8.self, offset: _accessor.vector(at: o) + index * 1) }
+  internal var lockboxId: [UInt8] { return _accessor.getVector(at: VTOFFSET.lockboxId.v) ?? [] }
+  internal static func startLockboxAlias(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 2) }
+  internal static func add(name: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: name, at: VTOFFSET.name.p) }
+  internal static func addVectorOf(lockboxId: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: lockboxId, at: VTOFFSET.lockboxId.p) }
+  internal static func endLockboxAlias(_ fbb: inout FlatBufferBuilder, start: UOffset) -> Offset { let end = Offset(offset: fbb.endTable(at: start)); return end }
+  internal static func createLockboxAlias(
+    _ fbb: inout FlatBufferBuilder,
+    nameOffset name: Offset = Offset(),
+    lockboxIdVectorOffset lockboxId: Offset = Offset()
+  ) -> Offset {
+    let __start = revault_internal__LockboxAlias.startLockboxAlias(&fbb)
+    revault_internal__LockboxAlias.add(name: name, &fbb)
+    revault_internal__LockboxAlias.addVectorOf(lockboxId: lockboxId, &fbb)
+    return revault_internal__LockboxAlias.endLockboxAlias(&fbb, start: __start)
+  }
+
+
+  internal mutating func unpack() -> revault_internal__LockboxAliasT {
+    return revault_internal__LockboxAliasT(&self)
+  }
+  internal static func pack(_ builder: inout FlatBufferBuilder, obj: inout revault_internal__LockboxAliasT?) -> Offset {
+    guard var obj = obj else { return Offset() }
+    return pack(&builder, obj: &obj)
+  }
+
+  internal static func pack(_ builder: inout FlatBufferBuilder, obj: inout revault_internal__LockboxAliasT) -> Offset {
+    let __name: Offset
+    if let s = obj.name {
+      __name = builder.create(string: s)
+    } else {
+      __name = Offset()
+    }
+
+    let __lockboxId = builder.createVector(obj.lockboxId)
+    let __root = revault_internal__LockboxAlias.startLockboxAlias(&builder)
+    revault_internal__LockboxAlias.add(name: __name, &builder)
+    revault_internal__LockboxAlias.addVectorOf(lockboxId: __lockboxId, &builder)
+    return revault_internal__LockboxAlias.endLockboxAlias(&builder, start: __root)
+  }
+
+  internal static func verify<T>(_ verifier: inout Verifier, at position: Int, of type: T.Type) throws where T: Verifiable {
+    var _v = try verifier.visitTable(at: position)
+    try _v.visit(field: VTOFFSET.name.p, fieldName: "name", required: false, type: ForwardOffset<String>.self)
+    try _v.visit(field: VTOFFSET.lockboxId.p, fieldName: "lockboxId", required: false, type: ForwardOffset<Vector<UInt8, UInt8>>.self)
+    _v.finish()
+  }
+}
+
+internal class revault_internal__LockboxAliasT: NativeObject {
+
+  internal var name: String?
+  internal var lockboxId: [UInt8]
+
+  internal init(_ _t: inout revault_internal__LockboxAlias) {
+    name = _t.name
+    lockboxId = []
+    for index in 0..<_t.lockboxIdCount {
+        lockboxId.append(_t.lockboxId(at: index))
+    }
+  }
+
+  internal init() {
+    lockboxId = []
+  }
+
+  internal func serialize() -> ByteBuffer { return serialize(type: revault_internal__LockboxAlias.self) }
+
+}
+internal struct revault_internal__LockboxAliasList: FlatBufferObject, Verifiable, ObjectAPIPacker {
+
+  static func validateVersion() { FlatBuffersVersion_25_2_10() }
+  internal var __buffer: ByteBuffer! { return _accessor.bb }
+  private var _accessor: Table
+
+  private init(_ t: Table) { _accessor = t }
+  internal init(_ bb: ByteBuffer, o: Int32) { _accessor = Table(bb: bb, position: o) }
+
+  private enum VTOFFSET: VOffset {
+    case values = 4
+    var v: Int32 { Int32(self.rawValue) }
+    var p: VOffset { self.rawValue }
+  }
+
+  internal var hasValues: Bool { let o = _accessor.offset(VTOFFSET.values.v); return o == 0 ? false : true }
+  internal var valuesCount: Int32 { let o = _accessor.offset(VTOFFSET.values.v); return o == 0 ? 0 : _accessor.vector(count: o) }
+  internal func values(at index: Int32) -> revault_internal__LockboxAlias? { let o = _accessor.offset(VTOFFSET.values.v); return o == 0 ? nil : revault_internal__LockboxAlias(_accessor.bb, o: _accessor.indirect(_accessor.vector(at: o) + index * 4)) }
+  internal static func startLockboxAliasList(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 1) }
+  internal static func addVectorOf(values: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: values, at: VTOFFSET.values.p) }
+  internal static func endLockboxAliasList(_ fbb: inout FlatBufferBuilder, start: UOffset) -> Offset { let end = Offset(offset: fbb.endTable(at: start)); return end }
+  internal static func createLockboxAliasList(
+    _ fbb: inout FlatBufferBuilder,
+    valuesVectorOffset values: Offset = Offset()
+  ) -> Offset {
+    let __start = revault_internal__LockboxAliasList.startLockboxAliasList(&fbb)
+    revault_internal__LockboxAliasList.addVectorOf(values: values, &fbb)
+    return revault_internal__LockboxAliasList.endLockboxAliasList(&fbb, start: __start)
+  }
+
+
+  internal mutating func unpack() -> revault_internal__LockboxAliasListT {
+    return revault_internal__LockboxAliasListT(&self)
+  }
+  internal static func pack(_ builder: inout FlatBufferBuilder, obj: inout revault_internal__LockboxAliasListT?) -> Offset {
+    guard var obj = obj else { return Offset() }
+    return pack(&builder, obj: &obj)
+  }
+
+  internal static func pack(_ builder: inout FlatBufferBuilder, obj: inout revault_internal__LockboxAliasListT) -> Offset {
+    var __values__: [Offset] = []
+    for var i in obj.values {
+      __values__.append(revault_internal__LockboxAlias.pack(&builder, obj: &i))
+    }
+    let __values = builder.createVector(ofOffsets: __values__)
+    let __root = revault_internal__LockboxAliasList.startLockboxAliasList(&builder)
+    revault_internal__LockboxAliasList.addVectorOf(values: __values, &builder)
+    return revault_internal__LockboxAliasList.endLockboxAliasList(&builder, start: __root)
+  }
+
+  internal static func verify<T>(_ verifier: inout Verifier, at position: Int, of type: T.Type) throws where T: Verifiable {
+    var _v = try verifier.visitTable(at: position)
+    try _v.visit(field: VTOFFSET.values.p, fieldName: "values", required: false, type: ForwardOffset<Vector<ForwardOffset<revault_internal__LockboxAlias>, revault_internal__LockboxAlias>>.self)
+    _v.finish()
+  }
+}
+
+internal class revault_internal__LockboxAliasListT: NativeObject {
+
+  internal var values: [revault_internal__LockboxAliasT?]
+
+  internal init(_ _t: inout revault_internal__LockboxAliasList) {
+    values = []
+    for index in 0..<_t.valuesCount {
+        var __v_ = _t.values(at: index)
+        values.append(__v_?.unpack())
+    }
+  }
+
+  internal init() {
+    values = []
+  }
+
+  internal func serialize() -> ByteBuffer { return serialize(type: revault_internal__LockboxAliasList.self) }
+
+}
 internal struct revault_internal__KnownLockbox: FlatBufferObject, Verifiable, ObjectAPIPacker {
 
   static func validateVersion() { FlatBuffersVersion_25_2_10() }
@@ -4089,6 +4254,7 @@ internal struct revault_internal__SleepSupport: FlatBufferObject, Verifiable, Ob
     case suspendNotifications = 4
     case sleepInhibition = 6
     case supported = 8
+    case cacheClearingActive = 10
     var v: Int32 { Int32(self.rawValue) }
     var p: VOffset { self.rawValue }
   }
@@ -4096,24 +4262,29 @@ internal struct revault_internal__SleepSupport: FlatBufferObject, Verifiable, Ob
   internal var suspendNotifications: Bool { let o = _accessor.offset(VTOFFSET.suspendNotifications.v); return o == 0 ? false : _accessor.readBuffer(of: Bool.self, at: o) }
   internal var sleepInhibition: Bool { let o = _accessor.offset(VTOFFSET.sleepInhibition.v); return o == 0 ? false : _accessor.readBuffer(of: Bool.self, at: o) }
   internal var supported: Bool { let o = _accessor.offset(VTOFFSET.supported.v); return o == 0 ? false : _accessor.readBuffer(of: Bool.self, at: o) }
-  internal static func startSleepSupport(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 3) }
+  internal var cacheClearingActive: Bool { let o = _accessor.offset(VTOFFSET.cacheClearingActive.v); return o == 0 ? false : _accessor.readBuffer(of: Bool.self, at: o) }
+  internal static func startSleepSupport(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 4) }
   internal static func add(suspendNotifications: Bool, _ fbb: inout FlatBufferBuilder) { fbb.add(element: suspendNotifications, def: false,
    at: VTOFFSET.suspendNotifications.p) }
   internal static func add(sleepInhibition: Bool, _ fbb: inout FlatBufferBuilder) { fbb.add(element: sleepInhibition, def: false,
    at: VTOFFSET.sleepInhibition.p) }
   internal static func add(supported: Bool, _ fbb: inout FlatBufferBuilder) { fbb.add(element: supported, def: false,
    at: VTOFFSET.supported.p) }
+  internal static func add(cacheClearingActive: Bool, _ fbb: inout FlatBufferBuilder) { fbb.add(element: cacheClearingActive, def: false,
+   at: VTOFFSET.cacheClearingActive.p) }
   internal static func endSleepSupport(_ fbb: inout FlatBufferBuilder, start: UOffset) -> Offset { let end = Offset(offset: fbb.endTable(at: start)); return end }
   internal static func createSleepSupport(
     _ fbb: inout FlatBufferBuilder,
     suspendNotifications: Bool = false,
     sleepInhibition: Bool = false,
-    supported: Bool = false
+    supported: Bool = false,
+    cacheClearingActive: Bool = false
   ) -> Offset {
     let __start = revault_internal__SleepSupport.startSleepSupport(&fbb)
     revault_internal__SleepSupport.add(suspendNotifications: suspendNotifications, &fbb)
     revault_internal__SleepSupport.add(sleepInhibition: sleepInhibition, &fbb)
     revault_internal__SleepSupport.add(supported: supported, &fbb)
+    revault_internal__SleepSupport.add(cacheClearingActive: cacheClearingActive, &fbb)
     return revault_internal__SleepSupport.endSleepSupport(&fbb, start: __start)
   }
 
@@ -4131,6 +4302,7 @@ internal struct revault_internal__SleepSupport: FlatBufferObject, Verifiable, Ob
     revault_internal__SleepSupport.add(suspendNotifications: obj.suspendNotifications, &builder)
     revault_internal__SleepSupport.add(sleepInhibition: obj.sleepInhibition, &builder)
     revault_internal__SleepSupport.add(supported: obj.supported, &builder)
+    revault_internal__SleepSupport.add(cacheClearingActive: obj.cacheClearingActive, &builder)
     return revault_internal__SleepSupport.endSleepSupport(&builder, start: __root)
   }
 
@@ -4139,6 +4311,7 @@ internal struct revault_internal__SleepSupport: FlatBufferObject, Verifiable, Ob
     try _v.visit(field: VTOFFSET.suspendNotifications.p, fieldName: "suspendNotifications", required: false, type: Bool.self)
     try _v.visit(field: VTOFFSET.sleepInhibition.p, fieldName: "sleepInhibition", required: false, type: Bool.self)
     try _v.visit(field: VTOFFSET.supported.p, fieldName: "supported", required: false, type: Bool.self)
+    try _v.visit(field: VTOFFSET.cacheClearingActive.p, fieldName: "cacheClearingActive", required: false, type: Bool.self)
     _v.finish()
   }
 }
@@ -4148,17 +4321,20 @@ internal class revault_internal__SleepSupportT: NativeObject {
   internal var suspendNotifications: Bool
   internal var sleepInhibition: Bool
   internal var supported: Bool
+  internal var cacheClearingActive: Bool
 
   internal init(_ _t: inout revault_internal__SleepSupport) {
     suspendNotifications = _t.suspendNotifications
     sleepInhibition = _t.sleepInhibition
     supported = _t.supported
+    cacheClearingActive = _t.cacheClearingActive
   }
 
   internal init() {
     suspendNotifications = false
     sleepInhibition = false
     supported = false
+    cacheClearingActive = false
   }
 
   internal func serialize() -> ByteBuffer { return serialize(type: revault_internal__SleepSupport.self) }

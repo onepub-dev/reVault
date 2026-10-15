@@ -1,0 +1,1 @@
+cargo +1.88.0 test --locked --offline --release -p revault_bindings --lib alias_abi_persisted_normalized_rebind_and_read_only_lifecycle -- --exact --nocapture

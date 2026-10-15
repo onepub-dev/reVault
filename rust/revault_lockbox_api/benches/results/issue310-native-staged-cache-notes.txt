@@ -1,0 +1,50 @@
+Native staged-page ownership and flush/abort integration, 2026-09-13
+==================================================================
+Prepared native encoding now returns an immutable EncodedBlockPage, constructible
+only by the encoder. It contains the descriptor and a wiping byte allocation.
+CachedPagePayload distinguishes decoded legacy pages from Arc-owned encoded
+native pages. Native buffers are shared across cache snapshots, not copied;
+legacy decoded-page access refuses them instead of inventing empty objects.
+
+Staging checks archive/mode, checked extents and overlap with other cache entries
+before mutation. Native extents participate in existing dirty protection, virtual
+length/allocation, cache byte/entry accounting, retention/discard policy, clearing
+and eviction. Flush rechecks archive/mode and borrows the immutable encoded bytes
+directly: it does not re-encode, recompress or copy the payload. A failed physical
+operation leaves the page dirty for retry. Snapshot release cannot invalidate
+another owner's data; the last owner wipes the allocation.
+
+Tests cover every policy combination, zero and nonzero cache limits, retained
+and discard-after-flush pages, mixed native/legacy staged extents, gap filling,
+failed flush/retry, exact output bytes, context/overlap/overflow refusal, snapshot
+Arc identity and post-flush trimming. A real file fixture simulates a partially
+appended first page followed by a second dirty page. It exposed a shared flush
+bug: write_at could extend the file while the loop retained its old length. The
+following page then tried to fill a nonexistent gap. Flush now updates that
+length after write_at. This correction also applies to normal legacy writes.
+
+An archive-level test uses real prepared native data, the actual cache and
+Lockbox::flush_discardable_pages, then public abort. All 16 policy modes cover
+both appended and reusable extents. Flush publishes preparation; abort restores
+the committed file bytes and storage inventory, truncates appended native pages,
+and wipes native pages written into reserved free space. These are private
+staging/injection tests, not a production writer or CLI lifecycle claim.
+
+Validation before commit-time rustfmt:
+  cargo test -p revault_lockbox_api --features test-support,external-source --lib
+  325 passed, five intentionally ignored.
+  cargo test -p revault_lockbox_api --test creation_options --test size_padding
+  Seven passed in the normal non-test-gated library build.
+  cargo clippy -p revault_lockbox_api --features test-support,external-source --lib --tests -- -D warnings
+  Passed.
+
+Activation boundary: the native type, cache variant and staging API remain
+cfg(test). The normal cache retains only decoded legacy pages. Production native
+FilePageWriter dispatch, committed native TOC ownership, scanner/recovery and
+mutation/compaction/migration integration remain unfinished. Cache ownership
+alone does not make those operations safe to activate. Direct Read/Seek handles
+still retain their separately validated index/data windows.
+
+No wall-clock performance claim is made here. The final production write,
+load-time and ZIP-parity gates, bindings creation options and the other native
+format work remain required.

@@ -1,0 +1,87 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 2K of event 'cpu/cycles/P'
+# Event count (approx.): 20389145552
+#
+# Overhead  Symbol                                                                                                                                                                                                                                                 IPC   [IPC Coverage]
+# ........  .....................................................................................................................................................................................................................................................  ....................
+#
+    34.35%  [.] sha2::sha256::x86_sha::compress                                                                                                                                                                                                                    -      -
+            |
+             --33.09%--sha2::sha256::x86_sha::compress
+                       |
+                        --32.65%--revault_lockbox_api::keys::crypto::strong_checksum
+                                  |
+                                   --32.29%--revault_lockbox_api::file_format::indexed_frame::BlockFrameReader::read_aligned_raw_into
+                                             revault_lockbox_api::lockbox::native_file_reader::NativeFileReader::read
+                                             <revault_lockbox_api::lockbox::file_handles::LockboxFileReader<State> as std::io::Read>::read
+                                             zip_read::check
+
+    12.31%  [k] 0xffffffff97714905                                                                                                                                                                                                                                 -      -
+            |
+             --8.38%--0xffffffff97714905
+                       |
+                        --8.26%--0xffffffffc0c84fb1
+                                  0xffffffffc0c85676
+                                  0xffffffffc0b20651
+                                  0xffffffffc0b20716
+                                  0xffffffffc0c4d9b7
+                                  0xffffffffc0ca1c50
+                                  0xffffffff968e4830
+                                  |
+                                  |--4.55%--0xffffffff968e4a13
+                                  |          0xffffffff96348c0f
+                                  |          0xffffffff97719b65
+                                  |          0xffffffff9600012b
+                                  |          __internal_syscall_cancel (inlined)
+                                  |          __syscall_cancel
+                                  |          __libc_pread64 (inlined)
+                                  |          <std::fs::File as std::os::unix::fs::FileExt>::read_at
+                                  |          std::os::unix::fs::FileExt::read_exact_at
+                                  |          <revault_lockbox_api::storage::FileStore as revault_lockbox_api::storage::Storage>::read_at_into
+                                  |          <revault_lockbox_api::storage::StorageBackend as revault_lockbox_api::storage::Storage>::read_at_into
+                                  |          revault_lockbox_api::file_format::indexed_frame::BlockFrameReader::read_aligned_raw_into
+                                  |          revault_lockbox_api::lockbox::native_file_reader::NativeFileReader::read
+                                  |          <revault_lockbox_api::lockbox::file_handles::LockboxFileReader<State> as std::io::Read>::read
+                                  |          zip_read::check
+                                  |
+                                   --3.71%--0xffffffff968e5751
+                                             0xffffffff968e57f9
+                                             0xffffffff96348bf1
+                                             0xffffffff97719b65
+                                             0xffffffff9600012b
+                                             __internal_syscall_cancel (inlined)
+                                             __syscall_cancel
+                                             __libc_read (inlined)
+                                             <std::fs::File as std::io::Read>::read
+                                             <zip::read::readers::CryptoReader<R> as std::io::Read>::read
+                                             <zip::read::readers::ZipFileReader<R> as std::io::Read>::read
+                                             zip_read::check
+
+     9.90%  [.] __memcmp_avx2_movbe                                                                                                                                                                                                                                -      -
+            |
+             --7.15%--__memcmp_avx2_movbe
+                       |
+                        --6.99%--zip_read::check
+
+     5.26%  [.] crc32fast::specialized::pclmulqdq::calculate                                                                                                                                                                                                       -      -
+            |
+             --3.89%--crc32fast::Hasher::update
+                       |
+                        --3.81%--<zip::read::readers::ZipFileReader<R> as std::io::Read>::read
+                                  zip_read::check
+
+     1.90%  [.] <alloc::vec::Vec<T> as alloc::vec::spec_from_iter::SpecFromIter<T,I>>::from_iter                                                                                                                                                                   -      -
+            |
+             --1.86%--<alloc::vec::Vec<T> as alloc::vec::spec_from_iter::SpecFromIter<T,I>>::from_iter
+                       <alloc::vec::Vec<T> as alloc::vec::spec_from_iter::SpecFromIter<T,I>>::from_iter
+                       zip_read::run
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

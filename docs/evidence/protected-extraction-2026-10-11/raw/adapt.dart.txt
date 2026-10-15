@@ -1,0 +1,38 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+void main(){
+ var s=File('/tmp/revault-parallel-20261010/balanced-buffered-run.dart').readAsStringSync();
+ s=s.replaceFirst("const oldRoot = '/home/bsutton/.cache/revault-performance-20261010-large';","const oldRoot = '/home/bsutton/.cache/revault-protected-20261011';");
+ s=s.replaceFirst("const evidenceRoot = '/tmp/revault-parallel-20261010';","const evidenceRoot = '/home/bsutton/.cache/revault-protected-20261011-evidence';");
+ s=s.replaceFirst('const artifactCap = 20 *','const artifactCap = 24 *');
+ final start=s.indexOf('const cases ='); final end=s.indexOf('Never usage()',start);
+ s=s.substring(0,start)+r'''
+final allCases = (jsonDecode(File('$evidenceRoot/cases.json').readAsStringSync()) as List).map((row)=>CaseSpec(row['name'] as String,1,row['bytes'] as int,65536,row['root'] as String)).toList();
+final cases = allCases.where((spec)=>!spec.name.startsWith('source-bundle')).toList();
+Future<void> main(List<String> args) async {
+ if(args.length!=3) throw ArgumentError('prepare|smoke|batch TREE ZIP');
+ final tree=File(args[1]).absolute.path, zip=File(args[2]).absolute.path;
+ final old=jsonDecode(File('/tmp/revault-parallel-20261010/balanced-buffered-batch/identity-after.json').readAsStringSync()) as Map;
+ if(_sha(tree)!=old['tree_test_executable_sha256']||_sha(zip)!=old['zip_runner_executable_sha256']) throw StateError('Unexpected retained executable hashes');
+ _writeJson('$evidenceRoot/retained-executable-epoch.json',{'original_identity':old,'current_revision':'6735f6dbf949915ed7b94f0b6b9bb5fb7895e231','scope':'exact retained balanced buffered binary epoch; no claim of rebuild from post-hook HEAD'});
+ if(args[0]=='prepare') { for(final spec in allCases) await createTree(tree,spec); return; }
+ if(args[0]=='smoke') { for(final spec in allCases) await runSmoke(tree,zip,durable:false,selectedCase:spec); return; }
+ if(args[0]=='batch') { await runColdBatch(tree,zip,12); return; }
+ throw ArgumentError('Unknown phase');
+}
+int allocatedBytes(String path) {
+ final stat=Process.runSync('stat',['--format=%b',path]);
+ if(stat.exitCode!=0)throw StateError('Cannot inspect allocated blocks');
+ return int.parse('${stat.stdout}'.trim())*512;
+}
+int readGate(CaseSpec spec, bool isTree) => (allocatedBytes('${spec.root}/${isTree?'tree.lbox':'archive.zip'}')+1)~/2;
+''' + s.substring(end);
+ s=s.replaceAll('minimumStorageReadBytes: (spec.payloadBytes * 9 + 9) ~/ 10,','minimumStorageReadBytes: readGate(spec,isTree),');
+ s=s.replaceFirst("caseData['mode'] != 'plain' || caseData['compressed'] != false", "!['plain','encrypted'].contains(caseData['mode']) || caseData['compressed'] is! bool");
+ s=s.replaceFirst("'input_path': inputPath,","'input_path': inputPath,\n    'archive_apparent_bytes': File(inputPath).lengthSync(),\n    'archive_allocated_bytes': allocatedBytes(inputPath),\n    'read_gate_policy': 'at least 50% stat allocated archive bytes; zero fincore residency required',");
+ s=s.replaceAll('>= 90% of logical payload','>= 50% of stat allocated archive bytes');
+ s=s.replaceAll('exceeds 20 GiB cap','exceeds 24 GiB cap');
+ File('/home/bsutton/.cache/revault-protected-20261011-evidence/run.dart').writeAsStringSync(s);
+ print(green('Adapted retained protocol without native changes.'));
+}

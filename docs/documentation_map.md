@@ -50,3 +50,81 @@ old URL remains useful. Preserve GitBook metadata and navigation.
 For v4, read the plan, decisions and evaluation documents in the implementation
 worktree before changing them. Main's historical snapshots are not a substitute
 for that branch's actual state, and documentation cleanup does not resume work.
+
+## Performance branch evidence
+
+The [selected-source evidence](evidence/selected-source-2026-10-09/README.md) retains
+authenticated stored-source preparation, final frozen aggregate outcomes and
+modeled failure controls; its component scope does not replace the format gates.
+
+The [field mutation evidence](evidence/form-fields-2026-10-09/README.md) owns the
+test-only cross-record setter semantics, fixed aggregate protocol/results and
+modeled recovery evidence; public activation and format selection remain separate.
+
+The [definition adapter evidence](evidence/form-definitions-2026-10-09/README.md) owns
+selected-snapshot revision/resolution/empty-record semantics, normal metadata
+capacity controls, stale-base refusal and modeled recovery. It retains the invalid
+empty-name fixture failure and does not establish public activation or format gates.
+
+The [whole-tree copy evidence](evidence/whole-tree-copy-2026-10-09/README.md) owns
+extent relocation, successor publication, all-family history, guarded readback and
+owned-destination cleanup controls. It retains functional FileStore artifact hashes
+and development failures; path installation and full-format acceptance are separate.
+
+- [Whole-tree path installation](evidence/tree-path-install-2026-10-09/README.md): test-only replacement, returned errors and 96 process exits; abandoned temporary ownership and full qualification remain open.
+
+- [Complete-copy resume](evidence/tree-resume-2026-10-10/README.md): explicit checked candidate admission and 48 process exits; partial ownership remains open.
+
+- [Credential-preserving tree copy](evidence/tree-access-copy-2026-10-10/README.md): bounded wrapper retention and resume admission; access mutation/overflow and full qualification remain open.
+
+- [Typed credential opening and dense conversion](evidence/tree-credential-reader-2026-10-10/README.md): direct typed readers, publication identity, wrapper preservation and bounded failure checks.
+
+- [Current matched read baseline](evidence/typed-tree-matched-read-2026-10-10/README.md): six fixed Rust 1.88.0 comparisons; every ZIP case fails, raw samples and identities retained.
+
+- [Typed open stage diagnostic](evidence/typed-tree-open-stages-2026-10-10/README.md): four verified repeated-open cases; traversal dominates, no ZIP qualification.
+
+- [Rejected plaintext index borrowing](evidence/typed-tree-borrow-rejected-2026-10-10/README.md): four measured regressions, reverted source, complete paired observations retained.
+
+- [Detailed typed-tree open stages](evidence/typed-tree-open-detail-2026-10-10/README.md): publication, index, ownership and reclaimed-space timings with shared validation.
+
+- [Guarded reclaimed-space buffer reuse](evidence/typed-tree-reclaim-reuse-2026-10-10/README.md): four paired opening improvements with unchanged byte validation and retained failure tests.
+
+- [Bounded fragment join](evidence/typed-tree-fragment-join-2026-10-10/README.md): preserved malformed-record refusals and four paired opening improvements; complete reads remain to remeasure.
+
+- [Combined typed-reader comparison](evidence/typed-tree-combined-read-2026-10-10/README.md): current six-case ZIP failures, post-format checks, and retained excluded launcher failure.
+
+- [Combined opening-stage diagnostic](evidence/typed-tree-open-combined-2026-10-10/README.md): current 400-open stage evidence and bounded ownership-construction hypothesis.
+
+- [Ownership graph coverage construction](evidence/typed-tree-graph-coverage-2026-10-10/README.md): raw opening improvements, inconclusive compressed result, and overlap refusal evidence.
+
+- [Traversal storage attribution](evidence/typed-tree-storage-meter-2026-10-10/README.md): diagnostic call/byte/time evidence rules out length-query caching as a useful target.
+
+- [Rejected fused leaf validation](evidence/typed-tree-leaf-validation-rejected-2026-10-10/README.md): correctness passes, two measured raw regressions, exact patch retained and source reverted.
+
+- [Traversal function attribution](evidence/typed-tree-index-attribution-2026-10-10/README.md): verified-page/decode/visitor timing with nested checksum scope; temporary instrumentation removed.
+
+- [Rejected path-buffer move](evidence/typed-tree-path-move-rejected-2026-10-10/README.md): small-file gain outweighed by three measured regressions; two-line source experiment reverted.
+
+- [Selective authenticated reads](selective_authenticated_reads.md): accepted ordinary-read versus audit/update boundaries; no timestamp or Vault integrity evidence.
+
+- [Selective-read implementation and evidence](evidence/selective-authenticated-reads-2026-10-10/README.md): correctness, changed verification timing, and fixed ZIP/eager/selective comparison.
+
+- [Selective reader function profile](evidence/selective-read-profile-2026-10-10/README.md): first versus repeated lookup attribution and payload checksum cost, with collection limitations retained.
+
+- [Compact authenticated index cache](evidence/compact-index-cache-2026-10-10/README.md): retained bounded representation with isolated range/small-file gains and wrong-control evidence excluded.
+
+- [Stored-byte hash cost](evidence/stored-byte-hash-cost-2026-10-10/README.md): isolated single-thread SHA-256/BLAKE3 comparison; no archive algorithm change.
+
+- [Wiped reusable read-buffer trial](evidence/wiped-read-buffer-2026-10-10/README.md): retained allocation-reuse experiment with unchanged payload verification.
+
+- [Opening admission profile](evidence/open-admission-profile-2026-10-10/README.md): bounded publication, manifest, journal and format-lookup attribution with retained provenance limits.
+
+- [Journal decoded-buffer normalization](evidence/journal-buffer-2026-10-10/README.md): small measured improvement; disk-backed real-world scale remains unqualified.
+
+- [Disk-backed capacity checks](evidence/large-capacity-2026-10-10/README.md): realistic workload correction, experimental construction limits and outstanding scale qualification.
+
+- [Bounded construction and disk-backed extraction](evidence/scale-extraction-2026-10-10/README.md): successful GiB/10,000-file gates and paired filesystem extraction evidence with CPU/RSS.
+
+- [Cold disk extraction and bounded parallel reads](evidence/cold-parallel-extraction-2026-10-10/README.md): cold archive residency/storage-read gates, balanced buffered and exploratory durable protocols, separate postprocess drain, and paired elapsed/CPU/RSS evidence; keep one worker as default.
+
+- [Compressed and encrypted cold-disk extraction](evidence/protected-extraction-2026-10-11/README.md): six GiB case comparisons, calibrated Btrfs physical reads, preserved interruptions and source epochs; four-worker gains in heavier modes support workload-aware selection under the accepted CPU trade-off.

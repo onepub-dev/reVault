@@ -1,0 +1,92 @@
+Analyzing conformance.dart...
+
+  error - conformance.dart:5:8 - Target of URI doesn't exist: 'package:revault_api/revault_api.dart'. Try creating the file referenced by the URI, or try using a URI for a file that does exist. - uri_does_not_exist
+  error - conformance.dart:7:12 - Undefined class 'Revault'. Try changing the name to the name of an existing class, or creating a class with the name 'Revault'. - undefined_class
+  error - conformance.dart:17:50 - Undefined class 'SecretBytes'. Try changing the name to the name of an existing class, or creating a class with the name 'SecretBytes'. - undefined_class
+  error - conformance.dart:18:18 - Undefined name 'SecretBytes'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:26:51 - Undefined class 'SecretBytes'. Try changing the name to the name of an existing class, or creating a class with the name 'SecretBytes'. - undefined_class
+  error - conformance.dart:27:18 - Undefined name 'SecretBytes'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:35:48 - Undefined class 'SecretString'. Try changing the name to the name of an existing class, or creating a class with the name 'SecretString'. - undefined_class
+  error - conformance.dart:36:18 - Undefined name 'SecretString'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:44:23 - Undefined class 'SecretBytes'. Try changing the name to the name of an existing class, or creating a class with the name 'SecretBytes'. - undefined_class
+  error - conformance.dart:47:25 - Undefined class 'SecretString'. Try changing the name to the name of an existing class, or creating a class with the name 'SecretString'. - undefined_class
+  error - conformance.dart:47:45 - Undefined class 'SecretString'. Try changing the name to the name of an existing class, or creating a class with the name 'SecretString'. - undefined_class
+  error - conformance.dart:59:6 - The name 'FormField' isn't a type, so it can't be used as a type argument. Try correcting the name to an existing type, or defining a type named 'FormField'. - non_type_as_type_argument
+  error - conformance.dart:60:3 - The function 'FormField' isn't defined. Try importing the library that defines 'FormField', correcting the name to the name of an existing function, or defining a function named 'FormField'. - undefined_function
+  error - conformance.dart:61:3 - The function 'FormField' isn't defined. Try importing the library that defines 'FormField', correcting the name to the name of an existing function, or defining a function named 'FormField'. - undefined_function
+  error - conformance.dart:67:19 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:78:15 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:91:15 - Undefined name 'SecretBytes'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:93:15 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:142:22 - The function 'PathMove' isn't defined. Try importing the library that defines 'PathMove', correcting the name to the name of an existing function, or defining a function named 'PathMove'. - undefined_function
+  error - conformance.dart:144:22 - The function 'PathMove' isn't defined. Try importing the library that defines 'PathMove', correcting the name to the name of an existing function, or defining a function named 'PathMove'. - undefined_function
+  error - conformance.dart:173:26 - Undefined name 'LockboxWorkload'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:174:23 - Undefined name 'LockboxWorker'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:204:5 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:206:8 - The name 'RevaultException' isn't a type and can't be used in an on-catch clause. Try correcting the name to match an existing class. - non_type_in_catch_clause
+  error - conformance.dart:214:18 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:238:19 - Undefined name 'SecretBytes'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:269:20 - Undefined name 'KeyExportFormat'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:276:22 - Undefined name 'KeyExportFormat'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:328:15 - Undefined name 'SecretBytes'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:329:15 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:331:20 - The name 'LockboxOptions' isn't a class. Try correcting the name to match an existing class. - creation_with_non_type
+  error - conformance.dart:333:17 - Undefined name 'LockboxWorkload'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:334:15 - Undefined name 'LockboxWorker'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:401:5 - The function 'PathMove' isn't defined. Try importing the library that defines 'PathMove', correcting the name to the name of an existing function, or defining a function named 'PathMove'. - undefined_function
+  error - conformance.dart:405:5 - The function 'PathMove' isn't defined. Try importing the library that defines 'PathMove', correcting the name to the name of an existing function, or defining a function named 'PathMove'. - undefined_function
+  error - conformance.dart:456:22 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:459:20 - The name 'LockboxOptions' isn't a class. Try correcting the name to match an existing class. - creation_with_non_type
+  error - conformance.dart:461:17 - Undefined name 'LockboxWorkload'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:462:15 - Undefined name 'LockboxWorker'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:474:19 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:483:19 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:491:73 - Undefined name 'Revault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:493:22 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:499:23 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:509:9 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:514:25 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:521:18 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:557:20 - Undefined name 'SecretString'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:558:19 - Undefined name 'SecretString'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:565:17 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:685:20 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:697:20 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:701:20 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:706:18 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:724:19 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:729:19 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:733:5 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:733:39 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:740:19 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:752:9 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:754:5 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:762:9 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:764:3 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:765:9 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:769:20 - Undefined name 'SecretString'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:770:3 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:771:3 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:772:10 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:775:3 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:778:3 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:791:19 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:797:17 - Undefined name 'AgentSession'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:820:15 - Undefined name 'SecretBytes'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:854:40 - Undefined name 'AgentActivityKind'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:870:19 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:892:19 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:900:22 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:910:23 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:919:22 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:952:15 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:954:17 - Undefined name 'SecretBytes'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:964:9 - Undefined name 'Vault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:973:15 - Undefined name 'Revault'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:980:17 - Undefined name 'SecretBytes'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:985:19 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:993:24 - Undefined name 'Lockbox'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - conformance.dart:1008:12 - The name 'RevaultException' isn't a type and can't be used in an on-catch clause. Try correcting the name to match an existing class. - non_type_in_catch_clause
+  error - conformance.dart:1019:5 - Undefined name 'AgentSession'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+
+88 issues found.

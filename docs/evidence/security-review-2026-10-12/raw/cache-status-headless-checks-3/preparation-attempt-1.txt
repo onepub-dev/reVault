@@ -1,0 +1,1 @@
+Preparation attempt failed before cargo launch: incorrect linked-worktree path (omitted -read), so source paths and the intended status destination were unavailable.

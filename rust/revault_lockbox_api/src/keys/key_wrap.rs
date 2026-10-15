@@ -5,7 +5,7 @@ use ml_kem::kem::{Decapsulate, Encapsulate, Kem, KeyExport};
 use ml_kem::MlKem768;
 use sha2::Sha256;
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519SecretKey};
-use zeroize::Zeroize;
+use zeroize::Zeroizing;
 
 use crate::{secret_vec::SecretVec, Error, Result};
 
@@ -51,17 +51,15 @@ impl ContactKeyPair {
     /// Returns `Error::SecurityLimitExceeded` if the private record cannot be
     /// stored in secure memory.
     pub fn generate() -> Result<Self> {
-        let mut x25519_secret_bytes = [0_u8; X25519_KEY_LEN];
-        getrandom::fill(&mut x25519_secret_bytes).map_err(|err| Error::Io(err.to_string()))?;
-        let x25519_secret_key = X25519SecretKey::from(x25519_secret_bytes);
+        let mut x25519_secret_bytes = Zeroizing::new([0_u8; X25519_KEY_LEN]);
+        getrandom::fill(&mut *x25519_secret_bytes).map_err(|err| Error::Io(err.to_string()))?;
+        let x25519_secret_key = X25519SecretKey::from(*x25519_secret_bytes);
         let x25519_public_key = X25519PublicKey::from(&x25519_secret_key).to_bytes();
-        x25519_secret_bytes.zeroize();
 
         let (mlkem_decapsulation_key, mlkem_encapsulation_key) = MlKem768::generate_keypair();
-        let mut mlkem_seed = mlkem_decapsulation_key.to_bytes();
-        let private_key_bytes =
-            encode_private_key(&x25519_secret_key.to_bytes(), mlkem_seed.as_ref())?;
-        mlkem_seed.zeroize();
+        let mlkem_seed = Zeroizing::new(mlkem_decapsulation_key.to_bytes());
+        let x25519_bytes = Zeroizing::new(x25519_secret_key.to_bytes());
+        let private_key_bytes = encode_private_key(&x25519_bytes, mlkem_seed.as_ref())?;
 
         Ok(Self {
             private_key_bytes,
@@ -85,7 +83,7 @@ impl ContactKeyPair {
     pub fn decrypt(&self, wrapped: &ContactWrappedKey) -> Result<Vec<u8>> {
         self.private_key_bytes.with_bytes(|bytes| {
             let decoded = decode_private_key(bytes)?;
-            let x25519_secret_key = X25519SecretKey::from(decoded.x25519_secret_key);
+            let x25519_secret_key = X25519SecretKey::from(*decoded.x25519_secret_key);
             let peer = X25519PublicKey::from(wrapped.x25519_ephemeral_public_key);
             let x25519_secret = x25519_secret_key.diffie_hellman(&peer);
 
@@ -93,15 +91,17 @@ impl ContactKeyPair {
                 Error::InvalidKeyMaterial("ML-KEM private seed has the wrong length".to_string())
             })?;
             let mlkem_decapsulation_key = ml_kem::DecapsulationKey768::from_seed(seed);
-            let mlkem_secret = mlkem_decapsulation_key.decapsulate(&wrapped.mlkem_ciphertext);
+            let mlkem_secret =
+                Zeroizing::new(mlkem_decapsulation_key.decapsulate(&wrapped.mlkem_ciphertext));
 
-            let mut wrapping_key =
-                derive_wrapping_key(x25519_secret.as_bytes(), mlkem_secret.as_ref())?;
-            let cipher = ChaCha20Poly1305::new(&Key::from(wrapping_key));
+            let wrapping_key = Zeroizing::new(derive_wrapping_key(
+                x25519_secret.as_bytes(),
+                mlkem_secret.as_ref(),
+            )?);
+            let cipher = ChaCha20Poly1305::new(&Key::from(*wrapping_key));
             let key = cipher
                 .decrypt(&Nonce::from([0_u8; 12]), wrapped.encrypted_key.as_ref())
                 .map_err(|_| Error::InvalidKey);
-            wrapping_key.zeroize();
             key
         })?
     }
@@ -123,7 +123,7 @@ impl ContactKeyPair {
         let (x25519_public_key, mlkem_encapsulation_key) =
             private_key_bytes.with_bytes(|bytes| {
                 let decoded = decode_private_key(bytes)?;
-                let x25519_secret_key = X25519SecretKey::from(decoded.x25519_secret_key);
+                let x25519_secret_key = X25519SecretKey::from(*decoded.x25519_secret_key);
                 let x25519_public_key = X25519PublicKey::from(&x25519_secret_key).to_bytes();
                 let seed = ml_kem::Seed::try_from(decoded.mlkem_seed.as_slice()).map_err(|_| {
                     Error::InvalidKeyMaterial(
@@ -171,23 +171,24 @@ impl ContactPublicKey {
     ///
     /// Returns `Error::InvalidKey` if authenticated wrapping fails.
     pub fn encrypt(&self, content_key: &[u8]) -> Result<ContactWrappedKey> {
-        let mut ephemeral_secret_bytes = [0_u8; X25519_KEY_LEN];
-        getrandom::fill(&mut ephemeral_secret_bytes).map_err(|err| Error::Io(err.to_string()))?;
-        let ephemeral_secret = X25519SecretKey::from(ephemeral_secret_bytes);
-        ephemeral_secret_bytes.zeroize();
+        let mut ephemeral_secret_bytes = Zeroizing::new([0_u8; X25519_KEY_LEN]);
+        getrandom::fill(&mut *ephemeral_secret_bytes).map_err(|err| Error::Io(err.to_string()))?;
+        let ephemeral_secret = X25519SecretKey::from(*ephemeral_secret_bytes);
         let x25519_ephemeral_public_key = X25519PublicKey::from(&ephemeral_secret).to_bytes();
         let peer = X25519PublicKey::from(self.x25519_public_key);
         let x25519_secret = ephemeral_secret.diffie_hellman(&peer);
 
         let (mlkem_ciphertext, mlkem_secret) = self.mlkem_encapsulation_key.encapsulate();
+        let mlkem_secret = Zeroizing::new(mlkem_secret);
 
-        let mut wrapping_key =
-            derive_wrapping_key(x25519_secret.as_bytes(), mlkem_secret.as_ref())?;
-        let cipher = ChaCha20Poly1305::new(&Key::from(wrapping_key));
+        let wrapping_key = Zeroizing::new(derive_wrapping_key(
+            x25519_secret.as_bytes(),
+            mlkem_secret.as_ref(),
+        )?);
+        let cipher = ChaCha20Poly1305::new(&Key::from(*wrapping_key));
         let encrypted_key = cipher
             .encrypt(&Nonce::from([0_u8; 12]), content_key)
             .map_err(|_| Error::InvalidKey)?;
-        wrapping_key.zeroize();
         Ok(ContactWrappedKey {
             x25519_ephemeral_public_key,
             mlkem_ciphertext,
@@ -242,8 +243,8 @@ impl ContactWrappedKey {
 }
 
 struct DecodedPrivateKey {
-    x25519_secret_key: [u8; X25519_KEY_LEN],
-    mlkem_seed: Vec<u8>,
+    x25519_secret_key: Zeroizing<[u8; X25519_KEY_LEN]>,
+    mlkem_seed: Zeroizing<Vec<u8>>,
 }
 
 fn encode_public_key(key: &ContactPublicKey) -> Vec<u8> {
@@ -297,8 +298,8 @@ fn decode_private_key(bytes: &[u8]) -> Result<DecodedPrivateKey> {
     reader.magic(PRIVATE_MAGIC)?;
     reader.version()?;
     reader.algorithm()?;
-    let x25519_secret_key = reader.x25519_key()?;
-    let mlkem_seed = reader.bytes()?;
+    let x25519_secret_key = Zeroizing::new(reader.x25519_key()?);
+    let mlkem_seed = Zeroizing::new(reader.bytes()?);
     reader.done()?;
     Ok(DecodedPrivateKey {
         x25519_secret_key,
@@ -307,17 +308,18 @@ fn decode_private_key(bytes: &[u8]) -> Result<DecodedPrivateKey> {
 }
 
 fn derive_wrapping_key(x25519_secret: &[u8], mlkem_secret: &[u8]) -> Result<[u8; 32]> {
-    let mut input = Vec::with_capacity(4 + x25519_secret.len() + 4 + mlkem_secret.len());
+    let mut input = Zeroizing::new(Vec::with_capacity(
+        4 + x25519_secret.len() + 4 + mlkem_secret.len(),
+    ));
     put_bytes(&mut input, x25519_secret);
     put_bytes(&mut input, mlkem_secret);
     let hkdf = Hkdf::<Sha256>::new(Some(b"lockbox-v1-hybrid-contact-wrap"), &input);
-    let mut out = [0_u8; 32];
-    hkdf.expand(b"x25519-mlkem768-chacha20poly1305", &mut out)
+    let mut out = Zeroizing::new([0_u8; 32]);
+    hkdf.expand(b"x25519-mlkem768-chacha20poly1305", &mut *out)
         .map_err(|_| {
             Error::InvalidKeyMaterial("hybrid wrapping key derivation failed".to_string())
         })?;
-    input.zeroize();
-    Ok(out)
+    Ok(*out)
 }
 
 fn put_u16(out: &mut Vec<u8>, value: u16) {

@@ -1,0 +1,37 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const root = '/tmp/revault-tree-read-20261010-final';
+const runner = '$root/bin/archive_evaluation';
+const packed = '$root/bin/adapter_packed';
+const tree = '$root/bin/adapter_tree';
+
+void runCase(String name, int files, int bytes, String corpus, String codec, int unit) {
+  final caseRoot = '$root/cases/$name';
+  final args = [
+    'run', caseRoot, '$files', '$bytes', corpus, codec, 'plain', '1', 'stream', '1', 'default', tree, packed,
+  ];
+  final result = Process.runSync(
+    runner,
+    args,
+    environment: {...Platform.environment, 'REVAULT_CANDIDATE_UNIT': '$unit'},
+  );
+  final text = '${result.stdout}${result.stderr}';
+  File('$root/setup-$name.log').writeAsStringSync(text, flush: true);
+  if (result.exitCode != 0) {
+    throw StateError('Fixture setup/smoke failed for $name (${result.exitCode}):\n$text');
+  }
+  print('SETUP_OK $name fixture=$caseRoot log=$root/setup-$name.log');
+}
+
+void main() {
+  final cases = Directory('$root/cases');
+  if (cases.existsSync()) throw StateError('Refusing existing cases directory');
+  cases.createSync();
+  runCase('small512-mixed-compressed', 512, 4096, 'mixed', 'compressed', 262144);
+  runCase('raw8m-random', 1, 8388608, 'random', 'raw', 65536);
+  runCase('compressed8m-pattern', 1, 8388608, 'pattern', 'compressed', 262144);
+  runCase('raw64m-random', 1, 67108864, 'random', 'raw', 65536);
+  print('FIXTURE_SETUP_COMPLETE groups=4 all_plain_default_padded');
+}

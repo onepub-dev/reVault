@@ -1,0 +1,9 @@
+{
+  "command": "prepare-random-case /tmp/revault-parallel-20261010/bin/archive_evaluation",
+  "failure": "PathNotFoundException reading inventory.json in _sourceIdentity; initial generator wrote source files before attempting to read inventory and failed before ZIP creation",
+  "retained_partial_source_files": 10000,
+  "expected_source_file_count": 10000,
+  "archive_created": false,
+  "tree_archive_created": false,
+  "recovery": "continued only after checking all expected paths, sizes, and distinct hashes"
+}

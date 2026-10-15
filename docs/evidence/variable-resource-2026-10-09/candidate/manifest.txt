@@ -1,0 +1,31 @@
+Frozen post-format variable-resource candidate test executable
+Archive worktree: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance
+Rust working directory: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust
+HEAD: b6af42eb8cfbdc8301df33f58bada3784b2349da
+Toolchain pin: ../rust-toolchain.toml channel 1.88.0
+Exact build command: cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib typed_variable_resource_probe --no-run
+Features/profile: external-source; optimized release; unit test harness
+Build log: /tmp/revault-variable-resource-2026-10-09/candidate/build-final.log
+Executable: /tmp/revault-variable-resource-2026-10-09/candidate/revault_lockbox_api-tests
+Executable SHA-256: 377372f7ac9efd75384dcf62c1804b1e00b9b58ecd78c40754bbfdf6cf3a1a54
+Compiler: rustc 1.88.0 (6b00bc388 2025-06-23), host x86_64-unknown-linux-gnu, LLVM 20.1.5
+Cargo.lock SHA-256: 05c39385e697a0775480fc010e1ba050a93395118753c1bcaed2392701540380
+C compiler used: system /usr/bin/cc; prior baseline manifest records GCC 15.2.0-16ubuntu1
+Source hashes:
+  resource.rs: e26bebd89145e4447eaa0135e699d754ab210535a25128cc95dfbd41886f8ba8
+  tree_image/variables.rs: af245ef7ea9118fd37a09c4f08644fcc8b81e015a65a1eb5907b332f62a41d46
+  secure_segments.rs: 17f5325ac16b2dbe82584795204ec5f579fd41fe8363805d088c44ad9f50f888
+  secure_segments/tests.rs: cd0bca684c19d1ba7722e2a1d1164b09cf346fe6630a8c9105dc0336eec90847
+  secure_string.rs: ebbdc4829a5c13d5905198772e5479479b954504ae7d351c8dbb2a59be5c4240
+  page_api/tests.rs: 6d7efdfed0c6727e6454b482e77a59b1b2a143fa98f845112813711c95ca71c1
+Fixed runner SHA-256: 510818b5c7bb265454fce48ae5216deb2293e85fdb1ae0af7093eae37ce7fe07
+Analyzer SHA-256: 28e032e93781d6b2986e23667c6cd51932f859acbfca20f1abb28f6063fa5ffc
+Cross-reader verifier SHA-256: df307e90779c0094336884f722ea8686282a5e16b72c39e66999094527ec5cce
+Probe snapshot: resource.rs.txt (SHA-256 above)
+Control probe snapshot: resource-control.rs.txt; hash f7d290e1783f29c543c7e61b7ac417b1314db5ffa06e1259d5c6228b834ffc13
+Control probe test binary SHA-256: 2dbd1a1502fe3f356eafbd009d991d6b4f3cdb12bb5d76fc69d21ca77fdc5796
+Probe difference: probe-comment-only.diff (SHA-256 fcb424570bad66ec843b3e36d1a87ccb088344e6a15d31330435592c417acddb). It relocates the same SAFETY comment immediately before the nested unsafe expression for Clippy; no probe behavior changed.
+Candidate source diff from control HEAD: candidate-source.patch (SHA-256 ed16fa652402155b6fd82a2130407085bb5347315292d1f82df32c62e9cc998d)
+Post-format correctness logs: correctness/page-api.log (20/20), correctness/secure-segments.log (4/4), correctness/variables-serial.log (5/5; probe ignored), correctness/page-api-clippy.log (pass), correctness/archive-clippy.log (pass).
+Prior single default-parallel control: /tmp/revault-variable-resource-2026-10-09/candidate-correctness/variables-default-parallel.log (5 passed; do not rerun).
+No fixed resource samples have been run with this candidate.

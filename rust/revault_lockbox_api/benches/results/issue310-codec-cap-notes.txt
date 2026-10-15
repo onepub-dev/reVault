@@ -1,0 +1,65 @@
+Issue #310: smaller codec output allocation, diagnostic prototype only
+Production source 6c67fdf (unchanged since f4b1d91). No production changes retained.
+Before SHA256: 791178ff9a9de09314f4fe6cc4bdaff89c54d0c0fb8fdbf066866ed8f6c019a3
+After SHA256: ae1dbc172bee1e3301cb4debd170376ad63680baa35d49078ed6fc72cad2aeb3
+Both use native-block-layout. Before was freshly rebuilt without instrumentation.
+After patches a temporary copy of zstd-complete 0.2.0 under target only, changing
+one dfast output allocation from compress_bound(input.len()) to its minimum with
+64 KiB. The attached patch is experimental and is NOT applied to the dependency
+used by production. The Cargo.lock change from the path override was restored.
+
+Build baseline: cargo build -p revault_lockbox_api --release --bench
+protection_gate --features native-block-layout. Preserve executable as
+target/issue310-codec-cap-before.
+Build prototype with additional configuration:
+--config 'patch.crates-io.zstd-complete.path="target/issue310-codec-cap-prototype"'
+Path-patched executable is target/release/deps/protection_gate-eadff2c24d1e583a;
+preserved as target/issue310-codec-cap-after. Check hashes, not the old filename:
+the dependency source change changes Cargo's executable suffix.
+Original native executable -4a1172c8e93f57fc is the restored production baseline.
+Default executable -a58df4485f37a924 still has previous drop diagnostics; rebuild
+it before any production native/default comparison.
+
+No stage/drop instrumentation in either timed binary. Synthetic generated data
+only, no real secrets. CPU 2, warm OS cache, default padding, synthetic keys and
+no KDF. No owned builds/tests overlapped timing; unrelated host work uncontrolled.
+Native before/after: CSV main=before, branch=prototype, not default/native.
+Five ABBA/BAAB groups per pattern/random corpus, three child samples with first
+discarded. Four protection modes, raw/compressed: 640 broad measured rows.
+Focus chosen before this experiment: encrypted-only compressed pattern,
+15 groups, six child samples with first discarded: 300 measured rows.
+Total 940 measured + 380 warmup writes, each independently reopened and all
+persisted bytes compared outside the write timer. Runner exited zero.
+Invocation per case from rust, TMPDIR=$PWD/target/issue310-sign-tmp:
+REVAULT_GATE_CHILD_SAMPLES=S taskset -c 2 AFTER compare-write BEFORE AFTER
+ROOT 8388608 CORPUS GROUPS CASE
+Broad uses S=3 GROUPS=5 CASE=all; focus S=6 GROUPS=15
+CORPUS=pattern CASE=encrypted/true/write. AFTER summarize CSV produces summaries.
+
+Focused encrypted compressed writes: -9.576%, 95% [-11.652%,-3.973%]. Pooled
+medians before 16.769728 ms, prototype 15.148192 ms. Summary bootstraps 5000
+whole paired groups from per-group median ratios. This establishes a useful
+performance lead for this workload; it does not establish layout parity.
+Broad compressed pattern central changes range -1.460% to -14.081%, but every
+broad interval crosses zero. Controls are noisy and must not be described as
+proven non-regressions. Do not pool this with earlier production layout gates.
+
+Security/retention decision: do not retain this one-line prototype as production.
+Smaller initial capacity can introduce buffer growth that releases previous
+allocations before ZeroizingBytes sees the final Vec. Current cleanup of the
+returned allocation does not prove historical reallocations were wiped.
+Separately, the codec emits trial compressed blocks and truncates rejected output
+in c_port/block_emit.rs, so final length is not a valid bound on previously
+initialized bytes. Shrinking or skipping spare wiping without tracking that
+history would be unjustified. No third-party source or allocation policy change
+was made outside the temporary target copy, and no dependency upgrade is claimed.
+
+The measured gain justifies investigating a secure codec output API: caller-owned
+or reusable storage with explicit handling of every growth, truncation and drop,
+or a bounded encoder that avoids releasing written buffers during growth. A
+production solution needs exact-output/round-trip coverage across compressible,
+incompressible and mixed blocks plus cleanup tests on rejection/reallocation,
+then full read/write performance gates. This diagnostic does not provide those
+security proofs. No additional correctness-suite result is claimed.
+Native remains opt-in; read parity, write gates, signed recovery and release work
+remain incomplete. Nothing pushed or published.

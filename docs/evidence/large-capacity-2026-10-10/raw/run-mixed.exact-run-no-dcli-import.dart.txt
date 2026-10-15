@@ -1,0 +1,61 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+
+Future<void> main() async {
+  const out = '/tmp/revault-large-capacity-20261010';
+  const root = '/home/bsutton/.cache/revault-performance-20261010-large/raw-mixed-10000x64k';
+  const runner = '/tmp/revault-journal-buffer-20261010/bin/archive_evaluation';
+  const adapter = '/tmp/revault-journal-buffer-20261010/bin/adapter_after';
+  final dir = Directory(out);
+  await dir.create(recursive: true);
+  final caseDir = Directory(root);
+  if (await caseDir.exists()) {
+    throw StateError('Refusing to overwrite existing case directory: $root');
+  }
+  final df = await Process.run('df', ['-Pk', '/home/bsutton/.cache']);
+  final availableLine = (df.stdout as String).trim().split('\n').last;
+  final available = int.parse(availableLine.trim().split(RegExp(r'\s+'))[3]) * 1024;
+  const payload = 10000 * 65536;
+  if (available < payload * 2) {
+    throw StateError('Insufficient free space: $available bytes for $payload-byte payload');
+  }
+  final command = <String>[
+    '/usr/bin/time', '-v', 'timeout', '900', runner, 'run', root,
+    '10000', '65536', 'mixed', 'raw', 'plain', '1', 'stream', '1', 'default', adapter, adapter,
+  ];
+  await File('$out/raw-mixed-10000x64k.command.txt').writeAsString(
+      '${command.join(' ')}\nREVAULT_CANDIDATE_UNIT=65536\n');
+  await File('$out/raw-mixed-10000x64k.preflight.json').writeAsString(jsonEncode({
+    'case_root': root,
+    'payload_bytes': payload,
+    'cumulative_payload_with_prior_1gib_case': payload + 1073741824,
+    'available_bytes_before': available,
+    'runner_sha256': await _sha(runner),
+    'adapter_sha256': await _sha(adapter),
+    'command': command,
+  }));
+  final log = File('$out/raw-mixed-10000x64k.log').openWrite();
+  final process = await Process.start(command.first, command.skip(1).toList(),
+      environment: {...Platform.environment, 'REVAULT_CANDIDATE_UNIT': '65536'},
+      runInShell: false);
+  process.stdout.transform(utf8.decoder).listen(log.write);
+  process.stderr.transform(utf8.decoder).listen(log.write);
+  final exitCode = await process.exitCode;
+  await log.flush();
+  await log.close();
+  final afterDf = await Process.run('df', ['-Pk', '/home/bsutton/.cache']);
+  await File('$out/raw-mixed-10000x64k.result.json').writeAsString(jsonEncode({
+    'exit_code': exitCode,
+    'df_after': afterDf.stdout,
+    'case_dir_exists': await caseDir.exists(),
+  }));
+  print('capacity case exit=$exitCode; log=$out/raw-mixed-10000x64k.log');
+  if (exitCode != 0) exitCode == 0 ? null : exit(exitCode);
+}
+
+Future<String> _sha(String path) async {
+  final result = await Process.run('sha256sum', [path]);
+  if (result.exitCode != 0) throw StateError('sha256sum failed: ${result.stderr}');
+  return (result.stdout as String).split(RegExp(r'\s+')).first;
+}

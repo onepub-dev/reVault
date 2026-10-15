@@ -1,0 +1,24 @@
+Initial compile attempt for `file_format::publication_anchor::shared::tree::tests::` on the initial observer patch failed before tests ran. Captured command output:
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+error[E0061]: this function takes 8 arguments but 7 arguments were supplied
+   --> revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update/source.rs:34:13
+    |
+34  |             Tree::from_snapshot_visit(storage, archive, mode, key, anchor, &body, |_| Ok(()))?;
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^-------------------------------------------------------- argument #8 of type `&mut _` is missing
+    |
+note: associated function defined here
+   --> revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs:115:8
+    |
+115 |     fn from_snapshot_visit(
+    |        ^^^^^^^^^^^^^^^^^^^
+...
+123 |         stage: &mut impl FnMut(&'static str),
+    |         ------------------------------------
+help: provide the argument
+    |
+34  |             Tree::from_snapshot_visit(storage, archive, mode, key, anchor, &body, |_| Ok(()), /* stage */)?;
+    |                                                                                             +++++++++++++
+
+For more information about this error, try `rustc --explain E0061`.
+error: could not compile `revault_lockbox_api` (lib test) due to 1 previous error
+EXIT: 101

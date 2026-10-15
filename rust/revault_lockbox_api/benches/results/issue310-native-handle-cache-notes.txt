@@ -1,0 +1,45 @@
+Handle-local common block index and read windows, 2026-09-13
+==========================================================
+The staged open_file Read/Seek handle now retains a validated native page reader
+for its current file chunk. This holds the metadata, authenticated block index
+and cipher while borrowing the archive storage/lock. Moving outside the chunk
+drops it and resolves the next chunk; legacy chunks retain their existing path.
+Entering a native chunk releases the previous legacy handle buffer.
+
+Raw data windows align to the common frame's 16-KiB block boundaries, including
+packed files whose starts are not aligned. A small read fetches only its touched
+block window. Larger requests coalesce their blocks; subsequent reads consume
+the retained bytes before fetching another window. Compressed chunks retain
+their decoded chunk bytes, avoiding repeat data reads/decompression for small
+sequential operations. Buffers are wiped when replaced or dropped. The index
+and buffer are handle-local, not an unbounded archive-wide cache.
+
+Every nonempty cached read validates source identity/failure and the complete
+physical page extent. A retained buffer cannot bypass external cancellation or
+clear a terminal source failure, nor hide file truncation that removes padding.
+The common open_native_block_chunk helper supplies exactly the same descriptor,
+manifest, archive/mode and physical-reference validation as read_file_range.
+
+Instrumented real Read/Seek tests cover all 16 policy combinations with a
+2-MiB-plus-13-byte shared frame and an unaligned second packed file. They verify:
+- First read: exactly header, metadata, index and data source requests.
+- A tiny raw read fetches 16,384 data bytes plus a 16-byte tag when encrypted.
+- Repeat within the window performs no source read.
+- A seek to another raw block adds one data read, not metadata/index reads.
+- Sequential 64-KiB-buffer reads reproduce every file byte without index reloads.
+- Compressed sequential reads reuse decoded data (only the initial four reads).
+- Cached reads reject cancellation and the retained terminal-failure latch.
+A separate real-file test verifies cached bytes reject removal of the last
+physical page byte across all 16 modes.
+
+These are private native-layout injection tests, not persisted writer/CLI E2E.
+The normal production layout and handle remain unchanged behind cfg(test).
+The full test-support/external-source library suite passed 319 tests, with five
+intentionally ignored. Final targeted native tests and strict Clippy are run
+before commit-time formatting.
+
+This establishes bounded I/O and index/decode reuse, not wall-clock ZIP parity.
+Cross-handle cache policy, native production writer/scanner/recovery/mutation/
+compaction activation, migrations, bindings and final write/load/ZIP gates are
+still required. Plain read_file_range and extraction callbacks still open a
+page reader per chunk request; this checkpoint optimizes retained Read/Seek.

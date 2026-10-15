@@ -1,0 +1,12 @@
+{
+  "command": [
+    "/usr/bin/printf",
+    "capture-ok\n"
+  ],
+  "exit_code": 0,
+  "timed_out": false,
+  "capture_incomplete": false,
+  "stdout": "capture-ok\n",
+  "stderr": "",
+  "passed": true
+}

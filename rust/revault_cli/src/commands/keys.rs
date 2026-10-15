@@ -30,91 +30,73 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub(crate) fn create_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     let selected = super::selected_lockbox(super::aliases::TargetPolicy::MustBeMissing)?;
     let path = create_path(&selected)?;
-    let name = matches
-        .get_one::<String>("alias")
-        .map(String::as_str)
-        .or_else(|| path.file_stem().and_then(|name| name.to_str()))
-        .ok_or_else(|| cli_error("cannot derive lockbox alias from filename; use --alias"))?;
     validate_creation_options(matches)?;
-    super::aliases::validate_name(name)?;
+    // Explicit invalid input is rejected before touching the destination. A
+    // filename-derived name cannot prevent otherwise valid archive creation.
+    let name = if let Some(name) = matches.get_one::<String>("alias") {
+        Ok(revault_vault_api::normalize_lockbox_alias_name(name)?)
+    } else {
+        path.file_stem()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| {
+                Error::InvalidInput("filename is not UTF-8; choose --alias explicitly".into())
+            })
+            .and_then(revault_vault_api::derive_lockbox_alias_name)
+    };
     ensure_new_lockbox_path(&path)?;
-    let vault_required = matches
-        .get_one::<String>("signing")
-        .is_none_or(|mode| mode != "none")
-        || (matches
-            .get_one::<String>("encryption")
-            .is_none_or(|mode| mode != "none")
-            && !matches.get_flag("password")
-            && !matches!(access, Access::ContentKey(_)))
-        || matches.contains_id("for");
+    let needs_vault =
+        !configured_creation(matches) || configured_creation_needs_vault(matches, access);
     let mut vault = None;
-    let aliases = aliases_for_recreated_path(&path, vault_required, &mut vault)?;
-    let configured = ["encryption", "signing", "compression", "compression-level"]
-        .iter()
-        .any(|name| matches.contains_id(name));
-    if (configured && vault_required)
-        || (!configured
+    let aliases = aliases_for_recreated_path(&path, needs_vault, &mut vault)?;
+    if (configured_creation(matches) && needs_vault)
+        || (!configured_creation(matches)
             && (matches.get_flag("password")
                 || matches.contains_id("for")
                 || matches!(access, Access::PromptPassword)))
     {
         ensure_default_vault_initialized()?;
     }
-    // Preserve standalone unsigned/raw-key creation: automatic naming must not
-    // introduce a Vault prompt or initialize a Vault for these modes. An
-    // explicit alias still requests Vault access before creating the archive.
-    if vault_required
+    // Reuse any Vault opened for alias recovery. Standalone unsigned creation
+    // only opens a Vault when an explicit alias or unlocked Vault requests it.
+    if needs_vault
         || vault.is_some()
         || matches.contains_id("alias")
         || super::completion::read_only_vault().is_some()
     {
         creation_vault(&mut vault)?;
     }
-    create_selected_matches(matches, access, &mut vault)?;
+    create_without_alias(matches, access, vault.as_ref())?;
     let Some(vault) = vault.as_ref() else {
-        eprintln!("Warning: lockbox created, but no alias was created: no unlocked Vault is available. Register one later with `lbx vault lockboxes aliases set {name} {}`.", path.display());
+        eprintln!("Warning: lockbox created, but no alias was created: no unlocked Vault is available. Register an alias later with `lbx vault lockbox alias set`.");
         return Ok(());
     };
-    let identity = Lockbox::inspect_file(&path)?.lockbox_id;
-    vault.remember_known_lockbox(identity, &path)?;
-    if !aliases.is_empty() {
-        for name in aliases {
-            vault.set_lockbox_alias(&name, identity)?;
+    let register = || -> CliResult<()> {
+        let identity = Lockbox::inspect_file(&path)?.lockbox_id;
+        vault.remember_known_lockbox(identity, &path)?;
+        // A recreated path gets a new identity. Preserve its aliases without
+        // copying credentials associated with the previous archive.
+        for alias in aliases {
+            vault.set_lockbox_alias(&alias, identity)?;
         }
-    }
-    if let Some(existing) = vault
-        .list_lockbox_aliases()?
-        .iter()
-        .find(|alias| alias.name == name)
-    {
-        if existing.lockbox_id != identity {
-            eprintln!("Warning: lockbox created, but no alias was created: alias '{name}' already exists; its mapping is unchanged.");
+        let name = name?;
+        if let Some(existing) = vault
+            .list_lockbox_aliases()?
+            .iter()
+            .find(|alias| alias.name == name)
+        {
+            if existing.lockbox_id != identity {
+                return Err(cli_error(format!(
+                    "alias '{name}' already exists; its mapping is unchanged"
+                )));
+            }
+            return Ok(());
         }
-        return Ok(());
-    }
-    vault.set_lockbox_alias(name, identity)?;
-    println!("Alias created: a@{name}");
-    Ok(())
-}
-
-fn validate_creation_options(matches: &ArgMatches) -> CliResult<()> {
-    if matches
-        .get_one::<String>("compression")
-        .is_some_and(|mode| mode == "none")
-        && matches.contains_id("compression-level")
-    {
-        return Err(cli_error("--compression-level requires --compression zstd"));
-    }
-    if matches
-        .get_one::<String>("encryption")
-        .is_some_and(|mode| mode == "none")
-        && (matches.get_flag("password")
-            || matches.contains_id("for")
-            || matches.contains_id("key"))
-    {
-        return Err(cli_error(
-            "--encryption none does not accept decryption credentials",
-        ));
+        vault.set_lockbox_alias(&name, identity)?;
+        println!("Alias created: a@{name}");
+        Ok(())
+    };
+    if let Err(error) = register() {
+        eprintln!("Warning: lockbox created, but no alias was created: {error}");
     }
     Ok(())
 }
@@ -167,15 +149,33 @@ fn creation_vault(vault: &mut Option<VaultDirectory>) -> CliResult<&VaultDirecto
     Ok(vault.as_ref().unwrap())
 }
 
-fn create_selected_matches(
+fn configured_creation(matches: &ArgMatches) -> bool {
+    matches.get_flag("password")
+        || matches.contains_id("for")
+        || matches.get_flag("no-size-padding")
+        || ["encryption", "signing", "compression", "compression-level"]
+            .iter()
+            .any(|name| matches.contains_id(name))
+}
+
+fn configured_creation_needs_vault(matches: &ArgMatches, access: &Access) -> bool {
+    let signed = matches
+        .get_one::<String>("signing")
+        .map_or(!matches.get_flag("password"), |mode| mode == "owner");
+    let plaintext = matches
+        .get_one::<String>("encryption")
+        .is_some_and(|mode| mode == "none");
+    signed
+        || matches.contains_id("for")
+        || (!plaintext && !matches.get_flag("password") && !matches!(access, Access::ContentKey(_)))
+}
+
+fn create_without_alias(
     matches: &ArgMatches,
     access: &Access,
-    vault: &mut Option<VaultDirectory>,
+    vault: Option<&VaultDirectory>,
 ) -> CliResult<()> {
-    if ["encryption", "signing", "compression", "compression-level"]
-        .iter()
-        .any(|name| matches.contains_id(name))
-    {
+    if configured_creation(matches) {
         return create_configured(matches, access, vault);
     }
     let mut args = Vec::new();
@@ -193,35 +193,21 @@ fn create_selected_matches(
         &args,
         access,
         matches.get_one::<String>("description").map(String::as_str),
-        vault,
+        vault.ok_or_else(|| cli_error("creation requires an unlocked Vault"))?,
     )
 }
 
-fn create_configured(
-    matches: &ArgMatches,
-    access: &Access,
-    creation_vault_cache: &mut Option<VaultDirectory>,
-) -> CliResult<()> {
-    use revault_lockbox_api::{Compression, Encryption, LockboxCreateOptions, Signing, ZstdLevel};
+fn validate_creation_options(matches: &ArgMatches) -> CliResult<()> {
+    if matches
+        .get_one::<String>("compression")
+        .is_some_and(|mode| mode == "none")
+        && matches.contains_id("compression-level")
+    {
+        return Err(cli_error("--compression-level requires --compression zstd"));
+    }
     let plaintext = matches
         .get_one::<String>("encryption")
         .is_some_and(|mode| mode == "none");
-    let signed = matches
-        .get_one::<String>("signing")
-        .is_none_or(|mode| mode == "owner");
-    let compression = if matches
-        .get_one::<String>("compression")
-        .is_some_and(|mode| mode == "none")
-    {
-        if matches.contains_id("compression-level") {
-            return Err(cli_error("--compression-level requires --compression zstd"));
-        }
-        Compression::None
-    } else {
-        Compression::Zstd {
-            level: ZstdLevel::new(*matches.get_one::<u8>("compression-level").unwrap_or(&3))?,
-        }
-    };
     if plaintext
         && (matches.get_flag("password")
             || matches.contains_id("for")
@@ -231,33 +217,30 @@ fn create_configured(
             "--encryption none does not accept decryption credentials",
         ));
     }
+    Ok(())
+}
+
+fn create_configured(
+    matches: &ArgMatches,
+    access: &Access,
+    vault: Option<&VaultDirectory>,
+) -> CliResult<()> {
+    use revault_lockbox_api::{Compression, Encryption, LockboxCreateOptions, Signing, ZstdLevel};
+    let plaintext = matches
+        .get_one::<String>("encryption")
+        .is_some_and(|mode| mode == "none");
+    let compression = if matches
+        .get_one::<String>("compression")
+        .is_some_and(|mode| mode == "none")
+    {
+        Compression::None
+    } else {
+        Compression::Zstd {
+            level: ZstdLevel::new(*matches.get_one::<u8>("compression-level").unwrap_or(&3))?,
+        }
+    };
     let path = create_path(&command_lockbox().ok_or_else(|| cli_error("missing lockbox"))?)?;
     ensure_new_lockbox_path(&path)?;
-    let needs_vault = signed
-        || matches.contains_id("for")
-        || (!plaintext
-            && !matches.get_flag("password")
-            && !matches!(access, Access::ContentKey(_)));
-    let vault = if needs_vault {
-        ensure_default_vault_initialized()?;
-        Some(creation_vault(creation_vault_cache)?)
-    } else {
-        None
-    };
-    let signing_key = if signed {
-        Some(
-            vault
-                .as_ref()
-                .unwrap()
-                .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?,
-        )
-    } else {
-        None
-    };
-    let signing = signing_key
-        .as_ref()
-        .map(Signing::Owner)
-        .unwrap_or(Signing::None);
     let mut password = None;
     let mut cache_key = None;
     let encryption = if plaintext {
@@ -267,7 +250,7 @@ fn create_configured(
             password = Some(read_new_password()?);
             LockboxProtection::Password(password.as_ref().unwrap())
         } else if let Some(contact_name) = matches.get_one::<String>("for") {
-            let vault = vault.as_ref().unwrap();
+            let vault = vault.unwrap();
             password = resolve_profile_password(contact_name, vault)?;
             if let Some(password) = password.as_ref() {
                 LockboxProtection::Password(password)
@@ -282,7 +265,7 @@ fn create_configured(
             LockboxProtection::ContentKey(key.try_clone()?)
         } else {
             let contact =
-                load_contact_from_vault(VaultDirectory::DEFAULT_KEY_NAME, vault.as_ref().unwrap())?;
+                load_contact_from_vault(VaultDirectory::DEFAULT_KEY_NAME, vault.unwrap())?;
             LockboxProtection::ContactPublicKey {
                 name: contact.name.map(|name| access_entry_name(&name)),
                 contact: contact.public_key,
@@ -290,10 +273,28 @@ fn create_configured(
         };
         Encryption::Encrypted(protection)
     };
+    let signed = matches
+        .get_one::<String>("signing")
+        .map_or(password.is_none(), |mode| mode == "owner");
+    let signing_key = if signed {
+        Some(
+            vault
+                .ok_or_else(|| cli_error("owner signing requires an unlocked Vault"))?
+                .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?,
+        )
+    } else {
+        None
+    };
+    let signing = signing_key.as_ref().map_or(Signing::None, Signing::Owner);
     let mut lb = Lockbox::create_file_with_options(
         &path,
         LockboxCreateOptions {
             compression,
+            size_padding: if matches.get_flag("no-size-padding") {
+                revault_lockbox_api::SizePadding::None
+            } else {
+                revault_lockbox_api::SizePadding::Default
+            },
             ..LockboxCreateOptions::new(encryption, signing)
         },
     )?;
@@ -302,10 +303,20 @@ fn create_configured(
         matches.get_one::<String>("description").map(String::as_str),
     )?;
     if let Some(password) = password.as_ref() {
+        if let Some(profile) = matches.get_one::<String>("for") {
+            let slot = lb
+                .list_key_slots()
+                .into_iter()
+                .find(|slot| slot.protection == LockboxKeySlotProtection::Password)
+                .ok_or_else(|| cli_error("created password slot is missing"))?;
+            vault
+                .ok_or_else(|| cli_error("password profile requires an unlocked Vault"))?
+                .remember_access_slot_label(lb.lockbox_id(), slot.id, profile)?;
+        }
         let backup = VaultOpen::export_key_directory_backup(&lb)?;
         let opened = VaultOpen::key_directory_backup_with_password(&backup, password)?;
         cache_key = Some(opened.try_clone_key()?);
-        if let Some(vault) = vault.as_ref() {
+        if let Some(vault) = vault {
             remember_lockbox_password_if_enabled_with_vault(&lb, password, vault)?;
         }
     }
@@ -315,7 +326,7 @@ fn create_configured(
             .put_content_key_for_path(lb.lockbox_id(), key, &path)?;
     }
     if !plaintext {
-        if let Some(vault) = vault.as_ref() {
+        if let Some(vault) = vault {
             mirror_key_directory_with_vault(&lb, &path, vault)?;
         }
     }
@@ -327,13 +338,11 @@ fn create_with_description(
     args: &[String],
     access: &Access,
     description: Option<&str>,
-    creation_vault_cache: &mut Option<VaultDirectory>,
+    vault: &VaultDirectory,
 ) -> CliResult<()> {
     if args.first().map(String::as_str) == Some("--password") {
         let lockbox_path = create_path(require_arg(args, 1, "lockbox")?)?;
         ensure_new_lockbox_path(&lockbox_path)?;
-        ensure_default_vault_initialized()?;
-        let vault = creation_vault(creation_vault_cache)?;
         let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
         println!("Creating lockbox: {}", lockbox_path.display());
         let password = read_new_password()?;
@@ -352,8 +361,6 @@ fn create_with_description(
         let contact_name = require_arg(args, 1, "contact")?;
         let lockbox_path = create_path(require_arg(args, 2, "lockbox")?)?;
         ensure_new_lockbox_path(&lockbox_path)?;
-        ensure_default_vault_initialized()?;
-        let vault = creation_vault(creation_vault_cache)?;
         let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
         if let Some(password) = resolve_profile_password(contact_name, vault)? {
             let mut lb = local_vault().create_lockbox_with_signing_key(
@@ -392,7 +399,6 @@ fn create_with_description(
     println!("Creating lockbox: {}", lockbox_path.display());
     match access {
         Access::ContentKey(key) => {
-            let vault = creation_vault(creation_vault_cache)?;
             let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
             let mut lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
                 &lockbox_path,
@@ -403,8 +409,6 @@ fn create_with_description(
             mirror_key_directory_with_vault(&lb, &lockbox_path, vault)?;
         }
         Access::PromptPassword => {
-            ensure_default_vault_initialized()?;
-            let vault = creation_vault(creation_vault_cache)?;
             let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
             let contact = load_contact_from_vault(VaultDirectory::DEFAULT_KEY_NAME, vault)?;
             let mut lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
@@ -461,10 +465,11 @@ fn open_options(options: OpenOptions) -> CliResult<()> {
             && !revault_vault_api::default_vault_path()?.exists())
     {
         let password = options.read_password()?;
-        local_vault().open_password_read_only(
+        local_vault().open_password_read_only_with_budget(
             &options.lockbox_path,
             &password,
             options.ttl_seconds,
+            options.password_slot_budget,
         )?;
         println!("Lockbox opened: {}", options.lockbox_path);
         return Ok(());
@@ -498,26 +503,27 @@ fn open_options(options: OpenOptions) -> CliResult<()> {
     let lb = if let Some(ttl_seconds) = options.ttl_seconds {
         local_vault().open_lockbox_with_for_duration_and_signing_key(
             &options.lockbox_path,
-            LockboxOpen::Password(&password),
+            LockboxOpen::PasswordWithBudget {
+                password: &password,
+                max_derivations: options.password_slot_budget,
+            },
             ttl_seconds,
             &signing_key,
         )?
     } else {
         local_vault().open_lockbox_with_signing_key(
             &options.lockbox_path,
-            LockboxOpen::Password(&password),
+            LockboxOpen::PasswordWithBudget {
+                password: &password,
+                max_derivations: options.password_slot_budget,
+            },
             &signing_key,
         )?
     };
     mirror_key_directory_with_vault(&lb, &options.lockbox_path, &vault)?;
     remember_lockbox_password_if_enabled_with_vault(&lb, &password, &vault)?;
-    if let Some(ttl_seconds) = options.ttl_seconds {
-        local_vault().cache_lockbox_password_for_duration(
-            &options.lockbox_path,
-            &password,
-            ttl_seconds,
-        )?;
-    }
+    // The duration-aware open above already cached this authenticated key
+    // with the requested TTL; do not repeat password derivations here.
     println!("Lockbox opened: {}", options.lockbox_path);
     Ok(())
 }
@@ -563,13 +569,19 @@ fn open_with_vault_profile(
         let opened = match options.ttl_seconds {
             Some(ttl) => local_vault().open_lockbox_with_for_duration_and_signing_key(
                 &options.lockbox_path,
-                LockboxOpen::Password(&password),
+                LockboxOpen::PasswordWithBudget {
+                    password: &password,
+                    max_derivations: options.password_slot_budget,
+                },
                 ttl,
                 &signing_key,
             ),
             None => local_vault().open_lockbox_with_signing_key(
                 &options.lockbox_path,
-                LockboxOpen::Password(&password),
+                LockboxOpen::PasswordWithBudget {
+                    password: &password,
+                    max_derivations: options.password_slot_budget,
+                },
                 &signing_key,
             ),
         };
@@ -1336,6 +1348,7 @@ fn ensure_new_lockbox_path(path: &Path) -> CliResult<()> {
 
 struct OpenOptions {
     lockbox_path: String,
+    password_slot_budget: u32,
     ttl_seconds: Option<u64>,
     password_source: PasswordSource,
 }
@@ -1376,10 +1389,20 @@ impl OpenOptions {
         if ttl_seconds.is_none() {
             ttl_seconds = default_session_duration()?;
         }
+        let password_slot_budget = matches
+            .get_one::<String>("password-slot-budget")
+            .map(|value| {
+                value.parse::<u32>().map_err(|_| {
+                    cli_error("--password-slot-budget must be an unsigned 32-bit attempt count")
+                })
+            })
+            .transpose()?
+            .unwrap_or(revault_lockbox_api::DEFAULT_PASSWORD_SLOT_BUDGET);
         Ok(Self {
             lockbox_path,
             ttl_seconds,
             password_source,
+            password_slot_budget,
         })
     }
 

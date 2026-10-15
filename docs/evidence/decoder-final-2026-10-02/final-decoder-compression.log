@@ -1,0 +1,30 @@
+   Compiling zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 1m 13s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-5338344f5af7f73d)
+
+running 21 tests
+test compression::tests::compression_frame_rejects_declared_bomb_before_allocating ... ok
+test compression::tests::compression_frame_rejects_stored_len_larger_than_frame_len ... ok
+test compression::decode_workspace::tests::oversized_history_keeps_the_original_decoder_fallback ... ok
+test compression::tests::archive_like_high_entropy_compression_frame_stays_uncompressed ... ok
+test compression::tests::rejects_declared_decompression_bomb_before_allocating ... ok
+test compression::tests::rejects_stored_len_past_buffer ... ok
+test compression::tests::rejects_uncompressed_len_mismatch ... ok
+test compression::decode_workspace::tests::decoding_from_a_later_thread_local_destructor_falls_back ... ok
+test compression::tests::rejects_zstd_page_body_that_expands_beyond_declared_len ... ok
+test compression::tests::zstd_compression_frame_rejects_content_size_mismatch_before_decode ... ok
+test compression::tests::high_entropy_random_payload_stays_uncompressed ... ok
+test compression::tests::repeated_payload_is_compressed ... ok
+test compression::decode_workspace::tests::checksum_failure_returns_no_decoded_content_and_releases_scoped_scratch ... ok
+test compression::decode_workspace::tests::declared_length_mismatch_fails_before_transferring_decoded_output ... ok
+test compression::encode_workspace::tests::pool_reentry_and_unavailable_borrow_preserve_encoding_and_cleanup ... ok
+test compression::tests::repeated_binary_sequences_are_not_mistaken_for_incompressible_data ... ok
+test compression::encode_workspace::tests::pooled_buffers_are_wiped_and_reused_after_success_error_and_unwind ... ok
+test compression::decode_workspace::tests::scoped_scratch_reuses_allocation_and_cleans_up_nested_and_panicking_calls ... ok
+test compression::encode_workspace::tests::full_sized_frames_preserve_numeric_bytes_across_reuse ... ok
+test compression::decode_workspace::tests::scoped_decoder_matches_fresh_decoder_for_sizes_corruption_and_concatenation ... ok
+test compression::encode_workspace::tests::retained_state_matches_fresh_numeric_encoding_including_size_changes ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 551 filtered out; finished in 0.20s
+

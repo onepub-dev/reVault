@@ -1,0 +1,60 @@
+=== BEFORE: uptime/load ===
+ 19:37:47 up 20 days,  7:32,  1 user,  load average: 4.36, 3.62, 4.35
+=== BEFORE: concurrent HMB/cargo/test processes ===
+ 854829    6145 Sl    0.0  0.0  9-22:09:29 /home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dartvm --resolved_executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart --executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart /home/bsutton/.pub-cache/hosted/pub.dev/fdb-1.10.1/bin/log_collector.dart ws://127.0.0.1:36763/LuhcwbMAHso=/ws /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/logs.txt /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/log_collector.pid
+ 863918    6145 Sl    0.0  0.0  9-22:07:56 /home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dartvm --resolved_executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart --executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart /home/bsutton/.pub-cache/hosted/pub.dev/fdb-1.10.1/bin/log_collector.dart ws://127.0.0.1:36965/P9foASZlpCc=/ws /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/logs.txt /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/log_collector.pid
+1217376    6145 SLl   0.0  0.0  6-01:50:16 /home/bsutton/.cargo/bin/lbx __agent
+2658814 2090218 Ss    0.0  0.0       01:45 /bin/bash -lc timeout 900s flutter test --no-pub --reporter=json > /tmp/hmb-646-suite.json 2>&1; rc=$?; printf 'EXIT=%s\n' "$rc"; python3 - <<'PY' import json p='/tmp/hmb-646-suite.json'; dones=[]; errs=[]; done=[] for line in open(p,errors='replace'):  try:x=json.loads(line)  except:continue  if x.get('type')=='testDone':dones.append(x)  elif x.get('type')=='error':errs.append(x)  elif x.get('type')=='done':done.append(x) vis=[x for x in dones if not x.get('hidden')] print('visible_done',len(vis),'pass',sum(x.get('result')=='success' for x in vis),'failed',sum(x.get('result')!='success' and not x.get('skipped') for x in vis),'skipped',sum(x.get('skipped',False) for x in vis),'error_events',len(errs),'done',done[-1] if done else None) for x in vis:  if x.get('result')!='success':print('FAILED_TEST',x) for x in errs:print('ERROR_EVENT',x) PY printf 'HEAD='; git rev-parse HEAD; printf 'STATUS\n'; git status --short; git diff --check; sha256sum lib/ui/widgets/wizard.dart test/ui/crud/receipt/edit_receipt_screen_test.dart test/ui/widgets/wizard_navigation_test.dart
+2658872 2658814 S     0.0  0.0       01:45 timeout 900s flutter test --no-pub --reporter=json
+2658873 2658872 Sl   10.6  0.2       01:45 /home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dartvm --resolved_executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart --executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart --packages=/home/bsutton/apps/flutter/packages/flutter_tools/.dart_tool/package_config.json /home/bsutton/apps/flutter/bin/cache/flutter_tools.snapshot test --no-pub --reporter=json
+2658913 2658873 Sl   14.3  2.2       01:44 /home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dartaotruntime /home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/snapshots/frontend_server_aot.dart.snapshot --sdk-root /home/bsutton/apps/flutter/bin/cache/artifacts/engine/common/flutter_patched_sdk/ --incremental --no-print-incremental-dependencies --target=flutter --experimental-emit-debug-metadata -DFLUTTER_BUILD_NAME=0.42.0 -DFLUTTER_VERSION=3.47.0 -DFLUTTER_CHANNEL=stable -DFLUTTER_GIT_URL=https://github.com/flutter/flutter.git -DFLUTTER_FRAMEWORK_REVISION=4cf2416426 -DFLUTTER_ENGINE_REVISION=5f77625673 -DFLUTTER_DART_VERSION=3.13.0 --output-dill /tmp/flutter_tools.FGDZAQ/flutter_test_compiler.AFYJNQ/output.dill --packages /home/bsutton/git/.codex.workspaces/hmb-issue-646-receipt-navigation/.dart_tool/package_config.json -Ddart.vm.profile=false -Ddart.vm.product=false --enable-asserts --track-widget-creation --initialize-from-dill /home/bsutton/git/.codex.workspaces/hmb-issue-646-receipt-navigation/build/test_cache/build/a027f66c34882a0c4c35987975b17e2d.cache.dill.track.dill --verbosity=error --enable-experiment=alternative-invalidation-strategy
+2660484 2658873 Rl    110  0.5       00:03 /home/bsutton/apps/flutter/bin/cache/artifacts/engine/linux-x64/flutter_tester --disable-vm-service --enable-checked-mode --verify-entry-points --enable-software-rendering --skia-deterministic-rendering --enable-dart-profiling --non-interactive --use-test-fonts --disable-asset-fonts --packages=/home/bsutton/git/.codex.workspaces/hmb-issue-646-receipt-navigation/.dart_tool/package_config.json --flutter-assets-dir=/home/bsutton/git/.codex.workspaces/hmb-issue-646-receipt-navigation/build/unit_test_assets /tmp/flutter_tools.FGDZAQ/flutter_test_listener.GWEBKJ/listener.dart.dill
+2660494 2658873 Rl   29.9  0.4       00:02 /home/bsutton/apps/flutter/bin/cache/artifacts/engine/linux-x64/flutter_tester --disable-vm-service --enable-checked-mode --verify-entry-points --enable-software-rendering --skia-deterministic-rendering --enable-dart-profiling --non-interactive --use-test-fonts --disable-asset-fonts --packages=/home/bsutton/git/.codex.workspaces/hmb-issue-646-receipt-navigation/.dart_tool/package_config.json --flutter-assets-dir=/home/bsutton/git/.codex.workspaces/hmb-issue-646-receipt-navigation/build/unit_test_assets /tmp/flutter_tools.FGDZAQ/flutter_test_listener.VBMTIN/listener.dart.dill
+2660511 2090218 Ss    2.0  0.0       00:00 /bin/bash -lc set +e {   echo '=== BEFORE: uptime/load ==='   uptime   echo '=== BEFORE: concurrent HMB/cargo/test processes ==='   ps -eo pid,ppid,stat,%cpu,%mem,etime,args | rg -i '[h]mb|[c]argo|[r]evault_lockbox_api|[t]est'   echo '=== RESOURCE TEST ==='   /usr/bin/time -v target/release/deps/revault_lockbox_api-fe3f630220cbcd0b 'file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_reuse_stabilizes_metadata_cycles_all_modes' --nocapture --test-threads=1   resource_status=$?   echo "=== RESOURCE TEST EXIT: $resource_status ==="   exit "$resource_status" } > /tmp/revault-tree-reuse-resource.log 2>&1
+=== RESOURCE TEST ===
+
+running 1 test
+test file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_reuse_stabilizes_metadata_cycles_all_modes ... TREE_REUSE_AGING mode=0 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=1 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=2 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=3 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=4 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=5 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=6 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=7 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=8 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=9 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=10 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=11 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=12 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=13 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=14 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=15 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 555 filtered out; finished in 10.13s
+
+	Command being timed: "target/release/deps/revault_lockbox_api-fe3f630220cbcd0b file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_reuse_stabilizes_metadata_cycles_all_modes --nocapture --test-threads=1"
+	User time (seconds): 3.88
+	System time (seconds): 0.01
+	Percent of CPU this job got: 38%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:10.13
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 11000
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 5544
+	Voluntary context switches: 12
+	Involuntary context switches: 29
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 2
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+=== RESOURCE TEST EXIT: 0 ===

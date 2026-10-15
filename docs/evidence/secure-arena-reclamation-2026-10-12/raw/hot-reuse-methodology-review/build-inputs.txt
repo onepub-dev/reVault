@@ -1,0 +1,12 @@
+Parent task: prepare/review only; build hot-capable binaries once after source/protocol review. No build, test, profile loop, prewarm or timing occurred for these drafts.
+
+Worktree HEAD: e08a1000a54b912e7050054469f7ce899ef979d7.
+Healthy TMPDIR: /home/bsutton/.cache/rv4-security-20261011.
+Rust toolchain: +1.88.0, CARGO_HOME=/home/bsutton/.cargo, RUSTUP_HOME=/home/bsutton/.rustup.
+Existing standalone old/new lockfiles are SHA 3e10c3e09d578a970c1f12da720ed4b200005e86513c404d1463a84c390cbc18 and resolve 20 package identities each. The full audit is in ../isolated-pressure-profile/full-lock-audit.json; it found every package identity in the original 411-entry workspace lock, with exact old/new equality.
+
+Hot example source is byte-identical in both isolated inputs: SHA256 50c93df0d88d892270d5b69aa5244ff7443e41ae26d597f97d074fcc937d55fc. Hot old/new source manifests each contain 20 files and verify successfully. Their only source-hash differences are the approved arena.rs and secure_heap.rs implementation files; `old-new-manifest-diff.txt` records only those two.
+
+Prior pressure binaries remain present and verified unchanged: old `securevec_pressure_profile` SHA256 41aef6203064b597f982c5da5cbaff5bf5a6ea488c443cc48d9fe1e9fb8fffa2; new SHA256 45b9aff04ae6e2c7e255cb09459e00036e033d1473828160b6aa4c68fb077fdf. They are pressure-only and are not usable for the hot protocol. Proposed hot outputs are distinct `securevec_hot_reuse` filenames. Their hashes are intentionally blank in the runner draft until reviewed builds occur.
+
+Exact sequential locked/offline build commands and environment are in build-commands.txt. Build output cap is 300 seconds each; no hot loop is part of building.

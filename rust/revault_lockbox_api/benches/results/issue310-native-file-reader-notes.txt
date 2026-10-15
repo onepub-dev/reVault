@@ -1,0 +1,53 @@
+Common block references in public file readers, 2026-09-13
+========================================================
+The staged Lockbox read_file_chunk_range path now dispatches block references
+before the legacy decoded-frame cache or whole-frame digest checks. The raw
+shared-page shortcut also declines block references: its whole-frame checksum
+meaning must not be confused with the new index commitment.
+
+Dispatch binds the descriptor to this archive's ID and complete creation mode,
+frame ID, codec, logical/stored lengths and index commitment. It requires one
+complete segment and checked file/frame ranges. Page opening validates page ID,
+sequence, physical extent and protected metadata against the TOC reference;
+the manifest must contain the exact stored path and file/frame slice, with the
+expected total file length (or the existing unknown-length sentinel).
+
+The canonical signed-content digest retains byte-for-byte legacy domain/TOC
+encoding for version-1 leaves. Native block TOCs use a distinct domain plus an
+explicit TOC version before the encoded bytes. The existing eager extraction
+into the signed digest remains: authenticating an index alone is insufficient.
+This is not a replacement for the archive's existing hybrid commit signatures.
+
+Private integration coverage creates archives through public creation options,
+injects encoded native pages and round-trips their versioned TOC leaves, then
+uses get_file, read_file_range, Read/Seek via open_file, extraction to a writer,
+and both logical and physical stream_content. Exact bytes are checked across
+all 16 encryption/signing/compression/padding combinations, including packed
+file slices and reads crossing a 16-KiB block boundary.
+
+Tests reject altered manifest mapping/total length and 13 reference mutations:
+archive, mode, sequence, frame ID, commitment, stored/logical lengths, page ID,
+page length/offset, segment offset/length and multiple segments. After corrupting
+the last stored data byte, full extraction and eager signed-content hashing fail.
+A raw range in an untouched earlier block still returns its exact bytes.
+
+Validation before commit-time rustfmt:
+  cargo test -p revault_lockbox_api --features test-support --lib
+  315 passed, five intentionally ignored.
+  cargo test -p revault_lockbox_api --test creation_options --test size_padding
+  Seven passed in the normal library build.
+  cargo test -p revault_lockbox_api --features test-support,external-source --lib native_block
+  Eight passed, including final selective-range assertions and external failure latching.
+  cargo clippy -p revault_lockbox_api --features test-support,external-source --lib --tests -- -D warnings
+  Passed.
+
+Activation remains deliberately incomplete: native pages, TOC references and
+this dispatch are cfg(test). These injection tests are not proof of persisted
+archive lifecycles or CLI E2E. Writer, scanner/recovery, page-cache ownership,
+mutation/retirement/compaction, migrations and public lifecycle integration
+still need completion together before enabling the representation.
+
+No performance claim is made here. In particular, open_file still fills its
+existing large read window, and this dispatch reopens metadata/index on every
+chunk request. Native caching/window work and production ZIP, write/encryption
+and load-time gates remain required, along with bindings creation options.

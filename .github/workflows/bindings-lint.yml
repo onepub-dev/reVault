@@ -94,7 +94,30 @@ jobs:
           cargo doc --locked --no-deps --all-features --workspace \
             --exclude revault_cli \
             --exclude revault_tooling \
-            --exclude xtask
+            --exclude xtask \
+            --exclude revault_archive_v1_initial_reader \
+            --exclude revault_archive_v1_legacy_reader \
+            --exclude revault_archive_v1_reader \
+            --exclude revault_vault_v1_reader \
+            --exclude revault_vault_v2_container_v1_reader \
+            --exclude revault_archive_v3_reader \
+            --exclude revault_vault_v3_reader
+          # Historical readers intentionally retain the current libraries' names.
+          # Document them separately to prevent Cargo's output filename collisions.
+          cargo doc --locked --no-deps --all-features -p revault_archive_v1_initial_reader \
+            --target-dir target/docs-revault_archive_v1_initial_reader
+          cargo doc --locked --no-deps --all-features -p revault_archive_v1_legacy_reader \
+            --target-dir target/docs-revault_archive_v1_legacy_reader
+          cargo doc --locked --no-deps --all-features -p revault_archive_v1_reader \
+            --target-dir target/docs-revault_archive_v1_reader
+          cargo doc --locked --no-deps --all-features -p revault_vault_v1_reader \
+            --target-dir target/docs-revault_vault_v1_reader
+          cargo doc --locked --no-deps --all-features -p revault_vault_v2_container_v1_reader \
+            --target-dir target/docs-revault_vault_v2_container_v1_reader
+          cargo doc --locked --no-deps --all-features -p revault_archive_v3_reader \
+            --target-dir target/docs-archive-v3-reader
+          cargo doc --locked --no-deps --all-features -p revault_vault_v3_reader \
+            --target-dir target/docs-vault-v3-reader
           cargo doc --locked --no-deps --manifest-path ../bindings/rust/Cargo.toml
       - name: Build native library for compiled facades
         working-directory: rust
@@ -205,7 +228,8 @@ jobs:
           python -m twine check build/registry/python/*
           dotnet pack bindings/csharp/RevaultBindings.csproj -warnaserror -o build/registry/nuget
           composer validate --working-dir bindings/php --strict --no-check-publish
-          gem build bindings/ruby/revault_api.gemspec --output build/registry/revault_api.gem
+          (cd bindings/ruby && gem build revault_api.gemspec --output ../../build/registry/revault_api.gem)
+          ruby -rrubygems/package -e 'files = Gem::Package.new("build/registry/revault_api.gem").contents; required = %w[revault_api.rb lib/revault/vault.rb lib/revault/native_library.rb lib/revault/domain_models.rb lib/revault/binding_operations.rb native/revault_ruby_shim.c]; abort "Ruby package payload incomplete" unless (required - files).empty?'
           luarocks lint bindings/lua/revault_api-0.2.0-1.rockspec
           cargo package --locked --manifest-path bindings/rust/Cargo.toml \
             --config 'patch.crates-io.revault_lockbox_api.path="rust/revault_lockbox_api"' \

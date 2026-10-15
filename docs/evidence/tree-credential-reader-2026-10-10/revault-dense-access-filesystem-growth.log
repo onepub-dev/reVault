@@ -1,0 +1,24 @@
+    Finished `release` profile [optimized] target(s) in 0.10s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 1 test
+test file_format::candidate_files::tests::tree_tests::typed_tree_filesystem_growth_deletion_permissions_and_copy_loss_all_modes ... TYPED_TREE_LIFECYCLE mode=0 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=1 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=2 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=3 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=4 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=5 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=6 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=7 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=8 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=9 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=10 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=11 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=12 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=13 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=14 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=15 nodes=2504 completed_bytes=1114112
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 652 filtered out; finished in 1.99s
+

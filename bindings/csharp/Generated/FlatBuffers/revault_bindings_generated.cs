@@ -2528,6 +2528,173 @@ internal static class ProfileHistoryVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+internal struct LockboxAlias : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_2_10(); }
+  public static LockboxAlias GetRootAsLockboxAlias(ByteBuffer _bb) { return GetRootAsLockboxAlias(_bb, new LockboxAlias()); }
+  public static LockboxAlias GetRootAsLockboxAlias(ByteBuffer _bb, LockboxAlias obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public LockboxAlias __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public string Name { get { int o = __p.__offset(4); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetNameBytes() { return __p.__vector_as_span<byte>(4, 1); }
+#else
+  public ArraySegment<byte>? GetNameBytes() { return __p.__vector_as_arraysegment(4); }
+#endif
+  public byte[] GetNameArray() { return __p.__vector_as_array<byte>(4); }
+  public byte LockboxId(int j) { int o = __p.__offset(6); return o != 0 ? __p.bb.Get(__p.__vector(o) + j * 1) : (byte)0; }
+  public int LockboxIdLength { get { int o = __p.__offset(6); return o != 0 ? __p.__vector_len(o) : 0; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetLockboxIdBytes() { return __p.__vector_as_span<byte>(6, 1); }
+#else
+  public ArraySegment<byte>? GetLockboxIdBytes() { return __p.__vector_as_arraysegment(6); }
+#endif
+  public byte[] GetLockboxIdArray() { return __p.__vector_as_array<byte>(6); }
+
+  public static Offset<global::RevaultTransport.LockboxAlias> CreateLockboxAlias(FlatBufferBuilder builder,
+      StringOffset nameOffset = default(StringOffset),
+      VectorOffset lockbox_idOffset = default(VectorOffset)) {
+    builder.StartTable(2);
+    LockboxAlias.AddLockboxId(builder, lockbox_idOffset);
+    LockboxAlias.AddName(builder, nameOffset);
+    return LockboxAlias.EndLockboxAlias(builder);
+  }
+
+  public static void StartLockboxAlias(FlatBufferBuilder builder) { builder.StartTable(2); }
+  public static void AddName(FlatBufferBuilder builder, StringOffset nameOffset) { builder.AddOffset(0, nameOffset.Value, 0); }
+  public static void AddLockboxId(FlatBufferBuilder builder, VectorOffset lockboxIdOffset) { builder.AddOffset(1, lockboxIdOffset.Value, 0); }
+  public static VectorOffset CreateLockboxIdVector(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); for (int i = data.Length - 1; i >= 0; i--) builder.AddByte(data[i]); return builder.EndVector(); }
+  public static VectorOffset CreateLockboxIdVectorBlock(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateLockboxIdVectorBlock(FlatBufferBuilder builder, ArraySegment<byte> data) { builder.StartVector(1, data.Count, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateLockboxIdVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<byte>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartLockboxIdVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(1, numElems, 1); }
+  public static Offset<global::RevaultTransport.LockboxAlias> EndLockboxAlias(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    return new Offset<global::RevaultTransport.LockboxAlias>(o);
+  }
+  public LockboxAliasT UnPack() {
+    var _o = new LockboxAliasT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(LockboxAliasT _o) {
+    _o.Name = this.Name;
+    _o.LockboxId = new List<byte>();
+    for (var _j = 0; _j < this.LockboxIdLength; ++_j) {_o.LockboxId.Add(this.LockboxId(_j));}
+  }
+  public static Offset<global::RevaultTransport.LockboxAlias> Pack(FlatBufferBuilder builder, LockboxAliasT _o) {
+    if (_o == null) return default(Offset<global::RevaultTransport.LockboxAlias>);
+    var _name = _o.Name == null ? default(StringOffset) : builder.CreateString(_o.Name);
+    var _lockbox_id = default(VectorOffset);
+    if (_o.LockboxId != null) {
+      var __lockbox_id = _o.LockboxId.ToArray();
+      _lockbox_id = CreateLockboxIdVector(builder, __lockbox_id);
+    }
+    return CreateLockboxAlias(
+      builder,
+      _name,
+      _lockbox_id);
+  }
+}
+
+internal class LockboxAliasT
+{
+  public string Name { get; set; }
+  public List<byte> LockboxId { get; set; }
+
+  public LockboxAliasT() {
+    this.Name = null;
+    this.LockboxId = null;
+  }
+}
+
+
+internal static class LockboxAliasVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyString(tablePos, 4 /*Name*/, false)
+      && verifier.VerifyVectorOfData(tablePos, 6 /*LockboxId*/, 1 /*byte*/, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
+internal struct LockboxAliasList : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_2_10(); }
+  public static LockboxAliasList GetRootAsLockboxAliasList(ByteBuffer _bb) { return GetRootAsLockboxAliasList(_bb, new LockboxAliasList()); }
+  public static LockboxAliasList GetRootAsLockboxAliasList(ByteBuffer _bb, LockboxAliasList obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public LockboxAliasList __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public global::RevaultTransport.LockboxAlias? Values(int j) { int o = __p.__offset(4); return o != 0 ? (global::RevaultTransport.LockboxAlias?)(new global::RevaultTransport.LockboxAlias()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int ValuesLength { get { int o = __p.__offset(4); return o != 0 ? __p.__vector_len(o) : 0; } }
+
+  public static Offset<global::RevaultTransport.LockboxAliasList> CreateLockboxAliasList(FlatBufferBuilder builder,
+      VectorOffset valuesOffset = default(VectorOffset)) {
+    builder.StartTable(1);
+    LockboxAliasList.AddValues(builder, valuesOffset);
+    return LockboxAliasList.EndLockboxAliasList(builder);
+  }
+
+  public static void StartLockboxAliasList(FlatBufferBuilder builder) { builder.StartTable(1); }
+  public static void AddValues(FlatBufferBuilder builder, VectorOffset valuesOffset) { builder.AddOffset(0, valuesOffset.Value, 0); }
+  public static VectorOffset CreateValuesVector(FlatBufferBuilder builder, Offset<global::RevaultTransport.LockboxAlias>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateValuesVectorBlock(FlatBufferBuilder builder, Offset<global::RevaultTransport.LockboxAlias>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateValuesVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<global::RevaultTransport.LockboxAlias>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateValuesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<global::RevaultTransport.LockboxAlias>>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartValuesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
+  public static Offset<global::RevaultTransport.LockboxAliasList> EndLockboxAliasList(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    return new Offset<global::RevaultTransport.LockboxAliasList>(o);
+  }
+  public LockboxAliasListT UnPack() {
+    var _o = new LockboxAliasListT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(LockboxAliasListT _o) {
+    _o.Values = new List<global::RevaultTransport.LockboxAliasT>();
+    for (var _j = 0; _j < this.ValuesLength; ++_j) {_o.Values.Add(this.Values(_j).HasValue ? this.Values(_j).Value.UnPack() : null);}
+  }
+  public static Offset<global::RevaultTransport.LockboxAliasList> Pack(FlatBufferBuilder builder, LockboxAliasListT _o) {
+    if (_o == null) return default(Offset<global::RevaultTransport.LockboxAliasList>);
+    var _values = default(VectorOffset);
+    if (_o.Values != null) {
+      var __values = new Offset<global::RevaultTransport.LockboxAlias>[_o.Values.Count];
+      for (var _j = 0; _j < __values.Length; ++_j) { __values[_j] = global::RevaultTransport.LockboxAlias.Pack(builder, _o.Values[_j]); }
+      _values = CreateValuesVector(builder, __values);
+    }
+    return CreateLockboxAliasList(
+      builder,
+      _values);
+  }
+}
+
+internal class LockboxAliasListT
+{
+  public List<global::RevaultTransport.LockboxAliasT> Values { get; set; }
+
+  public LockboxAliasListT() {
+    this.Values = null;
+  }
+}
+
+
+internal static class LockboxAliasListVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyVectorOfTables(tablePos, 4 /*Values*/, global::RevaultTransport.LockboxAliasVerify.Verify, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 internal struct KnownLockbox : IFlatbufferObject
 {
   private Table __p;
@@ -3901,22 +4068,26 @@ internal struct SleepSupport : IFlatbufferObject
   public bool SuspendNotifications { get { int o = __p.__offset(4); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
   public bool SleepInhibition { get { int o = __p.__offset(6); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
   public bool Supported { get { int o = __p.__offset(8); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+  public bool CacheClearingActive { get { int o = __p.__offset(10); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
 
   public static Offset<global::RevaultTransport.SleepSupport> CreateSleepSupport(FlatBufferBuilder builder,
       bool suspend_notifications = false,
       bool sleep_inhibition = false,
-      bool supported = false) {
-    builder.StartTable(3);
+      bool supported = false,
+      bool cache_clearing_active = false) {
+    builder.StartTable(4);
+    SleepSupport.AddCacheClearingActive(builder, cache_clearing_active);
     SleepSupport.AddSupported(builder, supported);
     SleepSupport.AddSleepInhibition(builder, sleep_inhibition);
     SleepSupport.AddSuspendNotifications(builder, suspend_notifications);
     return SleepSupport.EndSleepSupport(builder);
   }
 
-  public static void StartSleepSupport(FlatBufferBuilder builder) { builder.StartTable(3); }
+  public static void StartSleepSupport(FlatBufferBuilder builder) { builder.StartTable(4); }
   public static void AddSuspendNotifications(FlatBufferBuilder builder, bool suspendNotifications) { builder.AddBool(0, suspendNotifications, false); }
   public static void AddSleepInhibition(FlatBufferBuilder builder, bool sleepInhibition) { builder.AddBool(1, sleepInhibition, false); }
   public static void AddSupported(FlatBufferBuilder builder, bool supported) { builder.AddBool(2, supported, false); }
+  public static void AddCacheClearingActive(FlatBufferBuilder builder, bool cacheClearingActive) { builder.AddBool(3, cacheClearingActive, false); }
   public static Offset<global::RevaultTransport.SleepSupport> EndSleepSupport(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<global::RevaultTransport.SleepSupport>(o);
@@ -3930,6 +4101,7 @@ internal struct SleepSupport : IFlatbufferObject
     _o.SuspendNotifications = this.SuspendNotifications;
     _o.SleepInhibition = this.SleepInhibition;
     _o.Supported = this.Supported;
+    _o.CacheClearingActive = this.CacheClearingActive;
   }
   public static Offset<global::RevaultTransport.SleepSupport> Pack(FlatBufferBuilder builder, SleepSupportT _o) {
     if (_o == null) return default(Offset<global::RevaultTransport.SleepSupport>);
@@ -3937,7 +4109,8 @@ internal struct SleepSupport : IFlatbufferObject
       builder,
       _o.SuspendNotifications,
       _o.SleepInhibition,
-      _o.Supported);
+      _o.Supported,
+      _o.CacheClearingActive);
   }
 }
 
@@ -3946,11 +4119,13 @@ internal class SleepSupportT
   public bool SuspendNotifications { get; set; }
   public bool SleepInhibition { get; set; }
   public bool Supported { get; set; }
+  public bool CacheClearingActive { get; set; }
 
   public SleepSupportT() {
     this.SuspendNotifications = false;
     this.SleepInhibition = false;
     this.Supported = false;
+    this.CacheClearingActive = false;
   }
 }
 
@@ -3963,6 +4138,7 @@ internal static class SleepSupportVerify
       && verifier.VerifyField(tablePos, 4 /*SuspendNotifications*/, 1 /*bool*/, 1, false)
       && verifier.VerifyField(tablePos, 6 /*SleepInhibition*/, 1 /*bool*/, 1, false)
       && verifier.VerifyField(tablePos, 8 /*Supported*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyField(tablePos, 10 /*CacheClearingActive*/, 1 /*bool*/, 1, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

@@ -1,0 +1,9 @@
+Official source: https://github.com/google/flatbuffers.git
+Release tag: v25.2.10
+Checked-out commit: 1c514626e83c20fffa8557e75641848e1e15cd5e
+Checkout: /tmp/revault-flatbuffers-25.2.10 (detached at the exact release commit; clean worktree)
+Purpose: supply C++ headers for the binding conformance build; no system installation.
+Header used by the failed C++ build: include/flatbuffers/flatbuffers.h
+Header SHA-256: dee86570da5c2a6f1bbf090f7717d3279d8d7a94691ae20626c552673a766b39
+Source fetch: git clone --depth 1 --branch v25.2.10 https://github.com/google/flatbuffers.git /tmp/revault-flatbuffers-25.2.10
+The initial C++ compile was not rerun after this preparation; remaining language conformance is deferred to the combined matrix.

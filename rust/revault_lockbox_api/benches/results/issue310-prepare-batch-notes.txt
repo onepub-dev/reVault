@@ -1,0 +1,62 @@
+Issue #310: reject bounded sequential native preparation batching
+Baseline: 533e411, production identical to cc7e382.
+Before native protection_gate SHA256:
+f37a128f8001f7df551dddc52713311a9b7b7e3942af8b5c52dc50dc50b7f9ba
+Rejected candidate native protection_gate SHA256:
+5d4d2cb7c2e2d1f6e261bfc6faf1a4e4a99898a2b9c283918aaba1b03929dd2b
+Both builds use native-block-layout. CSV main=before, branch=prototype; this is
+not a native/default comparison. The prototype is fully reverted.
+
+Experiment: route sequential native file ingestion through a bounded preparation
+queue, preparing up to four small compressed frames before invoking the existing
+writer for each. Retained stored bytes were capped at 64 KiB. Raw/incompressible
+or larger compressed frames flushed the queue and wrote immediately. Input
+buffer remained 2 MiB but used ZeroizingBytes in the prototype, adding secure
+cleanup relative to the existing bare Vec; the experiment therefore includes
+that difference and the separate helper/control-flow change. Per-frame encoded
+page staging, preparation/undo protocol, discard flush and chunk publication
+were unchanged. Parallel writes and the default writer were unchanged.
+This tested compression/write interleaving as one possible source of the native
+compressed write gap, not a new on-disk format or deferred data publication.
+
+Protocol: 8 MiB pattern/random, all four protection modes, raw/compressed,
+default padding, synthetic content keys, no password KDF. Five ABBA/BAAB groups,
+three samples per child, first discarded: 320 rows per corpus. Prespecified
+focus: encrypted-signed/compressed/pattern, 15 groups, six samples per child,
+first discarded: 300 rows. CPU 2, warm OS caches, no owned builds/tests during
+timing. Unrelated host load was not controlled. Every write, including warmups,
+was independently reopened and compared byte for byte outside the timer.
+Commands match issue310-layout-gate-cc7e382, with both binaries native and the
+first binary the preserved before-prototype executable.
+
+Broad pattern central changes range -4.682% to +16.450%, generally slower with
+wide intervals. Random central changes range -0.740% to +12.496%; encrypted
+raw and compressed-request cases have positive 95% intervals. The fixed focus
+confirms a regression: +9.760%, bootstrap 95% [+6.733%, +19.458%].
+Pooled medians: before 25.085341 ms, prototype 27.866480 ms.
+No useful targeted benefit established. Reject the candidate rather than retain
+additional queue machinery. These observations do not identify the precise
+cause or prove every possible batching design will regress. No favorable-only
+rerun or pooled selection is used.
+
+All 940 measured rows plus 380 warmups passed persisted byte verification.
+The prototype's full native + external-source unit suite passed 350 tests,
+with 2 known recovery failures and 5 ignored; release build and all-targets
+Clippy -D warnings passed. That is not a complete new batching lifecycle gate;
+the candidate was rejected before extending its fault/lifecycle coverage.
+
+During Clippy validation, commit-time formatting of the previous discarded-
+plaintext test was found to separate its safety comment from the unsafe
+expression inside assert_eq!. Retain only a test-local let binding so the
+comment stays immediately adjacent after formatting. No production changes
+remain. After restoring files.rs, rerun the affected plaintext-wipe test and
+native + external-source all-targets Clippy.
+
+The current native/default protected-write gate remains +6.378% with upper
+95% +9.837% (see cc7e382 evidence), still failing the +5% requirement. Further
+profiling must distinguish encoding/allocation overhead from compression and
+flush interactions. Broad read parity, cold I/O, write lifecycles, signed
+recovery and migration/binding/release work remain open. Native stays opt-in.
+
+Restoration checks completed: affected test passed (1 passed, 356 filtered),
+and native + external-source all-targets Clippy -D warnings passed.

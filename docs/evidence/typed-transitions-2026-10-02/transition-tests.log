@@ -1,0 +1,50 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 48.31s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-5338344f5af7f73d)
+
+running 7 tests
+TYPED_TREE_LIFECYCLE mode=0 nodes=2504 completed_bytes=1114112
+test file_format::candidate_files::tests::tree_tests::typed_tree_rejects_selected_pack_claim_mismatch ... ok
+TYPED_TREE_LIFECYCLE mode=1 nodes=2504 completed_bytes=1114112
+test file_format::candidate_files::tests::tree_tests::typed_tree_invalid_metadata_refuses_before_writes ... ok
+TYPED_TREE_INLINE_TRANSITION mode=0 initial_bytes=131079 observed_completed_peak=1114112 returned_bytes=131079
+TYPED_TREE_LIFECYCLE mode=2 nodes=2504 completed_bytes=1114112
+TYPED_TREE_INLINE_TRANSITION mode=1 initial_bytes=131107 observed_completed_peak=1114112 returned_bytes=131107
+TYPED_TREE_LIFECYCLE mode=3 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=4 nodes=2504 completed_bytes=1114112
+TYPED_TREE_INLINE_TRANSITION mode=2 initial_bytes=131079 observed_completed_peak=1114112 returned_bytes=131079
+TYPED_TREE_LIFECYCLE mode=5 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=6 nodes=2504 completed_bytes=1114112
+TYPED_TREE_INLINE_TRANSITION mode=3 initial_bytes=131107 observed_completed_peak=1114112 returned_bytes=131107
+TYPED_TREE_INLINE_TRANSITION mode=4 initial_bytes=131079 observed_completed_peak=1114112 returned_bytes=131079
+TYPED_TREE_LIFECYCLE mode=7 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=8 nodes=2504 completed_bytes=1114112
+TYPED_TREE_INLINE_TRANSITION mode=5 initial_bytes=131107 observed_completed_peak=1114112 returned_bytes=131107
+test file_format::candidate_files::tests::tree_tests::typed_tree_salvage_preserves_intact_neighbor_and_selected_membership_all_modes ... ok
+TYPED_TREE_LIFECYCLE mode=9 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=10 nodes=2504 completed_bytes=1114112
+TYPED_TREE_INLINE_TRANSITION mode=6 initial_bytes=131079 observed_completed_peak=1114112 returned_bytes=131079
+TYPED_TREE_LIFECYCLE mode=11 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=12 nodes=2504 completed_bytes=1114112
+TYPED_TREE_INLINE_TRANSITION mode=7 initial_bytes=131107 observed_completed_peak=1114112 returned_bytes=131107
+TYPED_TREE_LIFECYCLE mode=13 nodes=2504 completed_bytes=1114112
+TYPED_TREE_INLINE_TRANSITION mode=8 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+TYPED_TREE_LIFECYCLE mode=14 nodes=2504 completed_bytes=1114112
+TYPED_TREE_INLINE_TRANSITION mode=9 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+TYPED_TREE_LIFECYCLE mode=15 nodes=2504 completed_bytes=1114112
+test file_format::candidate_files::tests::tree_tests::typed_tree_filesystem_growth_deletion_permissions_and_copy_loss_all_modes ... ok
+TYPED_TREE_INLINE_TRANSITION mode=10 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+TYPED_TREE_INLINE_TRANSITION mode=11 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+TYPED_TREE_INLINE_TRANSITION mode=12 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+TYPED_TREE_INLINE_TRANSITION mode=13 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+TYPED_TREE_INLINE_TRANSITION mode=14 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+TYPED_TREE_INLINE_TRANSITION mode=15 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+test file_format::candidate_files::tests::tree_tests::typed_tree_inline_growth_and_return_reclaim_tail_all_modes ... ok
+TYPED_TREE_INTERRUPTION_CASES 1128
+test file_format::candidate_files::tests::tree_tests::typed_tree_interrupted_growth_keeps_complete_selected_metadata ... ok
+test file_format::candidate_files::tests::tree_tests::typed_tree_inline_transition_interruptions_preserve_selected_filesystem has been running for over 60 seconds
+TYPED_TREE_INLINE_TRANSITION_FAULT_CASES 4572
+test file_format::candidate_files::tests::tree_tests::typed_tree_inline_transition_interruptions_preserve_selected_filesystem ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 548 filtered out; finished in 84.20s
+

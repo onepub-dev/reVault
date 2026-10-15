@@ -1,0 +1,46 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 877  of event 'cpu-clock:u'
+# Event count (approx.): 4407034625
+#
+# Children      Self  Command          Shared Object              Symbol                                                                                              
+# ........  ........  ...............  .........................  ....................................................................................................
+#
+    89.62%    89.62%  file_format::ca  tree-resource-single-pass  [.] sha2::sha256::x86_sha::compress
+            |          
+             --89.40%--sha2::sha256::x86_sha::compress
+
+     4.33%     0.11%  file_format::ca  tree-resource-single-pass  [.] revault_lockbox_api::file_format::candidate_files::dense_image::Image<S>::read_range
+            |
+            ---revault_lockbox_api::file_format::candidate_files::dense_image::Image<S>::read_range
+               |          
+                --4.10%--__memmove_avx_unaligned_erms
+
+     4.10%     4.10%  file_format::ca  libc.so.6                  [.] __memmove_avx_unaligned_erms
+            |
+            ---revault_lockbox_api::file_format::candidate_files::dense_image::Image<S>::read_range
+               __memmove_avx_unaligned_erms
+
+     3.08%     3.08%  file_format::ca  tree-resource-single-pass  [.] revault_lockbox_api::file_format::page_buffer::zeroize_bytes
+            |          
+             --2.85%--revault_lockbox_api::file_format::page_buffer::zeroize_bytes
+
+     2.51%     0.11%  file_format::ca  tree-resource-single-pass  [.] <revault_lockbox_api::storage::FileStore as revault_lockbox_api::storage::Storage>::read_at
+            |
+            ---<revault_lockbox_api::storage::FileStore as revault_lockbox_api::storage::Storage>::read_at
+               |          
+                --1.94%--__memset_avx2_unaligned_erms
+
+     1.94%     1.94%  file_format::ca  libc.so.6                  [.] __memset_avx2_unaligned_erms
+            |
+            ---<revault_lockbox_api::storage::FileStore as revault_lockbox_api::storage::Storage>::read_at
+               __memset_avx2_unaligned_erms
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

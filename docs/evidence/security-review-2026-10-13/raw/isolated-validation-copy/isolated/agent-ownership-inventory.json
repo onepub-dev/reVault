@@ -1,0 +1,10 @@
+{
+  "kind": "read_only_owned_cli_process_inventory",
+  "timestamp_utc": "2026-10-13",
+  "binary_path": "/tmp/rv-security-cli-isolated-20261013/target-pinned-188-final/release/lockbox",
+  "binary_sha256": "d6f174b5db502fe08cba95156f039f091eb43e112fb4d9e22675ce79eb55ff48",
+  "filter": "Only /proc processes whose executable resolved to the exact isolated lockbox binary were inspected; read only LOCKBOX_SESSION_AGENT_DIR and process start ticks, not argv or other environment.",
+  "matching_process_count": 0,
+  "processes": [],
+  "action": "No process was signaled and no directory was deleted."
+}

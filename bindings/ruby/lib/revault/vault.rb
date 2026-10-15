@@ -111,6 +111,10 @@ module Revault
     end
 
     # Opens serialized Lockbox bytes with the supplied password.
+    def lockbox_open_password_with_budget(archive, password, max_derivations)
+      Lockbox.new(@operations, @operations.lockbox_open_password_with_budget(archive, password, max_derivations))
+    end
+    # Opens with the default per-credential password work budget.
     def lockbox_open_password(archive, password)
       Lockbox.new(@operations, @operations.lockbox_open_password(archive, password))
     end
@@ -355,8 +359,8 @@ module Revault
     # Opens with a shared lock; supply signing_key for exclusive write access.
     # Close readers before opening a writer. Example:
     # box = Lockbox.open(path, password: password); begin; puts box.get_file('/hello'); ensure; box.close; end
-    def self.open(path, **options)
-      file_handle(path, 'open', **options)
+    def self.open(path, writable: nil, **options)
+      file_handle(path, writable.nil? ? 'open' : (writable ? 'write' : 'read'), **options)
     end
 
     # Internal credential and option marshalling for native file operations.
@@ -388,6 +392,10 @@ module Revault
     end
 
     # Writes one Lockbox file to the host filesystem.
+    def extract_file_with_policy(source, destination, max_file_bytes, max_total_bytes, max_files, restore_permissions, overwrite)
+      @operations.lockbox_extract_file_with_policy(@native_handle, source, destination, max_file_bytes, max_total_bytes, max_files, restore_permissions, overwrite)
+    end
+    # Extracts one file using the legacy permission policy.
     def extract_file(source, destination, replace)
       @operations.lockbox_extract_file(@native_handle, source, destination, replace)
     end
@@ -440,6 +448,11 @@ module Revault
     # Sets workload profile.
     def set_workload_profile(profile)
       @operations.lockbox_set_workload_profile(@native_handle, profile)
+    end
+
+    # Sets a soft cache limit (auto, disabled, or bytes).
+    def set_cache_limit(mode, bytes)
+      @operations.lockbox_set_cache_limit(@native_handle, mode, bytes)
     end
 
     # Sets worker policy.
@@ -958,6 +971,26 @@ module Revault
       @operations.vault_directory_list_known_lockboxes(@native_handle)
     end
 
+    # Resolve metadata; verify target identity when opening its path.
+    def resolve_lockbox_alias(name)
+      @operations.vault_directory_resolve_lockbox_alias(@native_handle, name)
+    end
+
+    # Remove only an alias, preserving its target.
+    def remove_lockbox_alias(name)
+      @operations.vault_directory_remove_lockbox_alias(@native_handle, name)
+    end
+
+    # List persisted aliases without opening target archives.
+    def list_lockbox_aliases()
+      @operations.vault_directory_list_lockbox_aliases(@native_handle)
+    end
+
+    # Set or replace a normalized alias for a remembered identity.
+    def set_lockbox_alias(name, id)
+      @operations.vault_directory_set_lockbox_alias(@native_handle, name, id)
+    end
+
     # Removes lockbox.
     def forget_lockbox(path)
       @operations.vault_directory_forget_lockbox(@native_handle, path)
@@ -1046,6 +1079,16 @@ module Revault
     # Lists known lockboxes.
     def list_known_lockboxes()
       @operations.vault_read_only_list_known_lockboxes(@native_handle)
+    end
+
+    # Resolve metadata; verify target identity when opening its path.
+    def resolve_lockbox_alias(name)
+      @operations.vault_read_only_resolve_lockbox_alias(@native_handle, name)
+    end
+
+    # List persisted aliases without opening target archives.
+    def list_lockbox_aliases()
+      @operations.vault_read_only_list_lockbox_aliases(@native_handle)
     end
 
     # Releases the native resources held by this object.

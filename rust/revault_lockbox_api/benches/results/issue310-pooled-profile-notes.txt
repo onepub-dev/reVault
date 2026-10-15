@@ -1,0 +1,52 @@
+Issue310: current encrypted compressed-write profile after pooled buffers
+
+Production62180a3, evidence HEAD006546c. No production changes.
+Use preserved matching layout-gate executables, SHA256:
+default04a180dbdf4f271c7775fdfa81797b88f4c48f0dc9ac90e651c35c86397cc3d5
+native23a4796a69bb313dcd014096373085a1835adc489c37505c081cdffbeaf890c8
+
+Each layout500 encrypted-only compressed8MiB pattern writes; default padding,
+synthetic key/no KDF; CPU2, warm OS caches and reused pool after initial write.
+All1000 writes independently reopened and persisted bytes compared. Both exit0.
+Native then default, sequential/unpaired. These profiles are diagnostic and
+DO NOT replace the paired layout-gate comparison or establish a speedup.
+No owned build/test concurrent with recording; unrelated host work uncontrolled.
+
+Command per layout, with BIN=target/issue310-layout-gate-62180a3-LAYOUT:
+TMPDIR=$PWD/target/issue310-sign-tmp REVAULT_GATE_CASE=encrypted/true/write \
+REVAULT_GATE_WRITE_PROFILE=1 perf record -F499 -e cycles:u \
+--call-graph dwarf,8192 -o target/issue310-pooled-profile-LAYOUT.data \
+-- taskset -c2 BIN write target/issue310-pooled-profile-LAYOUT-archives \
+8388608 pattern 500
+Stdout saved to matching CSV,stderr to stages.txt. Perf includes setup,
+verification reads and destruction, not just timed writes. Reports show no lost
+samples. Some addresses remain unresolved; no attribution inferred for them.
+Initial report command stalled with external symbol lookup enabled and was
+terminated; same recordings processed successfully with DEBUGINFOD_URLS empty.
+Text reports retained with trailing whitespace removed; raw data stays in target.
+
+Stage summary excludes sample0:499 observations/layout. Counters overlap and
+work placement differs; do not add stage medians into a synthetic total.
+Native/default prepare medians2550.957/2504.410us; add5051.365/3066.297us;
+add-minus-prepare2503.986/558.547us; page_write1964.249/13.411us;
+commit6690.160/8062.358us. Host read0 for direct-slice input.
+Native page_write includes page sealing/staging/preparation/flushing; default
+stages segments whose encoding occurs later. Its larger value alone is not a
+comparative overhead estimate. Profiles were not paired and sync latency varies.
+
+Native zeroize_bytes6.09%self across whole process:3.35% through read-only cache
+owner destruction,1.45% encoder Lease cleanup,0.88% read_file_range.
+Default zeroize_bytes3.19%self, including1.52%Lease and1.10%read_file_range.
+These are percentages of different process totals, not direct cost ratios.
+A large native wiping component belongs to out-of-timer verification. The old
+prepared-output wiping hypothesis must not be inferred from this aggregate.
+Both profiles show ordinary codec work but preparation medians are close.
+The current evidence prioritizes finer native page-write allocation/flush
+attribution over further guessing at codec-output disposal. Preserve wiping,
+transaction preparation, reused-extent safety and authentication invariants.
+No evidence here licenses deferred publication or reduced durability.
+
+The encrypted-only layout write gate remains unproven (upper95%10.876% in the
+preceding paired run); encrypted-signed passed that run's5% gate. No correctness
+suite repeated for this evidence-only checkpoint. Broader read parity, streaming
+and CLI writes, recovery, cold I/O and release work remain open. No remote writes.

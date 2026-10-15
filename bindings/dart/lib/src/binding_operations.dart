@@ -336,6 +336,61 @@ final class BindingOperations {
     ),
   );
 
+  ffi.Pointer<ffi.Void> lockboxOpenPasswordWithBudget(
+    Uint8List archive,
+    Uint8List password,
+    int maxDerivations,
+  ) {
+    if (maxDerivations < 0 || maxDerivations > 0xffffffff) {
+      throw RangeError.range(maxDerivations, 0, 0xffffffff, 'maxDerivations');
+    }
+    return _withBytes(
+      archive,
+      (a, al) => _withBytes(
+        password,
+        (p, pl) => _requireHandle(
+          native.lockbox_open_password_with_budget(
+            a,
+            al,
+            p,
+            pl,
+            maxDerivations,
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool lockboxExtractFileWithPolicy(
+    ffi.Pointer<ffi.Void> handle,
+    String source,
+    String destination,
+    int maxFileBytes,
+    int maxTotalBytes,
+    int maxFiles,
+    bool restorePermissions,
+    bool overwrite,
+  ) => _withText(
+    source,
+    (s, sl) => _withText(
+      destination,
+      (d, dl) => _requireBool(
+        native.lockbox_extract_file_with_policy(
+          handle,
+          s,
+          sl,
+          d,
+          dl,
+          maxFileBytes,
+          maxTotalBytes,
+          maxFiles,
+          restorePermissions,
+          overwrite,
+        ),
+      ),
+    ),
+  );
+
   ffi.Pointer<ffi.Void> lockboxOpenPassword(
     Uint8List archive,
     Uint8List password,
@@ -538,6 +593,17 @@ final class BindingOperations {
         profilePointer,
         profileLength,
       ),
+    ),
+  );
+
+  bool lockboxSetCacheLimit(
+    ffi.Pointer<ffi.Void> handle,
+    String mode,
+    int bytes,
+  ) => _withText(
+    mode,
+    (modePointer, modeLength) => _requireBool(
+      native.lockbox_set_cache_limit(handle, modePointer, modeLength, bytes),
     ),
   );
 
@@ -1798,6 +1864,62 @@ final class BindingOperations {
           pathLength,
         ),
       ),
+    ),
+  );
+
+  bool vaultDirectorySetLockboxAlias(
+    ffi.Pointer<ffi.Void> handle,
+    String name,
+    Uint8List id,
+  ) => _withText(
+    name,
+    (n, nl) => _withBytes(
+      id,
+      (i, il) => _requireBool(
+        native.vault_directory_set_lockbox_alias(handle, n, nl, i, il),
+      ),
+    ),
+  );
+
+  List<LockboxAlias> vaultDirectoryListLockboxAliases(
+    ffi.Pointer<ffi.Void> handle,
+  ) => DomainDecoders.lockboxAliasList(
+    _take(native.vault_directory_list_lockbox_aliases(handle)),
+  );
+
+  bool vaultDirectoryRemoveLockboxAlias(
+    ffi.Pointer<ffi.Void> handle,
+    String name,
+  ) => _withText(
+    name,
+    (n, nl) => _requireBool(
+      native.vault_directory_remove_lockbox_alias(handle, n, nl),
+    ),
+  );
+
+  KnownLockbox vaultDirectoryResolveLockboxAlias(
+    ffi.Pointer<ffi.Void> handle,
+    String name,
+  ) => _withText(
+    name,
+    (n, nl) => DomainDecoders.knownLockbox(
+      _take(native.vault_directory_resolve_lockbox_alias(handle, n, nl)),
+    ),
+  );
+
+  List<LockboxAlias> vaultReadOnlyListLockboxAliases(
+    ffi.Pointer<ffi.Void> handle,
+  ) => DomainDecoders.lockboxAliasList(
+    _take(native.vault_read_only_list_lockbox_aliases(handle)),
+  );
+
+  KnownLockbox vaultReadOnlyResolveLockboxAlias(
+    ffi.Pointer<ffi.Void> handle,
+    String name,
+  ) => _withText(
+    name,
+    (n, nl) => DomainDecoders.knownLockbox(
+      _take(native.vault_read_only_resolve_lockbox_alias(handle, n, nl)),
     ),
   );
 

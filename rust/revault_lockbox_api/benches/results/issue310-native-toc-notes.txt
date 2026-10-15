@@ -1,0 +1,51 @@
+Versioned common block references in the TOC, 2026-09-13
+======================================================
+The staged FileChunk model now carries an optional shared BlockFrameReference:
+the canonical native descriptor plus the page sequence. Its existing single
+segment provides the page offset, allocation length and object/page identity.
+Slices of a packed frame share an Arc rather than copying a 128-byte descriptor
+per file. The persisted TOC frame table still deduplicates their descriptor.
+
+Legacy-only leaves retain version 1 and exactly the existing descriptor encoding.
+A leaf containing block references uses version 2. Every frame descriptor in
+that leaf has an explicit marker: 0 for whole-frame semantics, 1 followed by
+the native descriptor and sequence for block semantics. Mixed leaves are legal.
+Internal nodes retain their existing encoding. Unknown versions/markers fail;
+the older decoder cannot silently consume the tested new leaf encodings.
+
+Descriptor identity includes its layout. Identical outer checksum/length fields
+with different whole-frame vs block semantics must not deduplicate together.
+Decode cross-checks frame ID, codec, logical/stored lengths and commitment
+against the common fields, then enforces a single bounded segment, page limits,
+checked physical extents and padded-page granularity. Canonical descriptor
+parsing alone does NOT establish trust: archive identity/mode and signed-commit
+authentication must still be established by the enclosing archive reader.
+
+The exact-size calculator and incremental leaf estimator include native metadata
+and the markers for legacy descriptors once a mixed leaf appears. Tests cover
+that retroactive size change, estimator clearing and single-copy wire storage.
+
+End-to-end component test: encode a block page, serialize a mixed TOC leaf,
+decode it, then construct the page reader using ONLY the decoded references
+and expected archive identity/mode. Both packed-file slices read exact bytes
+across all 16 encryption/signing/compression/padding combinations. Shared Arc
+identity survives decode. Altered page sequence is rejected by page opening.
+This is a native codec/page integration test, not a public archive/CLI lifecycle.
+
+Other tests reject unknown markers/versions, truncated native descriptors,
+reserved fields, mismatched frame commitments, overflowing page offsets, tiny
+extents and multiple segments. Existing TOC tests remain green. The full
+feature-enabled library suite passed: 316 tests, five intentionally ignored;
+strict library/tests Clippy passed before commit-time formatting.
+The five creation-options and two size-padding integration tests also passed
+against the normal, non-test-gated library build.
+
+Activation boundary: BlockFrameReference, version-2 decode/write support and
+the native block/page modules remain cfg(test). Normal library builds retain
+the original FileChunk representation and leaf encoding. No user archive is
+written in the new representation by this checkpoint. Versioned TOC support
+must be activated together with writer/reader/page-cache/scanner dispatch,
+mutation and recovery ownership, migration support and public lifecycle tests.
+The canonical signed-content encoding must bind the layout discriminator while
+preserving existing signed-archive validation. Production ZIP/write/load gates
+remain required; component correctness does not establish performance parity.

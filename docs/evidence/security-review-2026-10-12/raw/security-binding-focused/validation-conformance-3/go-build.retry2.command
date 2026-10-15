@@ -1,0 +1,1 @@
+GOTOOLCHAIN=local GOPROXY=off CGO_LDFLAGS=-L/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release go build -o /tmp/revault-go-conformance-20261013 ../e2e/go/conformance.go (cwd=bindings/go; Go 1.24.13)

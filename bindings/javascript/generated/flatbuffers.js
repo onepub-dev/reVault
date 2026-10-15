@@ -24,9 +24,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// ../../../../../../tmp/revault-jsdeps/node_modules/flatbuffers/js/constants.js
+// ../node_modules/flatbuffers/js/constants.js
 var require_constants = __commonJS({
-  "../../../../../../tmp/revault-jsdeps/node_modules/flatbuffers/js/constants.js"(exports) {
+  "../node_modules/flatbuffers/js/constants.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.SIZE_PREFIX_LENGTH = exports.FILE_IDENTIFIER_LENGTH = exports.SIZEOF_INT = exports.SIZEOF_SHORT = void 0;
@@ -37,9 +37,9 @@ var require_constants = __commonJS({
   }
 });
 
-// ../../../../../../tmp/revault-jsdeps/node_modules/flatbuffers/js/utils.js
+// ../node_modules/flatbuffers/js/utils.js
 var require_utils = __commonJS({
-  "../../../../../../tmp/revault-jsdeps/node_modules/flatbuffers/js/utils.js"(exports) {
+  "../node_modules/flatbuffers/js/utils.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.isLittleEndian = exports.float64 = exports.float32 = exports.int32 = void 0;
@@ -50,9 +50,9 @@ var require_utils = __commonJS({
   }
 });
 
-// ../../../../../../tmp/revault-jsdeps/node_modules/flatbuffers/js/encoding.js
+// ../node_modules/flatbuffers/js/encoding.js
 var require_encoding = __commonJS({
-  "../../../../../../tmp/revault-jsdeps/node_modules/flatbuffers/js/encoding.js"(exports) {
+  "../node_modules/flatbuffers/js/encoding.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Encoding = void 0;
@@ -64,9 +64,9 @@ var require_encoding = __commonJS({
   }
 });
 
-// ../../../../../../tmp/revault-jsdeps/node_modules/flatbuffers/js/byte-buffer.js
+// ../node_modules/flatbuffers/js/byte-buffer.js
 var require_byte_buffer = __commonJS({
-  "../../../../../../tmp/revault-jsdeps/node_modules/flatbuffers/js/byte-buffer.js"(exports) {
+  "../node_modules/flatbuffers/js/byte-buffer.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ByteBuffer = void 0;
@@ -319,9 +319,9 @@ var require_byte_buffer = __commonJS({
   }
 });
 
-// ../../../../../../tmp/revault-jsdeps/node_modules/flatbuffers/js/builder.js
+// ../node_modules/flatbuffers/js/builder.js
 var require_builder = __commonJS({
-  "../../../../../../tmp/revault-jsdeps/node_modules/flatbuffers/js/builder.js"(exports) {
+  "../node_modules/flatbuffers/js/builder.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Builder = void 0;
@@ -826,9 +826,9 @@ var require_builder = __commonJS({
   }
 });
 
-// ../../../../../../tmp/revault-jsdeps/node_modules/flatbuffers/js/flatbuffers.js
+// ../node_modules/flatbuffers/js/flatbuffers.js
 var require_flatbuffers = __commonJS({
-  "../../../../../../tmp/revault-jsdeps/node_modules/flatbuffers/js/flatbuffers.js"(exports) {
+  "../node_modules/flatbuffers/js/flatbuffers.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.Encoding = exports.ByteBuffer = exports.Builder = exports.isLittleEndian = exports.int32 = exports.float64 = exports.float32 = exports.SIZE_PREFIX_LENGTH = exports.SIZEOF_SHORT = exports.SIZEOF_INT = exports.FILE_IDENTIFIER_LENGTH = void 0;
@@ -2863,8 +2863,169 @@ var KnownLockboxListT = class {
   }
 };
 
-// generated/flatbuffers/revault/internal/lockbox-entry.ts
+// generated/flatbuffers/revault/internal/lockbox-alias.ts
 var flatbuffers22 = __toESM(require_flatbuffers(), 1);
+var LockboxAlias = class _LockboxAlias {
+  bb = null;
+  bb_pos = 0;
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsLockboxAlias(bb, obj) {
+    return (obj || new _LockboxAlias()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsLockboxAlias(bb, obj) {
+    bb.setPosition(bb.position() + flatbuffers22.SIZE_PREFIX_LENGTH);
+    return (obj || new _LockboxAlias()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  name(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  lockboxId(index) {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.readUint8(this.bb.__vector(this.bb_pos + offset) + index) : 0;
+  }
+  lockboxIdLength() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  lockboxIdArray() {
+    const offset = this.bb.__offset(this.bb_pos, 6);
+    return offset ? new Uint8Array(this.bb.bytes().buffer, this.bb.bytes().byteOffset + this.bb.__vector(this.bb_pos + offset), this.bb.__vector_len(this.bb_pos + offset)) : null;
+  }
+  static startLockboxAlias(builder) {
+    builder.startObject(2);
+  }
+  static addName(builder, nameOffset) {
+    builder.addFieldOffset(0, nameOffset, 0);
+  }
+  static addLockboxId(builder, lockboxIdOffset) {
+    builder.addFieldOffset(1, lockboxIdOffset, 0);
+  }
+  static createLockboxIdVector(builder, data) {
+    builder.startVector(1, data.length, 1);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addInt8(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startLockboxIdVector(builder, numElems) {
+    builder.startVector(1, numElems, 1);
+  }
+  static endLockboxAlias(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createLockboxAlias(builder, nameOffset, lockboxIdOffset) {
+    _LockboxAlias.startLockboxAlias(builder);
+    _LockboxAlias.addName(builder, nameOffset);
+    _LockboxAlias.addLockboxId(builder, lockboxIdOffset);
+    return _LockboxAlias.endLockboxAlias(builder);
+  }
+  unpack() {
+    return new LockboxAliasT(
+      this.name(),
+      this.bb.createScalarList(this.lockboxId.bind(this), this.lockboxIdLength())
+    );
+  }
+  unpackTo(_o) {
+    _o.name = this.name();
+    _o.lockboxId = this.bb.createScalarList(this.lockboxId.bind(this), this.lockboxIdLength());
+  }
+};
+var LockboxAliasT = class {
+  constructor(name = null, lockboxId = []) {
+    this.name = name;
+    this.lockboxId = lockboxId;
+  }
+  pack(builder) {
+    const name = this.name !== null ? builder.createString(this.name) : 0;
+    const lockboxId = LockboxAlias.createLockboxIdVector(builder, this.lockboxId);
+    return LockboxAlias.createLockboxAlias(
+      builder,
+      name,
+      lockboxId
+    );
+  }
+};
+
+// generated/flatbuffers/revault/internal/lockbox-alias-list.ts
+var flatbuffers23 = __toESM(require_flatbuffers(), 1);
+var LockboxAliasList = class _LockboxAliasList {
+  bb = null;
+  bb_pos = 0;
+  __init(i, bb) {
+    this.bb_pos = i;
+    this.bb = bb;
+    return this;
+  }
+  static getRootAsLockboxAliasList(bb, obj) {
+    return (obj || new _LockboxAliasList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  static getSizePrefixedRootAsLockboxAliasList(bb, obj) {
+    bb.setPosition(bb.position() + flatbuffers23.SIZE_PREFIX_LENGTH);
+    return (obj || new _LockboxAliasList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  }
+  values(index, obj) {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? (obj || new LockboxAlias()).__init(this.bb.__indirect(this.bb.__vector(this.bb_pos + offset) + index * 4), this.bb) : null;
+  }
+  valuesLength() {
+    const offset = this.bb.__offset(this.bb_pos, 4);
+    return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
+  }
+  static startLockboxAliasList(builder) {
+    builder.startObject(1);
+  }
+  static addValues(builder, valuesOffset) {
+    builder.addFieldOffset(0, valuesOffset, 0);
+  }
+  static createValuesVector(builder, data) {
+    builder.startVector(4, data.length, 4);
+    for (let i = data.length - 1; i >= 0; i--) {
+      builder.addOffset(data[i]);
+    }
+    return builder.endVector();
+  }
+  static startValuesVector(builder, numElems) {
+    builder.startVector(4, numElems, 4);
+  }
+  static endLockboxAliasList(builder) {
+    const offset = builder.endObject();
+    return offset;
+  }
+  static createLockboxAliasList(builder, valuesOffset) {
+    _LockboxAliasList.startLockboxAliasList(builder);
+    _LockboxAliasList.addValues(builder, valuesOffset);
+    return _LockboxAliasList.endLockboxAliasList(builder);
+  }
+  unpack() {
+    return new LockboxAliasListT(
+      this.bb.createObjList(this.values.bind(this), this.valuesLength())
+    );
+  }
+  unpackTo(_o) {
+    _o.values = this.bb.createObjList(this.values.bind(this), this.valuesLength());
+  }
+};
+var LockboxAliasListT = class {
+  constructor(values = []) {
+    this.values = values;
+  }
+  pack(builder) {
+    const values = LockboxAliasList.createValuesVector(builder, builder.createObjectOffsetList(this.values));
+    return LockboxAliasList.createLockboxAliasList(
+      builder,
+      values
+    );
+  }
+};
+
+// generated/flatbuffers/revault/internal/lockbox-entry.ts
+var flatbuffers24 = __toESM(require_flatbuffers(), 1);
 
 // generated/flatbuffers/revault/internal/lockbox-entry-kind.ts
 var LockboxEntryKind = /* @__PURE__ */ ((LockboxEntryKind2) => {
@@ -2888,7 +3049,7 @@ var LockboxEntry = class _LockboxEntry {
     return (obj || new _LockboxEntry()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsLockboxEntry(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers22.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers24.SIZE_PREFIX_LENGTH);
     return (obj || new _LockboxEntry()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   path(optionalEncoding) {
@@ -2969,7 +3130,7 @@ var LockboxEntryT = class {
 };
 
 // generated/flatbuffers/revault/internal/lockbox-entry-list.ts
-var flatbuffers23 = __toESM(require_flatbuffers(), 1);
+var flatbuffers25 = __toESM(require_flatbuffers(), 1);
 var LockboxEntryList = class _LockboxEntryList {
   bb = null;
   bb_pos = 0;
@@ -2982,7 +3143,7 @@ var LockboxEntryList = class _LockboxEntryList {
     return (obj || new _LockboxEntryList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsLockboxEntryList(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers23.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers25.SIZE_PREFIX_LENGTH);
     return (obj || new _LockboxEntryList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   entries(index, obj) {
@@ -3041,7 +3202,7 @@ var LockboxEntryListT = class {
 };
 
 // generated/flatbuffers/revault/internal/optional-form-record.ts
-var flatbuffers24 = __toESM(require_flatbuffers(), 1);
+var flatbuffers26 = __toESM(require_flatbuffers(), 1);
 var OptionalFormRecord = class _OptionalFormRecord {
   bb = null;
   bb_pos = 0;
@@ -3054,7 +3215,7 @@ var OptionalFormRecord = class _OptionalFormRecord {
     return (obj || new _OptionalFormRecord()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsOptionalFormRecord(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers24.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers26.SIZE_PREFIX_LENGTH);
     return (obj || new _OptionalFormRecord()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   value(obj) {
@@ -3099,7 +3260,7 @@ var OptionalFormRecordT = class {
 };
 
 // generated/flatbuffers/revault/internal/optional-form-value.ts
-var flatbuffers25 = __toESM(require_flatbuffers(), 1);
+var flatbuffers27 = __toESM(require_flatbuffers(), 1);
 var OptionalFormValue = class _OptionalFormValue {
   bb = null;
   bb_pos = 0;
@@ -3112,7 +3273,7 @@ var OptionalFormValue = class _OptionalFormValue {
     return (obj || new _OptionalFormValue()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsOptionalFormValue(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers25.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers27.SIZE_PREFIX_LENGTH);
     return (obj || new _OptionalFormValue()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   value(obj) {
@@ -3157,7 +3318,7 @@ var OptionalFormValueT = class {
 };
 
 // generated/flatbuffers/revault/internal/optional-lockbox-entry.ts
-var flatbuffers26 = __toESM(require_flatbuffers(), 1);
+var flatbuffers28 = __toESM(require_flatbuffers(), 1);
 var OptionalLockboxEntry = class _OptionalLockboxEntry {
   bb = null;
   bb_pos = 0;
@@ -3170,7 +3331,7 @@ var OptionalLockboxEntry = class _OptionalLockboxEntry {
     return (obj || new _OptionalLockboxEntry()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsOptionalLockboxEntry(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers26.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers28.SIZE_PREFIX_LENGTH);
     return (obj || new _OptionalLockboxEntry()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   value(obj) {
@@ -3215,7 +3376,7 @@ var OptionalLockboxEntryT = class {
 };
 
 // generated/flatbuffers/revault/internal/optional-string.ts
-var flatbuffers27 = __toESM(require_flatbuffers(), 1);
+var flatbuffers29 = __toESM(require_flatbuffers(), 1);
 var OptionalString = class _OptionalString {
   bb = null;
   bb_pos = 0;
@@ -3228,7 +3389,7 @@ var OptionalString = class _OptionalString {
     return (obj || new _OptionalString()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsOptionalString(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers27.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers29.SIZE_PREFIX_LENGTH);
     return (obj || new _OptionalString()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   present() {
@@ -3285,7 +3446,7 @@ var OptionalStringT = class {
 };
 
 // generated/flatbuffers/revault/internal/owner-inspection.ts
-var flatbuffers28 = __toESM(require_flatbuffers(), 1);
+var flatbuffers30 = __toESM(require_flatbuffers(), 1);
 var OwnerInspection = class _OwnerInspection {
   bb = null;
   bb_pos = 0;
@@ -3298,7 +3459,7 @@ var OwnerInspection = class _OwnerInspection {
     return (obj || new _OwnerInspection()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsOwnerInspection(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers28.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers30.SIZE_PREFIX_LENGTH);
     return (obj || new _OwnerInspection()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   signed() {
@@ -3367,10 +3528,10 @@ var OwnerInspectionT = class {
 };
 
 // generated/flatbuffers/revault/internal/page-inspection.ts
-var flatbuffers30 = __toESM(require_flatbuffers(), 1);
+var flatbuffers32 = __toESM(require_flatbuffers(), 1);
 
 // generated/flatbuffers/revault/internal/page-object.ts
-var flatbuffers29 = __toESM(require_flatbuffers(), 1);
+var flatbuffers31 = __toESM(require_flatbuffers(), 1);
 var PageObject = class _PageObject {
   bb = null;
   bb_pos = 0;
@@ -3383,7 +3544,7 @@ var PageObject = class _PageObject {
     return (obj || new _PageObject()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsPageObject(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers29.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers31.SIZE_PREFIX_LENGTH);
     return (obj || new _PageObject()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   id() {
@@ -3464,7 +3625,7 @@ var PageInspection = class _PageInspection {
     return (obj || new _PageInspection()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsPageInspection(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers30.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers32.SIZE_PREFIX_LENGTH);
     return (obj || new _PageInspection()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   offset() {
@@ -3607,7 +3768,7 @@ var PageInspectionT = class {
 };
 
 // generated/flatbuffers/revault/internal/page-inspection-list.ts
-var flatbuffers31 = __toESM(require_flatbuffers(), 1);
+var flatbuffers33 = __toESM(require_flatbuffers(), 1);
 var PageInspectionList = class _PageInspectionList {
   bb = null;
   bb_pos = 0;
@@ -3620,7 +3781,7 @@ var PageInspectionList = class _PageInspectionList {
     return (obj || new _PageInspectionList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsPageInspectionList(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers31.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers33.SIZE_PREFIX_LENGTH);
     return (obj || new _PageInspectionList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   values(index, obj) {
@@ -3679,7 +3840,7 @@ var PageInspectionListT = class {
 };
 
 // generated/flatbuffers/revault/internal/path-move.ts
-var flatbuffers32 = __toESM(require_flatbuffers(), 1);
+var flatbuffers34 = __toESM(require_flatbuffers(), 1);
 var PathMove = class _PathMove {
   bb = null;
   bb_pos = 0;
@@ -3692,7 +3853,7 @@ var PathMove = class _PathMove {
     return (obj || new _PathMove()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsPathMove(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers32.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers34.SIZE_PREFIX_LENGTH);
     return (obj || new _PathMove()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   source(optionalEncoding) {
@@ -3750,7 +3911,7 @@ var PathMoveT = class {
 };
 
 // generated/flatbuffers/revault/internal/path-move-list.ts
-var flatbuffers33 = __toESM(require_flatbuffers(), 1);
+var flatbuffers35 = __toESM(require_flatbuffers(), 1);
 var PathMoveList = class _PathMoveList {
   bb = null;
   bb_pos = 0;
@@ -3763,7 +3924,7 @@ var PathMoveList = class _PathMoveList {
     return (obj || new _PathMoveList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsPathMoveList(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers33.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers35.SIZE_PREFIX_LENGTH);
     return (obj || new _PathMoveList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   values(index, obj) {
@@ -3822,7 +3983,7 @@ var PathMoveListT = class {
 };
 
 // generated/flatbuffers/revault/internal/platform-status.ts
-var flatbuffers34 = __toESM(require_flatbuffers(), 1);
+var flatbuffers36 = __toESM(require_flatbuffers(), 1);
 var PlatformStatus = class _PlatformStatus {
   bb = null;
   bb_pos = 0;
@@ -3835,7 +3996,7 @@ var PlatformStatus = class _PlatformStatus {
     return (obj || new _PlatformStatus()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsPlatformStatus(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers34.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers36.SIZE_PREFIX_LENGTH);
     return (obj || new _PlatformStatus()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   supported() {
@@ -3930,7 +4091,7 @@ var PlatformStatusT = class {
 };
 
 // generated/flatbuffers/revault/internal/profile-generation.ts
-var flatbuffers35 = __toESM(require_flatbuffers(), 1);
+var flatbuffers37 = __toESM(require_flatbuffers(), 1);
 var ProfileGeneration = class _ProfileGeneration {
   bb = null;
   bb_pos = 0;
@@ -3943,7 +4104,7 @@ var ProfileGeneration = class _ProfileGeneration {
     return (obj || new _ProfileGeneration()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsProfileGeneration(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers35.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers37.SIZE_PREFIX_LENGTH);
     return (obj || new _ProfileGeneration()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   index() {
@@ -4067,7 +4228,7 @@ var ProfileGenerationT = class {
 };
 
 // generated/flatbuffers/revault/internal/profile-history.ts
-var flatbuffers36 = __toESM(require_flatbuffers(), 1);
+var flatbuffers38 = __toESM(require_flatbuffers(), 1);
 var ProfileHistory = class _ProfileHistory {
   bb = null;
   bb_pos = 0;
@@ -4080,7 +4241,7 @@ var ProfileHistory = class _ProfileHistory {
     return (obj || new _ProfileHistory()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsProfileHistory(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers36.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers38.SIZE_PREFIX_LENGTH);
     return (obj || new _ProfileHistory()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   name(optionalEncoding) {
@@ -4164,7 +4325,7 @@ var ProfileHistoryT = class {
 };
 
 // generated/flatbuffers/revault/internal/profile-history-list.ts
-var flatbuffers37 = __toESM(require_flatbuffers(), 1);
+var flatbuffers39 = __toESM(require_flatbuffers(), 1);
 var ProfileHistoryList = class _ProfileHistoryList {
   bb = null;
   bb_pos = 0;
@@ -4177,7 +4338,7 @@ var ProfileHistoryList = class _ProfileHistoryList {
     return (obj || new _ProfileHistoryList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsProfileHistoryList(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers37.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers39.SIZE_PREFIX_LENGTH);
     return (obj || new _ProfileHistoryList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   values(index, obj) {
@@ -4236,7 +4397,7 @@ var ProfileHistoryListT = class {
 };
 
 // generated/flatbuffers/revault/internal/recovery-report.ts
-var flatbuffers38 = __toESM(require_flatbuffers(), 1);
+var flatbuffers40 = __toESM(require_flatbuffers(), 1);
 var RecoveryReport = class _RecoveryReport {
   bb = null;
   bb_pos = 0;
@@ -4249,7 +4410,7 @@ var RecoveryReport = class _RecoveryReport {
     return (obj || new _RecoveryReport()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsRecoveryReport(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers38.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers40.SIZE_PREFIX_LENGTH);
     return (obj || new _RecoveryReport()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   intactFiles(index, obj) {
@@ -4416,7 +4577,7 @@ var RecoveryReportT = class {
 };
 
 // generated/flatbuffers/revault/internal/runtime-options.ts
-var flatbuffers39 = __toESM(require_flatbuffers(), 1);
+var flatbuffers41 = __toESM(require_flatbuffers(), 1);
 var RuntimeOptions = class _RuntimeOptions {
   bb = null;
   bb_pos = 0;
@@ -4429,7 +4590,7 @@ var RuntimeOptions = class _RuntimeOptions {
     return (obj || new _RuntimeOptions()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsRuntimeOptions(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers39.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers41.SIZE_PREFIX_LENGTH);
     return (obj || new _RuntimeOptions()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   workloadProfile(optionalEncoding) {
@@ -4487,7 +4648,7 @@ var RuntimeOptionsT = class {
 };
 
 // generated/flatbuffers/revault/internal/sleep-support.ts
-var flatbuffers40 = __toESM(require_flatbuffers(), 1);
+var flatbuffers42 = __toESM(require_flatbuffers(), 1);
 var SleepSupport = class _SleepSupport {
   bb = null;
   bb_pos = 0;
@@ -4500,7 +4661,7 @@ var SleepSupport = class _SleepSupport {
     return (obj || new _SleepSupport()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsSleepSupport(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers40.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers42.SIZE_PREFIX_LENGTH);
     return (obj || new _SleepSupport()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   suspendNotifications() {
@@ -4515,8 +4676,12 @@ var SleepSupport = class _SleepSupport {
     const offset = this.bb.__offset(this.bb_pos, 8);
     return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
   }
+  cacheClearingActive() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
   static startSleepSupport(builder) {
-    builder.startObject(3);
+    builder.startObject(4);
   }
   static addSuspendNotifications(builder, suspendNotifications) {
     builder.addFieldInt8(0, +suspendNotifications, 0);
@@ -4527,48 +4692,56 @@ var SleepSupport = class _SleepSupport {
   static addSupported(builder, supported) {
     builder.addFieldInt8(2, +supported, 0);
   }
+  static addCacheClearingActive(builder, cacheClearingActive) {
+    builder.addFieldInt8(3, +cacheClearingActive, 0);
+  }
   static endSleepSupport(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createSleepSupport(builder, suspendNotifications, sleepInhibition, supported) {
+  static createSleepSupport(builder, suspendNotifications, sleepInhibition, supported, cacheClearingActive) {
     _SleepSupport.startSleepSupport(builder);
     _SleepSupport.addSuspendNotifications(builder, suspendNotifications);
     _SleepSupport.addSleepInhibition(builder, sleepInhibition);
     _SleepSupport.addSupported(builder, supported);
+    _SleepSupport.addCacheClearingActive(builder, cacheClearingActive);
     return _SleepSupport.endSleepSupport(builder);
   }
   unpack() {
     return new SleepSupportT(
       this.suspendNotifications(),
       this.sleepInhibition(),
-      this.supported()
+      this.supported(),
+      this.cacheClearingActive()
     );
   }
   unpackTo(_o) {
     _o.suspendNotifications = this.suspendNotifications();
     _o.sleepInhibition = this.sleepInhibition();
     _o.supported = this.supported();
+    _o.cacheClearingActive = this.cacheClearingActive();
   }
 };
 var SleepSupportT = class {
-  constructor(suspendNotifications = false, sleepInhibition = false, supported = false) {
+  constructor(suspendNotifications = false, sleepInhibition = false, supported = false, cacheClearingActive = false) {
     this.suspendNotifications = suspendNotifications;
     this.sleepInhibition = sleepInhibition;
     this.supported = supported;
+    this.cacheClearingActive = cacheClearingActive;
   }
   pack(builder) {
     return SleepSupport.createSleepSupport(
       builder,
       this.suspendNotifications,
       this.sleepInhibition,
-      this.supported
+      this.supported,
+      this.cacheClearingActive
     );
   }
 };
 
 // generated/flatbuffers/revault/internal/stream-chunk.ts
-var flatbuffers41 = __toESM(require_flatbuffers(), 1);
+var flatbuffers43 = __toESM(require_flatbuffers(), 1);
 var StreamChunk = class _StreamChunk {
   bb = null;
   bb_pos = 0;
@@ -4581,7 +4754,7 @@ var StreamChunk = class _StreamChunk {
     return (obj || new _StreamChunk()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsStreamChunk(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers41.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers43.SIZE_PREFIX_LENGTH);
     return (obj || new _StreamChunk()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   path(optionalEncoding) {
@@ -4705,7 +4878,7 @@ var StreamChunkT = class {
 };
 
 // generated/flatbuffers/revault/internal/stream-chunk-list.ts
-var flatbuffers42 = __toESM(require_flatbuffers(), 1);
+var flatbuffers44 = __toESM(require_flatbuffers(), 1);
 var StreamChunkList = class _StreamChunkList {
   bb = null;
   bb_pos = 0;
@@ -4718,7 +4891,7 @@ var StreamChunkList = class _StreamChunkList {
     return (obj || new _StreamChunkList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsStreamChunkList(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers42.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers44.SIZE_PREFIX_LENGTH);
     return (obj || new _StreamChunkList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   values(index, obj) {
@@ -4777,7 +4950,7 @@ var StreamChunkListT = class {
 };
 
 // generated/flatbuffers/revault/internal/string-list.ts
-var flatbuffers43 = __toESM(require_flatbuffers(), 1);
+var flatbuffers45 = __toESM(require_flatbuffers(), 1);
 var StringList = class _StringList {
   bb = null;
   bb_pos = 0;
@@ -4790,7 +4963,7 @@ var StringList = class _StringList {
     return (obj || new _StringList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsStringList(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers43.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers45.SIZE_PREFIX_LENGTH);
     return (obj || new _StringList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   values(index, optionalEncoding) {
@@ -4849,7 +5022,7 @@ var StringListT = class {
 };
 
 // generated/flatbuffers/revault/internal/string-value.ts
-var flatbuffers44 = __toESM(require_flatbuffers(), 1);
+var flatbuffers46 = __toESM(require_flatbuffers(), 1);
 var StringValue = class _StringValue {
   bb = null;
   bb_pos = 0;
@@ -4862,7 +5035,7 @@ var StringValue = class _StringValue {
     return (obj || new _StringValue()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsStringValue(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers44.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers46.SIZE_PREFIX_LENGTH);
     return (obj || new _StringValue()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   value(optionalEncoding) {
@@ -4907,7 +5080,7 @@ var StringValueT = class {
 };
 
 // generated/flatbuffers/revault/internal/variable.ts
-var flatbuffers45 = __toESM(require_flatbuffers(), 1);
+var flatbuffers47 = __toESM(require_flatbuffers(), 1);
 var Variable = class _Variable {
   bb = null;
   bb_pos = 0;
@@ -4920,7 +5093,7 @@ var Variable = class _Variable {
     return (obj || new _Variable()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsVariable(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers45.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers47.SIZE_PREFIX_LENGTH);
     return (obj || new _Variable()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   name(optionalEncoding) {
@@ -4978,7 +5151,7 @@ var VariableT = class {
 };
 
 // generated/flatbuffers/revault/internal/variable-list.ts
-var flatbuffers46 = __toESM(require_flatbuffers(), 1);
+var flatbuffers48 = __toESM(require_flatbuffers(), 1);
 var VariableList = class _VariableList {
   bb = null;
   bb_pos = 0;
@@ -4991,7 +5164,7 @@ var VariableList = class _VariableList {
     return (obj || new _VariableList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsVariableList(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers46.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers48.SIZE_PREFIX_LENGTH);
     return (obj || new _VariableList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   values(index, obj) {
@@ -5050,7 +5223,7 @@ var VariableListT = class {
 };
 
 // generated/flatbuffers/revault/internal/vault-backup-manifest.ts
-var flatbuffers47 = __toESM(require_flatbuffers(), 1);
+var flatbuffers49 = __toESM(require_flatbuffers(), 1);
 var VaultBackupManifest = class _VaultBackupManifest {
   bb = null;
   bb_pos = 0;
@@ -5063,7 +5236,7 @@ var VaultBackupManifest = class _VaultBackupManifest {
     return (obj || new _VaultBackupManifest()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   static getSizePrefixedRootAsVaultBackupManifest(bb, obj) {
-    bb.setPosition(bb.position() + flatbuffers47.SIZE_PREFIX_LENGTH);
+    bb.setPosition(bb.position() + flatbuffers49.SIZE_PREFIX_LENGTH);
     return (obj || new _VaultBackupManifest()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
   }
   formatVersion() {
@@ -5198,6 +5371,10 @@ export {
   KnownLockboxList,
   KnownLockboxListT,
   KnownLockboxT,
+  LockboxAlias,
+  LockboxAliasList,
+  LockboxAliasListT,
+  LockboxAliasT,
   LockboxEntry,
   LockboxEntryKind,
   LockboxEntryList,

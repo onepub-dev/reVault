@@ -1,0 +1,81 @@
+    Checking serde v1.0.229
+    Checking hybrid-array v0.4.15
+    Checking revault_page_api v0.0.34 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_page_api)
+   Compiling rustls v0.23.45
+    Checking tempfile v3.27.0
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+    Checking enumflags2 v0.7.12
+    Checking zcheapstr v1.1.0
+    Checking zvariant_utils v4.2.0
+    Checking serde_urlencoded v0.7.1
+    Checking axum v0.8.9
+    Checking crypto-common v0.2.2
+    Checking block-buffer v0.12.1
+    Checking inout v0.2.2
+    Checking module-lattice v0.2.3
+   Compiling zvariant_derive v5.15.0
+    Checking digest v0.11.3
+    Checking universal-hash v0.6.1
+    Checking cipher v0.5.2
+    Checking aead v0.6.1
+    Checking kem v0.3.0
+    Checking poly1305 v0.9.1
+    Checking sha2 v0.11.0
+    Checking signature v3.0.0
+    Checking shake v0.1.0
+    Checking sha3 v0.11.0
+    Checking hmac v0.13.0
+    Checking curve25519-dalek v5.0.0
+    Checking blake2 v0.11.0
+    Checking chacha20 v0.10.2
+    Checking ml-dsa v0.1.1
+    Checking ed25519 v3.0.0
+    Checking hkdf v0.13.0
+   Compiling zvariant v5.15.0
+    Checking argon2 v0.6.0
+    Checking chacha20poly1305 v0.11.0
+    Checking ml-kem v0.3.2
+    Checking x25519-dalek v3.0.0
+    Checking ed25519-dalek v3.0.0
+    Checking revault_migration_format v0.0.35 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migration_format)
+    Checking ureq v3.4.1
+    Checking lettre v0.11.23
+    Checking revault_publish_protocol v0.0.35 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_publish_protocol)
+    Checking revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Checking revault_lockbox_api v0.0.6
+    Checking revault_lockbox_api v0.0.2
+    Checking revault_lockbox_api v0.0.9
+    Checking revault_archive_v3_reader v0.0.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_archive_v3/legacy)
+    Checking revault_lockbox_api v0.0.3
+    Checking zbus_names v4.3.4
+    Checking revault_key_server v0.0.37 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_key_server)
+error[E0433]: failed to resolve: could not find `NodeKind` in the crate root
+    --> revault_lockbox_api/src/lockbox/files.rs:1015:107
+     |
+1015 |         let entry = self.toc_entries.get(path).filter(|entry| !entry.deleted && entry.node_kind == crate::NodeKind::File)
+     |                                                                                                           ^^^^^^^^ could not find `NodeKind` in the crate root
+     |
+help: consider importing this enum
+     |
+1    + use crate::node_kind::NodeKind;
+     |
+help: if you import `NodeKind`, refer to it directly
+     |
+1015 -         let entry = self.toc_entries.get(path).filter(|entry| !entry.deleted && entry.node_kind == crate::NodeKind::File)
+1015 +         let entry = self.toc_entries.get(path).filter(|entry| !entry.deleted && entry.node_kind == NodeKind::File)
+     |
+
+warning: unused import: `crate::storage::atomic_file_replacement::AtomicFileReplacement`
+  --> revault_lockbox_api/src/lockbox/files.rs:30:5
+   |
+30 | use crate::storage::atomic_file_replacement::AtomicFileReplacement;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+   Compiling zbus_macros v5.19.0
+    Checking zbus v5.19.0
+For more information about this error, try `rustc --explain E0433`.
+warning: `revault_lockbox_api` (lib) generated 1 warning
+error: could not compile `revault_lockbox_api` (lib) due to 1 previous error; 1 warning emitted
+warning: build failed, waiting for other jobs to finish...

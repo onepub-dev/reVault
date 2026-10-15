@@ -1,0 +1,463 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+error[E0308]: `match` arms have incompatible types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_bitstream.rs:911:13
+    |
+905 | /     match seqnum {
+906 | |         1..=127 => writer.write_bits(seqnum as u32, 8),
+    | |                    ----------------------------------- this is found to be of type `Result<(), CapacityError>`
+907 | |         128..=0x7FFF => {
+908 | |             let upper = ((seqnum >> 8) | 0x80) as u8;
+...   |
+911 | |             writer.write_bits(lower, 8);
+    | |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<(), CapacityError>`, found `()`
+...   |
+921 | |         _ => unreachable!(),
+922 | |     }
+    | |_____- `match` arms have incompatible types
+    |
+    = note:   expected enum `Result<(), CapacityError>`
+            found unit type `()`
+help: consider removing this semicolon
+    |
+911 -             writer.write_bits(lower, 8);
+911 +             writer.write_bits(lower, 8)
+    |
+help: try wrapping the expression in `core::prelude::v1::Ok`
+    |
+907 ~         128..=0x7FFF => core::prelude::v1::Ok({
+908 |             let upper = ((seqnum >> 8) | 0x80) as u8;
+...
+911 |             writer.write_bits(lower, 8);
+912 ~         })
+    |
+
+error[E0308]: `match` arms have incompatible types
+  --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:85:38
+   |
+83 | /     match mode {
+84 | |         FseTableMode::Predefined(_) => {}
+   | |                                        -- this is found to be of type `()`
+85 | |         FseTableMode::Rle(symbol) => writer.write_bits(*symbol, 8),
+   | |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `()`, found `Result<(), CapacityError>`
+86 | |         FseTableMode::RepeatLast(_) => {}
+87 | |         FseTableMode::Encoded(table) => table.write_table(writer),
+88 | |     }
+   | |_____- `match` arms have incompatible types
+   |
+   = note: expected unit type `()`
+                   found enum `Result<(), CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<(), CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+85 |         FseTableMode::Rle(symbol) => writer.write_bits(*symbol, 8).expect("REASON"),
+   |                                                                   +++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:62:13
+   |
+33 |     output: &mut impl crate::workspace::Growable<u8>,
+   |                  ----------------------------------- found this type parameter
+...
+53 |         return target::append_target_block(
+   |                --------------------------- arguments to this function are incorrect
+...
+62 |             output,
+   |             ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+   |
+   = note: expected mutable reference `&mut std::vec::Vec<u8>`
+              found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+  --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:15:15
+   |
+15 | pub(super) fn append_target_block(
+   |               ^^^^^^^^^^^^^^^^^^^
+...
+24 |     output: &mut Vec<u8>,
+   |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:154:13
+    |
+127 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+145 |         return target::append_target_block(
+    |                --------------------------- arguments to this function are incorrect
+...
+154 |             output,
+    |             ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:15:15
+    |
+15  | pub(super) fn append_target_block(
+    |               ^^^^^^^^^^^^^^^^^^^
+...
+24  |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:60:13
+   |
+31 |     output: &mut impl crate::workspace::Growable<u8>,
+   |                  ----------------------------------- found this type parameter
+...
+51 |         return target::append_target_block(
+   |                --------------------------- arguments to this function are incorrect
+...
+60 |             output,
+   |             ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+   |
+   = note: expected mutable reference `&mut std::vec::Vec<u8>`
+              found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+  --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:15:15
+   |
+15 | pub(super) fn append_target_block(
+   |               ^^^^^^^^^^^^^^^^^^^
+...
+24 |     output: &mut Vec<u8>,
+   |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:152:13
+    |
+125 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+143 |         return target::append_target_block(
+    |                --------------------------- arguments to this function are incorrect
+...
+152 |             output,
+    |             ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:15:15
+    |
+15  | pub(super) fn append_target_block(
+    |               ^^^^^^^^^^^^^^^^^^^
+...
+24  |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:73:86
+    |
+67  |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+73  |         return append_repeat_sequence_section(sequences, fse_tables, offset_history, output).map(
+    |                ------------------------------                                        ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |                |
+    |                arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_sections.rs:173:15
+    |
+173 | pub(crate) fn append_repeat_sequence_section(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+177 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:82:83
+   |
+67 |     output: &mut impl crate::workspace::Growable<u8>,
+   |                  ----------------------------------- found this type parameter
+...
+82 |         append_predefined_sequence_section(sequences, fse_tables, offset_history, output)?
+   |         ----------------------------------                                        ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+   |         |
+   |         arguments to this function are incorrect
+   |
+   = note: expected mutable reference `&mut std::vec::Vec<u8>`
+              found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+  --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_sections.rs:80:15
+   |
+80 | pub(crate) fn append_predefined_sequence_section(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+84 |     output: &mut Vec<u8>,
+   |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:84:64
+    |
+67  |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+84  |         append_rle_sequence_section(sequences, offset_history, output)?
+    |         ---------------------------                            ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_sections.rs:126:15
+    |
+126 | pub(crate) fn append_rle_sequence_section(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+129 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:86:79
+    |
+67  |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+86  |         append_repeat_sequence_section(sequences, fse_tables, offset_history, output)?
+    |         ------------------------------                                        ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_sections.rs:173:15
+    |
+173 | pub(crate) fn append_repeat_sequence_section(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+177 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:95:17
+    |
+67  |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+89  |             append_sequence_section_with_table_modes(
+    |             ---------------------------------------- arguments to this function are incorrect
+...
+95  |                 output,
+    |                 ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_sections.rs:319:15
+    |
+319 | pub(crate) fn append_sequence_section_with_table_modes(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+325 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:98:87
+    |
+67  |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+98  |             append_compressed_sequence_section(sequences, fse_tables, offset_history, output)?
+    |             ----------------------------------                                        ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |             |
+    |             arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_sections.rs:221:15
+    |
+221 | pub(crate) fn append_compressed_sequence_section(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+225 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:110:13
+    |
+67  |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+104 |         append_sequence_section_with_table_modes(
+    |         ---------------------------------------- arguments to this function are incorrect
+...
+110 |             output,
+    |             ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_sections.rs:319:15
+    |
+319 | pub(crate) fn append_sequence_section_with_table_modes(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+325 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:34:41
+   |
+34 |       writer.append_aligned_with(|output| {
+   |  _________________________________________^
+35 | |         let max_stream_bytes = (data.len() * usize::from(max_num_bits)).div_ceil(8) + 1;
+36 | |         let mut write_pos = output.len();
+37 | |         output.resize(write_pos + max_stream_bytes + 7, 0);
+...  |
+60 | |         output.truncate(write_pos);
+61 | |     });
+   | |_____^ expected `Result<_, CapacityError>`, found `()`
+   |
+   = note:   expected enum `Result<_, CapacityError>`
+           found unit type `()`
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:77:41
+    |
+77  |       writer.append_aligned_with(|output| {
+    |  _________________________________________^
+78  | |         let max_stream_bytes = (data.len() * usize::from(max_num_bits)).div_ceil(8) + 1;
+79  | |         let mut write_pos = output.len();
+80  | |         output.resize(write_pos + max_stream_bytes + 7, 0);
+...   |
+103 | |         output.truncate(write_pos);
+104 | |     });
+    | |_____^ expected `Result<_, CapacityError>`, found `()`
+    |
+    = note:   expected enum `Result<_, CapacityError>`
+            found unit type `()`
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:195:59
+    |
+195 |               self.writer.append_aligned_with(move |output| {
+    |  ___________________________________________________________^
+196 | |                 // SAFETY: this encoder built the canonical table, split input
+197 | |                 // is at least four bytes, and the BMI2 flag comes from CPUID.
+198 | |                 unsafe {
+...   |
+206 | |                 };
+    | |                  - help: remove this semicolon to return this value
+207 | |             });
+    | |_____________^ expected `Result<_, CapacityError>`, found `()`
+    |
+    = note:   expected enum `Result<_, CapacityError>`
+            found unit type `()`
+
+For more information about this error, try `rustc --explain E0308`.
+warning: `zstd-complete` (lib) generated 18 warnings
+error: could not compile `zstd-complete` (lib) due to 16 previous errors; 18 warnings emitted

@@ -1,0 +1,4 @@
+4f42c38cf68cfbbe3e965cd5b817fef3ab016a08371cd30edc276eebb6529175  rust/revault_lockbox_api/src/lockbox.rs
+6dfce7fbf54ad5803a66ce2d5d135ab5b3c4be0619c4153533f29f222b798b5b  rust/revault_cli/tests/cli_flow.rs
+153202072e59a7e8eb87d90c23f0e454292f17e33a3a84d6b4bc51f9ab850bbe  rust/revault_bindings/src/lib.rs
+67928ad33ddd199d8339a9845dea392ab3967d5ae1be459c6303d2987ec1e9af  rust/revault_cli/src/commands/files.rs

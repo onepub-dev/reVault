@@ -1,0 +1,23 @@
+{
+  "backend": "lockbox",
+  "baseline_peak_rss_kib": 33740,
+  "candidate_scope": "file-only shared private packs; no public record/access integration",
+  "candidate_test_executable_sha256": "2a6a38210f7bcf95a47529b447d69ad03cf945af628b0bd3095bbf1a7b18bd38",
+  "extent_unit": 262144,
+  "file_adapter_version": 2,
+  "kind": "compaction",
+  "layout": "candidate-262144",
+  "peak_extra_logical_file_bytes": 1441792,
+  "peak_rss_kib": 33740,
+  "replacement_archive_bytes": 1441792,
+  "resources": {
+    "cpu_seconds": 0.028523000000000007,
+    "major_faults": 59,
+    "system_seconds": 0.005276000000000001,
+    "user_seconds": 0.023247000000000004
+  },
+  "source_archive_bytes": 1703936,
+  "space_method": "replacement is append-only until atomic rename; excludes filesystem allocation granularity and existing backups",
+  "verified": true,
+  "wall_seconds": 0.044482077
+}

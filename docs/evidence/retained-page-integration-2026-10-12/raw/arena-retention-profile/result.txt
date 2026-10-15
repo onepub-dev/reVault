@@ -1,0 +1,3 @@
+Campaign stopped at first phase failure; no profile executable ran.
+Initial build wrapper exited 127 in 0.035s because its isolated PATH (/usr/bin:/bin) did not resolve cargo.
+The dcli runner correctly stopped before the profile phase. No retry was performed.

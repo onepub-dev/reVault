@@ -1,0 +1,5 @@
+
+String dump of section '.comment':
+  [     0]  GCC: (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+  [    26]  rustc version 1.88.0 (6b00bc388 2025-06-23)
+

@@ -1,0 +1,24 @@
+/tmp/revault-typed-read-20261002/baseline-controls/large-compressed/dense.lbox inode=919010 size=327680 links=2
+/tmp/revault-typed-read-20261002/baseline-controls/large-raw/dense.lbox inode=921982 size=8650752 links=2
+/tmp/revault-typed-read-20261002/baseline-controls/small-plain/dense.lbox inode=922197 size=720896 links=2
+/tmp/revault-typed-read-20261002/baseline-controls/large-compressed/candidate.lbox inode=919010 size=327680 links=2
+/tmp/revault-typed-read-20261002/baseline-controls/large-raw/candidate.lbox inode=921982 size=8650752 links=2
+/tmp/revault-typed-read-20261002/baseline-controls/small-plain/candidate.lbox inode=922197 size=720896 links=2
+/tmp/revault-typed-read-20261002/baseline-controls/large-compressed/dense.public inode=922317 size=2000 links=2
+/tmp/revault-typed-read-20261002/baseline-controls/large-raw/dense.public inode=923418 size=2000 links=2
+/tmp/revault-typed-read-20261002/baseline-controls/small-plain/dense.public inode=919007 size=2000 links=2
+/tmp/revault-typed-read-20261002/baseline-controls/large-compressed/candidate.public inode=922317 size=2000 links=2
+/tmp/revault-typed-read-20261002/baseline-controls/large-raw/candidate.public inode=923418 size=2000 links=2
+/tmp/revault-typed-read-20261002/baseline-controls/small-plain/candidate.public inode=919007 size=2000 links=2
+b9c008fd55c89fafd77ba61efbf4f8897dfe8c3b64c2850b11ac648da91ec65d  /tmp/revault-typed-read-20261002/baseline-controls/large-compressed/dense.lbox
+51511223d9f6cfb8523603b5dbf47bbef978fee1acddf2a32c6144f3990b11d6  /tmp/revault-typed-read-20261002/baseline-controls/large-raw/dense.lbox
+95de9cb7d816c986760e13f968e75835217230e04ddaeb4e289fd0f4e34014f0  /tmp/revault-typed-read-20261002/baseline-controls/small-plain/dense.lbox
+b9c008fd55c89fafd77ba61efbf4f8897dfe8c3b64c2850b11ac648da91ec65d  /tmp/revault-typed-read-20261002/baseline-controls/large-compressed/candidate.lbox
+51511223d9f6cfb8523603b5dbf47bbef978fee1acddf2a32c6144f3990b11d6  /tmp/revault-typed-read-20261002/baseline-controls/large-raw/candidate.lbox
+95de9cb7d816c986760e13f968e75835217230e04ddaeb4e289fd0f4e34014f0  /tmp/revault-typed-read-20261002/baseline-controls/small-plain/candidate.lbox
+6e4796288cab0944e9a4f490f4cde7eb8ae3a9d956af5225657c79b26b1e922e  /tmp/revault-typed-read-20261002/baseline-controls/large-compressed/dense.public
+144cf963fd9bc6c43068da1133f60d250ad4963e706b8f798f73bce9c81d8cde  /tmp/revault-typed-read-20261002/baseline-controls/large-raw/dense.public
+a76ab5a67a5a654038cc91972cd53399bfd60ff4f79209df06dde198f47e6a23  /tmp/revault-typed-read-20261002/baseline-controls/small-plain/dense.public
+6e4796288cab0944e9a4f490f4cde7eb8ae3a9d956af5225657c79b26b1e922e  /tmp/revault-typed-read-20261002/baseline-controls/large-compressed/candidate.public
+144cf963fd9bc6c43068da1133f60d250ad4963e706b8f798f73bce9c81d8cde  /tmp/revault-typed-read-20261002/baseline-controls/large-raw/candidate.public
+a76ab5a67a5a654038cc91972cd53399bfd60ff4f79209df06dde198f47e6a23  /tmp/revault-typed-read-20261002/baseline-controls/small-plain/candidate.public

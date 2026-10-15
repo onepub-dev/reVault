@@ -1,5 +1,5 @@
 use super::context::{
-    cli_error, default_vault, open_default_vault_with_password, open_existing,
+    cli_error, default_vault, open_default_vault_with_password, open_existing_read_only,
     remember_default_vault_password_with_warning, vault_password_without_open, Access, CliResult,
 };
 use crate::secret_prompt::prompt_secret;
@@ -210,7 +210,7 @@ fn archive_export(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     } else {
         migration_password()?
     };
-    let lockbox = open_existing(&source, access)?;
+    let lockbox = open_existing_read_only(&source, access)?;
     let operation_id = random_id()?;
     let count = export_archive(&lockbox, &output, &artifact_password, operation_id)?;
     println!(
@@ -279,13 +279,19 @@ fn migrate_vault(
         return Ok(());
     }
     let source_container_version = probe_archive_path(&source.join("local-vault.lbox"))?;
-    let source_version = probe_vault_source_version(&source, &source_password)?;
+    let experimental_export = source_container_version == 4 && exporter.is_some();
+    let source_version = if experimental_export {
+        CURRENT_VAULT_STRUCTURE_VERSION
+    } else {
+        probe_vault_source_version(&source, &source_password)?
+    };
     if source_version > CURRENT_VAULT_STRUCTURE_VERSION {
         return Err(cli_error(
             "this build cannot migrate a newer Vault structure; use the release that created it",
         ));
     }
     if replace
+        && !experimental_export
         && source_version == CURRENT_VAULT_STRUCTURE_VERSION
         && source_container_version == u32::from(LOCKBOX_FORMAT_VERSION)
     {
@@ -301,7 +307,11 @@ fn migrate_vault(
     // A current structure needs only a container rewrite. Preserve every raw
     // record through the archive workflow, including aliases and credentials
     // that are not represented by historical Vault migration schemas.
-    let preserve_records = source_version == CURRENT_VAULT_STRUCTURE_VERSION;
+    // Historical containers must use isolated readers. The consolidated
+    // exporters will preserve their opaque records without opening them here.
+    let preserve_records = !experimental_export
+        && source_version == CURRENT_VAULT_STRUCTURE_VERSION
+        && source_container_version == u32::from(LOCKBOX_FORMAT_VERSION);
     let fingerprint = fingerprint_path(&source.join("local-vault.lbox"))?;
     let operation_id = deterministic_operation_id(
         ArtifactKind::Vault,
@@ -354,7 +364,15 @@ fn migrate_vault(
                 )?;
                 export_archive(&lockbox, &artifact, &migration_key, operation_id)?;
             } else {
-                let exporter = resolve_exporter(ArtifactKind::Vault, source_version, exporter)?;
+                let exporter = resolve_exporter(
+                    ArtifactKind::Vault,
+                    if experimental_export {
+                        4
+                    } else {
+                        source_container_version
+                    },
+                    exporter,
+                )?;
                 let artifact_password = SecretString::from_secure_vec(migration_key.try_clone()?);
                 run_historical_vault_exporter(
                     &exporter,
@@ -516,7 +534,9 @@ fn migrate_archive(
         return Ok(());
     }
     let source_version = probe_archive_path(&source)?;
-    if replace && source_version == u32::from(LOCKBOX_FORMAT_VERSION) {
+    if replace && source_version == u32::from(LOCKBOX_FORMAT_VERSION) && exporter.is_none() {
+        // A format number alone does not identify the current authenticated graph.
+        let _verified = open_existing_read_only(&source.to_string_lossy(), access)?;
         println!(
             "Lockbox already uses format version {LOCKBOX_FORMAT_VERSION}. No migration needed."
         );
@@ -562,7 +582,7 @@ fn migrate_archive(
             artifact.exists() && verify_archive_artifact(&artifact, &migration_key).is_ok();
         if !complete {
             remove_partial(&artifact)?;
-            if (2..=u32::from(LOCKBOX_FORMAT_VERSION)).contains(&source_version) {
+            if source_version == u32::from(LOCKBOX_FORMAT_VERSION) && exporter.is_none() {
                 let lockbox =
                     super::context::open_existing_for_migration(&source.to_string_lossy(), access)
                         .map_err(|error| archive_source_error(&source, error))?;
@@ -651,6 +671,13 @@ fn resolve_exporter(
     source_version: u32,
     explicit: Option<PathBuf>,
 ) -> CliResult<PathBuf> {
+    if source_version == 4 {
+        let path = explicit.ok_or_else(|| cli_error(
+            "experimental format-4 migration requires an isolated checkpoint exporter; build tools/build_experimental_v4_exporter.dart and pass --exporter <path>"
+        ))?;
+        validate_exporter_capabilities(&path, experimental_v4_exporter(kind)?)?;
+        return Ok(path);
+    }
     let release = exporter_release(kind, source_version).ok_or_else(|| {
         cli_error(format!(
             "no crates.io exporter is registered for {kind:?} format version {source_version}"
@@ -775,8 +802,48 @@ struct ExporterRelease {
     migration_schema: u32,
 }
 
+fn experimental_v4_exporter(kind: ArtifactKind) -> CliResult<ExporterRelease> {
+    Ok(ExporterRelease {
+        package: "revault_experimental_v4_exporter",
+        version: "0.0.0",
+        binary: match kind {
+            ArtifactKind::Archive => "revault-migrate-archive-experimental-v4",
+            ArtifactKind::Vault => "revault-migrate-vault-experimental-v4",
+            ArtifactKind::Journal => {
+                return Err(cli_error("journals are not historical source archives"))
+            }
+        },
+        protocol: 3,
+        artifact: if kind == ArtifactKind::Archive {
+            "archive"
+        } else {
+            "vault"
+        },
+        native_version: 4,
+        migration_schema: 3,
+    })
+}
+
 fn exporter_release(kind: ArtifactKind, source_version: u32) -> Option<ExporterRelease> {
     match (kind, source_version) {
+        (ArtifactKind::Vault, 3) => Some(ExporterRelease {
+            package: "revault_migrate_archive_v3",
+            version: "0.0.8",
+            binary: "revault-migrate-vault-v3",
+            protocol: 3,
+            artifact: "vault",
+            native_version: 3,
+            migration_schema: 3,
+        }),
+        (ArtifactKind::Archive, 2 | 3) => Some(ExporterRelease {
+            package: "revault_migrate_archive_v3",
+            version: "0.0.8",
+            binary: "revault-migrate-archive-v3",
+            protocol: 3,
+            artifact: "archive",
+            native_version: 3,
+            migration_schema: 3,
+        }),
         (ArtifactKind::Vault, 2) => Some(ExporterRelease {
             package: "revault_migrate_vault_v2",
             version: "0.0.1",
@@ -835,6 +902,22 @@ fn capabilities_match(bytes: &[u8], release: ExporterRelease) -> bool {
             == Some(u64::from(release.migration_schema));
     if !valid || release.artifact != "vault" || release.protocol < 2 {
         return valid;
+    }
+    if release.native_version == 4 {
+        return value
+            .get("container_version")
+            .and_then(|value| value.as_u64())
+            == Some(4)
+            && json_u64_array(&value, "structure_versions") == [3]
+            && json_u64_array(&value, "migration_schemas") == [3];
+    }
+    if release.native_version == 3 {
+        return value
+            .get("container_version")
+            .and_then(|value| value.as_u64())
+            == Some(3)
+            && json_u64_array(&value, "structure_versions") == [3]
+            && json_u64_array(&value, "migration_schemas") == [3];
     }
     if release.native_version == 2 {
         return value
@@ -1019,9 +1102,9 @@ fn probe_vault_source_version(root: &Path, password: &SecretString) -> CliResult
         Ok(version) => Ok(version),
         Err(revault_lockbox_api::Error::UnsupportedFormatVersion {
             artifact: revault_lockbox_api::ArtifactKind::Lockbox,
-            found: 1,
+            found: version @ 1..=3,
             ..
-        }) => Ok(1),
+        }) => Ok(version),
         Err(error) => Err(error.into()),
     }
 }
@@ -1648,6 +1731,17 @@ mod tests {
 
     #[test]
     fn exporter_registry_and_capability_contract_are_exact() {
+        // The first public v3 exporter release is 0.0.8; 0.0.1 was never
+        // published. Vault and archive migration must use that same release.
+        for (kind, version) in [
+            (ArtifactKind::Vault, 3),
+            (ArtifactKind::Archive, 2),
+            (ArtifactKind::Archive, 3),
+        ] {
+            let release = exporter_release(kind, version).unwrap();
+            assert_eq!(release.package, "revault_migrate_archive_v3");
+            assert_eq!(release.version, "0.0.8");
+        }
         let vault_v2 = exporter_release(ArtifactKind::Vault, 2).unwrap();
         assert_eq!(vault_v2.package, "revault_migrate_vault_v2");
         assert!(capabilities_match(

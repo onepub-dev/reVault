@@ -1,0 +1,1 @@
+cargo +1.88.0 test --locked --offline --release -p revault_lockbox_api --lib --features vault-integration password_budget_keeps_successful -- --test-threads=1

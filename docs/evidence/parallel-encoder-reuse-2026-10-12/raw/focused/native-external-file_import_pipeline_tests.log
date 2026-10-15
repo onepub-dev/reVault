@@ -1,0 +1,22 @@
+warning: field `payload` is never read
+  --> revault_lockbox_api/src/model/record.rs:26:16
+   |
+22 | pub(crate) struct DecodedRecord {
+   |                   ------------- field in this struct
+...
+26 |     pub(crate) payload: Vec<u8>,
+   |                ^^^^^^^
+   |
+   = note: `DecodedRecord` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `revault_lockbox_api` (lib test) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 0.10s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-f07cb4fa7fa687ec)
+
+running 2 tests
+test lockbox::file_import_pipeline::tests::prepared_native_pages_preserve_serial_and_parallel_pipeline_output_in_all_modes ... ok
+test lockbox::file_import_pipeline::tests::prepared_native_pages_reject_inconsistent_lengths_codecs_and_identity ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 714 filtered out; finished in 0.04s
+

@@ -1,0 +1,29 @@
+{
+  "baseline": {
+    "path": "/tmp/revault-journal-buffer-20261010/bin/before",
+    "sha256": "997632d6c233e4a6289eb7a91976fbfee4038e5987f7fcdb3de266539167be56",
+    "expected_sha256": "997632d6c233e4a6289eb7a91976fbfee4038e5987f7fcdb3de266539167be56"
+  },
+  "candidate": {
+    "path": "/tmp/revault-journal-buffer-20261010/bin/after",
+    "sha256": "6e52a248f63699ae842af76c4cf38ed94edfd93dd78829e5c53fd8cb063bec18",
+    "expected_sha256": "6e52a248f63699ae842af76c4cf38ed94edfd93dd78829e5c53fd8cb063bec18"
+  },
+  "adapters": {
+    "before": "8d0f17a2d2f7c607eb91f49c914481fde35429752d2b84f510e720c3fad60df2",
+    "after": "9470bd5cff158782f665216f792ff028ea670a8d083945ed44bd94a1e00cf248"
+  },
+  "adapter_embedded_paths": {
+    "before": "/tmp/revault-journal-buffer-20261010/bin/before",
+    "after": "/tmp/revault-journal-buffer-20261010/bin/after"
+  },
+  "archive_evaluation": "fc8c419adfc158f44512416b2bd6acf06cf374640f45d90e54a420315a2a879e",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "sha256": {
+    "before": "997632d6c233e4a6289eb7a91976fbfee4038e5987f7fcdb3de266539167be56",
+    "after": "6e52a248f63699ae842af76c4cf38ed94edfd93dd78829e5c53fd8cb063bec18",
+    "adapter_before": "8d0f17a2d2f7c607eb91f49c914481fde35429752d2b84f510e720c3fad60df2",
+    "adapter_after": "9470bd5cff158782f665216f792ff028ea670a8d083945ed44bd94a1e00cf248",
+    "archive_evaluation": "fc8c419adfc158f44512416b2bd6acf06cf374640f45d90e54a420315a2a879e"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "archive_bytes": 8519680,
+  "archive_sha256": "d9c67dcef8ab3234e6f4198ac6a5d26ff445f3eac09a77365ac8aa4af743d9c4",
+  "binary_sha256": "1cbac289ec35db484e84a1b3486ab55f2c26a7632ff9e1f03acda62bf711bb95",
+  "bytes_per_file": 8388608,
+  "cycles": 100,
+  "files": 1,
+  "first_update_bytes": 8519680,
+  "fresh_handle_source_bytes_verified_each_edit": true,
+  "initial_bytes": 8519680,
+  "kind": "dense_metadata_tail_lifecycle_size",
+  "metadata_tail_retirement": true,
+  "scope": "bounded metadata updates only; no payload edits, full aging or performance qualification",
+  "stable_after_first_update": true,
+  "temporary_update_bytes": 8650752,
+  "unchanged_repeats": 100
+}

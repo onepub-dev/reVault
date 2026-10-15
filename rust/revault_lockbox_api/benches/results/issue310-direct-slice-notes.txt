@@ -1,0 +1,71 @@
+Issue #310: borrow large single-worker slice inputs directly
+Baseline: 8302824, production identical to 63aa0c6.
+Native protection_gate before SHA256:
+7db0e1487025f609805a1406eaa9bfbdc658dd647017840d0986dde0bf013f17
+Candidate native protection_gate SHA256 (before commit formatting):
+072db4afa1cd35234423149ba215047a064e29686572208a40501731e621f24f
+Both builds use native-block-layout and identical benchmark source. The before
+binary is preserved from the retained wide-spare implementation, not the rejected
+short-spare experiment. CSV main=before, branch=candidate.
+
+Large (>1 MiB) in-memory add_file inputs with one effective worker now iterate
+borrowed 2 MiB slices directly through FilePageWriter. This removes the 2 MiB
+stream staging allocation and full-input copy before compression. It retains
+frame sizes, offsets, total_len=0 manifest semantics and finish/flush behavior.
+Small-file staging and multi-worker input paths are unchanged. Streamed readers
+retain their existing buffering and source-error behavior. No new host-read time
+is recorded for directly borrowed memory; no host read is performed there.
+
+Extract the existing path/permissions/replacement preparation and final entry
+publication into one private callback-based helper, shared by slice and reader
+paths. Mirror-path checks remain in public entry points. Existing slot freeing,
+parent creation, pending-small-file handling, record references and dirty-TOC
+updates stay in their original order. Compression, secure stored-buffer wiping,
+cryptography, recovery preparation and physical page publication are unchanged.
+No public API, format, worker-policy or cache-policy change. The optimization
+applies to both layouts; the timings here measure native only.
+
+New API unit test compares slice and reader lifecycles in all eight protection/
+compression combinations, with explicitly single-worker policy. It uses a
+compressible 2 MiB+17 original and randomish 3 MiB+77 replacement, spanning frame
+boundaries. Covers missing replacement rejection without creating parents,
+duplicate-add rejection, immediate full readback, commit/reopen and permissions,
+replace/abort restoring the original, replace/commit/reopen, and delete/reopen.
+All operations use the public API; this is not a CLI E2E test or a complete
+storage-fault lifecycle gate. Existing worker-policy equivalence and failure/
+recovery suites also run. No persistence assertions rely only on success status.
+
+Protocol: 8 MiB pattern/random, all four protection modes, raw/compressed,
+default padding, synthetic content keys, no password KDF. Five ABBA/BAAB groups,
+three samples per child, first excluded: 320 rows per corpus, 640 broad rows.
+Prespecified focus: encrypted-signed/compressed/pattern, 15 groups, six samples
+per child, first excluded: 300 rows. Timed create/add/commit/drop excludes key
+generation and independent reopened byte verification. CPU 2, warm OS caches,
+no owned builds/tests overlap timing; unrelated host load was uncontrolled.
+All 940 measured writes plus 380 warmups passed persisted byte comparison.
+
+Fifteen of sixteen broad cases have lower central paired write time: pattern
+changes -4.171% to +0.702%, random -7.439% to -0.559%. Every broad confidence
+interval includes zero, so these cells alone do not establish improvement.
+The larger focused result is -4.423%, bootstrap 95% [-7.746%, -1.133%]. Pooled
+medians are 22.046740 ms before and 21.044246 ms after. Retain the direct borrowed
+path for this measured benefit and removal of the staging allocation/copy.
+These results do not prove default-layout improvement or close the native/default
+protected-write gate. Both layouts need current matching builds for that gate.
+Summary method: per-group native-before/after medians and paired ratios, 5000
+deterministic bootstrap resamples of whole groups; correlated child rows are
+not treated as independent groups. Pooled medians are descriptive.
+
+Validation before commit-time formatting:
+- Default + external-source full suite, including new lifecycle test: 347 unit
+  tests passed, 5 ignored; all executed integration/doc suites passed.
+- Native + external-source full suite before adding the new test: 351 passed,
+  2 known recovery failures, 5 ignored.
+- New native lifecycle test then passed separately: 1 passed, 358 filtered.
+- Native + external-source all-targets Clippy -D warnings passed.
+- Native release protection_gate build and all timed writes/readbacks passed.
+Known failures remain recovery_skips_truncated_tail_and_keeps_prior_intact_files
+and native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+Broad read parity, cold I/O, native/default write gates, CLI write lifecycles,
+signed recovery and migration/binding/release work remain open. Native stays
+opt-in; no remote publication is performed.

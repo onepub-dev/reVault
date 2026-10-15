@@ -13,6 +13,7 @@ use revault_lockbox_api_v1::SecretString as V1VaultSecretString;
 use revault_lockbox_api_vault_v1::ContactKeyPair as V1ContactKeyPair;
 use revault_migrate_archive_v1::export_archive_v1;
 use revault_migrate_vault_v1::export_vault_v1;
+use revault_migration::{archive_owner_fingerprint, verify_imported_archive, MigrationError};
 use revault_migration::{
     export_archive, export_vault_v2, import_archive, import_vault_v2, upgrade_archive_artifact,
     upgrade_vault_artifact, verify_archive_artifact, verify_vault_artifact,
@@ -22,7 +23,7 @@ use revault_migration_format::{
 };
 use revault_vault_api::{VaultDirectory, CURRENT_VAULT_STRUCTURE_VERSION};
 use revault_vault_api_v1::VaultDirectory as V1VaultDirectory;
-use std::io::Read;
+use std::{fs, io::Read};
 
 fn secret(value: &str) -> SecretString {
     SecretString::try_from_slice(value.as_bytes()).unwrap()
@@ -845,6 +846,18 @@ fn historical_v2_archive_migrates_to_current_format() {
         [8; 16],
     )
     .unwrap();
+    assert_eq!(
+        archive_owner_fingerprint(&artifact, b"artifact password").unwrap(),
+        Some(signer.fingerprint().unwrap())
+    );
+    let before = fs::read(&artifact).unwrap();
+    let wrong = OwnerSigningKeyPair::generate().unwrap();
+    let refusal =
+        import_archive(&artifact, b"artifact password", &destination, &wrong).unwrap_err();
+    assert!(matches!(refusal, MigrationError::InvalidHeader(ref message)
+        if message == "the established owner's signing key is required"));
+    assert!(!destination.exists());
+    assert_eq!(fs::read(&artifact).unwrap(), before);
     import_archive(
         &artifact,
         b"artifact password".as_slice(),
@@ -860,6 +873,12 @@ fn historical_v2_archive_migrates_to_current_format() {
     assert_eq!(upgraded.format_version(), 4);
     assert_eq!(upgraded.export_migration_format_mode(), 8);
     assert_eq!(upgraded.get_file(&path).unwrap(), b"legacy data");
+    assert_eq!(
+        upgraded.owner_inspection().unwrap().fingerprint,
+        Some(signer.fingerprint().unwrap())
+    );
+    drop(upgraded);
+    verify_imported_archive(&artifact, b"artifact password", &destination).unwrap();
 }
 
 impl Read for PatternReader {

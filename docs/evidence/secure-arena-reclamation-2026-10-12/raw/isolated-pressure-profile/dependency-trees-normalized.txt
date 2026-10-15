@@ -1,0 +1,6 @@
+revault_page_api v0.0.34 (<ISOLATED>/rust/revault_page_api)
+├── getrandom v0.4.3
+│   ├── cfg-if v1.0.4
+│   └── libc v0.2.189
+├── libc v0.2.189
+└── zeroize v1.9.0

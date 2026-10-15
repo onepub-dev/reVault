@@ -1,0 +1,3 @@
+rustc=rustc 1.88.0 (6b00bc388 2025-06-23)
+wasm-bindgen=wasm-bindgen 0.2.128
+node=v24.19.0

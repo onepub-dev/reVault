@@ -1,0 +1,36 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+
+const worktree = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance';
+const oldRoot = '$worktree/docs/evidence/protected-write-retry-2026-10-12';
+const correctRoot = '$worktree/docs/evidence/protected-write-current-2026-10-12-attempt2';
+const oldEvidence = '$worktree/docs/evidence/protected-write-current-2026-10-12';
+final draft = File(Platform.script.toFilePath()).parent.path;
+final inputPath = '$draft/build-inputs.json';
+
+String sha(String path) {
+  final result = Process.runSync('/usr/bin/sha256sum', ['--', path]);
+  if (result.exitCode != 0) throw StateError('sha256sum failed: $path');
+  return (result.stdout as String).split(RegExp(r'\s+')).first;
+}
+
+void main() {
+  final input = File(inputPath);
+  final previous = jsonDecode(input.readAsStringSync()) as Map<String, dynamic>;
+  if (previous['evidence_root'] != oldRoot || Directory(oldRoot).existsSync() || Directory(correctRoot).existsSync()) {
+    throw StateError('Unexpected attempt2 path state; preserve all paths and stop');
+  }
+  final oldHash = sha(inputPath);
+  previous['evidence_root'] = correctRoot;
+  input.writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(previous)}\n', flush: true);
+  final record = {
+    'setup_failure': 'verifyCurrentBuild requires evidence_root under docs/evidence/protected-write-current-; setup failed before creating output or owned directories.',
+    'rejected_evidence_root': oldRoot,
+    'corrected_evidence_root': correctRoot,
+    'input_sha256_before': oldHash,
+    'input_sha256_after': sha(inputPath),
+  };
+  File('$oldEvidence/raw/preparation/attempt2-root-prefix-correction.json').writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(record)}\n', flush: true);
+  stdout.writeln('Updated only the unfrozen attempt2 evidence root to satisfy the existing runner namespace guard.');
+}

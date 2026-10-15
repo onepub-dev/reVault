@@ -9,11 +9,29 @@ use std::{
 };
 
 fn run(dir: &Path, credential: bool, args: &[&str]) -> Output {
+    run_policy(dir, credential, args, false, false)
+}
+
+fn run_policy(
+    dir: &Path,
+    credential: bool,
+    args: &[&str],
+    terminate: bool,
+    inhibit: bool,
+) -> Output {
     let binary = std::env::var_os("REVAULT_HEADLESS_CLI")
         .or_else(|| option_env!("CARGO_BIN_EXE_lockbox").map(Into::into))
         .expect("set REVAULT_HEADLESS_CLI when testing an installed CLI");
     let mut command = Command::new(binary);
     command
+        .env(
+            "LOCKBOX_AGENT_TERMINATE_ON_SUSPEND",
+            if terminate { "true" } else { "false" },
+        )
+        .env(
+            "LOCKBOX_AGENT_PREVENT_SLEEP",
+            if inhibit { "true" } else { "false" },
+        )
         .current_dir(dir)
         .args(args)
         .env("LOCKBOX_VAULT_DIR", dir.join("vault"))
@@ -25,11 +43,21 @@ fn run(dir: &Path, credential: bool, args: &[&str]) -> Output {
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "auto")
         .env(
             "DBUS_SESSION_BUS_ADDRESS",
-            format!("unix:path={}", dir.join("missing-session-bus").display()),
+            format!(
+                "unix:path={}",
+                common::agent_socket_dir(dir)
+                    .join("missing-session-bus")
+                    .display()
+            ),
         )
         .env(
             "DBUS_SYSTEM_BUS_ADDRESS",
-            format!("unix:path={}", dir.join("missing-system-bus").display()),
+            format!(
+                "unix:path={}",
+                common::agent_socket_dir(dir)
+                    .join("missing-system-bus")
+                    .display()
+            ),
         )
         .env_remove("DISPLAY")
         .env_remove("WAYLAND_DISPLAY")
@@ -134,4 +162,53 @@ fn explicit_credentials_work_without_desktop_or_bus_and_missing_credentials_fail
         .status
         .success());
     success(run(dir, true, &["session", "stop"]));
+}
+
+#[test]
+fn requested_suspend_protection_is_not_silently_disabled_without_bus() {
+    for (terminate, inhibit, expected) in [
+        (true, false, "LOCKBOX_AGENT_TERMINATE_ON_SUSPEND=false"),
+        (false, true, "LOCKBOX_AGENT_PREVENT_SLEEP=false"),
+    ] {
+        let temp = TestTempDir::new("headless-protection");
+        let dir = temp.path();
+        // Public setup uses explicitly disabled OS protection; this test
+        // verifies admission and persisted bytes, not actual machine suspend.
+        success(run(dir, true, &["vault", "init"]));
+        success(run(dir, true, &["protected.lbox", "create"]));
+        success(run(dir, true, &["protected.lbox", "open"]));
+        let content = b"headless capability persisted bytes";
+        fs::write(dir.join("input.bin"), content).unwrap();
+        success(run(
+            dir,
+            true,
+            &["protected.lbox", "add", "input.bin", "--to", "/data"],
+        ));
+        success(run(dir, true, &["session", "stop"]));
+        let before = fs::read(dir.join("protected.lbox")).unwrap();
+        let refused = run_policy(dir, true, &["protected.lbox", "open"], terminate, inhibit);
+        assert!(!refused.status.success());
+        assert!(
+            String::from_utf8_lossy(&refused.stderr).contains(expected),
+            "{}",
+            String::from_utf8_lossy(&refused.stderr)
+        );
+        assert_eq!(fs::read(dir.join("protected.lbox")).unwrap(), before);
+        // Both one-archive closure and whole-agent closure remain usable
+        // when requested protection could not initialize.
+        success(run(dir, true, &["protected.lbox", "close"]));
+        // The failed policy agent must not influence the explicit opt-out.
+        success(run(dir, true, &["session", "stop"]));
+        success(run(dir, true, &["protected.lbox", "open"]));
+        assert_eq!(
+            success(run(dir, true, &["protected.lbox", "cat", "/data"])),
+            content
+        );
+        let status = String::from_utf8(success(run(dir, true, &["session"]))).unwrap();
+        assert!(
+            status.contains("cache suspend clearing active: no"),
+            "{status}"
+        );
+        success(run(dir, true, &["session", "stop"]));
+    }
 }

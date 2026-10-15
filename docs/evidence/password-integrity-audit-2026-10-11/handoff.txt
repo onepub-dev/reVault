@@ -1,0 +1,291 @@
+PASSWORD ARCHIVE INTEGRITY AND SIGNING: SECURITY-FIRST HANDOFF
+Date: 2026-10-11
+Status: confirmed format-3 audit findings; required implementation plan for the
+existing archive-format/performance session. Not a release qualification.
+
+1. USER DIRECTION AND WORK BOUNDARY
+
+Brett requested that the session changing the archive format pause performance
+work until the integrity fixes and password-archive signing changes below are
+incorporated. Checkpoint pending work safely; preserve its source, corpora,
+binaries, measurements, and failures. Do not start worker-policy experiments or
+optimize around these security requirements. Security implementation and the
+correctness/resource checks needed to validate it take priority.
+
+Use the existing issue-310-zip-read-performance worktree:
+/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance
+Do not start a competing format implementation in main. Read that checkout's
+AGENTS.md, manual/project-goals.md, docs/archive_v4_plan.md,
+docs/archive_v4_evaluation.md, docs/security_model.md, decisions, and current
+evidence before editing. Reconcile current state, not historical pause snapshots.
+The October 11 branch plan records a 50%-remaining usage cutoff. Recheck the
+session's applicable limit; this handoff does not waive it or authorize release.
+
+Record this security prerequisite in the authoritative branch plan/evaluation
+and acknowledge the performance pause. Resume performance work only after the
+acceptance gates below pass and the incorporated changes are checkpointed.
+If a gate cannot be met, report it; do not resume tuning around the gap.
+
+The user-approved direction is:
+  a. Fix integrity gaps first.
+  b. Make NEW password archives unsigned by default: possession of the password
+     grants read/write access, without the creator's private signing key.
+  c. Make CLI, Rust APIs, and language bindings consistent.
+  d. Preserve existing signed archives' verification requirements. Any conversion
+     is explicit and separately validated, never silent signature stripping.
+
+The agreed policy is a creation default, not a blanket deletion of signing
+support. Preserve explicit signed-password creation if supported unless Brett
+decides otherwise. Mixed password/contact archives and changing protection later
+must have an explicit policy; adding a password must not silently strip signing.
+The separate discussion about configurable default profiles is not authorization
+to implement profile rename/default-selection features as part of this task.
+
+2. EVIDENCE PROVENANCE
+
+Audit source: /home/bsutton/git/revault, branch main,
+base HEAD 7193946b67f06cf7f9fc5d8f337662dc9c3696e1, current format 3 / 0.4.x.
+Audit tests are UNCOMMITTED additions in that checkout. Many unrelated help,
+diagnostic, and user AGENTS.md changes are also uncommitted. Do not cherry-pick or
+copy the whole working tree, reset it, or overwrite those changes.
+
+The adjacent reproduction-tests.patch contains ONLY the two new audit/test-file
+diffs captured from main. Apply/adapt selectively after reading the target code;
+it is not an implementation patch and may not apply cleanly to v4. The source
+test files remain available at:
+  rust/revault_lockbox_api/src/lockbox/commit.rs
+  rust/revault_cli/tests/creation_options.rs
+
+Tests directly mutate synthetic archive bytes to model an adversary. This is
+intentional low-level validation, not a recommendation for supported editing.
+The CLI sharing test creates/opens/writes/reads through public CLI commands.
+No real credentials or user archives are involved.
+
+3. CONFIRMED FINDINGS: FORMAT 3, BOTH SIGNING MODES
+
+Each attack test runs against encrypted archives with password access, with and
+without owner signing. Attack transformations require neither the password nor
+the signing key. Passwords are used only to create the legitimate fixture and
+to act as the recipient opening the resulting archive.
+
+A. Header reset bypass
+Test: signature_audit_zero_sequence_header_can_hide_committed_content
+An attacker zeros the selected header's root/sequence/auth/cleanup fields and
+recomputes its public checksum. Password opening succeeds, a previously stored
+variable is absent, and owner inspection reports unsigned.
+Cause in main: lockbox.rs around 804/807 requires the authentication pointer and
+checks the keyed header tag only when sequence > 0. The manipulated empty-state
+fields skip verification and commit traversal.
+
+B. Partial ciphertext replay
+Test: signature_audit_old_variable_ciphertext_can_be_replayed_without_keys
+Create VALUE=alpha, retain its encrypted variable page, then commit VALUE=bravo.
+Copy the old page verbatim over the current variable-root location. Opening and
+reading returns alpha. The signed case still reports a verified owner signature.
+The attacker needs a prior ciphertext page/snapshot, not a decryption key.
+This is partial state rollback inside the latest archive, not simply replacing
+the entire archive with a complete older valid copy.
+Cause in main: page AAD includes archive ID and page-supplied page ID/sequence,
+but reads do not bind these to the expected location/current referenced version.
+The encrypted archive's owner signature covers commit/root metadata, not a
+recursive digest of the content graph.
+
+C. Public access-directory metadata manipulation
+Test: signature_audit_public_key_slot_ids_can_be_changed_without_keys
+Change public key-slot IDs in both directory copies and recompute public page
+checksums. Password opening succeeds and exposes the modified IDs; owner
+verification still succeeds. IDs are used to identify slots for removal.
+This proves unauthenticated slot metadata, not password recovery or decryption
+by the attacker. Audit other access fields rather than assuming they share or
+do not share this weakness.
+
+D. Protections that did work
+Test: signature_audit_ciphertext_bitflips_and_mode_downgrades_are_rejected
+Encrypted commit-root/auth ciphertext bitflips reject. A signing-mode flag flip
+with nonzero sequence and only public-checksum repair also rejects.
+
+4. MECHANISM AND AUDIT LOCATIONS
+
+Current main source references (line numbers can move):
+  file_format/page.rs:190: only KeyDirectory is cleartext in encrypted mode.
+  file_format/page.rs:410+: private pages use ChaCha20-Poly1305.
+  file_format/page.rs:1150: AAD includes archive ID, stored page ID/sequence,
+    flags and stored length.
+  storage/page_cache.rs:157-202: loading/decoding lacks the expected version/
+    location binding demonstrated by the variable-page replay.
+  keys/crypto.rs:102: keyed header tag is truncated HMAC-SHA256.
+  file_format/header_v2.rs:93: tag input includes publication generation,
+    sequence, mode, archive identity, root/access/auth pointers and cleanup data.
+  lockbox.rs:804-827: sequence-zero verification bypass.
+  lockbox/commit.rs:125-146: commit root contains tree roots and key-directory
+    offsets/generation; full content digest is only computed for signed plaintext.
+  file_format/commit_auth.rs:132: signed identity/root/chain/mode/key fields.
+  lockbox.rs:1223-1286: signature and commit-chain verification.
+  file_format/key_directory.rs:27+: public access-directory representation.
+
+Do not infer that the experimental v4 architecture has these exact defects.
+Reproduce equivalent attacks against native/current v4 and the candidate reader,
+writer, recovery, and compaction paths. Record fixed, vulnerable, unreachable,
+and untested cases separately with exact revisions/features.
+
+5. REQUIRED SECURITY DESIGN
+
+Threat boundary:
+  - An outsider may read, alter, reorder, truncate, splice, and replay archive
+    bytes, including retained historical bytes, but lacks the password/content
+    key and owner private signing key.
+  - Password holders are authorized writers for unsigned password archives;
+    they can replace contents and re-authenticate them. No individual authorship
+    or resistance to malicious authorized writers is promised.
+  - Whole-archive rollback to a previously valid complete snapshot cannot be
+    detected by a purely self-contained archive without trusted external state.
+    State this limit; do not confuse it with preventable partial replay.
+  - Availability against arbitrary destruction of the entire file is not a
+    cryptographic guarantee. Fail closed or perform explicitly reported recovery.
+
+Authenticate archive interpretation in every accepted state, including an empty
+archive. Do not allow an untrusted sequence, mode, missing pointer, fallback slot,
+or recovery marker to turn off integrity checks. Empty state must be distinguishable
+from a forged reset using keyed authentication or an equally strong construction.
+
+Bind every accepted graph reference to the intended object/current version and
+its bytes: data, TOC, variables, forms, manifests, allocation/free-space state,
+and access metadata. Choose and document a construction compatible with the
+v4 authenticated graph (e.g. authenticated child commitments, expected identities
+and versions). Checking physical offset alone is insufficient when storage is
+reused; checking a page's self-reported sequence alone is insufficient too.
+Support authenticated selective/range reads and bounded resource use; do not
+replace the security design with an unconditional whole-archive scan on every
+read merely to pass these tests.
+
+Authenticate access-directory metadata after unlocking. The credential bootstrap
+may need public data, but public parseability must not imply trusted authority.
+Bind relevant IDs, slot types, labels, key-wrapping parameters, restrictions,
+membership/removal, generation, archive identity and directory copies to an
+authenticated commitment. Preserve wrapped-key authentication and validate KDF
+parameters/resource bounds before expensive work. Mirrors, backups, recovery and
+credential-cache paths must not bypass the same checks.
+
+Owner-signed modes retain an owner-authenticated commitment to the accepted state.
+If a signature is presented as covering content, ensure graph commitments make
+that claim true. Embedded-key validity alone does not establish sender identity;
+do not add a new signer-pinning workflow for ordinary password sharing.
+
+6. IMPLEMENTATION SEQUENCE
+
+P0: Safely checkpoint and pause performance; inventory current branch/dirty state,
+source/feature epochs and usage budget. Preserve benchmark evidence. Record this
+gate in plan/evaluation; amend outdated universal 'signed by default' language
+explicitly for password archives without weakening other modes' requirements.
+
+P1: Port audit reproductions before fixes. Expand threat/coverage matrix to the
+actual selected v4 structures. Record current outcomes and review the concrete
+authentication/reference design before changing wire layout. Keep one coherent
+format change rather than incompatible incremental releases.
+
+P2: Implement header/state authentication, graph-reference/replay protections,
+and authenticated access metadata. Connect them to normal reads, selective reads,
+writes, recovery, journal/cleanup, compaction, migration and alternate backends.
+Retain crash-safety, bounded memory, secure secret handling, and region-loss goals.
+
+P3: Once security gates pass, change NEW password creation to unsigned by default
+in CLI, Rust convenience APIs, and bindings. Distinguish password profiles from
+key-pair/contact creation; test both explicit --password and password-profile
+selection. Preserve explicit signed choices and existing persisted signing modes.
+Ensure password-only recipients can save without generating a meaningless signer
+or silently creating a Vault. Separate requested access mode from signer presence.
+
+P4: Compatibility/migration and documentation. Existing signed archives retain
+their verification policy. Design any conversion as a separately requested,
+verified replacement preserving originals until completion, never mode-bit edits.
+Document supported historical formats and security limits honestly. Historical
+archives lacking required commitments may need migration before receiving the
+new guarantee; never reject legitimate old archives and call it a compatible patch.
+
+P5: Run integration security/correctness/compatibility gates on one exact retained
+implementation. Record evidence and remaining limits. Only then checkpoint the
+incorporated change and resume performance experiments with new comparable baselines.
+
+7. ACCEPTANCE GATES
+
+Authentication:
+  - All three accepted attacks above reject or enter an explicit, safe recovery
+    flow. Never successfully report stale/empty/unauthenticated content as current.
+  - Genuine new/empty archives remain usable; empty-to-nonempty/reopen transitions
+    are covered. No sequence/mode/version/fallback combination bypasses validation.
+  - Replay/reordering/splicing covered for files, variables, forms, tree levels,
+    reused offsets, same/cross archive IDs, access-directory copies and generations.
+  - Test with repaired public checksums, not only naive byte flips. Test partial
+    snapshots, missing copies, malformed lengths and truncated tails.
+  - Signed, unsigned, plaintext and encrypted modes retain explicitly documented
+    guarantees. Plaintext unsigned cannot promise adversarial integrity; do not
+    imply otherwise. Password-only protected modes do not require owner identity.
+
+Lifecycle/recovery:
+  - Public CLI sender and recipient use separate temporary Vault/session contexts.
+    Password-only create/open/read/add/replace/remove/reopen and exact byte checks.
+    Repeat/no-change operations, incorrect password, changed password, access
+    add/remove/revoke, signed-mode refusals, and applicable safety paths.
+  - Exercise corresponding native/binding/Dart and other supported language APIs,
+    explicit read-only versus writable handles, and no implicit signer generation.
+  - Crash/process-death and interrupted recovery do not resurrect removed state,
+    trust unauthenticated ownership, or erase outside authenticated reservations.
+  - Recovery, compaction and migration verify the resulting graph and data before
+    replacement; preserve source/backup on interruption or failed validation.
+
+Compatibility/release:
+  - Current 0.4.x is format 3 and must remain bidirectionally interoperable.
+    New incompatible commitments belong in the reserved 0.5.x/format-4 line.
+    Do not claim security-layout changes are compatible from version numbers alone.
+  - Verify actual CLI/binding versions within the selected line in both directions,
+    persisted Vault compatibility, historical readers/migration paths, and packages.
+  - Follow Rust AGENTS migration requirements for format changes. No production
+    deployment/publication is authorized by this handoff.
+
+Validation discipline:
+  - Delegate tests/waits to a low-cost agent; do not repeatedly poll it.
+  - Focused tests during implementation; broad integration checks at the completed
+    security checkpoint. No full-suite reruns for each experiment/text-only change.
+  - Formatting only at the commit stage using the tracked hook; preserve unrelated
+    work and partially staged-file protections.
+  - Do not weaken integrity or capacity constraints to obtain benchmark wins.
+    Retain old benchmark results with their exact old guarantees; rebaseline the
+    new modes explicitly after security acceptance.
+
+8. ALREADY AVAILABLE FUNCTIONAL EVIDENCE AND ADOPTION GAPS
+
+Format 3 already encodes independent encryption/signing choices and CLI accepts
+create --password --signing none. Source comparisons against CLI 0.4.0/0.4.1 and
+Dart 0.4.1 showed relevant encoding unchanged. This is NOT executed historical
+binary interoperability certification, nor proof that security fixes fit format 3.
+
+CLI password unlock caches the content key without a signer (keys.rs:457;
+revault_vault_api/src/vault.rs:189); unsigned writes select Signing::None
+(vault.rs:431). Binding creation currently generates a signer when absent
+(revault_bindings/src/file_api.rs:117), and native file-handle open without a
+signer selects permanent read-only even for unsigned archives
+(lockbox/key_management.rs:526). These are concrete adoption changes to plan.
+
+Existing signed archives reject opening for write with Signing::None
+(key_management.rs:654). Compaction/rekey and migration preserve format_mode;
+password replacement does not remove signing. Preserve that behavior for old files.
+
+Completed focused checks in this audit:
+  - Four signature_audit_* tests: passed, reproducing limitations A/B/C and
+    confirming tested rejection behavior D in both signing modes.
+  - API independent_modes_survive_reopen_and_mutation: passed.
+  - CLI independent_creation_choices_persist_through_cli_lifecycle: passed.
+  - CLI unsigned_password_archive_is_writable_by_a_recipient_without_a_vault:
+    passed; sandbox socket restrictions required a bounded elevated retry.
+  - git diff --check: passed.
+
+'Passed' for the vulnerability reproductions means the unwanted acceptance was
+observed, NOT that the archive is secure. After fixing, turn these into rejection
+regressions with valid-state positive controls. Retain the historical observation
+in evidence rather than leaving tests that require vulnerabilities to stay present.
+
+Requested first response from the receiving session: acknowledge performance is
+paused, identify the checkpoint, record this prerequisite in its authoritative
+plan, state which findings reproduce in v4, and give the security implementation
+sequence and any unresolved decisions. Do not claim the fixes are incorporated
+merely because this handoff has been read or copied into the plan.

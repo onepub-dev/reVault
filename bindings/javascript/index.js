@@ -126,6 +126,12 @@ export class Revault {
   }
 
   /** Opens serialized Lockbox bytes with the supplied password. */
+  lockboxOpenPasswordWithBudget(archive, password, maxDerivations) {
+    if (!Number.isInteger(maxDerivations) || maxDerivations < 0 || maxDerivations > 0xffffffff) throw new RangeError("maxDerivations must be an unsigned 32-bit integer");
+    return new Lockbox(this.operations, this.operations.lockboxOpenPasswordWithBudget(archive, password, maxDerivations));
+  }
+
+  /** Opens with the default per-credential password work budget. */
   lockboxOpenPassword(archive, password) {
     return new Lockbox(this.operations, this.operations.lockboxOpenPassword(archive, password));
   }
@@ -374,7 +380,11 @@ export class Lockbox extends OwnedHandle {
    * Close existing readers before opening a writer. Attaching a signer later cannot upgrade a reader.
    * @example const box = Lockbox.open(path, {password}); try { console.log(box.getFile('/hello')); } finally { box.close(); }
    */
-  static open(path, options = {}) { return Lockbox._file(path, 'open', options); }
+  static open(path, options = {}) {
+    // Explicit writable selects access independently of signingKey; omission preserves legacy behavior.
+    const mode = options.writable == null ? 'open' : (options.writable ? 'write' : 'read');
+    return Lockbox._file(path, mode, options);
+  }
 
   /** @internal Marshals file credentials and runtime tuning to Rust. */
   static _file(path, mode, {password, contentKey, contact, signingKey, options = {}}) {
@@ -401,6 +411,11 @@ export class Lockbox extends OwnedHandle {
   }
 
   /** Writes one Lockbox file to the host filesystem. */
+  extractFileWithPolicy(source, destination, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite) {
+    return this.operations.lockboxExtractFileWithPolicy(this.nativeHandle, source, destination, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite);
+  }
+
+  /** Extracts one file using the legacy permission policy. */
   extractFile(source, destination, replace) {
     return this.operations.lockboxExtractFile(this.nativeHandle, source, destination, replace);
   }
@@ -453,6 +468,11 @@ export class Lockbox extends OwnedHandle {
   /** Sets workload profile. */
   setWorkloadProfile(profile) {
     return this.operations.lockboxSetWorkloadProfile(this.nativeHandle, profile);
+  }
+
+  /** Sets a soft cache limit (auto, disabled, or bytes). */
+  setCacheLimit(mode, bytes) {
+    return this.operations.lockboxSetCacheLimit(this.nativeHandle, mode, bytes);
   }
 
   /** Sets worker policy. */
@@ -985,6 +1005,26 @@ export class Vault extends OwnedHandle {
     return this.operations.vaultDirectoryListKnownLockboxes(this.nativeHandle);
   }
 
+  /** Resolve metadata; verify target identity when opening its path. */
+  resolveLockboxAlias(name) {
+    return this.operations.vaultDirectoryResolveLockboxAlias(this.nativeHandle, name);
+  }
+
+  /** Manage persisted aliases using core validation. */
+  removeLockboxAlias(name) {
+    return this.operations.vaultDirectoryRemoveLockboxAlias(this.nativeHandle, name);
+  }
+
+  /** Manage persisted aliases using core validation. */
+  listLockboxAliases() {
+    return this.operations.vaultDirectoryListLockboxAliases(this.nativeHandle);
+  }
+
+  /** Manage persisted aliases using core validation. */
+  setLockboxAlias(name, id) {
+    return this.operations.vaultDirectorySetLockboxAlias(this.nativeHandle, name, id);
+  }
+
   /** Removes lockbox. */
   forgetLockbox(path) {
     return this.operations.vaultDirectoryForgetLockbox(this.nativeHandle, path);
@@ -1074,6 +1114,16 @@ export class ReadOnlyVault extends OwnedHandle {
   /** Lists known lockboxes. */
   listKnownLockboxes() {
     return this.operations.vaultReadOnlyListKnownLockboxes(this.nativeHandle);
+  }
+
+  /** Resolve metadata; verify target identity when opening its path. */
+  resolveLockboxAlias(name) {
+    return this.operations.vaultReadOnlyResolveLockboxAlias(this.nativeHandle, name);
+  }
+
+  /** Manage persisted aliases using core validation. */
+  listLockboxAliases() {
+    return this.operations.vaultReadOnlyListLockboxAliases(this.nativeHandle);
   }
 
   /** Releases the native resources held by this object. */

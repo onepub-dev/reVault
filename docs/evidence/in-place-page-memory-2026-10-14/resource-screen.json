@@ -1,0 +1,36 @@
+{
+  "checkpoint": "4bca4fa3f2803485131d142f0a5250857f7449e8",
+  "cli_sha256": "c23c35f3867568b9593b40fda0ff3d90a24f1ee3973de7320c2ec443fc8136ed",
+  "source_manifest_sha256": "53a85ffd4a90fafa989a5d6490f8a17c6297fafa06ececbf5500f3d2908f8609",
+  "plan_sha256": "7189888684c6470cbc453aef1e620d6ad57de025f218c9e45a5f27fadc65b6ac",
+  "terminal_sha256": "49b08a5a1c941855d68c41c9f7bf563ba47fc56c8e1d2c1824f82601b305ab9a",
+  "raw_evidence": "/tmp/revault-worker-resource-screen-4bca4fa3f280",
+  "limit_bytes": 100000000,
+  "files_per_lifecycle": 10000,
+  "bytes_per_lifecycle": 655360000,
+  "worker_count": 4,
+  "lifecycles": [
+    {
+      "track": "zip_plain",
+      "cli_peak_bytes": 84877312,
+      "helper_peak_bytes": 9084928,
+      "conditional_upper_bound_bytes": 93962240,
+      "persisted_bytes_modes_verified": true,
+      "cleanup_verified": true
+    },
+    {
+      "track": "protected_pgp",
+      "cli_peak_bytes": 87568384,
+      "helper_peak_bytes": 9109504,
+      "conditional_upper_bound_bytes": 96677888,
+      "persisted_bytes_modes_verified": true,
+      "cleanup_verified": true
+    }
+  ],
+  "post_identity_verified": true,
+  "owned_root_removed": true,
+  "limited_screen_passed": true,
+  "comparison_qualified": false,
+  "release_ready": false,
+  "proof_scope": "Maximum CLI HWM including setup/control plus stable owned helper HWM, conditional on exact-binary trace and selected-command source audit; not a universal process bound."
+}

@@ -1,0 +1,50 @@
+Issue #310: avoid decoded-cache churn on oversized sequential streams
+Base 5f53a6c, 2026-09-22.
+
+Cold benchmark audit found the decoded cache added in bda3d56 penalized sequential
+ReadMostly streams exceeding the 64 MiB budget. Frames belonging to a single file
+were copied into the cache and evicted before the next pass could reuse them.
+
+stream_content now computes the total logical file bytes with saturating addition.
+If the stream exceeds the decoded-cache budget, native single-slice frames are
+not admitted. Packed frames remain eligible so neighboring slices can reuse the
+verified decode within the same pass. Existing cache hits are still used and
+validated. Smaller streams and get_file/read_file_range retain normal admission.
+The legacy production path does not perform the extra entry walk. No protection,
+source validation, format, eviction budget or workload default changes.
+
+Benchmark: four 64 MiB pattern files, plain, default padding, ReadMostly, stream,
+fresh handles per sample, warm OS cache, every byte compared. Five samples per
+reported row, pinned to CPU 2. No tests/builds overlapped timings. Raw CSV keeps
+initial audit plus two consecutive cache/admission repeat pairs.
+
+Two repeat-pair lockbox medians (milliseconds, includes handle teardown):
+                     cache       admission
+raw, run 1           235.913      174.903
+raw, run 2           234.132      184.115
+compressed, run 1    161.635      101.087
+compressed, run 2    157.875      102.412
+ZIP compressed medians stayed 57.703-58.481 ms. Native compressed reads remain
+about 1.75x ZIP: removing the introduced regression does not establish parity.
+Pre-cache baseline (88d0577 executable) was 174.724 ms raw / 100.961 compressed.
+
+Reproduction environment:
+REVAULT_ZIP_READ_CASE=large REVAULT_ZIP_READ_SIZE=67108864
+REVAULT_ZIP_READ_MODE=plain REVAULT_ZIP_READ_SAMPLES=5
+REVAULT_ZIP_READ_PROFILE=ReadMostly REVAULT_ZIP_READ_ACCESS=stream
+run taskset -c 2 <native zip_read executable>; compression filter unset.
+
+Regression test constructs 33 x 2 MiB files plus two tiny packed neighbors,
+commits and independently reopens. Logical and physical streams verify every
+byte and total length. Only the shared frame remains cached after either pass;
+a subsequent full-file get_file still adds its single-file frame to the cache.
+The existing stream test covers byte accuracy and restart after visitor errors
+in all protection modes. Existing extraction cache behavior remains tested.
+
+This is one read-path improvement. Known native recovery/page-cache failures,
+write/load gates, bindings/migration/release and ZIP parity remain outstanding.
+
+Validation passed before commit-time formatting: oversized-stream and extraction
+cache unit tests; public stream workspace/restart test in default and native
+layouts; strict library/tests Clippy in default and native/external-source builds;
+native zip_read release benchmark build. Full suites not repeated for this change.

@@ -1,0 +1,4 @@
+Exact --list confirmed two selected names before launch.
+Both tests passed normally; overlap launcher exited 0 and did not time out.
+Primary observer preserved; its raw RegExp VmLck/VmRSS fields are null and are not interpreted as samples.
+Supplemental Dart+dcli observer sampled only PID 848889 /proc/status VmLck/VmRSS and /proc/limits every five seconds; it stopped after the PID exited.

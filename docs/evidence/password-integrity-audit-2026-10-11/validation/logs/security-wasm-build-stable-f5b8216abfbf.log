@@ -1,0 +1,618 @@
+    Blocking waiting for file lock on build directory
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+   Compiling revault_vault_api v0.0.42 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_vault_api)
+warning: unused import: `std::thread`
+ --> revault_vault_api/src/sleep_watcher.rs:2:5
+  |
+2 | use std::thread;
+  |     ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `AgentRequest`, `AgentResponse`, `ControlRequest`, `ControlResponse`, `DEFAULT_TTL_SECONDS`, `agent_is_compatible`, `encode_control_err_response`, `encode_control_ok_response`, `encode_err_response`, `encode_forget_all`, `encode_forget_identifier`, `encode_get_identifier`, `encode_info_response`, `encode_info`, `encode_key_response`, `encode_list_response`, `encode_list`, `encode_miss_response`, `encode_ok_response`, `encode_put_identifier`, `encode_register_secret_activity`, `encode_registered_response`, `encode_stop`, `encode_unregister_secret_activity`, `frame_header_len`, `frame_message_type`, `frame_payload_len`, `is_control_message_type`, `max_message_bytes`, `parse_control_request`, `parse_control_response`, `parse_request`, and `parse_response`
+  --> revault_vault_api/src/lib.rs:76:5
+   |
+76 |     agent_is_compatible, encode_control_err_response, encode_control_ok_response,
+   |     ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+77 |     encode_err_response, encode_forget_all, encode_forget_identifier, encode_get_identifier,
+   |     ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^
+78 |     encode_info, encode_info_response, encode_key_response, encode_list, encode_list_response,
+   |     ^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^
+79 |     encode_miss_response, encode_ok_response, encode_put_identifier,
+   |     ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^
+80 |     encode_register_secret_activity, encode_registered_response, encode_stop,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^
+81 |     encode_unregister_secret_activity, frame_header_len, frame_message_type, frame_payload_len,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^
+82 |     is_control_message_type, max_message_bytes, parse_control_request, parse_control_response,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^
+83 |     parse_request, parse_response, AgentRequest, AgentResponse, ControlRequest, ControlResponse,
+   |     ^^^^^^^^^^^^^  ^^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^^^  ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+84 |     DEFAULT_TTL_SECONDS,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `ActiveSecretProcess` is never constructed
+  --> revault_vault_api/src/active_secret.rs:10:19
+   |
+10 | pub(crate) struct ActiveSecretProcess {
+   |                   ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: struct `ActiveSecretRegistry` is never constructed
+  --> revault_vault_api/src/active_secret.rs:16:19
+   |
+16 | pub(crate) struct ActiveSecretRegistry {
+   |                   ^^^^^^^^^^^^^^^^^^^^
+
+warning: associated items `new`, `is_empty`, `register`, `unregister`, `suspend_requested`, and `release_inhibitor_if_idle` are never used
+   --> revault_vault_api/src/active_secret.rs:23:19
+    |
+22  | impl ActiveSecretRegistry {
+    | ------------------------- associated items in this implementation
+23  |     pub(crate) fn new(config: AgentConfig) -> Self {
+    |                   ^^^
+...
+31  |     pub(crate) fn is_empty(&self) -> bool {
+    |                   ^^^^^^^^
+...
+35  |     pub(crate) fn register(&mut self, pid: u32, kind: SecretActivityKind) -> io::Result<u64> {
+    |                   ^^^^^^^^
+...
+64  |     pub(crate) fn unregister(&mut self, pid: u32, token: u64) {
+    |                   ^^^^^^^^^^
+...
+86  |     pub(crate) fn suspend_requested(&mut self) {
+    |                   ^^^^^^^^^^^^^^^^^
+...
+118 |     fn release_inhibitor_if_idle(&mut self) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `next_token` is never used
+   --> revault_vault_api/src/active_secret.rs:125:4
+    |
+125 | fn next_token(processes: &BTreeMap<u64, ActiveSecretProcess>) -> io::Result<u64> {
+    |    ^^^^^^^^^^
+
+warning: function `elapsed_ms` is never used
+   --> revault_vault_api/src/active_secret.rs:136:4
+    |
+136 | fn elapsed_ms(started_at: Instant) -> u128 {
+    |    ^^^^^^^^^^
+
+warning: function `terminate_process` is never used
+   --> revault_vault_api/src/active_secret.rs:177:4
+    |
+177 | fn terminate_process(_pid: u32) -> io::Result<()> {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: associated items `load`, `apply_text`, and `apply_env` are never used
+  --> revault_vault_api/src/agent_config.rs:22:19
+   |
+21 | impl AgentConfig {
+   | ---------------- associated items in this implementation
+22 |     pub(crate) fn load() -> Self {
+   |                   ^^^^
+...
+33 |     fn apply_text(&mut self, text: &str) -> io::Result<()> {
+   |        ^^^^^^^^^^
+...
+50 |     fn apply_env(&mut self) {
+   |        ^^^^^^^^^
+
+warning: function `parse_assignment` is never used
+  --> revault_vault_api/src/agent_config.rs:64:4
+   |
+64 | fn parse_assignment(raw_line: &str) -> Option<(&str, &str)> {
+   |    ^^^^^^^^^^^^^^^^
+
+warning: function `parse_bool` is never used
+  --> revault_vault_api/src/agent_config.rs:76:4
+   |
+76 | fn parse_bool(value: &str) -> io::Result<Option<bool>> {
+   |    ^^^^^^^^^^
+
+warning: function `config_path` is never used
+  --> revault_vault_api/src/agent_config.rs:88:4
+   |
+88 | fn config_path() -> Option<PathBuf> {
+   |    ^^^^^^^^^^^
+
+warning: function `default_config_path` is never used
+   --> revault_vault_api/src/agent_config.rs:117:4
+    |
+117 | fn default_config_path() -> Option<PathBuf> {
+    |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `home_dir` is never used
+   --> revault_vault_api/src/agent_config.rs:125:4
+    |
+125 | fn home_dir() -> Option<PathBuf> {
+    |    ^^^^^^^^
+
+warning: function `log_agent_event` is never used
+  --> revault_vault_api/src/agent_log.rs:28:15
+   |
+28 | pub(crate) fn log_agent_event(message: impl AsRef<str>) {
+   |               ^^^^^^^^^^^^^^^
+
+warning: function `write_file_log` is never used
+  --> revault_vault_api/src/agent_log.rs:40:4
+   |
+40 | fn write_file_log(path: PathBuf, message: &str) {
+   |    ^^^^^^^^^^^^^^
+
+warning: function `unix_time_millis` is never used
+  --> revault_vault_api/src/agent_log.rs:50:4
+   |
+50 | fn unix_time_millis() -> u128 {
+   |    ^^^^^^^^^^^^^^^^
+
+warning: function `write_platform_log` is never used
+   --> revault_vault_api/src/agent_log.rs:156:4
+    |
+156 | fn write_platform_log(_message: &str) -> std::io::Result<()> {
+    |    ^^^^^^^^^^^^^^^^^^
+
+warning: constant `REQ_FORGET_ALL` is never used
+  --> revault_vault_api/src/agent_protocol.rs:11:7
+   |
+11 | const REQ_FORGET_ALL: u8 = 0x04;
+   |       ^^^^^^^^^^^^^^
+
+warning: constant `REQ_STOP` is never used
+  --> revault_vault_api/src/agent_protocol.rs:12:7
+   |
+12 | const REQ_STOP: u8 = 0x05;
+   |       ^^^^^^^^
+
+warning: constant `REQ_LIST` is never used
+  --> revault_vault_api/src/agent_protocol.rs:13:7
+   |
+13 | const REQ_LIST: u8 = 0x06;
+   |       ^^^^^^^^
+
+warning: constant `REQ_INFO` is never used
+  --> revault_vault_api/src/agent_protocol.rs:14:7
+   |
+14 | const REQ_INFO: u8 = 0x07;
+   |       ^^^^^^^^
+
+warning: constant `REQ_REGISTER_SECRET_ACTIVITY` is never used
+  --> revault_vault_api/src/agent_protocol.rs:15:7
+   |
+15 | const REQ_REGISTER_SECRET_ACTIVITY: u8 = 0x10;
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `REQ_UNREGISTER_SECRET_ACTIVITY` is never used
+  --> revault_vault_api/src/agent_protocol.rs:16:7
+   |
+16 | const REQ_UNREGISTER_SECRET_ACTIVITY: u8 = 0x11;
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `RESP_REGISTERED` is never used
+  --> revault_vault_api/src/agent_protocol.rs:18:7
+   |
+18 | const RESP_REGISTERED: u8 = 0x80;
+   |       ^^^^^^^^^^^^^^^
+
+warning: constant `RESP_OK` is never used
+  --> revault_vault_api/src/agent_protocol.rs:19:7
+   |
+19 | const RESP_OK: u8 = 0x81;
+   |       ^^^^^^^
+
+warning: constant `RESP_MISS` is never used
+  --> revault_vault_api/src/agent_protocol.rs:20:7
+   |
+20 | const RESP_MISS: u8 = 0x82;
+   |       ^^^^^^^^^
+
+warning: constant `RESP_KEY` is never used
+  --> revault_vault_api/src/agent_protocol.rs:21:7
+   |
+21 | const RESP_KEY: u8 = 0x83;
+   |       ^^^^^^^^
+
+warning: constant `RESP_LIST` is never used
+  --> revault_vault_api/src/agent_protocol.rs:22:7
+   |
+22 | const RESP_LIST: u8 = 0x84;
+   |       ^^^^^^^^^
+
+warning: constant `RESP_INFO` is never used
+  --> revault_vault_api/src/agent_protocol.rs:23:7
+   |
+23 | const RESP_INFO: u8 = 0x85;
+   |       ^^^^^^^^^
+
+warning: constant `RESP_ERR` is never used
+  --> revault_vault_api/src/agent_protocol.rs:24:7
+   |
+24 | const RESP_ERR: u8 = 0xff;
+   |       ^^^^^^^^
+
+warning: constant `AGENT_PROTOCOL_VERSION` is never used
+  --> revault_vault_api/src/agent_protocol.rs:27:18
+   |
+27 | pub(crate) const AGENT_PROTOCOL_VERSION: u32 = 1;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `AGENT_IMPLEMENTATION_VERSION` is never used
+  --> revault_vault_api/src/agent_protocol.rs:28:18
+   |
+28 | pub(crate) const AGENT_IMPLEMENTATION_VERSION: &str = env!("CARGO_PKG_VERSION");
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `agent_is_compatible` is never used
+  --> revault_vault_api/src/agent_protocol.rs:30:15
+   |
+30 | pub(crate) fn agent_is_compatible(protocol: u32, _implementation: &str) -> bool {
+   |               ^^^^^^^^^^^^^^^^^^^
+
+warning: method `to_wire` is never used
+  --> revault_vault_api/src/agent_protocol.rs:76:8
+   |
+63 | impl SecretActivityKind {
+   | ----------------------- method in this implementation
+...
+76 |     fn to_wire(self) -> u8 {
+   |        ^^^^^^^
+
+warning: enum `AgentRequest` is never used
+  --> revault_vault_api/src/agent_protocol.rs:88:17
+   |
+88 | pub(crate) enum AgentRequest {
+   |                 ^^^^^^^^^^^^
+
+warning: enum `AgentResponse` is never used
+  --> revault_vault_api/src/agent_protocol.rs:98:17
+   |
+98 | pub(crate) enum AgentResponse {
+   |                 ^^^^^^^^^^^^^
+
+warning: enum `ControlRequest` is never used
+   --> revault_vault_api/src/agent_protocol.rs:107:17
+    |
+107 | pub(crate) enum ControlRequest {
+    |                 ^^^^^^^^^^^^^^
+
+warning: enum `ControlResponse` is never used
+   --> revault_vault_api/src/agent_protocol.rs:112:17
+    |
+112 | pub(crate) enum ControlResponse {
+    |                 ^^^^^^^^^^^^^^^
+
+warning: function `encode_forget_all` is never used
+   --> revault_vault_api/src/agent_protocol.rs:169:15
+    |
+169 | pub(crate) fn encode_forget_all() -> io::Result<SecretVec> {
+    |               ^^^^^^^^^^^^^^^^^
+
+warning: function `encode_stop` is never used
+   --> revault_vault_api/src/agent_protocol.rs:173:15
+    |
+173 | pub(crate) fn encode_stop() -> io::Result<SecretVec> {
+    |               ^^^^^^^^^^^
+
+warning: function `encode_list` is never used
+   --> revault_vault_api/src/agent_protocol.rs:177:15
+    |
+177 | pub(crate) fn encode_list() -> io::Result<SecretVec> {
+    |               ^^^^^^^^^^^
+
+warning: function `encode_info` is never used
+   --> revault_vault_api/src/agent_protocol.rs:181:15
+    |
+181 | pub(crate) fn encode_info() -> io::Result<SecretVec> {
+    |               ^^^^^^^^^^^
+
+warning: function `encode_register_secret_activity` is never used
+   --> revault_vault_api/src/agent_protocol.rs:185:15
+    |
+185 | pub(crate) fn encode_register_secret_activity(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_unregister_secret_activity` is never used
+   --> revault_vault_api/src/agent_protocol.rs:195:15
+    |
+195 | pub(crate) fn encode_unregister_secret_activity(pid: u32, token: u64) -> io::Result<Vec<u8>> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_key_response` is never used
+   --> revault_vault_api/src/agent_protocol.rs:202:15
+    |
+202 | pub(crate) fn encode_key_response(key: &SecretVec) -> io::Result<SecretVec> {
+    |               ^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_ok_response` is never used
+   --> revault_vault_api/src/agent_protocol.rs:206:15
+    |
+206 | pub(crate) fn encode_ok_response() -> io::Result<SecretVec> {
+    |               ^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_miss_response` is never used
+   --> revault_vault_api/src/agent_protocol.rs:210:15
+    |
+210 | pub(crate) fn encode_miss_response() -> io::Result<SecretVec> {
+    |               ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_err_response` is never used
+   --> revault_vault_api/src/agent_protocol.rs:214:15
+    |
+214 | pub(crate) fn encode_err_response(message: &str) -> io::Result<SecretVec> {
+    |               ^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_control_ok_response` is never used
+   --> revault_vault_api/src/agent_protocol.rs:218:15
+    |
+218 | pub(crate) fn encode_control_ok_response() -> io::Result<Vec<u8>> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_control_err_response` is never used
+   --> revault_vault_api/src/agent_protocol.rs:222:15
+    |
+222 | pub(crate) fn encode_control_err_response(message: &str) -> io::Result<Vec<u8>> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_registered_response` is never used
+   --> revault_vault_api/src/agent_protocol.rs:226:15
+    |
+226 | pub(crate) fn encode_registered_response(token: u64) -> io::Result<Vec<u8>> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_list_response` is never used
+   --> revault_vault_api/src/agent_protocol.rs:230:15
+    |
+230 | pub(crate) fn encode_list_response(
+    |               ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_info_response` is never used
+   --> revault_vault_api/src/agent_protocol.rs:246:15
+    |
+246 | pub(crate) fn encode_info_response() -> io::Result<SecretVec> {
+    |               ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `parse_request` is never used
+   --> revault_vault_api/src/agent_protocol.rs:253:15
+    |
+253 | pub(crate) fn parse_request(request: &SecretVec) -> io::Result<AgentRequest> {
+    |               ^^^^^^^^^^^^^
+
+warning: enum `ParsedRequest` is never used
+   --> revault_vault_api/src/agent_protocol.rs:274:6
+    |
+274 | enum ParsedRequest {
+    |      ^^^^^^^^^^^^^
+
+warning: function `parse_request_bytes` is never used
+   --> revault_vault_api/src/agent_protocol.rs:285:4
+    |
+285 | fn parse_request_bytes(bytes: &[u8]) -> io::Result<ParsedRequest> {
+    |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `parse_response` is never used
+   --> revault_vault_api/src/agent_protocol.rs:305:15
+    |
+305 | pub(crate) fn parse_response(response: SecretVec) -> io::Result<AgentResponse> {
+    |               ^^^^^^^^^^^^^^
+
+warning: enum `ParsedResponse` is never used
+   --> revault_vault_api/src/agent_protocol.rs:320:6
+    |
+320 | enum ParsedResponse {
+    |      ^^^^^^^^^^^^^^
+
+warning: function `parse_response_bytes` is never used
+   --> revault_vault_api/src/agent_protocol.rs:325:4
+    |
+325 | fn parse_response_bytes(bytes: &[u8]) -> io::Result<ParsedResponse> {
+    |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `parse_control_request` is never used
+   --> revault_vault_api/src/agent_protocol.rs:343:15
+    |
+343 | pub(crate) fn parse_control_request(request: &[u8]) -> io::Result<ControlRequest> {
+    |               ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `parse_control_response` is never used
+   --> revault_vault_api/src/agent_protocol.rs:352:15
+    |
+352 | pub(crate) fn parse_control_response(response: &[u8]) -> io::Result<ControlResponse> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `max_message_bytes` is never used
+   --> revault_vault_api/src/agent_protocol.rs:364:15
+    |
+364 | pub(crate) fn max_message_bytes() -> usize {
+    |               ^^^^^^^^^^^^^^^^^
+
+warning: function `frame_header_len` is never used
+   --> revault_vault_api/src/agent_protocol.rs:368:15
+    |
+368 | pub(crate) fn frame_header_len() -> usize {
+    |               ^^^^^^^^^^^^^^^^
+
+warning: function `frame_payload_len` is never used
+   --> revault_vault_api/src/agent_protocol.rs:372:15
+    |
+372 | pub(crate) fn frame_payload_len(header: &[u8]) -> io::Result<usize> {
+    |               ^^^^^^^^^^^^^^^^^
+
+warning: function `frame_message_type` is never used
+   --> revault_vault_api/src/agent_protocol.rs:386:15
+    |
+386 | pub(crate) fn frame_message_type(header: &[u8]) -> io::Result<u8> {
+    |               ^^^^^^^^^^^^^^^^^^
+
+warning: function `is_control_message_type` is never used
+   --> revault_vault_api/src/agent_protocol.rs:393:15
+    |
+393 | pub(crate) fn is_control_message_type(message_type: u8) -> bool {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_plain_frame` is never used
+   --> revault_vault_api/src/agent_protocol.rs:405:4
+    |
+405 | fn encode_plain_frame(message_type: u8, payload: &[u8]) -> io::Result<Vec<u8>> {
+    |    ^^^^^^^^^^^^^^^^^^
+
+warning: struct `Frame` is never constructed
+   --> revault_vault_api/src/agent_protocol.rs:441:8
+    |
+441 | struct Frame<'a> {
+    |        ^^^^^
+
+warning: function `parse_frame` is never used
+   --> revault_vault_api/src/agent_protocol.rs:446:4
+    |
+446 | fn parse_frame(bytes: &[u8]) -> io::Result<Frame<'_>> {
+    |    ^^^^^^^^^^^
+
+warning: function `parse_put_request` is never used
+   --> revault_vault_api/src/agent_protocol.rs:463:4
+    |
+463 | fn parse_put_request(payload: &[u8]) -> io::Result<ParsedRequest> {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `parse_register_secret_activity` is never used
+   --> revault_vault_api/src/agent_protocol.rs:496:4
+    |
+496 | fn parse_register_secret_activity(payload: &[u8]) -> io::Result<ControlRequest> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `parse_unregister_secret_activity` is never used
+   --> revault_vault_api/src/agent_protocol.rs:506:4
+    |
+506 | fn parse_unregister_secret_activity(payload: &[u8]) -> io::Result<ControlRequest> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `parse_list_response` is never used
+   --> revault_vault_api/src/agent_protocol.rs:516:4
+    |
+516 | fn parse_list_response(payload: &[u8]) -> io::Result<ParsedResponse> {
+    |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `parse_info_response` is never used
+   --> revault_vault_api/src/agent_protocol.rs:536:4
+    |
+536 | fn parse_info_response(payload: &[u8]) -> io::Result<ParsedResponse> {
+    |    ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `Cursor` is never constructed
+   --> revault_vault_api/src/agent_protocol.rs:549:8
+    |
+549 | struct Cursor<'a> {
+    |        ^^^^^^
+
+warning: multiple associated items are never used
+   --> revault_vault_api/src/agent_protocol.rs:555:8
+    |
+554 | impl<'a> Cursor<'a> {
+    | ------------------- associated items in this implementation
+555 |     fn new(bytes: &'a [u8]) -> Self {
+    |        ^^^
+...
+559 |     fn position(&self) -> usize {
+    |        ^^^^^^^^
+...
+563 |     fn is_finished(&self) -> bool {
+    |        ^^^^^^^^^^^
+...
+567 |     fn read_u16(&mut self) -> io::Result<u16> {
+    |        ^^^^^^^^
+...
+572 |     fn read_u32(&mut self) -> io::Result<u32> {
+    |        ^^^^^^^^
+...
+576 |     fn read_u64(&mut self) -> io::Result<u64> {
+    |        ^^^^^^^^
+...
+580 |     fn read_string(&mut self) -> io::Result<&'a str> {
+    |        ^^^^^^^^^^^
+...
+585 |     fn read_bytes_u32(&mut self) -> io::Result<&'a [u8]> {
+    |        ^^^^^^^^^^^^^^
+...
+590 |     fn read_exact(&mut self, len: usize) -> io::Result<&'a [u8]> {
+    |        ^^^^^^^^^^
+
+warning: function `push_bytes_u32` is never used
+   --> revault_vault_api/src/agent_protocol.rs:614:4
+    |
+614 | fn push_bytes_u32(out: &mut SecretVec, value: &[u8]) -> io::Result<()> {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `read_utf8` is never used
+   --> revault_vault_api/src/agent_protocol.rs:629:4
+    |
+629 | fn read_utf8(bytes: &[u8]) -> io::Result<&str> {
+    |    ^^^^^^^^^
+
+warning: function `read_u32_raw` is never used
+   --> revault_vault_api/src/agent_protocol.rs:634:4
+    |
+634 | fn read_u32_raw(bytes: &[u8]) -> io::Result<u32> {
+    |    ^^^^^^^^^^^^
+
+warning: function `read_u64` is never used
+   --> revault_vault_api/src/agent_protocol.rs:641:4
+    |
+641 | fn read_u64(bytes: &[u8]) -> io::Result<u64> {
+    |    ^^^^^^^^
+
+warning: function `validate_pid` is never used
+   --> revault_vault_api/src/agent_protocol.rs:648:4
+    |
+648 | fn validate_pid(pid: u32) -> io::Result<u32> {
+    |    ^^^^^^^^^^^^
+
+warning: function `kind_from_wire` is never used
+   --> revault_vault_api/src/agent_protocol.rs:655:4
+    |
+655 | fn kind_from_wire(value: u8) -> io::Result<SecretActivityKind> {
+    |    ^^^^^^^^^^^^^^
+
+warning: enum `SleepEvent` is never used
+  --> revault_vault_api/src/sleep_watcher.rs:13:17
+   |
+13 | pub(crate) enum SleepEvent {
+   |                 ^^^^^^^^^^
+
+warning: struct `SleepWatcher` is never constructed
+  --> revault_vault_api/src/sleep_watcher.rs:18:19
+   |
+18 | pub(crate) struct SleepWatcher {
+   |                   ^^^^^^^^^^^^
+
+warning: struct `SleepInhibitor` is never constructed
+  --> revault_vault_api/src/sleep_watcher.rs:23:19
+   |
+23 | pub(crate) struct SleepInhibitor {
+   |                   ^^^^^^^^^^^^^^
+
+warning: associated function `acquire_active` is never used
+  --> revault_vault_api/src/sleep_watcher.rs:49:19
+   |
+48 | impl SleepInhibitor {
+   | ------------------- associated function in this implementation
+49 |     pub(crate) fn acquire_active(reason: &str) -> io::Result<Self> {
+   |                   ^^^^^^^^^^^^^^
+
+warning: struct `SleepInhibitor` is never constructed
+   --> revault_vault_api/src/sleep_watcher.rs:729:23
+    |
+729 |     pub(super) struct SleepInhibitor;
+    |                       ^^^^^^^^^^^^^^
+
+warning: associated function `acquire_active` is never used
+   --> revault_vault_api/src/sleep_watcher.rs:732:23
+    |
+731 |     impl SleepInhibitor {
+    |     ------------------- associated function in this implementation
+732 |         pub(super) fn acquire_active(_reason: &str) -> io::Result<Self> {
+    |                       ^^^^^^^^^^^^^^
+
+warning: `revault_vault_api` (lib) generated 89 warnings (run `cargo fix --lib -p revault_vault_api` to apply 2 suggestions)
+   Compiling revault_wasm_bindings v0.0.24 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_wasm_bindings)
+    Finished `release` profile [optimized] target(s) in 2m 58s

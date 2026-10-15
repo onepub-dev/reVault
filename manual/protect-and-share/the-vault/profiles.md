@@ -101,6 +101,16 @@ lbx shared.lbox close
 ```
 
 You can also use `open --password-stdin` or `open --password-env VARIABLE_NAME`. Explicit password opening caches access in the Session Agent without creating or unlocking a local Vault. It supports reading and extraction without platform secure storage. A password Profile does not supply an owner signing key; writing still requires the appropriate signing material.
+Password opening admits at most **32 KDF attempts per password credential** by
+default, shared across primary, mirrored and backup candidates. This bounds work
+on an untrusted access directory without changing which archives are valid.
+For an independently trusted archive that needs more attempts, explicitly use
+`open --password-slot-budget ATTEMPTS`; the same option applies to stored
+password Profiles. Each locally configured Profile password receives its own
+allowance, so this is not a global cap across all Profiles. A zero allowance
+refuses password derivation. Larger allowances deliberately permit more CPU and
+memory work. Explicit budget APIs are also available in the Rust and language
+bindings; their existing open methods retain the default allowance.
 
 If the server loses its password, retrieve it again from your Vault. If the Profile is lost, restore its backup. If both are lost, another identity that can manage the Lockbox can grant a replacement password; the original password cannot be recovered from the Lockbox itself.
 

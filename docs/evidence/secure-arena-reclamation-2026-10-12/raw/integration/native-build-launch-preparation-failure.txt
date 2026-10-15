@@ -1,0 +1,10 @@
+The first native-block-layout no-run build did not launch. Shell redirection
+failed because raw/integration/native-block-layout/ did not yet exist; Cargo
+was not invoked. The exec command returned exit 1 with:
+
+/bin/bash: line 1: .../native-block-layout/build.stdout.jsonl: No such file or directory
+/bin/bash: line 1: .../native-block-layout/build.exit: No such file or directory
+
+No build or test execution occurred. The next launch is intended to use the
+configuration-specific evidence directory and preserve Cargo stdout/stderr/
+status separately. The directory was not created by recording this note.

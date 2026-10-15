@@ -459,8 +459,8 @@ class Lockbox {
    * Close all readers before opening a writer. No Session Agent is used.
    * Example: { auto box = Lockbox::open_file(path, key); auto payload = box.get_file("/hello"); }
    */
-  static Lockbox open_file(const std::string& path, const std::vector<std::uint8_t>& content_key, const ProfileSigningKeyPair* signer = nullptr) {
-    return adopt(detail::file_handle(path, "open", "content-key", content_key, nullptr, signer ? signer->native_handle() : nullptr, "bytes", 64ULL << 20, "interactive", "auto", 0));
+  static Lockbox open_file(const std::string& path, const std::vector<std::uint8_t>& content_key, const ProfileSigningKeyPair* signer = nullptr, std::optional<bool> writable = std::nullopt) {
+    return adopt(detail::file_handle(path, writable ? (*writable ? "write" : "read") : "open", "content-key", content_key, nullptr, signer ? signer->native_handle() : nullptr, "bytes", 64ULL << 20, "interactive", "auto", 0));
   }
 
 // END generated file operation facade
@@ -470,6 +470,13 @@ class Lockbox {
     return adopt(lockbox_open(archive.data(), archive.size(), key.data(), key.size()));
   }
   /** Opens with password. */
+  static Lockbox open_with_password_budget(const std::vector<std::uint8_t>& archive,
+                                    const std::string& password, std::uint32_t max_derivations) {
+    return adopt(lockbox_open_password_with_budget(
+        archive.data(), archive.size(),
+        reinterpret_cast<const std::uint8_t*>(password.data()), password.size(), max_derivations));
+  }
+  /** Opens with the default per-credential password work budget. */
   static Lockbox open_with_password(const std::vector<std::uint8_t>& archive,
                                     const std::string& password) {
     return adopt(lockbox_open_password(
@@ -606,6 +613,13 @@ class Lockbox {
     if (!lockbox_create_parent_dirs(handle_, path.data(), path.size())) throw std::runtime_error(buffer_last_error());
   }
   /** Writes one Lockbox file to the host filesystem. */
+  void extract_file_with_policy(const std::string& source, const std::string& destination,
+                    std::uint64_t max_file_bytes, std::uint64_t max_total_bytes, std::size_t max_files, bool restore_permissions, bool overwrite) const {
+    if (!lockbox_extract_file_with_policy(handle_, source.data(), source.size(), destination.data(),
+                              destination.size(), max_file_bytes, max_total_bytes, max_files, restore_permissions, overwrite))
+      throw std::runtime_error(buffer_last_error());
+  }
+  /** Extracts one file using the legacy permission policy. */
   void extract_file(const std::string& source, const std::string& destination,
                     bool replace = false) const {
     if (!lockbox_extract_file(handle_, source.data(), source.size(), destination.data(),
@@ -855,6 +869,11 @@ class Lockbox {
   /** Sets workload profile. */
   void set_workload_profile(const std::string& profile) {
     if (!lockbox_set_workload_profile(handle_, profile.data(), profile.size()))
+      throw std::runtime_error(buffer_last_error());
+  }
+  /** Sets a soft cache limit (auto, disabled, or bytes). */
+  void set_cache_limit(const std::string& mode, std::uint64_t bytes = 0) {
+    if (!lockbox_set_cache_limit(handle_, mode.data(), mode.size(), bytes))
       throw std::runtime_error(buffer_last_error());
   }
   /** Sets worker policy. */
@@ -1112,6 +1131,18 @@ class Vault {
     return detail::take_message<bindings::KnownLockboxList>(
         vault_directory_list_known_lockboxes(handle_));
   }
+  /** Resolves metadata; verify target identity before opening its path. */
+  bindings::KnownLockbox resolve_lockbox_alias(const std::string& name) const { return detail::take_message<bindings::KnownLockbox>(vault_directory_resolve_lockbox_alias(handle_, name.data(), name.size())); }
+
+  /** Removes only the alias, preserving the target. */
+  void remove_lockbox_alias(const std::string& name) const { checked(vault_directory_remove_lockbox_alias(handle_, name.data(), name.size())); }
+
+  /** Lists aliases without opening their targets. */
+  bindings::LockboxAliasList list_lockbox_aliases() const { return detail::take_message<bindings::LockboxAliasList>(vault_directory_list_lockbox_aliases(handle_)); }
+
+  /** Sets or replaces a normalized alias for a remembered identity. */
+  void set_lockbox_alias(const std::string& name, const std::vector<std::uint8_t>& id) const { checked(vault_directory_set_lockbox_alias(handle_, name.data(), name.size(), id.data(), id.size())); }
+
   /** Removes lockbox. */
   void forget_lockbox(const std::string& path) const {
     checked(vault_directory_forget_lockbox(handle_, path.data(), path.size()));
@@ -1221,6 +1252,12 @@ class ReadOnlyVault {
   bindings::StringList list_form_aliases() const { return detail::take_message<bindings::StringList>(vault_read_only_list_form_aliases(handle_)); }
   /** Lists known lockboxes. */
   bindings::KnownLockboxList list_known_lockboxes() const { return detail::take_message<bindings::KnownLockboxList>(vault_read_only_list_known_lockboxes(handle_)); }
+  /** Resolves metadata; verify target identity before opening its path. */
+  bindings::KnownLockbox resolve_lockbox_alias(const std::string& name) const { return detail::take_message<bindings::KnownLockbox>(vault_read_only_resolve_lockbox_alias(handle_, name.data(), name.size())); }
+
+  /** Lists aliases without opening their targets. */
+  bindings::LockboxAliasList list_lockbox_aliases() const { return detail::take_message<bindings::LockboxAliasList>(vault_read_only_list_lockbox_aliases(handle_)); }
+
  private:
   explicit ReadOnlyVault(void* handle) : handle_(handle) { if (!handle_) throw std::runtime_error(buffer_last_error()); }
   void* handle_{};

@@ -173,6 +173,10 @@ void archiveLifecycle() {
   box.setWorkloadProfile(LockboxWorkload.readMostly);
   box.setWorkerPolicy(LockboxWorker.single, jobs: 1);
   check(box.runtimeOptions().workloadProfile.isNotEmpty, 'runtime');
+  box.setCacheLimit('bytes', bytes: 8192);
+  check(box.cacheStats().limitBytes == 8192, 'cache limit');
+  box.setCacheLimit('auto');
+  pass('lockbox_set_cache_limit');
   pass('lockbox_set_workload_profile');
   pass('lockbox_set_worker_policy');
   pass('lockbox_runtime_options');
@@ -484,6 +488,20 @@ void advancedArchive() {
   );
   passwordOpen.close();
   pass('lockbox_open_password', 2);
+  final budgetOpen = withSecretString(
+    'archive password',
+    (password) => Revault.runtime.openLockboxWithPasswordBudget(
+      passwordArchive,
+      password,
+      1,
+    ),
+  );
+  check(
+    _equal(budgetOpen.getFile('/password.txt'), text('password protected')),
+    'budget password bytes',
+  );
+  budgetOpen.close();
+  pass('lockbox_open_password_with_budget', 2);
   final contactBox = Lockbox.createInMemory(contact: publicKey);
   contactBox.addFile('/contact.txt', text('contact protected'));
   contactBox.commit();
@@ -524,6 +542,20 @@ void advancedArchive() {
   box.extractFile('/account.txt', extracted);
   check(File(extracted).existsSync(), 'extract file');
   pass('lockbox_extract_file', 2);
+  box.extractFileWithPolicy(
+    '/account.txt',
+    extracted,
+    maxFileBytes: 1 << 20,
+    maxTotalBytes: 1 << 20,
+    maxFiles: 1,
+    restorePermissions: true,
+    overwrite: true,
+  );
+  check(
+    _equal(File(extracted).readAsBytesSync(), box.getFile('/account.txt')),
+    'policy extracted bytes',
+  );
+  pass('lockbox_extract_file_with_policy', 2);
   final tree = Directory('${extract.path}/tree')..createSync();
   box.extractDirectory(
     tree.path,
@@ -544,6 +576,9 @@ void advancedArchive() {
 }
 
 void vaultLifecycle() {
+  final aliasPath = File(
+    '${artifactRoot()}/remembered-alias-target.lbox',
+  ).absolute.path;
   final root = '${artifactRoot()}/vault';
   Directory(root).createSync(recursive: true);
   final password = SecretString.fromString('vault password');
@@ -616,10 +651,28 @@ void vaultLifecycle() {
   pass('vault_directory_store_backup');
   pass('vault_directory_backup_count');
   pass('vault_directory_load_backup', 3);
-  vault.rememberLockbox(id, '/tmp/example.lbox');
+  vault.rememberLockbox(id, aliasPath);
   check(vault.listKnownLockboxes().length == 1, 'known');
   pass('vault_directory_remember_lockbox');
   pass('vault_directory_list_known_lockboxes');
+  vault.setLockboxAlias('portable', id);
+  vault.setLockboxAlias('portable', id);
+  check(
+    vault.listLockboxAliases().length == 1 &&
+        vault.listLockboxAliases().single.name == 'portable',
+    'alias repeat and list',
+  );
+  check(
+    vault.resolveLockboxAlias('portable').path == aliasPath,
+    'alias resolution',
+  );
+  pass('vault_directory_set_lockbox_alias', 2);
+  pass('vault_directory_list_lockbox_aliases', 2);
+  pass('vault_directory_resolve_lockbox_alias');
+  vault.removeLockboxAlias('portable');
+  vault.removeLockboxAlias('portable');
+  check(vault.listLockboxAliases().isEmpty, 'alias removal repeat');
+  pass('vault_directory_remove_lockbox_alias', 3);
   vault.rememberAccessSlotLabel(id, 7, 'primary');
   check(
     vault.listAccessSlotLabels(id).length == 1 &&
@@ -655,7 +708,7 @@ void vaultLifecycle() {
   check(vault.listFormAliases().isNotEmpty, 'aliases');
   pass('vault_directory_list_form_aliases');
   vault.forgetAccessSlotLabel(id, 7);
-  vault.forgetLockbox('/tmp/example.lbox');
+  vault.forgetLockbox(aliasPath);
   vault.deleteContact('bob');
   pass('vault_directory_forget_access_slot_label');
   pass('vault_directory_forget_lockbox');
@@ -666,6 +719,8 @@ void vaultLifecycle() {
   check(vault.privateKeyExists('alice'), 'restore');
   pass('vault_directory_delete_private_key', 2);
   pass('vault_directory_restore_private_key', 2);
+  vault.rememberLockbox(id, aliasPath);
+  vault.setLockboxAlias('portable', id);
   vault.close();
   pass('vault_directory_free');
   // Release the writable vault before an independent path-based probe.
@@ -684,6 +739,17 @@ void vaultLifecycle() {
   pass('vault_read_only_list_contact_names');
   pass('vault_read_only_list_form_aliases', 2);
   pass('vault_read_only_list_known_lockboxes');
+  check(
+    readonly.listLockboxAliases().length == 1 &&
+        readonly.listLockboxAliases().single.name == 'portable',
+    'persisted read-only alias',
+  );
+  check(
+    readonly.resolveLockboxAlias('portable').path == aliasPath,
+    'read-only alias resolution',
+  );
+  pass('vault_read_only_list_lockbox_aliases', 2);
+  pass('vault_read_only_resolve_lockbox_alias');
   readonly.close();
   pass('vault_read_only_free');
   final changing = Vault.open(root: root, passphrase: password);

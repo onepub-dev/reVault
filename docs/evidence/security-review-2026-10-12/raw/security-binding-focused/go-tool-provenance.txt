@@ -1,0 +1,16 @@
+Go formatter acquisition for FlatBuffers binding generation prerequisite
+
+Repository compatibility pin: GitHub Actions workflows use go-version 1.24 / 1.24.x (.github/workflows/unicode-aliases.yml, bindings-native-release.yml, bindings-lint.yml).
+Selected official toolchain: Go 1.24.13 linux/amd64.
+Official download URL: https://go.dev/dl/go1.24.13.linux-amd64.tar.gz
+Official published SHA-256 (go.dev/dl): 1fc94b57134d51669c72173ad5d49fd62afb0f1db9bf3f798fd98ee423f8d730
+Downloaded archive: /tmp/revault-go-1.24.13/go1.24.13.linux-amd64.tar.gz
+Verified archive SHA-256: 1fc94b57134d51669c72173ad5d49fd62afb0f1db9bf3f798fd98ee423f8d730 (sha256sum --check: OK)
+Extracted tool root (no system installation): /tmp/revault-go-1.24.13/go
+Version check: /tmp/revault-go-1.24.13/go/bin/go version -> go version go1.24.13 linux/amd64
+Formatter: /tmp/revault-go-1.24.13/go/bin/gofmt
+Formatter SHA-256: a59ea679748488c066579f525672abc840cc387d27eabc7100e30aba9e55218c
+
+Generator subprocess audit (read-only): rust/revault_tooling/src/repository.rs::generate_flatbuffers invokes `flatc --version`, `flatc` for cpp/csharp/dart/go/java/kotlin/php/python/swift/typescript and Rust generation, and `python3` for eleven bindings/flatbuffers generator scripts. The sole additional subprocess in those Python generators is `gofmt -w` from generate_go_models.py. No other executable subprocess calls were found in bindings/flatbuffers/*.py. Expected PATH tools are therefore flatc 25.2.10, python3, and gofmt; flatc and gofmt have been obtained in /tmp, python3 is /usr/bin/python3.
+
+No binding generation was run and no generated worktree outputs were touched. A prior read-only status attempt with flatc but without gofmt reported the missing gofmt prerequisite; that limitation remains preserved in generated-check-limitation.txt.

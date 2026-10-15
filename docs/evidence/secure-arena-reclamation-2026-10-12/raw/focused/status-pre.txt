@@ -1,0 +1,4 @@
+ M rust/revault_page_api/src/arena.rs
+ M rust/revault_page_api/src/secure_heap.rs
+?? docs/evidence/retained-page-integration-2026-10-12/
+?? docs/evidence/secure-arena-reclamation-2026-10-12/

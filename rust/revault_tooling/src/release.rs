@@ -16,6 +16,10 @@ use tempfile::TempDir;
 use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
 
+// Use precisely the registry and handshake accepted by the shipped CLI.
+#[path = "../../revault_cli/src/commands/migration_exporters.rs"]
+mod migration_exporters;
+
 pub(crate) const NATIVE_ABI_VERSION: u32 = 3;
 
 #[derive(Subcommand)]
@@ -34,6 +38,8 @@ pub enum ReleaseCommand {
 
 #[derive(Subcommand)]
 pub enum InternalCommand {
+    /// Install exact historical exporter dependencies from crates.io and verify their protocols.
+    VerifyMigrationExporters,
     /// Internal CI candidate sealing and verification.
     #[command(hide = true)]
     Candidate(crate::release_candidate::Ci),
@@ -195,6 +201,7 @@ pub fn run(command: ReleaseCommand) -> Result {
 
 pub fn run_internal(command: InternalCommand) -> Result {
     match command {
+        InternalCommand::VerifyMigrationExporters => verify_migration_exporters(),
         InternalCommand::PackageNative(args) => package_native(args),
         InternalCommand::StageEcosystems(args) => stage_ecosystems(args),
         InternalCommand::AssemblePackages(args) => assemble_packages(args),
@@ -1429,6 +1436,10 @@ pub(crate) const CLI_PUBLISH_PACKAGES: &[&str] = &[
     "revault_page_api",
     "revault_lockbox_api",
     "revault_migration_format",
+    "revault_archive_v1_initial_reader",
+    "revault_archive_v1_reader",
+    "revault_vault_v1_reader",
+    "revault_vault_v2_container_v1_reader",
     "revault_migrate_vault_v1",
     "revault_migrate_vault_v2",
     "revault_vault_api",
@@ -1455,6 +1466,11 @@ pub fn publish_bindings(repository: &Path, publish: bool) -> Result {
 fn publish_workspace_packages(repository: &Path, publish: bool, packages: &[&str]) -> Result {
     let rust = repository.canonicalize()?.join("rust");
     for package in packages {
+        // Run even when the CLI version is already published: retries must not
+        // promote downloadable installers with unavailable runtime dependencies.
+        if publish && *package == "revault_cli" {
+            verify_migration_exporters()?;
+        }
         let manifest = find_package_manifest(&rust, package)?;
         let version = manifest_value(&manifest, "version")?;
         let release = format!("{package}@{version}");
@@ -1507,6 +1523,56 @@ fn crate_is_published(rust: &Path, release: &str) -> Result<bool> {
         .success())
 }
 
+fn exporter_install_command(root: &Path, release: migration_exporters::ExporterRelease) -> Command {
+    let mut command = Command::new("cargo");
+    command
+        .current_dir(root)
+        .env("CARGO_HOME", root.join("cargo-home"))
+        .env_remove("CARGO_NET_OFFLINE")
+        .env_remove("RUSTFLAGS")
+        .env_remove("CARGO_ENCODED_RUSTFLAGS")
+        .args([
+            "install",
+            "--registry",
+            "crates-io",
+            release.package,
+            "--version",
+            &format!("={}", release.version),
+            "--bin",
+            release.binary,
+            "--locked",
+            "--root",
+        ])
+        .arg(root.join("installed"));
+    command
+}
+
+fn verify_migration_exporters() -> Result {
+    // No workspace patches, developer Cargo configuration, installed exporter,
+    // or cached package can substitute for the public registry dependency.
+    let temporary = TempDir::new()?;
+    for release in migration_exporters::EXPORTERS {
+        println!(
+            "Verifying migration dependency {}@{} ({}) from crates.io",
+            release.package, release.version, release.binary
+        );
+        run_process(&mut exporter_install_command(temporary.path(), *release))
+            .map_err(|error| format!("CLI release blocked: historical exporter {}@{} could not be installed from crates.io: {error}", release.package, release.version))?;
+        let binary = temporary.path().join("installed/bin").join(format!(
+            "{}{}",
+            release.binary,
+            std::env::consts::EXE_SUFFIX
+        ));
+        let output = Command::new(binary).arg("capabilities").output()?;
+        if !output.status.success()
+            || !migration_exporters::capabilities_match(&output.stdout, *release)
+        {
+            return Err(format!("CLI release blocked: historical exporter {}@{} ({}) failed its capability contract", release.package, release.version, release.binary).into());
+        }
+    }
+    Ok(())
+}
+
 fn find_package_manifest(rust: &Path, package: &str) -> Result<PathBuf> {
     if package == "revault_vault_v3_reader" {
         return Ok(rust.join("revault_migrate_archive_v3/legacy_vault/Cargo.toml"));
@@ -1554,6 +1620,70 @@ fn run_process(command: &mut Command) -> Result {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn migration_dependency_gate_uses_exact_public_registry_versions() {
+        for release in migration_exporters::EXPORTERS {
+            let root = Path::new("/isolated-migration-gate");
+            let command = exporter_install_command(root, *release);
+            let args: Vec<_> = command
+                .get_args()
+                .map(|arg| arg.to_string_lossy())
+                .collect();
+            assert!(args
+                .windows(2)
+                .any(|args| args == ["--registry", "crates-io"]));
+            assert!(args
+                .windows(2)
+                .any(|args| args[0] == "--version" && args[1] == format!("={}", release.version)));
+            assert!(args
+                .windows(2)
+                .any(|args| args == ["--bin", release.binary]));
+            assert!(!args.iter().any(|arg| arg == "--path"));
+            assert_eq!(command.get_current_dir(), Some(root));
+            assert!(command.get_envs().any(|(key, value)| key == "CARGO_HOME"
+                && value == Some(root.join("cargo-home").as_os_str())));
+            assert!(!migration_exporters::capabilities_match(b"{}", *release));
+        }
+    }
+
+    #[test]
+    fn cli_assets_are_promoted_only_after_dependency_publication() {
+        let workflow = include_str!("../../../.github/workflows/revault_cli-v-release.yml");
+        let promotion = workflow
+            .split("name: Recheck candidate artifacts before registry publication")
+            .nth(1)
+            .unwrap();
+        assert!(
+            promotion
+                .find("name: Publish the validated CLI crate dependency chain")
+                .unwrap()
+                < promotion
+                    .find("name: Publish the tested CLI archives and installers")
+                    .unwrap()
+        );
+        let host = workflow
+            .split("\n  host:\n")
+            .nth(1)
+            .unwrap()
+            .split("\n  custom-revault-cli-crates:")
+            .next()
+            .unwrap();
+        assert!(host.contains("      - custom-revault-cli-crates\n"));
+        assert!(host.contains("needs.custom-revault-cli-crates.result == 'success'"));
+        let dependencies = workflow
+            .split("\n  custom-revault-cli-crates:\n")
+            .nth(1)
+            .unwrap()
+            .split("\n  announce:")
+            .next()
+            .unwrap();
+        assert!(!dependencies.contains("      - host\n"));
+        assert!(dependencies.contains("      - build-local-artifacts\n"));
+        let prepare = include_str!("../../../.github/workflows/release-candidate.yml");
+        assert!(prepare
+            .contains("run: rust/target/release/revault-tool internal verify-migration-exporters"));
+    }
 
     #[test]
     fn rejects_parent_archive_paths() {
@@ -1670,6 +1800,7 @@ mod tests {
 
     #[test]
     fn cli_publication_excludes_binding_implementation_crates() {
+        assert!(!CLI_PUBLISH_PACKAGES.contains(&"revault_archive_v1_legacy_reader"));
         assert!(CLI_PUBLISH_PACKAGES.contains(&"revault_cli"));
         assert!(!CLI_PUBLISH_PACKAGES.contains(&"revault_bindings"));
         assert!(!CLI_PUBLISH_PACKAGES.contains(&"revault_wasm_bindings"));

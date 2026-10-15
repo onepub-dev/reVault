@@ -1,0 +1,59 @@
+Issue #310: reject numeric mismatches before comparing manifest paths
+Baseline: 8575d2b, production identical to 18f8efc.
+Before native zip_read SHA256:
+35877a15c1f264811012efc53708fa1f5c7c14932be7b6f015aeef32e35c00fb
+Candidate native zip_read SHA256 (before commit formatting):
+3a94542a58bfc5fc661790525d6f1d83834840afb350e8c4d70158c710fcb51e
+Identical benchmark source and native-block-layout feature in both builds.
+
+CompressionFrameManifest::slice_for and cached_frame_bounds now compare frame
+offset, length and file offset before path equality. The cached variant also
+checks expected total length before the path. This avoids string comparisons for
+unrelated packed slices. All previous equality checks remain, iteration order is
+unchanged, and slice_for still returns the first exact match. There is no sorting
+assumption, new index, extra retained memory, format or public API change.
+Source validation, hashing, signatures, encryption and cache policies are unchanged.
+The shared lookup change applies to both layouts; timings here are native only.
+
+Protocol matches the previous many-file comparison: eight alternating-order
+before/after runs, nine samples per row, 512 x 4096-byte files, plain mode,
+Interactive/BulkImport creation, both read profiles, both corpora and requested
+compression settings, public Read handles (ACCESS=random), PASSES=1,2. Each
+sample opens a fresh archive; passes share that archive handle. 512 rows total.
+Large controls: three alternating-order runs, five samples, four 8 MiB files,
+Interactive creation, both corpora/read profiles/compression settings,
+ACCESS=random, PASSES=1; 48 rows. Every returned byte is checked on every pass.
+CPU 2, warm OS caches, no agent builds/tests during timing. Unrelated host work
+was active. Compression requested on incompressible input falls back to raw.
+
+CSV prefix is phase,create_profile,passes,run followed by standard zip_read
+columns. Summary uses median lockbox_ms and lockbox_over_zip per phase/group;
+even medians average the two middle values. Speedup is before/after. These are
+descriptive medians, not per-cell confidence intervals.
+
+Targeted results: all eight BulkImport first-pass groups improve, 1.004-1.085x.
+Packed compressible pattern reads improve 1.085x/1.026x on the first pass and
+1.156x/1.149x for two passes (Interactive/ReadMostly respectively). Their first-
+pass Lockbox/ZIP ratios fall to 1.021/1.068, approaching but not meeting a 10%
+lead. Packed raw or incompressible reads remain about 1.86-2.11x ZIP on first
+passes. Two repeated raw/random packed groups are slightly slower (0.977-0.990x).
+
+Separate small-file controls span 0.954-1.080x, and large controls 0.972-1.124x;
+those mixed movements do not justify an across-the-board improvement claim.
+Retain the low-complexity predicate ordering for the consistent targeted packed
+first-read results and stronger repeated compressed gains. The raw packed gap
+and the issue's broader ZIP parity goal remain unresolved.
+
+Validation before commit-time formatting:
+- Default API: 341 unit tests passed, 5 ignored; executed integration/doc suites
+  passed.
+- Native + external-source library: 349 passed, 2 known recovery failures,
+  5 ignored. Existing cached-reference corruption and manifest tests execute.
+- Native + external-source all-targets Clippy -D warnings passed.
+- Native release benchmark build and all 560 byte-verified timing rows completed.
+No implementation-mirroring tests were added for reordering pure equality checks.
+
+Known native failures remain recovery_skips_truncated_tail_and_keeps_prior_intact_files
+and native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+This does not activate native layout or complete cold-I/O, write lifecycle,
+protected-write, recovery, migration/binding/release or broad read gates.

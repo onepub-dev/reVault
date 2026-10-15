@@ -1,0 +1,11 @@
+{
+  "source": "e23b4d33",
+  "binary_sha256": "c18d1d65ffa6839211a8d96adcbd5b2f63b2d5384a33f87621f757651d3e87a6",
+  "protocol": "One descriptive creation and one fresh-process whole-tree read per case; CPU2, one worker, no overlapping builds/tests. Independent source bytes verified outside timing. Not a confidence interval or gate qualification.",
+  "cases": [
+    "100000 files x 128 bytes raw plain default-padding",
+    "100000 files x 128 bytes compressed encrypted-signed default-padding",
+    "1GiB raw plain default-padding from retained common-runner corpus"
+  ],
+  "generator": "common-runner pattern formula: ((position*13 + position//251 + file_index*17)%251), file-{index:06}.bin; index=0..99999, position=0..127"
+}

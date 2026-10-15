@@ -1,0 +1,35 @@
+
+running 2 tests
+test explicit_credentials_work_without_desktop_or_bus_and_missing_credentials_fail ... ok
+test requested_suspend_protection_is_not_silently_disabled_without_bus ... FAILED
+
+failures:
+
+---- requested_suspend_protection_is_not_silently_disabled_without_bus stdout ----
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673353
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673353 elapsed=401.708924ms status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673355
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673355 elapsed=803.076983ms status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673380
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673380 elapsed=1.330597332s status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673381
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673381 elapsed=1.40696549s status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673448
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673448 elapsed=301.939487ms status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673449
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673449 elapsed=326.790592ms status=exit status: 1
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673453
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1673453 elapsed=402.216189ms status=exit status: 1
+
+thread 'requested_suspend_protection_is_not_silently_disabled_without_bus' panicked at revault_cli/tests/headless.rs:61:5:
+Error:
+  requested suspend protection is unavailable: I/O error: path must be shorter than SUN_LEN; for an explicitly unprotected headless session set LOCKBOX_AGENT_TERMINATE_ON_SUSPEND=false and LOCKBOX_AGENT_PREVENT_SLEEP=false before starting the Session Agent
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    requested_suspend_protection_is_not_silently_disabled_without_bus
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 25.59s
+

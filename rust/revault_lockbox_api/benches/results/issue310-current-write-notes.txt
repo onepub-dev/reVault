@@ -1,0 +1,55 @@
+Issue #310: current default-versus-native write gate, 2026-09-22
+Revision: 4f4da994bc8e85106dd5c997bedf11ccf01010a4, unchanged production code.
+
+Both executables built from identical source using protection_gate:
+default a8c8d23a74c4313149725f031fd7086b72a8ccf85ec858067de5cd27bae6a8e8
+native  677a85e3905afed2578dc0d5e4583ec3fbd32a66001b81d3fff1b8d2ee683734
+Source SHA256 1680035bdb279e9e796908fc34b30afdce19f2b9809d427640321b49e7727849
+Executables rust/target/release/deps/protection_gate-a58df4485f37a924 (default)
+and protection_gate-4a1172c8e93f57fc (native).
+CSV main means current default layout; branch means current native layout.
+
+Write timer includes create, add, commit and handle drop. Every sample then
+independently reopens the persisted archive and compares all input bytes outside
+the write timer. Synthetic content keys, no password KDF; signing key generation
+excluded. Default size padding. 8 MiB input, all four protection combinations,
+raw and compression-enabled. High-entropy input exercises incompressible fallback.
+No compilation or tests overlapped benchmark timing. Pattern summarization ran
+briefly while the random broad run was active; all focused runs were isolated.
+/tmp lacked fixture space, so fixtures used the worktree's ignored target folder.
+
+Broad runs: 5 paired groups per corpus, ABBA/BAAB order, child samples=3,
+first sample discarded; 320 measured rows per corpus, 640 total.
+REVAULT_GATE_CHILD_SAMPLES=3 taskset -c 2 NATIVE compare-write DEFAULT NATIVE ROOT
+8388608 pattern|random 5 all
+Roots: rust/target/issue310-write-audit-{pattern,random}
+
+All raw pattern cases and all high-entropy cases show clear improvements:
+paired central changes -37% to -52%, with upper 95% bounds below zero. These
+measurements compare lockbox layouts, not ZIP. Compressed pattern cases are
+much closer; three broad intervals exceeded the +5% non-regression threshold.
+
+Prespecified follow-up of those three cases: 15 paired groups each, child
+samples=6, one warmup discarded, 300 measured rows per case (150 per layout).
+REVAULT_GATE_CHILD_SAMPLES=6 taskset -c 2 NATIVE compare-write DEFAULT NATIVE ROOT
+8388608 pattern 15 MODE/true/write
+Roots: rust/target/issue310-write-focus-MODE
+MODE is encrypted, signed, or encrypted-signed.
+All raw observations and both broad/focused summaries are preserved.
+
+Focused compressed-pattern paired changes and 95% intervals:
+  encrypted:        +2.212% [ +0.860%, +3.642% ]
+  signed:           +1.085% [ +0.142%, +2.896% ]
+  encrypted-signed: +2.802% [ -1.488%, +6.686% ]
+The first two demonstrate small regressions within the +5% threshold. The third
+remains inconclusive for that gate and is not declared passed. The summarizer
+resamples whole paired groups; pooled medians need not equal paired estimates.
+Five broad groups give limited precision. These results are not a universal
+write-speed guarantee and are not evidence of full goal completion.
+
+Next gate work: investigate compressed encrypted-signed write overhead, then
+small-many and other size write/load cases. Read ZIP parity, native page-cache
+integration, signed recovery, migration/bindings/release and default activation
+remain outstanding. No implementation changes or new correctness test claims
+in this evidence-only checkpoint; all 1540 measured write rows include successful
+independent persisted byte verification, in addition to discarded warmup runs.

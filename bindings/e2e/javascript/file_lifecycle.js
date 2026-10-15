@@ -11,6 +11,23 @@ const runtime = await Revault.load();
 const key = Buffer.alloc(32, 75);
 process.env.LOCKBOX_LOCK_TIMEOUT_MS = '60';
 
+test('password default supports explicit writes and read intent overrides signer', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'revault-js-password-'));
+  const archive = path.join(root, 'archive.lbox');
+  const password = Buffer.from('unsigned password fixture');
+  const signer = runtime.generateProfileSigningKeyPair();
+  try {
+    let box = Lockbox.create(archive, {password});
+    try { box.addFile('/hello', Buffer.from('original'), false); box.commit(); } finally { box.close(); }
+    box = Lockbox.open(archive, {password, signingKey: signer, writable: false});
+    try { assert.equal(box.getFile('/hello').toString(), 'original'); assert.throws(() => box.commit(), RevaultError); } finally { box.close(); }
+    box = Lockbox.open(archive, {password, writable: true});
+    try { box.addFile('/hello', Buffer.from('replacement'), true); box.commit(); } finally { box.close(); }
+    box = Lockbox.open(archive, {password});
+    try { assert.equal(box.getFile('/hello').toString(), 'replacement'); assert.throws(() => box.commit(), RevaultError); } finally { box.close(); }
+  } finally { signer.close(); fs.rmSync(root, {recursive: true, force: true}); }
+});
+
 test('native file lifecycle, shared readers, writer exclusion and replacement', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'revault-js-'));
   const archive = path.join(root, 'résumé.lbox');

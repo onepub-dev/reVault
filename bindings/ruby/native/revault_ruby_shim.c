@@ -63,6 +63,8 @@ static RevaultBuffer (*selected_vault_directory_profile_email)(const void *handl
 static RevaultBuffer (*selected_vault_directory_load_backup)(const void *handle, const uint8_t *id, size_t id_len);
 static RevaultBuffer (*selected_vault_directory_list_profile_generations)(const void *handle, const char *name, size_t name_len);
 static RevaultBuffer (*selected_vault_directory_rotate_private_key)(const void *handle, const char *name, size_t name_len);
+static RevaultBuffer (*selected_vault_directory_list_lockbox_aliases)(const void *handle);
+static RevaultBuffer (*selected_vault_directory_resolve_lockbox_alias)(const void *handle, const char *name, size_t name_len);
 static RevaultBuffer (*selected_vault_directory_list_known_lockboxes)(const void *handle);
 static RevaultBuffer (*selected_vault_directory_list_access_slot_labels)(const void *handle, const uint8_t *id, size_t id_len);
 static RevaultBuffer (*selected_vault_directory_find_access_slot_labels)(const void *handle, const uint8_t *id, size_t id_len, const char *name, size_t name_len);
@@ -76,6 +78,8 @@ static RevaultBuffer (*selected_vault_restore_default)(const char *path, size_t 
 static RevaultBuffer (*selected_vault_read_only_list_profile_names)(const void *handle);
 static RevaultBuffer (*selected_vault_read_only_list_contact_names)(const void *handle);
 static RevaultBuffer (*selected_vault_read_only_list_form_aliases)(const void *handle);
+static RevaultBuffer (*selected_vault_read_only_list_lockbox_aliases)(const void *handle);
+static RevaultBuffer (*selected_vault_read_only_resolve_lockbox_alias)(const void *handle, const char *name, size_t name_len);
 static RevaultBuffer (*selected_vault_read_only_list_known_lockboxes)(const void *handle);
 static RevaultBuffer (*selected_vault_agent_get)(const uint8_t *id, size_t id_len);
 static RevaultBuffer (*selected_vault_agent_list)(void);
@@ -150,6 +154,8 @@ void ruby_bind_library(void *(*resolve)(const char *)) {
   selected_vault_directory_load_backup = (RevaultBuffer (*)(const void *handle, const uint8_t *id, size_t id_len))resolve("vault_directory_load_backup");
   selected_vault_directory_list_profile_generations = (RevaultBuffer (*)(const void *handle, const char *name, size_t name_len))resolve("vault_directory_list_profile_generations");
   selected_vault_directory_rotate_private_key = (RevaultBuffer (*)(const void *handle, const char *name, size_t name_len))resolve("vault_directory_rotate_private_key");
+  selected_vault_directory_list_lockbox_aliases = (RevaultBuffer (*)(const void *handle))resolve("vault_directory_list_lockbox_aliases");
+  selected_vault_directory_resolve_lockbox_alias = (RevaultBuffer (*)(const void *handle, const char *name, size_t name_len))resolve("vault_directory_resolve_lockbox_alias");
   selected_vault_directory_list_known_lockboxes = (RevaultBuffer (*)(const void *handle))resolve("vault_directory_list_known_lockboxes");
   selected_vault_directory_list_access_slot_labels = (RevaultBuffer (*)(const void *handle, const uint8_t *id, size_t id_len))resolve("vault_directory_list_access_slot_labels");
   selected_vault_directory_find_access_slot_labels = (RevaultBuffer (*)(const void *handle, const uint8_t *id, size_t id_len, const char *name, size_t name_len))resolve("vault_directory_find_access_slot_labels");
@@ -163,6 +169,8 @@ void ruby_bind_library(void *(*resolve)(const char *)) {
   selected_vault_read_only_list_profile_names = (RevaultBuffer (*)(const void *handle))resolve("vault_read_only_list_profile_names");
   selected_vault_read_only_list_contact_names = (RevaultBuffer (*)(const void *handle))resolve("vault_read_only_list_contact_names");
   selected_vault_read_only_list_form_aliases = (RevaultBuffer (*)(const void *handle))resolve("vault_read_only_list_form_aliases");
+  selected_vault_read_only_list_lockbox_aliases = (RevaultBuffer (*)(const void *handle))resolve("vault_read_only_list_lockbox_aliases");
+  selected_vault_read_only_resolve_lockbox_alias = (RevaultBuffer (*)(const void *handle, const char *name, size_t name_len))resolve("vault_read_only_resolve_lockbox_alias");
   selected_vault_read_only_list_known_lockboxes = (RevaultBuffer (*)(const void *handle))resolve("vault_read_only_list_known_lockboxes");
   selected_vault_agent_get = (RevaultBuffer (*)(const uint8_t *id, size_t id_len))resolve("vault_agent_get");
   selected_vault_agent_list = (RevaultBuffer (*)(void))resolve("vault_agent_list");
@@ -419,6 +427,22 @@ void ruby_vault_directory_list_profile_generations(const void *handle, const cha
 
 void ruby_vault_directory_rotate_private_key(const void *handle, const char *name, size_t name_len, RevaultBuffer *out) {
   if (out != NULL) *out = selected_vault_directory_rotate_private_key(handle, name, name_len);
+}
+
+void ruby_vault_directory_list_lockbox_aliases(const void *handle, RevaultBuffer *out) {
+  if (out != NULL) *out = selected_vault_directory_list_lockbox_aliases(handle);
+}
+
+void ruby_vault_directory_resolve_lockbox_alias(const void *handle, const char *name, size_t name_len, RevaultBuffer *out) {
+  if (out != NULL) *out = selected_vault_directory_resolve_lockbox_alias(handle, name, name_len);
+}
+
+void ruby_vault_read_only_list_lockbox_aliases(const void *handle, RevaultBuffer *out) {
+  if (out != NULL) *out = selected_vault_read_only_list_lockbox_aliases(handle);
+}
+
+void ruby_vault_read_only_resolve_lockbox_alias(const void *handle, const char *name, size_t name_len, RevaultBuffer *out) {
+  if (out != NULL) *out = selected_vault_read_only_resolve_lockbox_alias(handle, name, name_len);
 }
 
 void ruby_vault_directory_list_known_lockboxes(const void *handle, RevaultBuffer *out) {

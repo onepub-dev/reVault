@@ -1,0 +1,11 @@
+{
+  "restored_from": "a881d15de5710527c60a8584147d9f5110c00a33",
+  "files": [
+    "rust/revault_lockbox_api/src/lockbox/extraction.rs",
+    "rust/revault_lockbox_api/src/lockbox/files.rs",
+    "rust/revault_lockbox_api/src/storage/page_cache.rs"
+  ],
+  "byte_identical_to_restored_revision": true,
+  "new_full_suite": "not rerun for exact restoration",
+  "preserved": "Earlier single-file32+8MiB cache and bounded credential opens; all raw/compressed trial evidence and binaries."
+}

@@ -1,0 +1,4 @@
+cwd=/tmp/rv-security-cli-isolated-20261013/source/rust
+env=CARGO_TARGET_DIR=/tmp/rv-security-cli-isolated-20261013/target CARGO_BUILD_JOBS=2 TMPDIR=/home/bsutton/.cache/rv4-security-20261011
+command=/tmp/rv-security-cli-isolated-20261013/target/release/deps/migration_cli-c8a2ed1e0ad1509c --nocapture --test-threads=1
+timeout=1200s + 30s kill grace

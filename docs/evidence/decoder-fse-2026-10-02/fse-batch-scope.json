@@ -1,0 +1,38 @@
+{
+  "compiler": "rustc 1.88.0",
+  "baseline": "qualified checksum fix, frozen tree-resource-checksum88 / tree-driver-checksum88",
+  "candidate": "isolated FSE state-formula trial, frozen tree-resource-fse88 / tree-driver-fse88",
+  "access": "stream",
+  "passes": 1,
+  "samples": 30,
+  "warmup_pairs": 3,
+  "workers": 1,
+  "cpu_affinity": "CPU 2",
+  "runner": "/tmp/revault-shared-read-runner compare-existing; three workers ZIP, checksum baseline and FSE candidate; alternating pair order",
+  "cases": [
+    {
+      "name": "large-compressed",
+      "root": "/tmp/revault-typed-read-20261002/fixtures/large-compressed",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/compressed256",
+      "unit": 262144
+    },
+    {
+      "name": "large-protected",
+      "root": "/tmp/revault-typed-read-20261002/fixtures/large-protected",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/compressed-encrypted-signed",
+      "unit": 262144
+    },
+    {
+      "name": "small-plain",
+      "root": "/tmp/revault-typed-read-20261002/fixtures/small-plain",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/small",
+      "unit": 262144
+    },
+    {
+      "name": "large-raw",
+      "root": "/tmp/revault-typed-read-20261002/fixtures/large-raw",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/raw64",
+      "unit": 65536
+    }
+  ]
+}

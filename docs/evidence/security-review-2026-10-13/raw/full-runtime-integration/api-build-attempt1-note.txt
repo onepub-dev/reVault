@@ -1,0 +1,1 @@
+Attempt 1 launched from worktree root and failed before Cargo build because Cargo.toml is under rust/. Preserved command and error in the 2026-10-12 evidence directory.

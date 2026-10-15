@@ -159,6 +159,51 @@ mod tests {
         .unwrap()
     }
 
+    fn replace_fixture_payload(
+        lb: &mut Lockbox,
+        offset: u64,
+        payload: Vec<u8>,
+    ) -> crate::file_format::page_commitment::PageCommitment {
+        let original = lb.read_page(offset).unwrap();
+        assert_eq!(original.objects.len(), 1);
+        let page = crate::page::DecodedPage {
+            page_id: original.page_id,
+            sequence: original.sequence,
+            objects: vec![PageObject::new(
+                original.objects[0].kind,
+                original.objects[0].id,
+                payload,
+            )],
+        };
+        let physical_len = lb.page_len_at(offset).unwrap();
+        let encoded = lb
+            .key
+            .with_bytes(|key| {
+                crate::page::encode_page_with_format(
+                    physical_len as usize,
+                    lb.lockbox_id,
+                    page.page_id,
+                    page.sequence,
+                    key,
+                    &page.objects,
+                    lb.format_mode,
+                )
+            })
+            .unwrap()
+            .unwrap();
+        assert_eq!(encoded.len() as u64, physical_len);
+        let commitment = crate::file_format::page_commitment::PageCommitment::from_page(
+            lb.lockbox_id,
+            lb.format_mode,
+            physical_len,
+            &page,
+        )
+        .unwrap();
+        lb.storage.write_at(offset, &encoded).unwrap();
+        lb.page_manager.borrow_mut().clear();
+        commitment
+    }
+
     fn with_free_suffix() -> (Lockbox, u64) {
         let mut lb = Lockbox::create("tail test");
         lb.add_file(&path("/keep"), b"retained contents", false)
@@ -202,6 +247,45 @@ mod tests {
             .unwrap()
             .unwrap();
         lb.storage.write_at(index, &encoded).unwrap();
+        lb.page_manager.borrow_mut().clear();
+        let commitment = crate::file_format::page_commitment::PageCommitment::from_page(
+            lb.lockbox_id,
+            lb.format_mode,
+            encoded.len() as u64,
+            &lb.read_page(index).unwrap(),
+        )
+        .unwrap();
+        // This fixture is an authorized alternate allocation, not an unchecked
+        // index edit: update every reference and re-sign the selected root.
+        let mut root = lb.read_commit_root_at(lb.commit_root_offset).unwrap();
+        if root.free_index_root_offset == index {
+            root.free_index_root_commitment = commitment;
+        }
+        if root.post_cleanup_free_index_root_offset == index {
+            root.post_cleanup_free_index_root_commitment = commitment;
+        }
+        lb.free_index_commitment = commitment;
+        if lb.post_cleanup_free_index_offset == index {
+            lb.post_cleanup_free_index_commitment = commitment;
+        }
+        let root_payload = crate::commit_root::encode_commit_root(&root);
+        let root_digest = crate::crypto::strong_checksum(&root_payload);
+        let root_offset = lb.commit_root_offset;
+        replace_fixture_payload(&mut lb, root_offset, root_payload);
+        let mut auth = crate::commit_auth::decode_commit_auth(
+            &lb.read_commit_auth_payload_at(lb.commit_auth_offset)
+                .unwrap(),
+        )
+        .unwrap();
+        auth.commit_root_digest = root_digest;
+        auth.signatures = lb
+            .require_owner_signing_key()
+            .unwrap()
+            .sign(&crate::commit_auth::commit_auth_message(&auth).unwrap());
+        let auth_payload = crate::commit_auth::encode_commit_auth(&auth).unwrap();
+        lb.commit_auth_digest = crate::commit_auth::commit_auth_digest(&auth_payload);
+        let auth_offset = lb.commit_auth_offset;
+        replace_fixture_payload(&mut lb, auth_offset, auth_payload);
         lb.storage.append(&vec![0; 1024 * 1024]).unwrap();
         lb.free_space.replace_slots(slots);
         lb.page_manager.borrow_mut().clear();

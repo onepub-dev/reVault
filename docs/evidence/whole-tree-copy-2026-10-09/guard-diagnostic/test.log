@@ -1,0 +1,22 @@
+
+running 1 test
+test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_preserves_selected_history_and_lineage_all_modes ... 
+thread 'file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_preserves_selected_history_and_lineage_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/compaction.rs:14:3:
+ordinary payload read during relocation/readback
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: revault_lockbox_api::file_format::data_extent::Codec::load
+   3: revault_lockbox_api::file_format::candidate_files::dense_image::Image<S>::verify_all
+   4: revault_lockbox_api::file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_preserves_selected_history_and_lineage_all_modes
+   5: core::ops::function::FnOnce::call_once
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+
+failures:
+
+failures:
+    file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_preserves_selected_history_and_lineage_all_modes
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 629 filtered out; finished in 1.05s
+

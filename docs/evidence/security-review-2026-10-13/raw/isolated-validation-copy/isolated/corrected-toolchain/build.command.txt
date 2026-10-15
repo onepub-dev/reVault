@@ -1,0 +1,6 @@
+fresh_target=/tmp/rv-security-cli-isolated-20261013/target-pinned-188-final
+RUSTUP_TOOLCHAIN=1.88.0
+CARGO_BUILD_JOBS=2
+TMPDIR=/home/bsutton/.cache/rv4-security-20261011
+command=cargo +1.88.0 test --locked --offline --release --no-run -p revault_cli --test migration_cli --test publish_integration
+timeout=900s + 30s kill grace

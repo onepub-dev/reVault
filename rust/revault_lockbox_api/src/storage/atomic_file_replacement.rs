@@ -1,4 +1,4 @@
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 
 use crate::{Error, Result};
@@ -18,12 +18,7 @@ impl AtomicFileReplacement {
         let process_id = std::process::id();
         for attempt in 0..1000u64 {
             let temp_path = parent.join(format!("{stem}-{process_id}-{attempt}.tmp"));
-            match OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create_new(true)
-                .open(&temp_path)
-            {
+            match super::private_archive_file::create(&temp_path) {
                 Ok(file) => {
                     return Ok((
                         Self {
@@ -62,6 +57,15 @@ impl AtomicFileReplacement {
         })
     }
 
+    // Private experimental recovery already validated both locked paths.
+    #[cfg(test)]
+    pub(crate) fn existing_for_test(destination: &Path, temporary: &Path) -> Self {
+        Self {
+            destination: destination.to_path_buf(),
+            temp_path: temporary.to_path_buf(),
+        }
+    }
+
     pub(crate) fn temp_path(&self) -> &Path {
         &self.temp_path
     }
@@ -70,6 +74,7 @@ impl AtomicFileReplacement {
         let _ = fs::remove_file(&self.temp_path);
     }
 
+    #[cfg(any(test, feature = "migration", feature = "bindings"))]
     pub(crate) fn install(&self) -> Result<()> {
         self.publish()?;
         self.sync_parent()

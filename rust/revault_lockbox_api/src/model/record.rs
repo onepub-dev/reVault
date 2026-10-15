@@ -23,5 +23,4 @@ pub(crate) struct DecodedRecord {
     pub(crate) header: RecordHeader,
     pub(crate) offset: u64,
     pub(crate) object_id: u64,
-    pub(crate) payload: Vec<u8>,
 }

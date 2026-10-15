@@ -1,0 +1,14 @@
+    Checking revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+error: method `with_form_field_value` is never used
+   --> revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs:222:12
+    |
+180 | impl<S: Storage> TreeImage<S> {
+    | ----------------------------- method in this implementation
+...
+222 |     pub fn with_form_field_value<R>(&self, path: &LockboxPath, id: &str, f: impl FnOnce(&crate::FormValue)->R) -> Result<Option<R>> {
+    |            ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `-D dead-code` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(dead_code)]`
+
+error: could not compile `revault_lockbox_api` (lib test) due to 1 previous error

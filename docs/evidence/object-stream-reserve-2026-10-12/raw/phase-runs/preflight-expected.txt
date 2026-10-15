@@ -1,0 +1,5 @@
+tools/object-stream-reserve.dart: e6a6ed3baf0b4d357dbcd66c1a4398d0bd7baedff711fca2cdae9e9dad372bd8
+tools/summarize-object-stream-reserve.dart: 4a066f2f97b4497fb446798871c319a32b347a09bd065f0f4fc81f87ad82ed1e
+docs/evidence/object-stream-reserve-2026-10-12/README.md: 1a670b7bb8243df5af60f1b1a4f68ff252770587c97219d71b67183449429b2a
+rust/target/object-stream-reserve-20261012/bin/lockbox-new: dd93a8c63bc431fcb1faea5debf682e8ea9868b2fe648a89daeac0b53e7d59c3
+rust/target/public-zip-comparison-20261012/bin/lockbox-current: 08bf819f90c3b77a7e69f0639c7bd5f73dde275b6e13f0d443a3285fe98d00f2

@@ -1,0 +1,227 @@
+{
+  "case": "raw64m-random-stream",
+  "access": "stream",
+  "repeat_opens": 20,
+  "verified": true,
+  "archive_sha256": "0c098194eb7cfe027762af2a933f96a814854366773cd3bf6d67f9efeacf6775",
+  "phases": {
+    "first_read": {
+      "median_seconds": 0.0426769185,
+      "functions": {
+        "index_decode": {
+          "median_seconds": 0.00014735699999999998,
+          "median_calls": 3.0,
+          "median_failures": 0.0
+        },
+        "lookup_file": {
+          "median_seconds": 0.000073136,
+          "median_calls": 1.0,
+          "median_failures": 0.0
+        },
+        "lookup_format": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "lookup_fragment": {
+          "median_seconds": 0.0004422115000000002,
+          "median_calls": 1024.0,
+          "median_failures": 0.0
+        },
+        "lookup_pack": {
+          "median_seconds": 0.0003870699999999954,
+          "median_calls": 1024.0,
+          "median_failures": 0.0
+        },
+        "payload_checksum": {
+          "median_seconds": 0.03218213450000002,
+          "median_calls": 1024.0,
+          "median_failures": 0.0
+        },
+        "payload_load": {
+          "median_seconds": 0.04030763849999999,
+          "median_calls": 1024.0,
+          "median_failures": 0.0
+        },
+        "verified_index_page": {
+          "median_seconds": 0.00012113300000000001,
+          "median_calls": 3.0,
+          "median_failures": 0.0
+        }
+      },
+      "median_storage": {
+        "failed_calls": 0.0,
+        "length_calls": 3.0,
+        "length_seconds": 0.00000308,
+        "read_calls": 1027.0,
+        "read_into_calls": 0.0,
+        "read_seconds": 0.007998132500000008,
+        "requested_bytes": 67305472.0
+      },
+      "received_bytes": 67108864
+    },
+    "format_lookup": {
+      "median_seconds": 0.000157107,
+      "functions": {
+        "index_decode": {
+          "median_seconds": 0.000072447,
+          "median_calls": 2.0,
+          "median_failures": 0.0
+        },
+        "lookup_file": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "lookup_format": {
+          "median_seconds": 0.000156777,
+          "median_calls": 1.0,
+          "median_failures": 0.0
+        },
+        "lookup_fragment": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "lookup_pack": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "payload_checksum": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "payload_load": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "verified_index_page": {
+          "median_seconds": 0.000080135,
+          "median_calls": 2.0,
+          "median_failures": 0.0
+        }
+      },
+      "median_storage": {
+        "failed_calls": 0.0,
+        "length_calls": 2.0,
+        "length_seconds": 0.00000135,
+        "read_calls": 2.0,
+        "read_into_calls": 0.0,
+        "read_seconds": 0.000015585,
+        "requested_bytes": 131072.0
+      }
+    },
+    "repeat_read": {
+      "median_seconds": 0.0422884575,
+      "functions": {
+        "index_decode": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "lookup_file": {
+          "median_seconds": 7.05e-7,
+          "median_calls": 1.0,
+          "median_failures": 0.0
+        },
+        "lookup_format": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "lookup_fragment": {
+          "median_seconds": 0.00034506700000000077,
+          "median_calls": 1024.0,
+          "median_failures": 0.0
+        },
+        "lookup_pack": {
+          "median_seconds": 0.00030074399999999776,
+          "median_calls": 1024.0,
+          "median_failures": 0.0
+        },
+        "payload_checksum": {
+          "median_seconds": 0.032172707500000064,
+          "median_calls": 1024.0,
+          "median_failures": 0.0
+        },
+        "payload_load": {
+          "median_seconds": 0.040167251999999994,
+          "median_calls": 1024.0,
+          "median_failures": 0.0
+        },
+        "verified_index_page": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        }
+      },
+      "median_storage": {
+        "failed_calls": 0.0,
+        "length_calls": 0.0,
+        "length_seconds": 0.0,
+        "read_calls": 1024.0,
+        "read_into_calls": 0.0,
+        "read_seconds": 0.007838719000000003,
+        "requested_bytes": 67108864.0
+      },
+      "received_bytes": 67108864
+    },
+    "selected_publication": {
+      "median_seconds": 0.0001019765,
+      "functions": {
+        "index_decode": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "lookup_file": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "lookup_format": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "lookup_fragment": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "lookup_pack": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "payload_checksum": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "payload_load": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        },
+        "verified_index_page": {
+          "median_seconds": 0.0,
+          "median_calls": 0.0,
+          "median_failures": 0.0
+        }
+      },
+      "median_storage": {
+        "failed_calls": 0.0,
+        "length_calls": 3.0,
+        "length_seconds": 0.00000213,
+        "read_calls": 5.0,
+        "read_into_calls": 0.0,
+        "read_seconds": 0.0000120155,
+        "requested_bytes": 73728.0
+      }
+    }
+  }
+}

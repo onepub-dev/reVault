@@ -30,22 +30,26 @@ public final class SleepSupport extends Table {
   public boolean suspendNotifications() { int o = __offset(4); return o != 0 ? 0!=bb.get(o + bb_pos) : false; }
   public boolean sleepInhibition() { int o = __offset(6); return o != 0 ? 0!=bb.get(o + bb_pos) : false; }
   public boolean supported() { int o = __offset(8); return o != 0 ? 0!=bb.get(o + bb_pos) : false; }
+  public boolean cacheClearingActive() { int o = __offset(10); return o != 0 ? 0!=bb.get(o + bb_pos) : false; }
 
   public static int createSleepSupport(FlatBufferBuilder builder,
       boolean suspendNotifications,
       boolean sleepInhibition,
-      boolean supported) {
-    builder.startTable(3);
+      boolean supported,
+      boolean cacheClearingActive) {
+    builder.startTable(4);
+    SleepSupport.addCacheClearingActive(builder, cacheClearingActive);
     SleepSupport.addSupported(builder, supported);
     SleepSupport.addSleepInhibition(builder, sleepInhibition);
     SleepSupport.addSuspendNotifications(builder, suspendNotifications);
     return SleepSupport.endSleepSupport(builder);
   }
 
-  public static void startSleepSupport(FlatBufferBuilder builder) { builder.startTable(3); }
+  public static void startSleepSupport(FlatBufferBuilder builder) { builder.startTable(4); }
   public static void addSuspendNotifications(FlatBufferBuilder builder, boolean suspendNotifications) { builder.addBoolean(0, suspendNotifications, false); }
   public static void addSleepInhibition(FlatBufferBuilder builder, boolean sleepInhibition) { builder.addBoolean(1, sleepInhibition, false); }
   public static void addSupported(FlatBufferBuilder builder, boolean supported) { builder.addBoolean(2, supported, false); }
+  public static void addCacheClearingActive(FlatBufferBuilder builder, boolean cacheClearingActive) { builder.addBoolean(3, cacheClearingActive, false); }
   public static int endSleepSupport(FlatBufferBuilder builder) {
     int o = builder.endTable();
     return o;
@@ -69,6 +73,8 @@ public final class SleepSupport extends Table {
     _o.setSleepInhibition(_oSleepInhibition);
     boolean _oSupported = supported();
     _o.setSupported(_oSupported);
+    boolean _oCacheClearingActive = cacheClearingActive();
+    _o.setCacheClearingActive(_oCacheClearingActive);
   }
   public static int pack(FlatBufferBuilder builder, SleepSupportT _o) {
     if (_o == null) return 0;
@@ -76,6 +82,7 @@ public final class SleepSupport extends Table {
       builder,
       _o.getSuspendNotifications(),
       _o.getSleepInhibition(),
-      _o.getSupported());
+      _o.getSupported(),
+      _o.getCacheClearingActive());
   }
 }

@@ -1,0 +1,10 @@
+Fri Oct  2 13:37:26 UTC 2026
+ 23:37:26 up 20 days, 11:32,  1 user,  load average: 0.84, 0.95, 1.16
+pid 2989265's current affinity list: 0-15
+  63928       1 Sl   containerd-shim /usr/bin/containerd-shim-runc-v2 -namespace moby -id 09082d5445c708a0695ae005f31fdbce33730e6af5842e95182e5f8d7df36b9c -address /run/containerd/containerd.sock
+ 854829    6145 Sl   dart:log_collec /home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dartvm --resolved_executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart --executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart /home/bsutton/.pub-cache/hosted/pub.dev/fdb-1.10.1/bin/log_collector.dart ws://127.0.0.1:36763/LuhcwbMAHso=/ws /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/logs.txt /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/log_collector.pid
+ 863918    6145 Sl   dart:log_collec /home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dartvm --resolved_executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart --executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart /home/bsutton/.pub-cache/hosted/pub.dev/fdb-1.10.1/bin/log_collector.dart ws://127.0.0.1:36965/P9foASZlpCc=/ws /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/logs.txt /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/log_collector.pid
+1217376    6145 SLl  lbx             /home/bsutton/.cargo/bin/lbx __agent
+2580422       1 Ssl  op_monitor_code /opt/onepub/op_monitor/bin/op_monitor_codex_runner --config /opt/onepub/op_monitor/codex-runner/config.yaml --client-uid 2102
+2989265 2090218 Ss   bash            /bin/bash -lc { date -u; uptime; taskset -pc $$; ps -eo pid,ppid,stat,comm,args | rg -i 'cargo|rustc|revault|hmb|test|runner|fdb|lbx|perf' | head -100; } > /tmp/revault-typed-read-20261002/profiles-pinned88/host-context-after.txt; sha256sum /tmp/revault-typed-read-20261002/tree-resource-pinned88 > /tmp/revault-typed-read-20261002/profiles-pinned88/binary-after.sha256
+2989327 2989265 S    rg              rg -i cargo|rustc|revault|hmb|test|runner|fdb|lbx|perf

@@ -63,44 +63,8 @@ jobs:
           REVAULT_HEADLESS_CLI: /tmp/revault-installed/bin/lockbox
         run: cargo test --locked -p revault_tooling --features installed-cli-tests --test installed_headless -- --nocapture
 
-  api-msrv:
-    name: Public APIs / Rust 1.88
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: rust
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust 1.88
-        uses: dtolnay/rust-toolchain@1.88.0
-
-      - name: Cache Cargo
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-          key: api-msrv-1.88
-
-      - name: Install Linux dependencies
-        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
-
-      - name: Check public APIs at MSRV
-        run: >-
-          cargo check
-          -p "$(cargo pkgid --manifest-path revault_page_api/Cargo.toml)"
-          -p "$(cargo pkgid --manifest-path revault_lockbox_api/Cargo.toml)"
-          -p "$(cargo pkgid --manifest-path revault_vault_api/Cargo.toml)"
-          --all-targets
-          --locked
-
-      - name: Check published Rust binding at MSRV
-        run: cargo check --manifest-path ../bindings/rust/Cargo.toml
-
   tooling-msrv:
-    name: Tooling / Rust 1.88
+    name: Workspace and Rust binding / Rust 1.88
     runs-on: ubuntu-latest
 
     defaults:
@@ -125,6 +89,10 @@ jobs:
 
       - name: Check workspace at MSRV
         run: cargo check --workspace --all-targets --locked
+
+      # The public APIs are workspace members; the published facade is separate.
+      - name: Check published Rust binding at MSRV
+        run: cargo check --manifest-path ../bindings/rust/Cargo.toml
 
   linux-quality:
     name: Linux formatting and Clippy
@@ -190,6 +158,9 @@ jobs:
             command: |
               cargo test --locked -p "$(cargo pkgid --manifest-path revault_page_api/Cargo.toml)"
               test_api revault_lockbox_api public_api_suite
+          - group: secure APIs external-source
+            cache: secure-apis-external-source
+            command: |
               cargo test --locked -p "$(cargo pkgid --manifest-path revault_lockbox_api/Cargo.toml)" --features external-source --lib --test external_source
               cargo test --locked -p "$(cargo pkgid --manifest-path revault_lockbox_api/Cargo.toml)" --features external-source --doc
           # CLI suites run once in cli-e2e, including command coverage enforcement.
@@ -312,6 +283,8 @@ jobs:
           cargo test --locked -p revault_lockbox_api symlink
           cargo test --locked -p revault_lockbox_api create_path
           cargo test --locked -p revault_lockbox_api packed_page_relocation_updates_the_survivor_page_length
+          cargo test --locked -p revault_lockbox_api secure_output --lib
+          cargo test --locked -p revault_lockbox_api private_archive --lib
 
       - name: Agent IPC smoke test
         run: cargo test -p revault_cli --test agent_flow -- --nocapture
@@ -396,6 +369,12 @@ jobs:
 
       - name: Run realistic CLI E2E contract
         run: ${{ matrix.command }}
+
+      - name: Deterministic mirror preparation rollback
+        if: runner.os == 'Linux'
+        run: >-
+          cargo test --locked -p revault_cli --features e2e-test-hooks
+          --test mirror_cli changed_source_after_preparation -- --nocapture
 
   fuzz-harnesses:
     if: github.workflow != 'Release candidate'

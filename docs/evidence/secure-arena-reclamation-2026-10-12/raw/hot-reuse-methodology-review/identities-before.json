@@ -1,0 +1,61 @@
+{
+  "old_binary": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/secure-arena-reclamation-20261012/old/build-target/release/examples/securevec_hot_reuse",
+    "sha256": "129d3a37948a29a1ce620eaafbaa475539b7d600055297c38f671b13d2049ae4"
+  },
+  "new_binary": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/secure-arena-reclamation-20261012/new/build-target/release/examples/securevec_hot_reuse",
+    "sha256": "cea3324ff4122224431a7ca0320fc591482ae757b6a43ef711214ed51de5406e"
+  },
+  "old_hot_source": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/secure-arena-reclamation-20261012/old/rust/revault_page_api/examples/securevec_hot_reuse.rs",
+    "sha256": "e96a48dc7891e439d3d97b7025aec88855bdc39b05aac8586d2160eb99c7dc4e"
+  },
+  "new_hot_source": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/secure-arena-reclamation-20261012/new/rust/revault_page_api/examples/securevec_hot_reuse.rs",
+    "sha256": "e96a48dc7891e439d3d97b7025aec88855bdc39b05aac8586d2160eb99c7dc4e"
+  },
+  "reviewed_source_snapshot": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/securevec_hot_reuse.rs.txt",
+    "sha256": "e96a48dc7891e439d3d97b7025aec88855bdc39b05aac8586d2160eb99c7dc4e"
+  },
+  "old_manifest": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/hot-old-isolated-manifest.sha256",
+    "sha256": "4d5fcdef952c0ec7b91c0790d0a40da3cd29383e7b0950cc4bd9ec49df3d8a8d"
+  },
+  "new_manifest": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/hot-new-isolated-manifest.sha256",
+    "sha256": "ba27a19a105718050a35d0f27d24975f31c65d76a2a7c9ca8f710b1f4491647a"
+  },
+  "old_lock": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/secure-arena-reclamation-20261012/old/rust/revault_page_api/Cargo.lock",
+    "sha256": "3e10c3e09d578a970c1f12da720ed4b200005e86513c404d1463a84c390cbc18"
+  },
+  "new_lock": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/secure-arena-reclamation-20261012/new/rust/revault_page_api/Cargo.lock",
+    "sha256": "3e10c3e09d578a970c1f12da720ed4b200005e86513c404d1463a84c390cbc18"
+  },
+  "old_manifest_toml": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/secure-arena-reclamation-20261012/old/rust/revault_page_api/Cargo.toml",
+    "sha256": "7318532330e61a9c3c35da37de982a863cab649dc491a217d104df1bf2cbb2cf"
+  },
+  "new_manifest_toml": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/secure-arena-reclamation-20261012/new/rust/revault_page_api/Cargo.toml",
+    "sha256": "7318532330e61a9c3c35da37de982a863cab649dc491a217d104df1bf2cbb2cf"
+  },
+  "runner": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/run-hot-reuse.dart",
+    "sha256": "e24836f33a82ca0dfcd8b7544bb7bc4a7898952f93d5e46516d5eee3ef203e37"
+  },
+  "analyzer": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/analyze-hot-reuse.dart",
+    "sha256": "8e7eae120e2f4b5fcc01c18be6d08f0f468d10c7bfb331424f70bea760f5b519"
+  },
+  "protocol": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/protocol.txt",
+    "sha256": "4f32b9eff3677f456673ead51d8fbf5cd89f35d30c477d6986c045ac285f1cb0"
+  },
+  "execution_mode": {
+    "label": "hot-reuse-fixed-56-v1"
+  }
+}

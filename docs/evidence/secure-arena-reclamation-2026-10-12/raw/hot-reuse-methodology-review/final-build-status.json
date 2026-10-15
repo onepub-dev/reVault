@@ -1,0 +1,6 @@
+{
+  "old": {"exit_code": 0, "cargo_release_build_seconds": 0.32, "timeout_seconds": 300, "binary": "rust/target/secure-arena-reclamation-20261012/old/build-target/release/examples/securevec_hot_reuse", "sha256": "129d3a37948a29a1ce620eaafbaa475539b7d600055297c38f671b13d2049ae4"},
+  "new": {"exit_code": 0, "cargo_release_build_seconds": 0.31, "timeout_seconds": 300, "binary": "rust/target/secure-arena-reclamation-20261012/new/build-target/release/examples/securevec_hot_reuse", "sha256": "cea3324ff4122224431a7ca0320fc591482ae757b6a43ef711214ed51de5406e"},
+  "preserved_pressure_binary_sha256": {"old": "41aef6203064b597f982c5da5cbaff5bf5a6ea488c443cc48d9fe1e9fb8fffa2", "new": "45b9aff04ae6e2c7e255cb09459e00036e033d1473828160b6aa4c68fb077fdf"},
+  "timing_started": false
+}

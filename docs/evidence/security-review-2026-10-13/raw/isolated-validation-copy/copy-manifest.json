@@ -1,0 +1,1082 @@
+{
+  "kind": "sanitized_isolated_validation_evidence_copy",
+  "source_root": "/tmp/rv-security-cli-isolated-20261013/validation",
+  "destination_root": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/security-review-2026-10-13/raw/isolated-validation-copy",
+  "source_validation_file_count": 125,
+  "copied_file_count": 129,
+  "excluded_marker_hit_file_count": 3,
+  "excluded_marker_hits": [
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/add-syntax-correction/before-1.txt",
+      "bytes": 33305,
+      "sha256": "f330482efff87b97bbee2a18c2528e6c021a1626bd3c1a77500a134f9d285539",
+      "disposition": "excluded because broad marker scan matched; marker requires classification; not asserted to be secret"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/add-syntax-correction/before-2.txt",
+      "bytes": 33305,
+      "sha256": "f330482efff87b97bbee2a18c2528e6c021a1626bd3c1a77500a134f9d285539",
+      "disposition": "excluded because broad marker scan matched; marker requires classification; not asserted to be secret"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/migration_cli-current-overlay.diff",
+      "bytes": 8673,
+      "sha256": "76256a5a2ed2640209456252b895ce17c3482e8fc6f79860c3b528543464082b",
+      "disposition": "excluded because broad marker scan matched; marker requires classification; not asserted to be secret"
+    }
+  ],
+  "marker_scan": {
+    "patterns": [
+      "PEM private-key begin markers",
+      "vault backup marker",
+      "remembered_passwords",
+      "private_key"
+    ],
+    "hit_count": 3,
+    "hit_paths_only": [
+      "add-syntax-correction/before-1.txt",
+      "add-syntax-correction/before-2.txt",
+      "migration_cli-current-overlay.diff"
+    ],
+    "sanitized_publish_log_hit_count": 0,
+    "note": "Filename/count-only result manifest; this pattern scan is not proof that all copied artifacts contain no sensitive material."
+  },
+  "redaction_record": {
+    "path": "isolated/log-redaction-disposition.json",
+    "note": "Copied unchanged. Original pre-redaction transcript was already present in tool output and is not recoverable; original hashes were unavailable. Copied publish logs are the sanitized current files only."
+  },
+  "files": [
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/add-syntax-correction/before-0.txt",
+      "destination": "isolated/add-syntax-correction/before-0.txt",
+      "bytes": 7039,
+      "mode_octal": "664",
+      "sha256": "332386353e25cf92962aad0b2bfc0b7a39490e7706de4224ff3bdc29e67f9611",
+      "file_type": "C source, ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/add-syntax-correction/scope.txt",
+      "destination": "isolated/add-syntax-correction/scope.txt",
+      "bytes": 242,
+      "mode_octal": "664",
+      "sha256": "feaa64e278479f815c3aaab44755fcc5a3beb859bf2b77a8e1c2b1f4c64f8599",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/agent-ownership-inventory.json",
+      "destination": "isolated/agent-ownership-inventory.json",
+      "bytes": 599,
+      "mode_octal": "600",
+      "sha256": "0e7fb33c300955465b084221c0b2ee10d639a71732e285553130aaa3cbe7d9df",
+      "file_type": "JSON text data"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/api-clippy-batch-fix.log",
+      "destination": "isolated/api-clippy-batch-fix.log",
+      "bytes": 73,
+      "mode_octal": "664",
+      "sha256": "58eb6ecaf15e6e70c60d05471d6c71df25bc556a3575c793396b11941d19d45a",
+      "file_type": "ASCII text, with escape sequences"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/api-clippy-batch-fix.status",
+      "destination": "isolated/api-clippy-batch-fix.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/api-focused-list.log",
+      "destination": "isolated/api-focused-list.log",
+      "bytes": 77772,
+      "mode_octal": "664",
+      "sha256": "1f88a4bd5f8f13771c19ce90515e5cc85d886465072551141bd4fc3ad50db380",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/api-focused-list.status",
+      "destination": "isolated/api-focused-list.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/arena-clippy-fix-corrected.log",
+      "destination": "isolated/arena-clippy-fix-corrected.log",
+      "bytes": 84,
+      "mode_octal": "664",
+      "sha256": "b2e4a443bb4f467c973232ef47bb80a5165160136ba763f90d04251ebc7c9f86",
+      "file_type": "ASCII text, with escape sequences"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/arena-clippy-fix-corrected.status",
+      "destination": "isolated/arena-clippy-fix-corrected.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/arena-clippy-fix.log",
+      "destination": "isolated/arena-clippy-fix.log",
+      "bytes": 738,
+      "mode_octal": "664",
+      "sha256": "5f709422f2993dcda713699b7576d4da78bc9a4139372f8a69ab31ad75f9b581",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/arena-clippy-fix.status",
+      "destination": "isolated/arena-clippy-fix.status",
+      "bytes": 9,
+      "mode_octal": "664",
+      "sha256": "d1359b81febd409ff15e7c052f9b39635db6de1e5fd5b3aa2cfa6891a1cd47b5",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/binaries.sha256",
+      "destination": "isolated/binaries.sha256",
+      "bytes": 446,
+      "mode_octal": "664",
+      "sha256": "9501edb57e0eeb2932d1af759ad257677f0c21f6ea5d777ddcccf58879610c5c",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/bindings-focused-list.log",
+      "destination": "isolated/bindings-focused-list.log",
+      "bytes": 6433,
+      "mode_octal": "664",
+      "sha256": "2f87d54d7aac58b2770e28ccd7cec7eb770033aca9ed7ac69bd3d00c9a5a3a75",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/bindings-focused-list.status",
+      "destination": "isolated/bindings-focused-list.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/bindings-lint-workflow-after.sha256",
+      "destination": "isolated/bindings-lint-workflow-after.sha256",
+      "bytes": 148,
+      "mode_octal": "664",
+      "sha256": "f81dd99afee74f27e626de4308214fa2f001ab7954affb6776c9289b017fcca1",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/bindings-lint-workflow-before.sha256",
+      "destination": "isolated/bindings-lint-workflow-before.sha256",
+      "bytes": 148,
+      "mode_octal": "664",
+      "sha256": "54061d935573a444bae53995c8f20a4d07dd6dd00d3f2c572de7b279d8e15a1b",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/build.command.txt",
+      "destination": "isolated/build.command.txt",
+      "bytes": 330,
+      "mode_octal": "664",
+      "sha256": "1cc2ab6ca60b750049a5eb1b115c82b498b1c926422a634c7dd5d4f36b81abda",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/build.log",
+      "destination": "isolated/build.log",
+      "bytes": 15406,
+      "mode_octal": "664",
+      "sha256": "6fc63d0f5cd3e6bcb92a2b02f39f830176384d4ff4c6fddabe582335cb1fa0ca",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/build.status.txt",
+      "destination": "isolated/build.status.txt",
+      "bytes": 33,
+      "mode_octal": "664",
+      "sha256": "b470f082d497e7207666ae3a20c4e55c6de495e64a04f739dce9930613819c87",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-bindings-after-arena.log",
+      "destination": "isolated/clippy-bindings-after-arena.log",
+      "bytes": 10067,
+      "mode_octal": "664",
+      "sha256": "63dea27ab0f6300aab73e62c2715aa8dd9bb1dd6d6b5047d6e0c12e01ef9c73d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-bindings-after-arena.status",
+      "destination": "isolated/clippy-bindings-after-arena.status",
+      "bytes": 9,
+      "mode_octal": "664",
+      "sha256": "df60fadbec9389fc36cf26ce8b7ff9d610cb8f110e6a0860bd0b2294a2be032d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-bindings-final.log",
+      "destination": "isolated/clippy-bindings-final.log",
+      "bytes": 6350,
+      "mode_octal": "664",
+      "sha256": "03742c5c51763b1b2ea198d4d2b7994975eefe8bd5e41b7c0fd429c72215dde6",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-bindings-final.status",
+      "destination": "isolated/clippy-bindings-final.status",
+      "bytes": 9,
+      "mode_octal": "664",
+      "sha256": "df60fadbec9389fc36cf26ce8b7ff9d610cb8f110e6a0860bd0b2294a2be032d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-bindings-test-target.log",
+      "destination": "isolated/clippy-bindings-test-target.log",
+      "bytes": 4425,
+      "mode_octal": "664",
+      "sha256": "6ae7721a5611b3a5cc950097457f5d2f8c01b91d51ffccecf1605574eac507f6",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-bindings-test-target.status",
+      "destination": "isolated/clippy-bindings-test-target.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-bindings.log",
+      "destination": "isolated/clippy-bindings.log",
+      "bytes": 9963,
+      "mode_octal": "664",
+      "sha256": "b647f44ba30b58c93efc08a517f556bc5133ac4e03df351bd2a6b7c527c70112",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-bindings.status",
+      "destination": "isolated/clippy-bindings.status",
+      "bytes": 9,
+      "mode_octal": "664",
+      "sha256": "df60fadbec9389fc36cf26ce8b7ff9d610cb8f110e6a0860bd0b2294a2be032d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-cli-after-output-suppression.log",
+      "destination": "isolated/clippy-cli-after-output-suppression.log",
+      "bytes": 4152,
+      "mode_octal": "664",
+      "sha256": "cb2f465781a85f64ba9a41eae6b2ad790db7168a5bb678e518366e4db0e5a14e",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-cli-after-output-suppression.status",
+      "destination": "isolated/clippy-cli-after-output-suppression.status",
+      "bytes": 2,
+      "mode_octal": "664",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-cli-final.log",
+      "destination": "isolated/clippy-cli-final.log",
+      "bytes": 5802,
+      "mode_octal": "664",
+      "sha256": "e4e90f5fd22d2b488df6f0e1de40edc7b480981091676001e9c2f15263880a71",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-cli-final.status",
+      "destination": "isolated/clippy-cli-final.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-module-preservation.json",
+      "destination": "isolated/clippy-module-preservation.json",
+      "bytes": 1238,
+      "mode_octal": "600",
+      "sha256": "8a19cef336d8619e7d34d39a60e8bfdb8bc5c9cc6710ce42e133855e6bdcd9e3",
+      "file_type": "JSON text data"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-production-after-arena.log",
+      "destination": "isolated/clippy-production-after-arena.log",
+      "bytes": 10609,
+      "mode_octal": "664",
+      "sha256": "9d0841301ffed200574f1347869324f06d09b7e31f4da7eb11561c78c2b9a9df",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-production-after-arena.status",
+      "destination": "isolated/clippy-production-after-arena.status",
+      "bytes": 9,
+      "mode_octal": "664",
+      "sha256": "df60fadbec9389fc36cf26ce8b7ff9d610cb8f110e6a0860bd0b2294a2be032d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-production-final.log",
+      "destination": "isolated/clippy-production-final.log",
+      "bytes": 12856,
+      "mode_octal": "664",
+      "sha256": "3356b94538da19b1cc36fd1f2c1f29fdf5e35f9aae7d9fd7c129ce92a2f62786",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-production-final.status",
+      "destination": "isolated/clippy-production-final.status",
+      "bytes": 9,
+      "mode_octal": "664",
+      "sha256": "df60fadbec9389fc36cf26ce8b7ff9d610cb8f110e6a0860bd0b2294a2be032d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-production-test-target.log",
+      "destination": "isolated/clippy-production-test-target.log",
+      "bytes": 4487,
+      "mode_octal": "664",
+      "sha256": "67f4258298afd2117fba33bf61bef26424a4ecf2a220b0cfea664bd74b0f44c0",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-production-test-target.status",
+      "destination": "isolated/clippy-production-test-target.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-production.log",
+      "destination": "isolated/clippy-production.log",
+      "bytes": 3110,
+      "mode_octal": "664",
+      "sha256": "ae54c0caabeadf1f51e801cf1c3fb513a2430c6c5b7b85971649f216090a314d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/clippy-production.status",
+      "destination": "isolated/clippy-production.status",
+      "bytes": 9,
+      "mode_octal": "664",
+      "sha256": "df60fadbec9389fc36cf26ce8b7ff9d610cb8f110e6a0860bd0b2294a2be032d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/copy-candidate.paths",
+      "destination": "isolated/copy-candidate.paths",
+      "bytes": 3925,
+      "mode_octal": "664",
+      "sha256": "29d9e8ffe574a68fd94a618c14ff0cbafbd437aaf6c584c718dac6252aa18cab",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/corrected-toolchain/build.command.txt",
+      "destination": "isolated/corrected-toolchain/build.command.txt",
+      "bytes": 327,
+      "mode_octal": "664",
+      "sha256": "10a2e26177baf31e344dc84a1bd16bef38c777d7cebfa23a49f8764c0469c218",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/corrected-toolchain/build.log",
+      "destination": "isolated/corrected-toolchain/build.log",
+      "bytes": 15440,
+      "mode_octal": "664",
+      "sha256": "73e9fca45915e3d614cb5c929735d8f421be49c5cdc6d473f579ac41875bf9e9",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/corrected-toolchain/build.status.txt",
+      "destination": "isolated/corrected-toolchain/build.status.txt",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/corrected-toolchain/selectors.txt",
+      "destination": "isolated/corrected-toolchain/selectors.txt",
+      "bytes": 402,
+      "mode_octal": "664",
+      "sha256": "eafaee056ac7b5df3d7a9d0d37d8001618dc66fc85a072fea0262264a9870f03",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/corrected-toolchain/source-after-syntax-correction.sha256",
+      "destination": "isolated/corrected-toolchain/source-after-syntax-correction.sha256",
+      "bytes": 192247,
+      "mode_octal": "664",
+      "sha256": "c821d04af65b482b861bb1cb5168c5fcd73e74545d0a11ae9e2b0c0ea298d1fb",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/corrected-toolchain/source-manifest.status.txt",
+      "destination": "isolated/corrected-toolchain/source-manifest.status.txt",
+      "bytes": 40,
+      "mode_octal": "664",
+      "sha256": "eb1a5b8b85ab6378262e45874b51b76e28b036995d67607a16ef094841fbc837",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/corrected-toolchain/source-mismatch.log",
+      "destination": "isolated/corrected-toolchain/source-mismatch.log",
+      "bytes": 0,
+      "mode_octal": "664",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "file_type": "empty"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/corrected-toolchain/source-validation.log",
+      "destination": "isolated/corrected-toolchain/source-validation.log",
+      "bytes": 101293,
+      "mode_octal": "664",
+      "sha256": "b5c0174ee82c0f448de0e96a453413f669418840ca0e2e3e6476736e77fee163",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/focused-binding-alias-abi.log",
+      "destination": "isolated/focused-binding-alias-abi.log",
+      "bytes": 4186,
+      "mode_octal": "664",
+      "sha256": "68378958a93b652b537a89c8fc4b6fcc21fc2209bc9c861d61cb546b76717233",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/focused-binding-alias-abi.status",
+      "destination": "isolated/focused-binding-alias-abi.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/focused-bootstrap-budget-selected.log",
+      "destination": "isolated/focused-bootstrap-budget-selected.log",
+      "bytes": 4245,
+      "mode_octal": "664",
+      "sha256": "5f924e380ff5cc71b972ba11a6da0afeebd1be2a817687495e5086f89885030f",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/focused-bootstrap-budget-selected.status",
+      "destination": "isolated/focused-bootstrap-budget-selected.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/focused-bootstrap-budget.log",
+      "destination": "isolated/focused-bootstrap-budget.log",
+      "bytes": 7169,
+      "mode_octal": "664",
+      "sha256": "d1abd932811216ec1ee454cad67f2db75671ca0c9f62bf865543fcbac520cb08",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/focused-bootstrap-budget.status",
+      "destination": "isolated/focused-bootstrap-budget.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/focused-encode-workspace.log",
+      "destination": "isolated/focused-encode-workspace.log",
+      "bytes": 4571,
+      "mode_octal": "664",
+      "sha256": "503191035d5d7b78237e490dda27b3f7b3c3225ff982b4888e56c8679efca29f",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/focused-encode-workspace.status",
+      "destination": "isolated/focused-encode-workspace.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/focused-variable-lifecycle-healthy-tmp.log",
+      "destination": "isolated/focused-variable-lifecycle-healthy-tmp.log",
+      "bytes": 4247,
+      "mode_octal": "664",
+      "sha256": "9d943d71d1ff2198bfa252453b9e88fbec07b1331db3dcb7a5fc5501fb02d4c1",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/focused-variable-lifecycle-healthy-tmp.status",
+      "destination": "isolated/focused-variable-lifecycle-healthy-tmp.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/focused-variable-lifecycle.log",
+      "destination": "isolated/focused-variable-lifecycle.log",
+      "bytes": 4247,
+      "mode_octal": "664",
+      "sha256": "df7ac898187af1b2de77d4b261dbeddc898264d8896cf7b01fffd5dc4d861b85",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/focused-variable-lifecycle.status",
+      "destination": "isolated/focused-variable-lifecycle.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/isolated-delta-manifest.json",
+      "destination": "isolated/isolated-delta-manifest.json",
+      "bytes": 9721,
+      "mode_octal": "664",
+      "sha256": "4acf0dff9c8f86b0b4caf394830bda20366b14c8fcfa3d44edfc4cbc1d10da91",
+      "file_type": "JSON text data"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/log-redaction-disposition.json",
+      "destination": "isolated/log-redaction-disposition.json",
+      "bytes": 2102,
+      "mode_octal": "600",
+      "sha256": "2c4fc650b16a117930992e5ee9006469e5f510f3a146a3e133d779124650e6c1",
+      "file_type": "JSON text data"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/migration-output-suppression-after.sha256",
+      "destination": "isolated/migration-output-suppression-after.sha256",
+      "bytes": 152,
+      "mode_octal": "664",
+      "sha256": "9d0e3633358b5c81e2274d2c9c590a06b81c43fb32bdf8fee12d0b5854cac435",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/migration-output-suppression-before.sha256",
+      "destination": "isolated/migration-output-suppression-before.sha256",
+      "bytes": 152,
+      "mode_octal": "664",
+      "sha256": "e8b496f2a292c83ba39d969a229ac54b643988ffa53723f75329edfe69e01968",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/migration-output-suppression.log",
+      "destination": "isolated/migration-output-suppression.log",
+      "bytes": 91,
+      "mode_octal": "664",
+      "sha256": "760291fa647a5e56f42b7f4373aa55f765d9a54e951060b498012c02dd9f5819",
+      "file_type": "ASCII text, with escape sequences"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/migration-output-suppression.status",
+      "destination": "isolated/migration-output-suppression.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/migration_cli-agent-guard.log",
+      "destination": "isolated/migration_cli-agent-guard.log",
+      "bytes": 29802,
+      "mode_octal": "664",
+      "sha256": "a88eeb292e9d94a34cf7c7971b333e22adaede05bd47d191f56468e101502af1",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/migration_cli-agent-guard.status",
+      "destination": "isolated/migration_cli-agent-guard.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/migration_cli-pinned-188.log",
+      "destination": "isolated/migration_cli-pinned-188.log",
+      "bytes": 6097,
+      "mode_octal": "664",
+      "sha256": "c3f2f151eb2c33fb3b128f99254ee9d4c26d17ecfbf2c0520303b223caa67ace",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/migration_cli-pinned-188.status",
+      "destination": "isolated/migration_cli-pinned-188.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/migration_cli.command.txt",
+      "destination": "isolated/migration_cli.command.txt",
+      "bytes": 349,
+      "mode_octal": "664",
+      "sha256": "74b76d8ba902386db9eb4df3d773c68d9b92676cc71a8c767106f2c62e78e3a3",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/migration_cli.log",
+      "destination": "isolated/migration_cli.log",
+      "bytes": 42315,
+      "mode_octal": "664",
+      "sha256": "e8e6839ea482cc59e82777cd623c53f4af10176eaf9639479fc3edbab8d96f3e",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/migration_cli.status.txt",
+      "destination": "isolated/migration_cli.status.txt",
+      "bytes": 9,
+      "mode_octal": "664",
+      "sha256": "df60fadbec9389fc36cf26ce8b7ff9d610cb8f110e6a0860bd0b2294a2be032d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish-suppression-apply.log",
+      "destination": "isolated/publish-suppression-apply.log",
+      "bytes": 92,
+      "mode_octal": "664",
+      "sha256": "d2b4c0cdb9d34d155146c85fe0c605790cc48957dcdf7b9b5931cbaf668d90ed",
+      "file_type": "ASCII text, with escape sequences"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish-suppression-apply.status",
+      "destination": "isolated/publish-suppression-apply.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_failover-agent-guard.log",
+      "destination": "isolated/publish_failover-agent-guard.log",
+      "bytes": 4853,
+      "mode_octal": "664",
+      "sha256": "31848cebcc876be09da4c118462986493e97c1fa99b6c5baf1a78b535e523620",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_failover-agent-guard.status",
+      "destination": "isolated/publish_failover-agent-guard.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_failover-suppressed-ignored.log",
+      "destination": "isolated/publish_failover-suppressed-ignored.log",
+      "bytes": 5741,
+      "mode_octal": "664",
+      "sha256": "05c6c1502c456813d7cd4332b47660d01884651a76a89416fb5dfefeebafb1b4",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_failover-suppressed-ignored.status",
+      "destination": "isolated/publish_failover-suppressed-ignored.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_failover.command.txt",
+      "destination": "isolated/publish_failover.command.txt",
+      "bytes": 284,
+      "mode_octal": "664",
+      "sha256": "8e3d6cd408f02823cd4e2a2eb89f595924c084de9e0cb0b0858690a4824f0aa7",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_failover.log",
+      "destination": "isolated/publish_failover.log",
+      "bytes": 238,
+      "mode_octal": "600",
+      "sha256": "b900e512b8123b24d96bff80f701d07ed62f4454745d4ad61af19dc39fca449e",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_failover.status.txt",
+      "destination": "isolated/publish_failover.status.txt",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_two_servers-agent-guard.log",
+      "destination": "isolated/publish_two_servers-agent-guard.log",
+      "bytes": 5342,
+      "mode_octal": "664",
+      "sha256": "d0a1717905dfeaa883443de3cfc45dd7c944e6df2d37382d93c15e1e21998ff7",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_two_servers-agent-guard.status",
+      "destination": "isolated/publish_two_servers-agent-guard.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_two_servers-suppressed-ignored.log",
+      "destination": "isolated/publish_two_servers-suppressed-ignored.log",
+      "bytes": 6127,
+      "mode_octal": "664",
+      "sha256": "c185066b42902a989f2a51d3e02f50edb59d9779db8d50c9caacaf5b17a5c962",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_two_servers-suppressed-ignored.status",
+      "destination": "isolated/publish_two_servers-suppressed-ignored.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_two_servers-suppressed.log",
+      "destination": "isolated/publish_two_servers-suppressed.log",
+      "bytes": 5533,
+      "mode_octal": "664",
+      "sha256": "a029dd549e4ae041ac6f33d4e080da1405173d3fbf353dd0e789b5263d4ed1ce",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_two_servers-suppressed.status",
+      "destination": "isolated/publish_two_servers-suppressed.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_two_servers.command.txt",
+      "destination": "isolated/publish_two_servers.command.txt",
+      "bytes": 284,
+      "mode_octal": "664",
+      "sha256": "07bdfd78e9545260c4bc88934617009100d83cb8b934cab098eb295410855951",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_two_servers.log",
+      "destination": "isolated/publish_two_servers.log",
+      "bytes": 232,
+      "mode_octal": "600",
+      "sha256": "27db85735749832cde920ccc9032ec2e913b1278fdb989f045d690e9b6adc0d6",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_two_servers.status.txt",
+      "destination": "isolated/publish_two_servers.status.txt",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-legacy-archive.log",
+      "destination": "isolated/rustdoc-legacy-archive.log",
+      "bytes": 6233,
+      "mode_octal": "664",
+      "sha256": "a1da93319c6b16a4ed94ee45c3a3629a9dda5ac24447ae0e7fc7fc8c4c049d2d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-legacy-archive.status",
+      "destination": "isolated/rustdoc-legacy-archive.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-legacy-vault.log",
+      "destination": "isolated/rustdoc-legacy-vault.log",
+      "bytes": 9056,
+      "mode_octal": "664",
+      "sha256": "fb32a3243f60e3f99c87d5b3ea9929bb8814648d06149ce4b7cb8b592f33474a",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-legacy-vault.status",
+      "destination": "isolated/rustdoc-legacy-vault.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-namespace-workflow-fix-after-copy.log",
+      "destination": "isolated/rustdoc-namespace-workflow-fix-after-copy.log",
+      "bytes": 87,
+      "mode_octal": "664",
+      "sha256": "8121b9626b40bacb5dfe61e31f44dfda84fff1f8a7fb08626193dc99a6cc501a",
+      "file_type": "ASCII text, with escape sequences"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-namespace-workflow-fix-after-copy.status",
+      "destination": "isolated/rustdoc-namespace-workflow-fix-after-copy.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-namespace-workflow-fix.log",
+      "destination": "isolated/rustdoc-namespace-workflow-fix.log",
+      "bytes": 718,
+      "mode_octal": "664",
+      "sha256": "f7a9ebf4ccecb5044b1673e42585dff1484c8a30762eff2d92179db3b547dfdd",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-namespace-workflow-fix.status",
+      "destination": "isolated/rustdoc-namespace-workflow-fix.status",
+      "bytes": 9,
+      "mode_octal": "664",
+      "sha256": "d1359b81febd409ff15e7c052f9b39635db6de1e5fd5b3aa2cfa6891a1cd47b5",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-rust-facade.log",
+      "destination": "isolated/rustdoc-rust-facade.log",
+      "bytes": 309,
+      "mode_octal": "664",
+      "sha256": "a7c7a39d0efa4396117bdabfdf1f6464564df3abb5b26fff801f496e0282704d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-rust-facade.status",
+      "destination": "isolated/rustdoc-rust-facade.status",
+      "bytes": 9,
+      "mode_octal": "664",
+      "sha256": "df60fadbec9389fc36cf26ce8b7ff9d610cb8f110e6a0860bd0b2294a2be032d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-workspace-legacy-excluded.log",
+      "destination": "isolated/rustdoc-workspace-legacy-excluded.log",
+      "bytes": 11372,
+      "mode_octal": "664",
+      "sha256": "216b3464ae5d964f7d70bbc8e201c55168f7eb25fb85d50db8b83e73cfb5af43",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-workspace-legacy-excluded.status",
+      "destination": "isolated/rustdoc-workspace-legacy-excluded.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-workspace-no-legacy-collision.log",
+      "destination": "isolated/rustdoc-workspace-no-legacy-collision.log",
+      "bytes": 532,
+      "mode_octal": "664",
+      "sha256": "f052781917c79e1854f20f8b6706d3190928056bb315739895c431146b5b7a6a",
+      "file_type": "ASCII text, with very long lines (324)"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-workspace-no-legacy-collision.status",
+      "destination": "isolated/rustdoc-workspace-no-legacy-collision.status",
+      "bytes": 9,
+      "mode_octal": "664",
+      "sha256": "df60fadbec9389fc36cf26ce8b7ff9d610cb8f110e6a0860bd0b2294a2be032d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-workspace.log",
+      "destination": "isolated/rustdoc-workspace.log",
+      "bytes": 536,
+      "mode_octal": "664",
+      "sha256": "e5c38fc5ae4d4ce5c672dd6ace73918e84378e6146dc729eb729cac888d30366",
+      "file_type": "ASCII text, with very long lines (328)"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/rustdoc-workspace.status",
+      "destination": "isolated/rustdoc-workspace.status",
+      "bytes": 9,
+      "mode_octal": "664",
+      "sha256": "df60fadbec9389fc36cf26ce8b7ff9d610cb8f110e6a0860bd0b2294a2be032d",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/sanitized-publish-marker-scan.paths",
+      "destination": "isolated/sanitized-publish-marker-scan.paths",
+      "bytes": 0,
+      "mode_octal": "664",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "file_type": "empty"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/sensitive-marker-scan.paths",
+      "destination": "isolated/sensitive-marker-scan.paths",
+      "bytes": 255,
+      "mode_octal": "664",
+      "sha256": "ddcd7f58b5bc60aa3952742ec3e52133fb3d8e87ecbcea8b4b7e29c4be0b8865",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/source-after-check.log",
+      "destination": "isolated/source-after-check.log",
+      "bytes": 101293,
+      "mode_octal": "664",
+      "sha256": "b5c0174ee82c0f448de0e96a453413f669418840ca0e2e3e6476736e77fee163",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/source-check.log",
+      "destination": "isolated/source-check.log",
+      "bytes": 101293,
+      "mode_octal": "664",
+      "sha256": "b5c0174ee82c0f448de0e96a453413f669418840ca0e2e3e6476736e77fee163",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/source-check.status.txt",
+      "destination": "isolated/source-check.status.txt",
+      "bytes": 25,
+      "mode_octal": "664",
+      "sha256": "1b41937cbb68342d173203658326b28be30c07ea8b24975154f516a71e36bcef",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/source-current.sha256",
+      "destination": "isolated/source-current.sha256",
+      "bytes": 192247,
+      "mode_octal": "664",
+      "sha256": "8887d274db104e7217e354ea424ccd50b26dde8b383bb76e4bc35a2a80c68f04",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/test-agent-guard-after.sha256",
+      "destination": "isolated/test-agent-guard-after.sha256",
+      "bytes": 252,
+      "mode_octal": "664",
+      "sha256": "430bc32fa8a0dc578060343c63335a6494053c4bedd1378b7bf0c42437c9fdcc",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/test-agent-guard-apply.log",
+      "destination": "isolated/test-agent-guard-apply.log",
+      "bytes": 97,
+      "mode_octal": "664",
+      "sha256": "1ffae2b4452af230ce0274b7ac4a2b430690856e190d07f872561b90b503a624",
+      "file_type": "ASCII text, with escape sequences"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/test-agent-guard-apply.status",
+      "destination": "isolated/test-agent-guard-apply.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/test-agent-guard-before.sha256",
+      "destination": "isolated/test-agent-guard-before.sha256",
+      "bytes": 252,
+      "mode_octal": "664",
+      "sha256": "d4fcc21c9de556f1651168658e43ddd347af5e7a9294f5ce96a1e5d8f706b6de",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/test-target-clippy-after.sha256",
+      "destination": "isolated/test-target-clippy-after.sha256",
+      "bytes": 941,
+      "mode_octal": "664",
+      "sha256": "dac6b61eb8d594ca4330a652589a5cebf6b822158db44f2a09f1e52919a94bf9",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/test-target-clippy-before.sha256",
+      "destination": "isolated/test-target-clippy-before.sha256",
+      "bytes": 941,
+      "mode_octal": "664",
+      "sha256": "bfe055af9920c188a303918a5d42399c8020910b052c779a006d16d3080d4bc1",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/test-target-clippy-fix.log",
+      "destination": "isolated/test-target-clippy-fix.log",
+      "bytes": 88,
+      "mode_octal": "664",
+      "sha256": "30facd0ecb068bb6723a8685e5042a41d5923432ca64a5211cd6c40d4626575b",
+      "file_type": "ASCII text, with escape sequences"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/test-target-clippy-fix.status",
+      "destination": "isolated/test-target-clippy-fix.status",
+      "bytes": 7,
+      "mode_octal": "664",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/security-review-2026-10-13/raw/post-default-corrected-cli/publish_two_servers.log",
+      "destination": "redacted-publish/pre-correction/publish_two_servers.log",
+      "bytes": 306,
+      "mode_octal": "600",
+      "sha256": "e951e6bf2f490c3c56f652d83191c4cc176ded2ee93af8c10c949e50a13f2410",
+      "file_type": "ASCII text, with very long lines (305)"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_two_servers.log",
+      "destination": "redacted-publish/corrected/publish_two_servers.log",
+      "bytes": 232,
+      "mode_octal": "600",
+      "sha256": "27db85735749832cde920ccc9032ec2e913b1278fdb989f045d690e9b6adc0d6",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_failover.log",
+      "destination": "redacted-publish/corrected/publish_failover.log",
+      "bytes": 238,
+      "mode_octal": "600",
+      "sha256": "b900e512b8123b24d96bff80f701d07ed62f4454745d4ad61af19dc39fca449e",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_two_servers-suppressed.log",
+      "destination": "redacted-publish/corrected/publish_two_servers-suppressed.log",
+      "bytes": 5533,
+      "mode_octal": "664",
+      "sha256": "a029dd549e4ae041ac6f33d4e080da1405173d3fbf353dd0e789b5263d4ed1ce",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_two_servers-suppressed-ignored.log",
+      "destination": "redacted-publish/corrected/publish_two_servers-suppressed-ignored.log",
+      "bytes": 6127,
+      "mode_octal": "664",
+      "sha256": "c185066b42902a989f2a51d3e02f50edb59d9779db8d50c9caacaf5b17a5c962",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/validation/publish_failover-suppressed-ignored.log",
+      "destination": "redacted-publish/corrected/publish_failover-suppressed-ignored.log",
+      "bytes": 5741,
+      "mode_octal": "664",
+      "sha256": "05c6c1502c456813d7cd4332b47660d01884651a76a89416fb5dfefeebafb1b4",
+      "file_type": "ASCII text"
+    },
+    {
+      "source": "/tmp/rv-security-cli-isolated-20261013/copy-validation-evidence.dart",
+      "destination": "copy-validation-evidence.dart",
+      "bytes": 6738,
+      "mode_octal": "775",
+      "sha256": "99bfe5f601fb165fc049978a368d2e7e706c85e5bdcca0fce32acc5af63515fd",
+      "file_type": "C source, ASCII text"
+    }
+  ]
+}

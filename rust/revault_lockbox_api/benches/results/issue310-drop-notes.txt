@@ -1,0 +1,53 @@
+Issue #310: prepared compressed-buffer cleanup diagnostics
+Source b5a0aa3 (production f4b1d91) plus attached temporary diagnostic patch.
+The patch explicitly drops prepared.stored at the end of each successful
+nonempty native/legacy frame write and logs length, capacity and elapsed time.
+Production source was restored afterward. No production changes retained.
+Diagnostic binaries, SHA256:
+Native 1f7938459b674b7f73107d907964322a2193fdbab152fced0f144c6180a74fef
+Default e11b6cce21768747dd49010e0e6d524965a304d97942b78aa617df0750abe86e
+Both release protection_gate builds succeeded, native with native-block-layout.
+Both target/release binaries now contain diagnostics: rebuild before using
+these paths for any future production comparison. Patch uses zero context;
+apply with git apply --unidiff-zero if reproducing against this source.
+
+Each layout ran 100 encrypted-only compressed 8 MiB pattern writes with
+independent persisted byte verification after each write; both exited zero.
+From rust, with TMPDIR=$PWD/target/issue310-sign-tmp:
+REVAULT_GATE_CASE=encrypted/true/write REVAULT_GATE_WRITE_PROFILE=1 \
+taskset -c 2 BIN write target/issue310-drop-LAYOUT 8388608 pattern 100
+Default padding, synthetic key, warm OS cache. Builds finished before timing.
+Native then default, sequential and unpaired; uncontrolled host work remains.
+Per-frame stderr logging is included in add/total timing. Do not use these
+observations as a replacement for the paired production write gate.
+
+Summary validates exactly four frame observations for each of 100 sequential
+sample IDs per layout, excludes sample 0, and summarizes 99 writes. It sums
+frame cleanup duration, length and capacity per write before taking medians.
+Each frame's capacity was 2,105,344 bytes; summed capacity per write 8,421,376
+bytes. Actual summed compressed output was only 42,465 bytes. Per-write cleanup
+median: native 1389.995 us, default 464.729 us. Native add/prepare/page_write
+medians: 7924.426/3974.509/2150.397 us; default 4519.198/3577.192/21.210 us.
+Do not subtract independent medians to infer an exact residual, or attribute
+the native/default cleanup difference to layout from this unpaired experiment.
+It does establish material work wiping oversized output buffers in both paths.
+
+Local dependency source inspection: zstd-complete 0.2.0 numeric slice API
+compress_slice_c_level delegates to encode_frame_no_dict. The dfast frame
+encoder allocates output with Vec::with_capacity(compress_bound(src.len())).
+That output Vec is returned with its capacity intact. The current public numeric
+slice API does not accept caller-provided output storage. Switching to the
+Read/Write numeric wrapper still allocates the full encoded Vec internally and
+also stages input, so it does not solve this allocation behavior.
+
+A next candidate should reduce codec output allocation at its source or reuse
+storage without weakening wiping. Merely shrinking the Vec before ZeroizingBytes
+destruction could release unwiped spare bytes; it is not a justified fix.
+Skipping spare wiping based on the final compressed length is also not justified:
+the returned length alone does not prove which bytes were previously initialized.
+Changing compression algorithms/levels would need its own size/speed tradeoff
+evaluation and is not required to investigate this allocation issue.
+
+No new correctness-suite result claimed for these reverted diagnostics. Existing
+paired encrypted write gate still fails (+10.169%, 95% [6.179%,17.034%]). Native
+stays opt-in; broad read/write, recovery and release requirements remain open.

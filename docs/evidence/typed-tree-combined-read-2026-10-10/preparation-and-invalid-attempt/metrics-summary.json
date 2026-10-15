@@ -1,0 +1,24 @@
+{
+  "scope": "matched-toolchain read comparison; smoke/setup timings excluded",
+  "pairs": 30,
+  "warmup_pairs": 3,
+  "passes": 1,
+  "workers": 1,
+  "cpu": 2,
+  "hashes_stable": true,
+  "batch_failures": [
+    "small512-mixed-compressed-stream",
+    "raw8m-random-stream",
+    "compressed8m-pattern-stream",
+    "raw8m-random-range",
+    "raw64m-random-stream",
+    "raw64m-random-range",
+    "summary_metrics_missing_small512-mixed-compressed-stream",
+    "summary_metrics_missing_raw8m-random-stream",
+    "summary_metrics_missing_compressed8m-pattern-stream",
+    "summary_metrics_missing_raw8m-random-range",
+    "summary_metrics_missing_raw64m-random-stream",
+    "summary_metrics_missing_raw64m-random-range"
+  ],
+  "cases": {}
+}

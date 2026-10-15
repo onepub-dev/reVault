@@ -1,0 +1,2 @@
+02cb37b3e97c21cf5704cf8158af50086e0011be9152067439835d93d809b541  rust/revault_cli/tests/mirror_cli.rs
+2edcc3a65dbcb93102d21d5b3c7ebcb0ce5693d2b02410dd54be8c1b91713a4f  rust/revault_cli/src/commands/files.rs

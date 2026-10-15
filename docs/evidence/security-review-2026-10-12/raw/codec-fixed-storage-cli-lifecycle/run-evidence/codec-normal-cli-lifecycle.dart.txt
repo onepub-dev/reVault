@@ -1,0 +1,65 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
+import 'package:dcli/dcli.dart';
+
+void require(bool value,String why){if(!value)throw StateError(why);}
+void main(){
+ const repo='/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance';
+ const cli='$repo/rust/target/debug/lockbox';
+ const expected='450bf8a754620aabe0b4fb48cf6743458e01d11624393cad5afe12656b987ee7';
+ const root='/tmp/rv-codec-normal-life';
+ const evidence='$repo/docs/evidence/security-review-2026-10-12/raw/codec-fixed-storage-cli-lifecycle/run';
+ require(!Directory(root).existsSync()&&!Directory(evidence).existsSync(),'Fresh owned roots required');
+ String hash(String path){final r=Process.runSync('/usr/bin/sha256sum',[path]);require(r.exitCode==0,'Hash command');return(r.stdout as String).split(' ').first;}
+ require(hash(cli)==expected,'Pinned CLI mismatch');
+ Directory(evidence).createSync(recursive:true);
+ require(Process.runSync('/usr/bin/mkdir',['-m','700',root]).exitCode==0,'Private root creation');
+ final random=Random.secure();
+ final password=base64Url.encode(List<int>.generate(32,(_)=>random.nextInt(256)));
+ final env=<String,String>{'PATH':'/usr/bin:/bin','HOME':root,'LANG':'C.UTF-8',
+ 'LOCKBOX_VAULT_DIR':'$root/vault','LOCKBOX_SESSION_AGENT_DIR':'$root/agent',
+ 'LOCKBOX_SESSION_AGENT_LOG':'$root/agent.log','LOCKBOX_VAULT_PASSWORD':password,
+ 'LOCKBOX_AGENT_TERMINATE_ON_SUSPEND':'false','LOCKBOX_AGENT_PREVENT_SLEEP':'false',
+ 'LOCKBOX_PLATFORM_SECRET_STORE':'auto',
+ 'DBUS_SESSION_BUS_ADDRESS':'unix:path=$root/no-session-bus','DBUS_SYSTEM_BUS_ADDRESS':'unix:path=$root/no-system-bus'};
+ final rows=<Map<String,Object?>>[];
+ ProcessResult run(String label,List<String> args,{bool success=true}){
+  final r=Process.runSync('/usr/bin/timeout',['--kill-after=5s','120s',cli,...args],environment:env,includeParentEnvironment:false,workingDirectory:root,stdoutEncoding:null,stderrEncoding:null);
+  rows.add({'step':label,'args':args,'exit':r.exitCode});
+  File('$evidence/steps.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(rows)+'\n');
+  if(success)require(r.exitCode==0,'Public step $label failed (exit ${r.exitCode}); raw credential-bearing output suppressed');
+  return r;
+ }
+ Uint8List payload(int size,int phase)=>Uint8List.fromList(List.generate(size,(i)=>'normal protected lifecycle $phase; bounded codec ownership\n'.codeUnits[i%'normal protected lifecycle $phase; bounded codec ownership\n'.length]));
+ void same(String path,List<int> bytes){final got=File(path).readAsBytesSync();require(got.length==bytes.length,'Output length');for(var i=0;i<bytes.length;i++)require(got[i]==bytes[i],'Output byte mismatch');}
+ final archive='$root/current.lbox';var finished=false;
+ try{
+  run('vault-init',['vault','init']);
+  run('create',[archive,'create','--encryption','chacha20-poly1305','--signing','owner','--compression','zstd','--compression-level','3']);
+  run('open',[archive,'open']);
+  final doctor=run('doctor',[archive,'doctor']);final text=utf8.decode(doctor.stdout as List<int>);
+  for(final field in ['encryption: chacha20-poly1305','signing: owner','compression: zstd (level 3)'])require(text.contains(field),'Expected protected creation metadata');
+  final input=File('$root/input.bin');
+  var phase=0;
+  for(final size in [17*1024,3*1024*1024+17,73*1024]){
+   final data=payload(size,phase);input.writeAsBytesSync(data);
+   run('add-$phase',[archive,'add',input.path,'--to','/payload',if(phase>0)'--overwrite']);
+   run('repeat-$phase',[archive,'add',input.path,'--to','/payload','--overwrite']);
+   run('stop-$phase',['session','stop']);run('reopen-$phase',[archive,'open']);
+   final output='$root/extracted-$phase';run('extract-$phase',[archive,'extract','/payload',output]);same(output,data);
+   final before=hash(archive);final refused=run('refuse-existing-$phase',[archive,'extract','/payload',output],success:false);require(refused.exitCode!=0&&refused.exitCode!=124&&refused.exitCode!=137,'Expected normal existing-output refusal');same(output,data);require(hash(archive)==before,'Read/refusal modified archive');
+   phase++;
+  }
+  run('remove',[archive,'remove','--force','/payload']);run('stop-after-remove',['session','stop']);run('reopen-after-remove',[archive,'open']);
+  final missing=run('removed-entry',[archive,'cat','/payload'],success:false);require(missing.exitCode!=0&&missing.exitCode!=124&&missing.exitCode!=137,'Removed entry absent');
+  require(hash(cli)==expected,'CLI identity changed');finished=true;
+ } finally {
+  final stopped=run('final-owned-agent-stop',['session','stop'],success:false);
+  if(stopped.exitCode==0){Directory(root).deleteSync(recursive:true);}else{finished=false;}
+  File('$evidence/result.json').writeAsStringSync(jsonEncode({'passed':finished,'steps':rows.length,'cli_sha256':expected,'owned_root_removed':!Directory(root).existsSync(),'scope':'Fresh normal encrypted/signed public lifecycle; create, add/repeat, replace, stop/reopen, extraction bytes, refusal and removal. Explicit headless policy. Synthetic credentials and raw CLI output not retained.'})+'\n');
+ }
+ require(finished,'Lifecycle or owned cleanup incomplete');print(green('Fresh protected CLI lifecycle passed; persisted bytes verified and owned private state removed.'));
+}

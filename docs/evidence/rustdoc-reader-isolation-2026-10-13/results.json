@@ -1,0 +1,53 @@
+{
+  "candidate": "f3b69ee0bbc99117616b6a3e125111de319fb445",
+  "failed_ci_run": 38398193470,
+  "failed_ci_job": 115299396492,
+  "failure": "rustdoc output filename collision between historical and current library names",
+  "workflow_sha256": "73a8257c8ddf7d2e6467621c56de567a57858dd765ed71a138acb0412af2eaef",
+  "toolchain": "1.88.0",
+  "locked": true,
+  "offline": true,
+  "rustdocflags": "-Dwarnings",
+  "build_jobs": 2,
+  "raw_evidence": "/tmp/revault-rustdoc-doc-collision-f3b69ee",
+  "commands": [
+    {
+      "name": "main-workspace",
+      "exit": 0,
+      "log_sha256": "aac47fe84dfd1d529cb8ad2c9683ac6af7663ba530e0825076788bcdeccdca3c",
+      "exit_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "name": "archive-v1-initial",
+      "exit": 0,
+      "log_sha256": "6353c36924b02b8208a6045b0cfc98616e044961ed91f314f457ff29f70fa73f",
+      "exit_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "name": "archive-v1-legacy",
+      "exit": 0,
+      "log_sha256": "945441de11baf024a0b4188290bf078e4466c057bacb41214fdcf8adc8ab6d54",
+      "exit_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "name": "archive-v1-current-reader",
+      "exit": 0,
+      "log_sha256": "e5e360df3334e34b631a996f8e89d886e7cee4a88445fe0d09b9763fd0f462a1",
+      "exit_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "name": "vault-v1",
+      "exit": 0,
+      "log_sha256": "8b34a1918ffc2f13d8c57e96ad9a780deaa443e3dd87dfbd7dd16f2c256c4b08",
+      "exit_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "name": "vault-v2-container-v1",
+      "exit": 0,
+      "log_sha256": "b76c6cac6a6179121fd5dadce5ac34c0c96c0de397ff95b71e0235c46346f0d6",
+      "exit_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    }
+  ],
+  "runtime_changed": false,
+  "replacement_candidate_required": true
+}

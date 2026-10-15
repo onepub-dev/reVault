@@ -1,0 +1,61 @@
+diff --git a/rust/revault_lockbox_api/src/lockbox/extraction.rs b/rust/revault_lockbox_api/src/lockbox/extraction.rs
+index 33a92f76..32f1d8c7 100644
+--- a/rust/revault_lockbox_api/src/lockbox/extraction.rs
++++ b/rust/revault_lockbox_api/src/lockbox/extraction.rs
+@@ -269,11 +269,16 @@ impl<State: Send> Lockbox<State> {
+             .clamp(1, 4)
+             .min(file_entries.len().max(1));
+         let worker_jobs = group_parallel_extraction_jobs(file_entries, workers);
++        let actual_workers = worker_jobs.len();
+ 
+         let parallel_result = std::thread::scope(|scope| {
+             let mut handles = Vec::new();
+             for job in worker_jobs {
+                 let worker = self.try_clone()?;
++                if matches!(self.workload_profile, crate::WorkloadProfile::ExtractMany) {
++                    worker.page_manager.borrow_mut()
++                        .limit_automatic_extraction_worker(actual_workers);
++                }
+                 handles.push(scope.spawn(move || {
+                     for (path_id, entry) in job {
+                         let out_path = checked_destination(destination, &entry.path)?;
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index 4141a575..1fa53927 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -1907,9 +1907,10 @@ impl<State> Lockbox<State> {
+                         crate::CacheLimit::Auto
+                     ) =>
+             {
+-                // Four ordinary 2 MiB frames retain adjacent packed-file reuse.
+-                // Native frames share the page cache and its separate 32 MiB target.
+-                8 * 1024 * 1024
++                // Ordinary handles retain four 2 MiB frames. Parallel worker
++                // clones share another 8 MiB target across their actual jobs,
++                // retaining at least one ordinary frame each (at most 4 jobs).
++                (8 * 1024 * 1024).min(self.page_manager.borrow().stats().limit_bytes as usize)
+             }
+             WorkloadProfile::ReadMostly | WorkloadProfile::ExtractMany => {
+                 DECODED_COMPRESSION_FRAME_CACHE_BYTES
+diff --git a/rust/revault_lockbox_api/src/storage/page_cache.rs b/rust/revault_lockbox_api/src/storage/page_cache.rs
+index c40ddf50..b71a1c5c 100644
+--- a/rust/revault_lockbox_api/src/storage/page_cache.rs
++++ b/rust/revault_lockbox_api/src/storage/page_cache.rs
+@@ -257,6 +257,17 @@ impl PageCache {
+         }
+     }
+ 
++    pub(crate) fn limit_automatic_extraction_worker(&mut self, workers: usize) {
++        if cfg!(target_arch = "wasm32") || !matches!(self.limit, CacheLimit::Auto) {
++            return;
++        }
++        debug_assert!((1..=4).contains(&workers));
++        // The parent keeps its own target. Worker clones together retain at most
++        // another 8 MiB of clean pages; keep dirty pages and active Arc owners.
++        self.limit_bytes = 8 * 1024 * 1024 / workers.clamp(1, 4) as u64;
++        self.trim_to_limit();
++    }
++
+     pub(crate) fn set_format(&mut self, mode: FormatMode) {
+         self.format_mode = mode;
+     }

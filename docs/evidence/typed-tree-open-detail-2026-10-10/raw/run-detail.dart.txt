@@ -1,0 +1,174 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const base = '/tmp/revault-tree-open-detail-20261010';
+const frozenRoot = '/tmp/revault-tree-read-20261010-final/cases';
+const fixtureRoot = '/tmp/revault-tree-open-stages-20261010/fixtures';
+const rust = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust';
+const testBinary = '$base/bin/tree_open_detail';
+const repeats = 100;
+
+class CaseSpec {
+  const CaseSpec(this.name, this.unit);
+  final String name;
+  final int unit;
+}
+const cases = <CaseSpec>[
+  CaseSpec('small512-mixed-compressed', 262144),
+  CaseSpec('raw8m-random', 65536),
+  CaseSpec('compressed8m-pattern', 262144),
+  CaseSpec('raw64m-random', 65536),
+];
+
+String sha(String path) {
+  final result = Process.runSync('sha256sum', [path]);
+  if (result.exitCode != 0) throw StateError('sha256sum failed: ' + result.stderr.toString());
+  return result.stdout.toString().split(RegExp(r'\s+')).first;
+}
+void jsonFile(String path, Object? value) =>
+    File(path).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(value), flush: true);
+
+Map<String, String> hashes(CaseSpec item) {
+  final sourceRoot = '$frozenRoot/${item.name}';
+  final runRoot = '$fixtureRoot/${item.name}';
+  final files = <String, String>{
+    'archive.zip': '$sourceRoot/archive.zip',
+    'candidate.lbox': '$sourceRoot/candidate.lbox',
+    'candidate.public': '$sourceRoot/candidate.public',
+    'case.json': '$sourceRoot/case.json',
+    'inventory.json': '$sourceRoot/inventory.json',
+    'other/tree.lbox': '$sourceRoot/other/tree.lbox',
+    'other/tree.public': '$sourceRoot/other/tree.public',
+    'run/tree.lbox': '$runRoot/tree.lbox',
+    'run/tree.public': '$runRoot/tree.public',
+  };
+  for (final entity in Directory('$runRoot/source').listSync(followLinks: true)) {
+    if (entity is File) files['source/${entity.uri.pathSegments.last}'] = entity.path;
+  }
+  return {for (final e in files.entries) e.key: sha(e.value)};
+}
+Map<String, String> codeHashes() => {
+  'diagnostic_executable': sha(testBinary),
+  'source_patch': sha('$base/source.patch'),
+  'tree_image_rs': sha('$rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs'),
+  'shared_tree_rs': sha('$rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs'),
+  'shared_tree_source_rs': sha('$rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update/source.rs'),
+  'cargo_lock': sha('$rust/Cargo.lock'),
+  'runner_script': sha(Platform.script.toFilePath()),
+};
+Map<String, Object?> host() {
+  final status = File('/proc/self/status').readAsLinesSync();
+  final cpu = File('/proc/cpuinfo').readAsLinesSync().firstWhere(
+    (line) => line.startsWith('model name'), orElse: () => 'model name: unknown');
+  if (Process.runSync('taskset', ['-c', '2', 'true']).exitCode != 0) throw StateError('CPU2 unavailable');
+  return {
+    'utc': DateTime.now().toUtc().toIso8601String(),
+    'loadavg': File('/proc/loadavg').readAsStringSync().trim(),
+    'cpu_model': cpu,
+    'kernel': File('/proc/sys/kernel/osrelease').readAsStringSync().trim(),
+    'allowed_cpus': status.firstWhere((line) => line.startsWith('Cpus_allowed_list:'), orElse: () => 'unknown'),
+    'cpu': 2,
+    'rustc': Process.runSync('rustc', ['+1.88.0', '--version']).stdout.toString().trim(),
+  };
+}
+double median(List<double> values) {
+  final sorted = [...values]..sort();
+  return (sorted[sorted.length ~/ 2 - 1] + sorted[sorted.length ~/ 2]) / 2;
+}
+Map<String, Object?> runCase(CaseSpec item) {
+  final path = '$fixtureRoot/${item.name}';
+  final result = Process.runSync(
+    'taskset',
+    ['-c', '2', testBinary, '--exact',
+     'file_format::candidate_files::resource_probe::candidate_file_resource_probe',
+     '--ignored', '--nocapture'],
+    environment: {
+      ...Platform.environment,
+      'REVAULT_CANDIDATE_ROOT': path,
+      'REVAULT_CANDIDATE_PHASE': 'tree-sample',
+      'REVAULT_CANDIDATE_UNIT': item.unit.toString(),
+      'REVAULT_TREE_OPEN_DIAGNOSTIC': repeats.toString(),
+    },
+    workingDirectory: rust,
+  );
+  File('$base/${item.name}.stdout').writeAsStringSync(result.stdout.toString(), flush: true);
+  File('$base/${item.name}.stderr').writeAsStringSync(result.stderr.toString(), flush: true);
+  if (result.exitCode != 0) {
+    return {'case': item.name, 'status': 'failed', 'exit_code': result.exitCode};
+  }
+  final matches = result.stdout.toString().split('\n')
+      .where((line) => line.contains('TREE_OPEN_DIAGNOSTIC ')).toList();
+  if (matches.length != 1) return {'case': item.name, 'status': 'invalid', 'marker_count': matches.length};
+  const marker = 'TREE_OPEN_DIAGNOSTIC ';
+  final diagnostic = jsonDecode(matches.single.substring(matches.single.indexOf(marker) + marker.length)) as Map<String, dynamic>;
+  final observations = (diagnostic['observations'] as List).cast<Map<String, dynamic>>();
+  if (diagnostic['verified'] != true || diagnostic['repeats'] != repeats || observations.length != repeats) {
+    return {'case': item.name, 'status': 'invalid', 'diagnostic': diagnostic};
+  }
+  final stages = <String, List<double>>{};
+  final totals = <double>[];
+  for (final row in observations) {
+    totals.add((row['total_seconds'] as num).toDouble());
+    final record = (row['stages_seconds'] as Map).cast<String, num>();
+    for (final e in record.entries) {
+      stages.putIfAbsent(e.key, () => <double>[]).add(e.value.toDouble());
+    }
+  }
+  final summary = <String, Object?>{
+    'case': item.name,
+    'status': 'passed',
+    'repeats': repeats,
+    'verified': diagnostic['verified'],
+    'archive_sha256': diagnostic['archive_sha256'],
+    'total_seconds_median': median(totals),
+    'stages_seconds_median': {for (final e in stages.entries) e.key: median(e.value)},
+    'observations': observations,
+  };
+  jsonFile('$base/${item.name}.json', summary);
+  return summary;
+}
+
+void main() {
+  final runRoot = '$base/run';
+  if (Directory(runRoot).existsSync()) throw StateError('Refusing existing $runRoot');
+  Directory(runRoot).createSync(recursive: true);
+  final before = codeHashes();
+  final fixtureBefore = {for (final item in cases) item.name: hashes(item)};
+  jsonFile('$runRoot/hash-before.json', {
+    'revision': Process.runSync('git', ['rev-parse', 'HEAD'], workingDirectory: rust).stdout.toString().trim(),
+    'status': Process.runSync('git', ['status', '--short'], workingDirectory: rust).stdout.toString().trim(),
+    'sha256': before,
+    'fixtures': fixtureBefore,
+  });
+  jsonFile('$runRoot/host-before.json', host());
+
+  final results = <String, Object?>{};
+  for (final item in cases) {
+    final result = runCase(item);
+    results[item.name] = result;
+    final printable = Map<String, Object?>.from(result)..remove('observations');
+    print('CASE ' + jsonEncode(printable));
+  }
+
+  final after = codeHashes();
+  final fixtureAfter = {for (final item in cases) item.name: hashes(item)};
+  final stable = jsonEncode(before) == jsonEncode(after) && jsonEncode(fixtureBefore) == jsonEncode(fixtureAfter);
+  jsonFile('$runRoot/hash-after.json', {'sha256': after, 'fixtures': fixtureAfter, 'stable': stable});
+  jsonFile('$runRoot/host-after.json', host());
+  final compactResults = {
+    for (final entry in results.entries)
+      entry.key: (Map<String, Object?>.from(entry.value as Map)..remove('observations'))
+  };
+  jsonFile('$runRoot/summary.json', {
+    'scope': 'single-version shared-tree open stage diagnostic; 100 repeated verified opens per fixture; no ZIP or before/after comparison claim',
+    'cpu': 2,
+    'repeats_per_fixture': repeats,
+    'frozen_inputs_stable': stable,
+    'cases': compactResults,
+  });
+  print('COMPLETE stable=' + stable.toString() + ' report=$runRoot/summary.json');
+  if (!stable || results.values.any((value) => (value as Map)['status'] != 'passed')) exitCode = 1;
+}
+

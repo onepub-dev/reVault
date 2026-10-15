@@ -1,0 +1,10 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+void main(){
+ const out='/tmp/revault-tree-path-move-20261010';
+ var s=File('/tmp/revault-tree-leaf-validation-20261010/run-paired.dart').readAsStringSync();
+ s=s.replaceFirst("const base = '/tmp/revault-tree-leaf-validation-20261010';", "const base = '$out';");
+ s=s.replaceFirst("const patchedSource = '\$rust/revault_lockbox_api/src/file_format/authenticated_index.rs';", "const patchedSource = '\$rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs';");
+ s=s.replaceFirst("const patchedTests = '\$rust/revault_lockbox_api/src/file_format/authenticated_index_tests.rs';", "const patchedTests = '\$rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/open_reads.rs';");
+ File('$out/run-paired.dart').writeAsStringSync(s,flush:true);Process.runSync('chmod',['+x','$out/run-paired.dart']);print('Prepared paired runner at $out');
+}

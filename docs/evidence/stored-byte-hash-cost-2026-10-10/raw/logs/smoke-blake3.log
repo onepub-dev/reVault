@@ -1,0 +1,1 @@
+{"aggregate":[79,12,41,70,172,30,11,213,27,40,74,148,117,161,169,245,7,73,251,221,42,133,106,185,42,69,228,122,69,69,137,12],"algorithm":"blake3","bytes":67108864,"scope":"single-thread domain-and-length-bound stored-byte hash cost, no archive integration","seconds":0.023592729,"unit":65536,"verified":true}

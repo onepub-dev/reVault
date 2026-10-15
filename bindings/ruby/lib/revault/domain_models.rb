@@ -330,6 +330,24 @@ module Revault
       def initialize(name: '', active_generation: 0, generations: []) = (@name = name; @active_generation = active_generation; @generations = generations)
     end
 
+    # A local Vault alias mapping a normalized name to a stable lockbox identity; resolution does not open the target.
+    class LockboxAlias
+      # Case-sensitive normalized NFC alias name.
+      attr_reader :name
+      # Stable binary target identity; verify it when opening the resolved path.
+      attr_reader :lockbox_id
+      # Creates a domain value from named fields.
+      def initialize(name: '', lockbox_id: []) = (@name = name; @lockbox_id = lockbox_id)
+    end
+
+    # Ordered LockboxAlias values returned by the corresponding list operation.
+    class LockboxAliasList
+      # Ordered LockboxAlias values returned by the corresponding list operation.
+      attr_reader :values
+      # Creates a domain value from named fields.
+      def initialize(values: []) = (@values = values)
+    end
+
     # A lockbox identifier and host path remembered by the local vault for later discovery.
     class KnownLockbox
       # Stable binary identifier of the remembered lockbox.
@@ -494,14 +512,16 @@ module Revault
 
     # The host capabilities used to protect cached secrets across suspend and sleep.
     class SleepSupport
-      # Whether the host reports impending system suspend.
+      # Whether suspend notification support is compiled for this host.
       attr_reader :suspend_notifications
-      # Whether the agent can delay sleep while handling secrets.
+      # Whether sleep inhibition support is compiled for this host.
       attr_reader :sleep_inhibition
-      # Whether the host supplies enough integration for safe caching.
+      # Whether this build includes the host integration; this is not runtime watcher readiness.
       attr_reader :supported
+      # Whether the current compatible Session Agent reports an active suspend cache watcher; false when absent or unavailable. Notification delivery is platform-dependent.
+      attr_reader :cache_clearing_active
       # Creates a domain value from named fields.
-      def initialize(suspend_notifications: false, sleep_inhibition: false, supported: false) = (@suspend_notifications = suspend_notifications; @sleep_inhibition = sleep_inhibition; @supported = supported)
+      def initialize(suspend_notifications: false, sleep_inhibition: false, supported: false, cache_clearing_active: false) = (@suspend_notifications = suspend_notifications; @sleep_inhibition = sleep_inhibition; @supported = supported; @cache_clearing_active = cache_clearing_active)
     end
 
     # Availability and configuration of the platform credential store used for the Vault passphrase.
@@ -596,6 +616,8 @@ module Revault
       'FileInspection' => [[:lockbox_id, '[ubyte]'], [:header_readable, 'bool'], [:key_directory_generation, 'ulong'], [:key_directory_copy_count, 'ulong'], [:owner_signed, 'bool'], [:key_slots, '[revault.internal.KeySlot]']],
       'ProfileGeneration' => [[:index, 'uint'], [:status, 'string'], [:contact_fingerprint, '[ubyte]'], [:created_at_unix_ms, 'ulong'], [:retired_at_unix_ms, 'ulong'], [:has_retired_at, 'bool']],
       'ProfileHistory' => [[:name, 'string'], [:active_generation, 'uint'], [:generations, '[revault.internal.ProfileGeneration]']],
+      'LockboxAlias' => [[:name, 'string'], [:lockbox_id, '[ubyte]']],
+      'LockboxAliasList' => [[:values, '[revault.internal.LockboxAlias]']],
       'KnownLockbox' => [[:lockbox_id, '[ubyte]'], [:path, 'string'], [:last_seen_unix_ms, 'ulong']],
       'KnownLockboxList' => [[:values, '[revault.internal.KnownLockbox]']],
       'AccessSlotLabel' => [[:lockbox_id, '[ubyte]'], [:slot_id, 'ulong'], [:name, 'string'], [:updated_at_unix_ms, 'ulong']],
@@ -612,7 +634,7 @@ module Revault
       'ProfileHistoryList' => [[:values, '[revault.internal.ProfileHistory]']],
       'AgentEntry' => [[:id, 'string'], [:path, 'string']],
       'AgentEntryList' => [[:values, '[revault.internal.AgentEntry]']],
-      'SleepSupport' => [[:suspend_notifications, 'bool'], [:sleep_inhibition, 'bool'], [:supported, 'bool']],
+      'SleepSupport' => [[:suspend_notifications, 'bool'], [:sleep_inhibition, 'bool'], [:supported, 'bool'], [:cache_clearing_active, 'bool']],
       'PlatformStatus' => [[:supported, 'bool'], [:disabled, 'bool'], [:scope, 'string'], [:backend, 'string'], [:item, 'string']],
       'StringValue' => [[:value, 'string']],
       'VaultBackupManifest' => [[:format_version, 'uint'], [:created_at_unix_ms, 'ulong'], [:vault_file_name, 'string'], [:vault_size, 'ulong'], [:vault_sha256, 'string']],

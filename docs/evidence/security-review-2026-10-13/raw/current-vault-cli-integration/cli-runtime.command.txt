@@ -1,0 +1,1 @@
+env -i private HOME/XDG/TMPDIR,CARGO_HOME,RUSTUP_HOME,CARGO_TARGET_DIR,PATH /usr/bin/timeout --kill-after=30s 5400s cargo +1.88.0 test --locked --offline --release -p revault_cli@0.5.0-dev.1 -- --test-threads=2

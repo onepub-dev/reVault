@@ -1,0 +1,514 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: method `len` is never used
+  --> vendor/zstd-complete/src/fixed_storage.rs:32:19
+   |
+17 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+32 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/decoding/workspace.rs:33:9
+   |
+33 |         decoder.prepare_workspace(max_window_size, max_dictionary_size);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+note: the lint level is defined here
+  --> vendor/zstd-complete/src/lib.rs:17:9
+   |
+17 | #![deny(unused_must_use)]
+   |         ^^^^^^^^^^^^^^^
+help: use `let _ = ...` to ignore the resulting value
+   |
+33 |         let _ = decoder.prepare_workspace(max_window_size, max_dictionary_size);
+   |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:176:9
+    |
+176 |         pending_state.discard(fse_build_scratch.as_deref_mut());
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+176 |         let _ = pending_state.discard(fse_build_scratch.as_deref_mut());
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:177:9
+    |
+177 |         recycle_rejected_huffman_table(&mut compression_result, huffman_scratch.as_deref_mut());
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+177 |         let _ = recycle_rejected_huffman_table(&mut compression_result, huffman_scratch.as_deref_mut());
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:185:9
+    |
+185 |         pending_state.discard(fse_build_scratch.as_deref_mut());
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+185 |         let _ = pending_state.discard(fse_build_scratch.as_deref_mut());
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:186:9
+    |
+186 |         recycle_rejected_huffman_table(&mut compression_result, huffman_scratch);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+186 |         let _ = recycle_rejected_huffman_table(&mut compression_result, huffman_scratch);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:190:9
+    |
+190 |         pending_state.commit(fse_tables, offset_history, fse_build_scratch);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+190 |         let _ = pending_state.commit(fse_tables, offset_history, fse_build_scratch);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:258:9
+    |
+258 |         recycle_rejected_huffman_table(&mut compression_result, huffman_scratch);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+258 |         let _ = recycle_rejected_huffman_table(&mut compression_result, huffman_scratch);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:268:9
+    |
+268 |         recycle_rejected_huffman_table(&mut compression_result, huffman_scratch);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+268 |         let _ = recycle_rejected_huffman_table(&mut compression_result, huffman_scratch);
+    |         +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_dict.rs:26:5
+   |
+26 |     state.ensure_tables(params);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+26 |     let _ = state.ensure_tables(params);
+   |     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_dict.rs:50:5
+   |
+50 |     state.ensure_tables(params);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+50 |     let _ = state.ensure_tables(params);
+   |     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs:65:5
+   |
+65 |     match_state.reset_for_frame(params);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+65 |     let _ = match_state.reset_for_frame(params);
+   |     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs:61:5
+   |
+61 |     match_state.reset_for_frame(params);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+61 |     let _ = match_state.reset_for_frame(params);
+   |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs:158:5
+    |
+158 |     match_state.load_cdict_copy_prefix(&context.combined, context.dict_len, params);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+158 |     let _ = match_state.load_cdict_copy_prefix(&context.combined, context.dict_len, params);
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/frame_state.rs:111:9
+    |
+111 |         self.reset_for_frame_with_huffman_scratch(params, block_size_max, None);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+111 |         let _ = self.reset_for_frame_with_huffman_scratch(params, block_size_max, None);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/frame_state.rs:195:9
+    |
+195 | /         self.record_encoded_block_with_huffman_scratch(
+196 | |             block_size,
+197 | |             encoded_size,
+198 | |             repeat_offsets,
+199 | |             new_huffman_table,
+200 | |             None,
+201 | |         );
+    | |_________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+195 |         let _ = self.record_encoded_block_with_huffman_scratch(
+    |         +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_dict.rs:24:5
+   |
+24 |     state.ensure_tables(params);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+24 |     let _ = state.ensure_tables(params);
+   |     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_dict.rs:50:5
+   |
+50 |     state.ensure_tables(params);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+50 |     let _ = state.ensure_tables(params);
+   |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs:160:5
+    |
+160 | /     frame_state.reset_for_frame_with_huffman_scratch(
+161 | |         params,
+162 | |         cctx.max_block_size,
+163 | |         Some(&mut match_state.entropy_huffman_scratch),
+164 | |     );
+    | |_____^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+160 |     let _ = frame_state.reset_for_frame_with_huffman_scratch(
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs:261:9
+    |
+261 | /         frame_state.record_encoded_block_with_huffman_scratch(
+262 | |             block_size,
+263 | |             encoded_size,
+264 | |             encoded_block.repeat_offsets,
+265 | |             encoded_block.new_huffman_table,
+266 | |             Some(&mut match_state.entropy_huffman_scratch),
+267 | |         );
+    | |_________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+261 |         let _ = frame_state.record_encoded_block_with_huffman_scratch(
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs:317:9
+    |
+317 |         dictionary_state.ensure_tables(attached.dictionary_params);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+317 |         let _ = dictionary_state.ensure_tables(attached.dictionary_params);
+    |         +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/opt_dict.rs:20:5
+   |
+20 |     state.match_state.ensure_tables(params);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+20 |     let _ = state.match_state.ensure_tables(params);
+   |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/attached.rs:104:5
+    |
+104 | /     prefer_target_leading_repcode_literal(
+105 | |         source.src,
+106 | |         source.block_range.start,
+107 | |         block,
+...   |
+110 | |         &mut prepared,
+111 | |     );
+    | |_____^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+104 |     let _ = prefer_target_leading_repcode_literal(
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs:245:13
+    |
+245 |             prime_btultra2_stats_no_dict(src, block_start..block_end, params, &mut opt_state);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+245 |             let _ = prime_btultra2_stats_no_dict(src, block_start..block_end, params, &mut opt_state);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs:324:5
+    |
+324 | /     frame_state.reset_for_frame_with_huffman_scratch(
+325 | |         params,
+326 | |         cctx.max_block_size,
+327 | |         Some(&mut opt_state.entropy_huffman_scratch),
+328 | |     );
+    | |_____^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+324 |     let _ = frame_state.reset_for_frame_with_huffman_scratch(
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs:388:13
+    |
+388 |             prime_btultra2_stats_no_dict(src, block_start..block_end, params, opt_state);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+388 |             let _ = prime_btultra2_stats_no_dict(src, block_start..block_end, params, opt_state);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs:440:9
+    |
+440 | /         frame_state.record_encoded_block_with_huffman_scratch(
+441 | |             block_size,
+442 | |             encoded_size,
+443 | |             encoded_block.repeat_offsets,
+444 | |             encoded_block.new_huffman_table,
+445 | |             Some(&mut opt_state.entropy_huffman_scratch),
+446 | |         );
+    | |_________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+440 |         let _ = frame_state.record_encoded_block_with_huffman_scratch(
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs:570:13
+    |
+570 | /             prime_btultra2_stats_no_dict(
+571 | |                 &context.combined,
+572 | |                 block_start..block_end,
+573 | |                 params,
+574 | |                 &mut opt_state,
+575 | |             );
+    | |_____________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+570 |             let _ = prime_btultra2_stats_no_dict(
+    |             +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/opt_frame/attached.rs:71:5
+   |
+71 |     dictionary_state.ensure_tables(dictionary_params);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+71 |     let _ = dictionary_state.ensure_tables(dictionary_params);
+   |     +++++++
+
+warning: `zstd-complete` (lib) generated 21 warnings
+error: could not compile `zstd-complete` (lib) due to 28 previous errors; 21 warnings emitted

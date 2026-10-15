@@ -1,0 +1,45 @@
+{
+  "record_type": "sanitized_raw_log_disposition",
+  "note": "Original publish-test stdout was replaced; do not reconstruct it or infer secret absence from marker scans.",
+  "transcript": {
+    "status": "original output was present in prior conversation/tool output",
+    "recoverable_or_auditable": false,
+    "fixture_material": "synthetic test-generated material only; no user secret was used"
+  },
+  "files": [
+    {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/security-review-2026-10-13/raw/post-default-corrected-cli/publish_two_servers.log",
+      "purpose": "pre-correction setup-failure capture",
+      "current_bytes": 306,
+      "current_mode": "0600",
+      "current_sha256": "e951e6bf2f490c3c56f652d83191c4cc176ded2ee93af8c10c949e50a13f2410",
+      "original_sha256": null,
+      "original_hash_status": "unavailable",
+      "terminal_exit": 101,
+      "body_count": null
+    },
+    {
+      "path": "/tmp/rv-security-cli-isolated-20261013/validation/publish_two_servers.log",
+      "purpose": "corrected local-loopback publish lifecycle",
+      "current_bytes": 232,
+      "current_mode": "0600",
+      "current_sha256": "27db85735749832cde920ccc9032ec2e913b1278fdb989f045d690e9b6adc0d6",
+      "original_sha256": null,
+      "original_hash_status": "unavailable",
+      "terminal_exit": 0,
+      "body_count": null
+    },
+    {
+      "path": "/tmp/rv-security-cli-isolated-20261013/validation/publish_failover.log",
+      "purpose": "corrected local-loopback failover lifecycle",
+      "current_bytes": 238,
+      "current_mode": "0600",
+      "current_sha256": "b900e512b8123b24d96bff80f701d07ed62f4454745d4ad61af19dc39fca449e",
+      "original_sha256": null,
+      "original_hash_status": "unavailable",
+      "terminal_exit": 0,
+      "body_count": null
+    }
+  ],
+  "scope": "Audited designated publish logs/status files in worktree post-default-corrected-cli and isolated validation roots. No additional publish-named raw log found there; marker scan is not proof that all other artifacts contain no sensitive values."
+}

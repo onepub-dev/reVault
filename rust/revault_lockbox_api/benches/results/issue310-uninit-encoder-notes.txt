@@ -1,0 +1,58 @@
+Issue #310: reject uninitialized retained encoder scratch experiment
+Base dae5778, production f4b1d91. Candidate patch is fully reverted. No production
+or dependency change retained. Reproduce with git apply --unidiff-zero.
+
+This restores the previous retained-state prototype, then replaces only the
+scratch allocation/new call with ZeroizingBytes(Vec::with_capacity(required))
+and StaticEncoderWorkspace::new_uninit(scratch.spare_capacity_mut(), ...).
+The safe codec API accepts MaybeUninit storage and initializes its own arena.
+The owner keeps length zero, but its established full-capacity wipe includes
+all scratch on drop. Output remains initialized as required by encode_into.
+No new unsafe code. Same size bounds, high-level fallback, compact output copies,
+scoped lifetime and fixed-size encoder reuse as the preceding rejected candidate.
+
+Focused repeated-frame/size-change differential test passes across levels 1-22
+(with the established ordinary path for levels 18-22), including exact encoded
+bytes and round trips. Clippy all targets native+external passes. Release build
+passes. Full suites were not repeated for this rejected variant; do not attribute
+the preceding candidate's full-suite results to this new allocation change.
+
+Binaries, SHA256:
+Production: 791178ff9a9de09314f4fe6cc4bdaff89c54d0c0fb8fdbf066866ed8f6c019a3
+Prior retained-state prototype:
+d5e8e551561ca86c9ad424c57a6ea86c200c8133e9da209b67d457722a0faa70
+New uninitialized-scratch prototype:
+3f528b3ca5a15ff368c4cf63114ef4170c05eb4d685838194ad95b04fc428f53
+Saved as target/issue310-codec-cap-before, target/issue310-retained-encoder-after,
+and target/issue310-uninit-encoder-after respectively.
+
+Two comparisons chosen before measuring: against the retained-state prototype
+(to test removing scratch initialization), then against production (retention
+decision). Each: 8 MiB pattern, encrypted-only compressed writes, native layout,
+default padding, synthetic keys/no KDF; 15 ABBA/BAAB groups and six child samples,
+first excluded. Each CSV has 300 measured rows; 600 measured + 120 warmup writes
+all independently reopened and persisted bytes verified. Both comparisons exited
+zero. CPU 2, warm OS caches; no owned tests/builds overlapped timing. Unrelated
+host work uncontrolled. CSV main=the baseline named in its filename, branch=new.
+
+With TMPDIR=$PWD/target/issue310-sign-tmp, from rust:
+REVAULT_GATE_CHILD_SAMPLES=6 taskset -c 2 NEW compare-write BASELINE NEW ROOT
+8388608 pattern 15 encrypted/true/write
+NEW summarize CSV uses the established 5000 whole-group bootstrap and per-group
+median ratios. Pooled medians below are descriptive, not the paired estimates.
+
+Against retained-state prototype: -1.121%, 95% [-4.165%,+2.244%]. Pooled medians
+18.226029 ms old and 17.623228 ms new. No demonstrated improvement from removing
+scratch zero-fill. Against production: +0.676%, 95% [-3.808%,+5.164%]. Pooled
+medians 17.987924 ms production and 18.203616 ms new. No demonstrated benefit;
+the upper bound also exceeds +5%. These results do not prove equivalence.
+Reject the candidate; do not add complexity on an inconclusive optimization.
+No broad read/write non-regression claim is made from these focused measurements.
+
+The smaller codec-allocation experiment remains a lead, but three caller-backed
+workspace variants have not established a production gain. More workspace
+changes need new evidence identifying their costs, not extrapolation from the
+one-line allocation prototype. Read parity, protected write gates, recovery and
+release requirements remain open. Native stays opt-in. Both normal release
+benchmark paths must be rebuilt before production use: native currently has this
+rejected prototype, default has earlier drop diagnostics. Nothing pushed.

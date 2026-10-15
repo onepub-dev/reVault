@@ -1,0 +1,12 @@
+    Checking revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+error: deref on an immutable reference
+  --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/selected_source.rs:10:124
+   |
+10 | ...cation_map::compaction::View(&*storage),archive(),mode,authority,key(mode))?;opened.image.verify_all()?;(opened.image.catalogue,shared...
+   |                                 ^^^^^^^^^ help: if you would like to reborrow, try removing `&*`: `storage`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#borrow_deref_ref
+   = note: `-D clippy::borrow-deref-ref` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::borrow_deref_ref)]`
+
+error: could not compile `revault_lockbox_api` (lib test) due to 1 previous error

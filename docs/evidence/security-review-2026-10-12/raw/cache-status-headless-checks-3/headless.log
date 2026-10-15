@@ -1,0 +1,77 @@
+warning: associated function `new` is never used
+  --> revault_lockbox_api/src/compression/encode_workspace.rs:63:19
+   |
+62 | impl EncoderFrame {
+   | ----------------- associated function in this implementation
+63 |     pub(crate) fn new(input: &[u8], probe: bool) -> Self {
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: function `encode_compression_frame_manifest` is never used
+  --> revault_lockbox_api/src/model/compression_frame_manifest.rs:49:15
+   |
+49 | pub(crate) fn encode_compression_frame_manifest(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `revault_lockbox_api` (lib) generated 2 warnings
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+   Compiling revault_cli v0.5.0-dev.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli)
+    Finished `release` profile [optimized] target(s) in 20.12s
+     Running tests/headless.rs (target/release/deps/headless-94c9c20dbedc97a8)
+
+running 2 tests
+test explicit_credentials_work_without_desktop_or_bus_and_missing_credentials_fail ... ok
+test requested_suspend_protection_is_not_silently_disabled_without_bus ... FAILED
+
+failures:
+
+---- requested_suspend_protection_is_not_silently_disabled_without_bus stdout ----
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676698
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676698 elapsed=1.228758352s status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676707
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676707 elapsed=1.003826449s status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676709
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676709 elapsed=1.405154408s status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676729
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676729 elapsed=1.405145651s status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676732
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676732 elapsed=100.811687ms status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676733
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676733 elapsed=327.43901ms status=exit status: 1
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676739
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676739 elapsed=101.114482ms status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676740
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676740 elapsed=1.531664201s status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676811
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676811 elapsed=803.771701ms status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676812
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676812 elapsed=403.005109ms status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676816
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676816 elapsed=100.785697ms status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676817
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676817 elapsed=1.229154187s status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676842
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676842 elapsed=1.004331626s status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676843
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676843 elapsed=1.405217479s status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676928
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676928 elapsed=1.405613645s status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676929
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676929 elapsed=100.743207ms status=exit status: 0
+CLI start: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676930
+CLI end: test=requested_suspend_protection_is_not_silently_disabled_without_bus pid=1676930 elapsed=125.704953ms status=exit status: 1
+
+thread 'requested_suspend_protection_is_not_silently_disabled_without_bus' panicked at revault_cli/tests/headless.rs:165:9:
+Error:
+  unexpected agent control response: ERR
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    requested_suspend_protection_is_not_silently_disabled_without_bus
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 34.36s
+
+error: test failed, to rerun pass `-p revault_cli --test headless`

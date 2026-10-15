@@ -1,0 +1,16 @@
+Worktree: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust
+Commit at run: 0fd6ae24240f89ec05d0887de70e4b28ec09cc20
+Rust: +1.88.0
+CARGO_TARGET_DIR=/tmp/revault-tree-open-stages-20261010/target
+
+CARGO_TARGET_DIR=/tmp/revault-tree-open-stages-20261010/target cargo +1.88.0 clippy -p revault_lockbox_api --features external-source --lib --tests --benches -- -D warnings
+CARGO_TARGET_DIR=/tmp/revault-tree-open-stages-20261010/target cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib file_format::authenticated_index::tests:: -- --nocapture --test-threads=1
+CARGO_TARGET_DIR=/tmp/revault-tree-open-stages-20261010/target cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib typed_tree_single_traversal -- --nocapture --test-threads=1
+CARGO_TARGET_DIR=/tmp/revault-tree-open-stages-20261010/target cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib --no-run --message-format=json
+
+PATH="/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin:$PATH" CI=true ./revault-tree-index-attribution-20261010/prepare.dart
+PATH="/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin:$PATH" CI=true ./revault-tree-index-attribution-20261010/build-attribution.dart
+PATH="/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin:$PATH" CI=true ./revault-tree-index-attribution-20261010/run-attribution.dart
+PATH="/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin:$PATH" CI=true ./revault-tree-index-attribution-20261010/audit.dart
+
+Attribution runs exactly 100 observed opens on each of four fixtures, CPU 2. No comparison or qualification. Byte verification before and after run is part of the test probe.

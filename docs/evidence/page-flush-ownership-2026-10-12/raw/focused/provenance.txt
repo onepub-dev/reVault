@@ -1,0 +1,11 @@
+7ca719b4f911d2fe72de319966ddc58ae702369b
+ M revault_lockbox_api/src/lockbox/files.rs
+ M revault_lockbox_api/src/model/page_object_packer.rs
+?? ../docs/evidence/page-flush-ownership-2026-10-12/
+?? ../tools/page-flush-ownership.dart
+?? ../tools/summarize-page-flush-ownership.dart
+26acb5285f033bd425bdcb4de4a5fa308e7e72381f802f4fea8ca66ad77dc7af  revault_lockbox_api/src/model/page_object_packer.rs
+3d845c257b3bb6aec214906050a7f6844d63a136fa7fcc894a4651a8f757b295  revault_lockbox_api/src/lockbox/preparation.rs
+341e67923dd9eea57314ce439d4013c13b53491038d6f2a6d33ed5a224aac760  revault_lockbox_api/src/lockbox/native_file_reader.rs
+45c95e21e2353c6f635031967f790ec34e43ddfe0c4b5f4be0eb4eef5dced196  revault_lockbox_api/src/lockbox/file_handles.rs
+6dfce7fbf54ad5803a66ce2d5d135ab5b3c4be0619c4153533f29f222b798b5b  revault_cli/tests/cli_flow.rs

@@ -1,0 +1,57 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+
+const root = '/home/bsutton/.cache/revault-native-public-20261011';
+const evidence = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/native-public-extraction-2026-10-11/raw';
+String sha(String path) {
+  final result = Process.runSync('/usr/bin/sha256sum', ['--', path]);
+  if (result.exitCode != 0) throw StateError('sha256sum failed: $path');
+  return (result.stdout as String).split(RegExp(r'\s+')).first;
+}
+
+void main() {
+  final names = ['source-zstd-1gib', 'source-zstd-64mib', 'random-raw-1gib', 'random-raw-64mib'];
+  var total = 0;
+  for (final name in names) {
+    final oldManifestPath = '$root/fixtures/$name/case-manifest.json';
+    final retainedManifestPath = '$root/fixtures-v2/$name/case-manifest.json';
+    final old = jsonDecode(File(oldManifestPath).readAsStringSync()) as Map<String, dynamic>;
+    final retained = jsonDecode(File(retainedManifestPath).readAsStringSync()) as Map<String, dynamic>;
+    if (old['input_sha256'] != retained['input_sha256'] || old['bytes'] != retained['bytes']) {
+      throw StateError('Case corpus identity differs for $name');
+    }
+    final retainedCanonical = '$root/fixtures-v2/$name/A/source/file-000000.bin';
+    final retainedHash = sha(retainedCanonical);
+    final oldVariants = (old['variants'] as List).cast<Map<String, dynamic>>();
+    final retainedVariants = (retained['variants'] as List).cast<Map<String, dynamic>>();
+    final oldSourceHash = oldVariants.singleWhere((v) => v['variant'] == 'A')['source_sha256'];
+    final retainedSourceHash = retainedVariants.singleWhere((v) => v['variant'] == 'A')['source_sha256'];
+    if (retainedHash != oldSourceHash || retainedHash != retainedSourceHash) {
+      throw StateError('Retained A source does not match per-case source manifest: $name');
+    }
+    for (final variant in ['A', 'B', 'C', 'ZIP']) {
+      final candidate = '$root/fixtures/$name/$variant/source/file-000000.bin';
+      final bytes = File(candidate).lengthSync();
+      final digest = sha(candidate);
+      final oldSourceHash = oldVariants.singleWhere((v) => v['variant'] == variant)['source_sha256'];
+      final retainedSourceHash = retainedVariants.singleWhere((v) => v['variant'] == variant)['source_sha256'];
+      if (bytes != old['bytes'] || digest != oldSourceHash || digest != retainedSourceHash || digest != retainedHash) {
+        throw StateError('Candidate source not exactly retained: $candidate');
+      }
+      total += bytes;
+      stdout.writeln('SOURCE\t$bytes\t$digest\t$candidate\tretained=$retainedCanonical');
+    }
+  }
+  final candidate = '$root/cache-budget-trial/source-zstd-1gib/A-old/output-source-zstd-1gib-A-old-r11-p2/file-000000.bin';
+  final canonical = '$root/fixtures-v2/source-zstd-1gib/A/source/file-000000.bin';
+  final bytes = File(candidate).lengthSync();
+  final digest = sha(candidate);
+  if (bytes != 1073741824 || digest != sha(canonical)) throw StateError('Trial extraction differs from retained source');
+  total += bytes;
+  stdout.writeln('EXTRACTED_TRIAL\t$bytes\t$digest\t$candidate\tretained=$canonical');
+  stdout.writeln('CANDIDATE_TOTAL_BYTES=$total');
+  stdout.writeln('HISTORICAL_CASES=$evidence/fixture-creation-v2/*.json and $evidence/fixture-creation-v2-run.log');
+  stdout.writeln('OLD_CASE_MANIFESTS=$root/fixtures/<case>/case-manifest.json');
+  stdout.writeln('RETAINED_CASE_MANIFESTS=$root/fixtures-v2/<case>/case-manifest.json');
+}

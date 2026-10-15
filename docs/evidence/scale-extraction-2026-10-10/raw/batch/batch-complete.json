@@ -1,0 +1,12 @@
+{
+  "complete": true,
+  "pair_count_per_case": 33,
+  "warmup_pairs": 3,
+  "measured_pairs": 30,
+  "alternating_order": true,
+  "all_runs_successful_and_verified": true,
+  "sample_rows": 132,
+  "artifact_cap_bytes": 21474836480,
+  "apparent_logical_artifact_bytes_after_batch": 6953360216,
+  "scope": "paired extraction capacity/read experiment; no user archive, no production format claim"
+}

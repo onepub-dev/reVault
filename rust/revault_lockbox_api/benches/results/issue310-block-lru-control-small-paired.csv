@@ -1,0 +1,17 @@
+create_profile,passes,compressed,read_profile,corpus,paired_change_percent,bootstrap_low,bootstrap_high
+Interactive,1,false,Interactive,pattern,0.763,-7.738,16.493
+Interactive,1,false,Interactive,random,-5.383,-13.910,4.832
+Interactive,1,false,ReadMostly,pattern,4.424,0.852,8.536
+Interactive,1,false,ReadMostly,random,-2.683,-16.550,3.074
+Interactive,1,true,Interactive,pattern,0.013,-9.084,7.658
+Interactive,1,true,Interactive,random,-0.807,-12.318,6.859
+Interactive,1,true,ReadMostly,pattern,2.545,-5.534,9.348
+Interactive,1,true,ReadMostly,random,-1.883,-13.426,1.695
+Interactive,2,false,Interactive,pattern,1.766,-3.002,5.520
+Interactive,2,false,Interactive,random,0.560,-16.962,6.474
+Interactive,2,false,ReadMostly,pattern,-0.314,-3.795,2.086
+Interactive,2,false,ReadMostly,random,-0.214,-6.756,4.572
+Interactive,2,true,Interactive,pattern,-2.095,-5.948,4.997
+Interactive,2,true,Interactive,random,-1.793,-7.162,1.175
+Interactive,2,true,ReadMostly,pattern,2.119,-7.380,26.388
+Interactive,2,true,ReadMostly,random,-2.651,-4.590,4.449

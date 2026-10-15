@@ -1,0 +1,26 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const e='/home/bsutton/.cache/revault-protected-20261011-evidence';
+void main(){
+ for(final name in ['adapt.dart','prepare.dart']) {
+ final file=File('$e/$name'); final original=file.readAsStringSync(); File('$e/$name.before-repair.txt').writeAsStringSync(original);
+ var s=original.replaceAll('/tmp/revault-protected-20261011',e);
+ if(name=='prepare.dart') {
+ s=s.replaceFirst("if(Directory(root).existsSync())throw StateError('Refuse existing root');", """if(total<=0 || total>32*1024*1024)throw StateError('Corpus outside bounded size');
+  final free=int.parse(run('df',['-Pk',root]).trim().split('\\n').last.trim().split(RegExp(r'\\s+'))[3])*1024;
+  if(free<24*1024*1024*1024)throw StateError('Insufficient capacity');
+  // Resume retained source stream; never recreate existing source bytes.
+  if(!Directory(root).existsSync())throw StateError('Expected preserved failed setup root');""");
+ s=s.replaceFirst("  Directory(root).createSync();",'');
+ final a=s.indexOf('  final bundle=');final b=s.indexOf('  final cases=',a);
+ s=s.substring(0,a)+"  final size=File('\$root/source-bundle.bin').lengthSync();\n"+s.substring(b);
+ s=s.replaceFirst("      run('ln',[source,'\$dir/source/file-000000.bin']);", "      if(!File('\$dir/source/file-000000.bin').existsSync())run('ln',[source,'\$dir/source/file-000000.bin']);");
+ s=s.replaceFirst("      final zip=Process.runSync('zip'", "      if(File('\$dir/archive.zip').existsSync()) {\n        final archive=File('\$dir/archive.zip');\n        final verify=Process.start('unzip',['-p',archive.path,'file-000000.bin']);\n        // Full source equality is required by native extraction smoke before timing.\n        // zip -T below independently checks existing archive CRC immediately.\n        run('zip',['-T',archive.path]);\n      }\n      final zip=Process.runSync('zip'");
+ s=s.replaceFirst("        final verify=Process.start('unzip',['-p',archive.path,'file-000000.bin']);\n",'');
+ // Reissuing zip normally updates timestamps; existing source untouched, later identity pins final bytes.
+ }
+ file.writeAsStringSync(s);
+ }
+ print(green('Moved scripts repaired; preserved initial versions.'));
+}

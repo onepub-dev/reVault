@@ -1,0 +1,1 @@
+/usr/bin/timeout --kill-after=30s 300s cargo +1.88.0 check --locked --offline --manifest-path vendor/zstd-complete/Cargo.toml --lib --features c-port-validation

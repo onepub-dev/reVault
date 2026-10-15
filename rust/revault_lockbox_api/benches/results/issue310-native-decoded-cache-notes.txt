@@ -1,0 +1,53 @@
+Issue #310: decoded native frame reuse, 2026-09-22
+Base: 88d0577.
+
+Fresh native library audit before this patch: 320 passed, 13 failed, 5 ignored
+(87.24 seconds). extract_many_caches_decoded_compression_frames failed because
+native get_file/range reads bypassed the existing decoded compression-frame cache.
+
+Native reads now use that cache for ReadMostly and ExtractMany, retaining its
+64 MiB budget, eviction policy, manifest-slice matching and wiping on eviction.
+Interactive/BulkImport do not populate it. Each hit opens and verifies the native
+page header, metadata and committed index, validates the requested manifest slice,
+and checks source identity and physical extent (including padding). The cache's
+frame ID, codec, lengths and index-commitment match are also required. A final
+source/extent check precedes returning cached bytes. Cached data remains an
+already verified snapshot, as with existing decoded legacy caches; block data is
+not fetched anew on a hit.
+
+A miss populates the cache from a verified complete frame for compressed reads
+or complete file-slice reads, including packed neighbors. Partial raw ranges
+continue fetching only their required blocks instead of populating the cache.
+Large one-shot reads can incur cache copying/retention in the opted-in profiles;
+this change establishes cache semantics, not a universal cold-read speedup.
+
+The external-source probe verifies reuse across distinct neighboring slices in
+all sixteen encryption/signing/compression/padding combinations: a hit performs
+exactly three reads (header, metadata, index) and no block-data read. Cancellation
+and latched failure cannot be bypassed by either retained Read/Seek windows or
+this decoded cache. The file-backed test populates the cache, checks both packed
+files and a range, truncates the physical file, and verifies that cached reads
+fail in all sixteen combinations.
+
+Validation:
+- extract_many_caches_decoded_compression_frames passes with native layout.
+- Full default library suite: 333 passed, 5 ignored, 78.00 seconds.
+- Both expanded sixteen-mode source/truncation tests pass.
+- Existing external block failure-latching test passes.
+- Native public lifecycle integration: all sixteen policies pass.
+- External-source integration: fifteen tests pass.
+- Strict Clippy library/tests with native-block-layout,external-source passes.
+
+The default suite found a gating bug introduced in 88d0577: native frame readers
+also compile under cfg(test), but current_len was feature-only. This patch aligns
+both the storage method and non-Unix fallback with any(test, native-block-layout).
+Default production and native builds remain supported. Windows not tested here.
+
+Remaining native failures include decoded page-cache integration, layout-aware
+inspection/reader fixtures and signed recovery authorization. None are suppressed.
+ZIP read/write/load gates, migration/bindings/release and default activation
+remain incomplete. No wall-clock performance claim is made for this cache patch.
+
+Final full native library run: 321 passed, 12 failed, 5 ignored. The decoded
+compression-frame cache regression is resolved; all other baseline failures
+remain. Strict default library/tests Clippy also passes.

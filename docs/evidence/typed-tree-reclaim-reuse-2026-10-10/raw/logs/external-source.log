@@ -1,0 +1,27 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 30.83s
+     Running tests/external_source.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/external_source-75473484690c9b21)
+
+running 15 tests
+test a_panicking_callback_cannot_leave_partially_observed_state_cached ... 
+thread 'a_panicking_callback_cannot_leave_partially_observed_state_cached' panicked at revault_lockbox_api/tests/external_source.rs:648:13:
+application callback failed
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+ok
+test cache_bounds_eviction_overlap_identity_and_cancellation ... ok
+test cancellation_and_version_change_are_checked_even_on_cache_hits ... ok
+test cumulative_read_budget_bounds_retry_work_without_network_progress ... ok
+test every_open_and_lazy_record_read_failure_is_retryable_and_cannot_invoke_partial_open ... ok
+test incremental_modes_preserve_files_and_other_record_types ... ok
+test independent_readers_share_cache_without_sharing_failure_state ... ok
+test insufficient_cache_and_no_progress_exhaust_retry_budget ... ok
+test invalid_missing_ranges_from_validation_cannot_reach_the_transport ... ok
+test short_reads_invalid_missing_ranges_and_limits_fail_closed ... ok
+test signed_content_corruption_truncation_and_wrong_key_are_rejected ... ok
+test source_invalidation_inside_an_operation_overrides_cached_success ... ok
+test source_length_changes_are_rejected_before_and_after_cached_operations ... ok
+test sparse_construction_never_allocates_the_logical_archive_length ... ok
+test swallowed_errors_cannot_be_returned_as_success ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.64s
+

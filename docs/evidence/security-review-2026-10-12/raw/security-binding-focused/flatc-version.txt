@@ -1,0 +1,1 @@
+flatc version 25.2.10

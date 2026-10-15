@@ -1,0 +1,11 @@
+Source epoch: issue-310 worktree HEAD e08a1000a54b912e7050054469f7ce899ef979d7. Preexisting source manifest verification command checks the source manifest captured before this task; post-run source SHA256s are in source-post.sha256. Isolated source copies and exact old/new source differences are pinned in old-isolated-manifest.sha256, new-isolated-manifest.sha256, and base-and-source.json. The isolated example source is securevec_pressure_profile.rs.txt.
+
+Host gates passed: /usr/bin/getconf PAGESIZE=4096; each fresh profile process observed baseline VmLck=0, unchanged memlock soft/hard 8388608 bytes, weak allocation policy false, and allocation_chunk_bytes=65536. Both offline dependency trees were identical after normalizing only the old/new isolated crate root path. Their resolved package identities matched the original workspace lock: getrandom 0.4.3 (300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099), zeroize 1.9.0 (e13c156562582aa81c60cb29407084cdb54c4164760106ab78e6c5b0858cf64e), libc 0.2.189 (3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2). Isolated Cargo.lock files were pruned only by offline Cargo tree resolution before subsequent locked/offline build.
+
+Both release example builds passed once, exit 0: old 1462 ms, new 1423 ms. Old binary SHA256 41aef6203064b597f982c5da5cbaff5bf5a6ea488c443cc48d9fe1e9fb8fffa2; new binary SHA256 45b9aff04ae6e2c7e255cb09459e00036e033d1473828160b6aa4c68fb077fdf.
+
+Exactly one old pressure run passed as expected in 59 ms, exit 0: typed Error::WeakAllocationDisabled at pass 1/index 60/request 253952 bytes, with VmLck 8359936 bytes. It was explicitly recorded as expected_refusal_not_ignored; no other error was accepted.
+
+Exactly one new pressure run passed in 106 ms, exit 0: completed all 128 allocations over two passes. VmLck remained below 8388608 bytes and ended at 2285568 bytes after the last drop. Full rows are in old-pressure.jsonl and new-pressure.jsonl. No hot timing was launched.
+
+The reviewed source-derived estimate remains 9,416,704 bytes for 64 classes; index 60 is projected first over-limit allocation. The observed old refusal at index 60 agrees with that estimate. The API does not expose allocator capacity, so the capacity column is explicitly source-inferred.

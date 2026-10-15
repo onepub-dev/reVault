@@ -1,0 +1,468 @@
+diff --git a/rust/revault_lockbox_api/src/benchmark_extraction.rs b/rust/revault_lockbox_api/src/benchmark_extraction.rs
+index 35007041..a34197cd 100644
+--- a/rust/revault_lockbox_api/src/benchmark_extraction.rs
++++ b/rust/revault_lockbox_api/src/benchmark_extraction.rs
+@@ -1,5 +1,7 @@
+ //! Shared test/benchmark-only extraction sink. Not a public extraction API.
+ //! Synthetic names come from the fixture contract, never untrusted archive paths.
++#[path = "benchmark_observation.rs"]
++mod observation;
+ use serde_json::{json, Value};
+ use std::{
+     fs::{self, File, OpenOptions},
+@@ -15,11 +17,69 @@ pub(crate) fn measure<H>(
+     count: usize,
+     bytes: u64,
+     open: impl FnOnce() -> H,
+-    mut copy: impl FnMut(&mut H, usize, &mut File) -> u64,
++    copy: impl FnMut(&mut H, usize, &mut File) -> u64,
+     resources: impl FnOnce() -> Value,
++) -> Value {
++    let setting = match std::env::var("REVAULT_EXTRACT_DURABLE") {
++        Ok(value) => Some(value),
++        Err(std::env::VarError::NotPresent) => None,
++        Err(error) => panic!("invalid extraction durability setting: {error}"),
++    };
++    let durable = parse_durable(setting.as_deref()).unwrap();
++    measure_observed(root, output, count, bytes, open, copy, resources, durable, observation::Observation::environment())
++}
++
++fn parse_durable(setting: Option<&str>) -> Result<bool, &'static str> {
++    match setting {
++        None | Some("0") => Ok(false),
++        Some("1") => Ok(true),
++        _ => Err("REVAULT_EXTRACT_DURABLE must be 0 or 1"),
++    }
++}
++
++#[derive(Debug, PartialEq, Eq)]
++struct DiskIo { read: u64, written: u64, cancelled: u64 }
++impl DiskIo {
++    fn parse(text: &str) -> Option<Self> {
++        let field = |name| text.lines().find_map(|line| {
++            let (key, value) = line.split_once(':')?;
++            (key == name).then(|| value.trim().parse::<u64>().ok()).flatten()
++        });
++        Some(Self { read: field("read_bytes")?, written: field("write_bytes")?,
++            cancelled: field("cancelled_write_bytes")? })
++    }
++    fn now() -> Option<Self> { Self::parse(&fs::read_to_string("/proc/self/io").ok()?) }
++    fn delta(&self, before: &Self) -> Option<Value> {
++        Some(json!({"read_bytes":self.read.checked_sub(before.read)?,
++            "write_bytes":self.written.checked_sub(before.written)?,
++            "cancelled_write_bytes":self.cancelled.checked_sub(before.cancelled)?,
++            "source":"/proc/self/io; process-accounted storage I/O, not logical bytes"}))
++    }
++}
++
++#[allow(clippy::too_many_arguments)]
++#[cfg(test)]
++#[allow(dead_code)]
++fn measure_with_durability<H>(
++    root: &Path, output: &Path, count: usize, bytes: u64,
++    open: impl FnOnce() -> H,
++    copy: impl FnMut(&mut H, usize, &mut File) -> u64,
++    resources: impl FnOnce() -> Value,
++    durable: bool,
++) -> Value {
++    measure_observed(root, output, count, bytes, open, copy, resources, durable, observation::Observation::unconfigured())
++}
++#[allow(clippy::too_many_arguments)]
++fn measure_observed<H>(
++    root: &Path, output: &Path, count: usize, bytes: u64,
++    open: impl FnOnce() -> H, mut copy: impl FnMut(&mut H, usize, &mut File) -> u64,
++    resources: impl FnOnce() -> Value, durable: bool, observation: observation::Observation,
+ ) -> Value {
+     assert!((1..=100_000).contains(&count));
+     assert!(!output.exists(), "extraction requires a fresh destination");
++    if let Some(skip) = observation.admission_skip() { return skip }
++    let block_before = observation.snapshot();
++    let io_before = DiskIo::now();
+     let started = Instant::now();
+     let mut archive = open();
+     let open_seconds = started.elapsed().as_secs_f64();
+@@ -35,11 +95,22 @@ pub(crate) fn measure<H>(
+         let copied = copy(&mut archive, index, &mut file);
+         assert_eq!(copied, bytes);
+         file.flush().unwrap();
++        if durable { file.sync_all().unwrap(); }
+         drop(file);
+         total = total.checked_add(copied).unwrap();
+     }
+     drop(archive);
++    if durable {
++        File::open(output).unwrap().sync_all().unwrap();
++        let parent = output.parent().filter(|path| !path.as_os_str().is_empty())
++            .unwrap_or_else(|| Path::new("."));
++        File::open(parent).unwrap().sync_all().unwrap();
++    }
+     let seconds = started.elapsed().as_secs_f64();
++    let io_after = DiskIo::now();
++    let block_device_io = observation.finish(&block_before);
++    let storage_io = io_after.as_ref().zip(io_before.as_ref())
++        .and_then(|(after, before)| after.delta(before));
+     let resources = resources();
+     // Reopen persisted filesystem outputs after the timing/resource snapshot.
+     assert_eq!(fs::read_dir(output).unwrap().count(), count);
+@@ -66,7 +137,14 @@ pub(crate) fn measure<H>(
+         "total_seconds":seconds,"logical_bytes_written":total,
+         "mib_per_second":total as f64 / 1_048_576.0 / seconds,
+         "resources":resources,"files":count,"verified":true,
+-        "durability":"write/flush/close; no fsync; directory creation included",
++        "storage_io":storage_io,
++        "reader_identity":observation.identity_json(),
++        "requested_reader_tid_parity":observation.desired,
++        "block_device_io":block_device_io,
++        "durability":if durable { "sync_all each file, output directory and its parent; included in timer" }
++            else { "write/flush/close; no fsync; directory creation included" },
++        "file_syncs":if durable { count } else { 0 },
++        "directory_syncs":if durable { 2 } else { 0 },
+         "scope":"synthetic regular-file component; excludes CLI startup and permission restoration"})
+ }
+ 
+@@ -80,6 +158,34 @@ mod tests {
+         sync::atomic::{AtomicU64, Ordering},
+     };
+     static NEXT: AtomicU64 = AtomicU64::new(0);
++    #[test]
++    fn wrong_parity_skips_before_archive_open_and_output_creation() {
++        let root = Scratch::new();
++        let output = root.0.join("output");
++        let mut observation = observation::Observation::unconfigured();
++        let parity = observation.identity_json()["reader_tid_parity"].as_u64().unwrap_or(0);
++        observation.desired = Some((parity as u32) ^ 1);
++        let result = measure_observed(&root.0, &output, 1, 1,
++            || panic!("archive must not open"), |_: &mut (), _, _| panic!("must not copy"),
++            || panic!("must not measure resources"), false, observation);
++        assert_eq!(result["kind"], "extraction_admission_skip");
++        assert!(!output.exists());
++    }
++    #[test]
++    fn durability_setting_is_explicit_and_io_counters_are_checked() {
++        assert_eq!(parse_durable(None), Ok(false));
++        assert_eq!(parse_durable(Some("0")), Ok(false));
++        assert_eq!(parse_durable(Some("1")), Ok(true));
++        for value in ["", "true", "2", " 1"] { assert!(parse_durable(Some(value)).is_err()); }
++        let before = DiskIo::parse("rchar: 999\nread_bytes: 4\nwrite_bytes: 8\ncancelled_write_bytes: 1\n").unwrap();
++        let after = DiskIo { read: 12, written: 24, cancelled: 3 };
++        let delta = after.delta(&before).unwrap();
++        assert_eq!(delta["read_bytes"], 8);
++        assert_eq!(delta["write_bytes"], 16);
++        assert_eq!(delta["cancelled_write_bytes"], 2);
++        assert!(before.delta(&after).is_none());
++        assert!(DiskIo::parse("read_bytes: x\nwrite_bytes: 1\ncancelled_write_bytes: 0").is_none());
++    }
+     struct Scratch(PathBuf);
+     impl Scratch {
+         fn new() -> Self {
+@@ -103,6 +209,17 @@ mod tests {
+         }
+     }
+     #[test]
++    fn durable_extraction_syncs_files_and_directory_chain_before_verification() {
++        let root = Scratch::new();
++        fs::write(root.0.join("source/file-000000.bin"), b"durable").unwrap();
++        let result = measure_with_durability(&root.0, &root.0.join("output"), 1, 7, || (),
++            |_, _, file| { file.write_all(b"durable").unwrap(); 7 }, || json!({}), true);
++        assert_eq!(result["verified"], true);
++        assert_eq!(result["file_syncs"], 1);
++        assert_eq!(result["directory_syncs"], 2);
++        assert!(result["durability"].as_str().unwrap().contains("included in timer"));
++    }
++    #[test]
+     fn extraction_checks_reopened_bytes_across_buffer_boundary() {
+         let root = Scratch::new();
+         let bytes: Vec<u8> = (0..65_539).map(|n| (n % 251) as u8).collect();
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+index 469638d2..5358b525 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+@@ -113,6 +113,9 @@ pub(super) fn run(
+         return;
+     }
+     assert!(matches!(phase, "tree-sample" | "tree-extract"));
++    let workers: usize = std::env::var("REVAULT_READ_WORKERS")
++        .unwrap_or_else(|_| "1".into()).parse().unwrap();
++    assert!(matches!(workers, 1 | 2 | 4));
+     let public = OwnerSigningPublicKey::from_bytes(&std::fs::read(&public_path).unwrap()).unwrap();
+     let authority = if mode.signed() {
+         Authority::Owner(&public)
+@@ -122,14 +125,16 @@ pub(super) fn run(
+         Authority::Symmetric(KEY)
+     };
+     let open = || {
+-        TreeImage::open(
++        let mut image = TreeImage::open(
+             StorageBackend::file(&target).unwrap(),
+             archive(),
+             mode,
+             &authority,
+             key,
+         )
+-        .unwrap()
++        .unwrap();
++        image.image.set_read_workers(workers).unwrap();
++        image
+     };
+     if phase == "tree-extract" {
+         let output = std::path::PathBuf::from(std::env::var_os("REVAULT_EXTRACT_OUTPUT").unwrap());
+@@ -162,6 +167,11 @@ pub(super) fn run(
+             },
+         );
+         result["backend"] = json!("typed-tree");
++        result["configured_cpu_workers"] = json!(workers);
++        result["worker_threads"] = json!(if workers == 1 { 0 } else { workers });
++        result["max_queued_chunks"] = json!(if workers == 1 { 1 } else { workers * 8 });
++        result["single_chunk_serial_fallback"] = json!(true);
++        result["parallel_min_requested_bytes"] = json!(128 * 1024);
+         println!("CANDIDATE_SAMPLE {result}");
+         return;
+     }
+@@ -215,5 +225,10 @@ pub(super) fn run(
+     result["candidate_test_executable_sha256"] =
+         json!(digest_file(&std::env::current_exe().unwrap()));
+     result["extent_unit"] = json!(unit);
++    result["configured_cpu_workers"] = json!(workers);
++    result["worker_threads"] = json!(if workers == 1 { 0 } else { workers });
++    result["max_queued_chunks"] = json!(if workers == 1 { 1 } else { workers * 8 });
++    result["single_chunk_serial_fallback"] = json!(true);
++    result["parallel_min_requested_bytes"] = json!(128 * 1024);
+     println!("CANDIDATE_SAMPLE {result}");
+ }
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads.rs
+index 27f2de86..f39758da 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads.rs
+@@ -4,6 +4,7 @@ use super::super::super::tree_image::TreeImage;
+ use super::*;
+ use crate::file_format::authenticated_index::{Index, Visit};
+ use std::{cell::RefCell, rc::Rc};
++mod parallel;
+ 
+ #[derive(Clone, Debug)]
+ struct Trace {
+@@ -46,7 +47,15 @@ fn files(
+     authority: &Authority<'_>,
+     owner: &OwnerSigningKeyPair,
+ ) -> (StorageBackend, Vec<u8>) {
+-    let bytes = content(140_123);
++    files_with_len(mode, authority, owner, 140_123)
++}
++fn files_with_len(
++    mode: FormatMode,
++    authority: &Authority<'_>,
++    owner: &OwnerSigningKeyPair,
++    len: usize,
++) -> (StorageBackend, Vec<u8>) {
++    let bytes = content(len);
+     let names = ["/file-a", "/file-z"];
+     let signer = mode.signed().then_some(owner);
+     let source = Files::create(
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
+index c8a0487e..9980dbd7 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
+@@ -7,6 +7,14 @@ use crate::file_format::authenticated_index::{Entry, PageCache};
+ use crate::file_format::publication_anchor::RootRef;
+ use crate::{LockboxEntry, LockboxEntryKind, LockboxPath};
+ use std::cell::RefCell;
++mod parallel;
++
++struct Selected {
++    extent: Extent,
++    descriptor: Descriptor,
++    first: usize,
++    last: usize,
++}
+ 
+ pub(in crate::file_format::candidate_files) struct TreeImage<S: Storage> {
+     pub image: ReadImage<S>,
+@@ -20,6 +28,7 @@ pub(in crate::file_format::candidate_files) struct ReadImage<S: Storage> {
+     version: u8,
+     codec: Codec,
+     key: Option<Zeroizing<Vec<u8>>>,
++    parallel: Option<parallel::Parallel>,
+ }
+ impl<S: Storage> TreeImage<S> {
+     pub fn open(
+@@ -53,6 +62,7 @@ impl<S: Storage> TreeImage<S> {
+             index: Index::new(archive, mode, key)?,
+             codec: Codec::shared_packed(archive, mode, key)?,
+             key: key.map(|v| Zeroizing::new(v.to_vec())),
++            parallel: None,
+         };
+         let format = image.required(5, b"format")?;
+         if !matches!(
+@@ -95,6 +105,19 @@ impl<S: Storage> TreeImage<S> {
+     }
+ }
+ impl<S: Storage> ReadImage<S> {
++    /// Test-only policy: one means the unchanged serial path and no thread pool.
++    /// Reuse this session across files; even configured parallel sessions keep
++    /// single-chunk ranges and requests below 128 KiB serial. The coordinator
++    /// is additional to N workers.
++    pub fn set_read_workers(&mut self, workers: usize) -> Result<()> {
++        self.parallel = match workers {
++            1 => None,
++            2 | 4 => Some(parallel::Parallel::new(self.anchor.archive, self.anchor.mode,
++                self.key.as_deref().map(Vec::as_slice), workers)?),
++            _ => return Err(Error::InvalidInput("read workers must be 1, 2 or 4".into())),
++        };
++        Ok(())
++    }
+     fn get(&self, namespace: u8, key: &[u8]) -> Result<Option<Entry>> {
+         self.index.get_cached(
+             &self.storage,
+@@ -145,7 +168,43 @@ impl<S: Storage> ReadImage<S> {
+         if len == 0 {
+             return Ok(());
+         }
+-        for ordinal in offset / info.unit as u64..end.div_ceil(info.unit as u64) {
++        let first_ordinal = offset / info.unit as u64;
++        let limit = end.div_ceil(info.unit as u64);
++        if self.parallel.is_some() && len >= 128 * 1024 && limit - first_ordinal > 1 {
++            let capacity = self.parallel.as_ref().unwrap().capacity();
++            let mut next = first_ordinal;
++            while next < limit {
++                let mut jobs = Vec::with_capacity(capacity);
++                while next < limit && jobs.len() < capacity {
++                    let selected = self.select_chunk(&info, next, offset, end)?;
++                    // Validate before allocation/I/O; workers revalidate and run
++                    // the identical commitment/decryption/decoding path.
++                    self.codec.validate_extent(selected.extent, self.anchor.sealed_len, &selected.descriptor)?;
++                    let mut stored = crate::page_buffer::ZeroizingBytes::new(vec![0; selected.extent.len as usize]);
++                    self.storage.read_at_into(selected.extent.start, &mut stored)?;
++                    jobs.push(parallel::Job { selected, stored, decoded: None });
++                    next += 1;
++                }
++                self.parallel.as_mut().unwrap().decode(&mut jobs, self.anchor.sealed_len);
++                // Success exposes only authenticated bytes in logical order. A
++                // later failure may leave an already verified prefix delivered,
++                // exactly as the serial API; callers must discard partial sinks.
++                for mut job in jobs {
++                    let bytes = job.decoded.take().ok_or(Error::CorruptRecord)??;
++                    visitor(&bytes[job.selected.first..job.selected.last])?;
++                }
++            }
++        } else {
++            for ordinal in first_ordinal..limit {
++                let selected = self.select_chunk(&info, ordinal, offset, end)?;
++                self.codec.with_loaded(&self.storage, selected.extent, self.anchor.sealed_len,
++                    &selected.descriptor, |bytes| visitor(&bytes[selected.first..selected.last]))?;
++            }
++        }
++        Ok(())
++    }
++
++    fn select_chunk(&self, info: &FileInfo, ordinal: u64, offset: u64, end: u64) -> Result<Selected> {
+             let row = self.required(2, &chunk_key(info.id, ordinal))?;
+             if row.value.len() != 112 {
+                 return Err(Error::CorruptRecord);
+@@ -188,20 +247,9 @@ impl<S: Storage> ReadImage<S> {
+                 len: stored,
+                 digest: row.value[80..].try_into().unwrap(),
+             };
+-            // The fragment digest is authenticated by the index path, not merely
+-            // taken from the payload itself. Codec verifies it before decoding
+-            // or invoking the caller, including any internal authenticated pad.
+             let first = offset.saturating_sub(logical) as usize;
+             let last = (end - logical).min(descriptor.logical_len as u64) as usize;
+-            self.codec.with_loaded(
+-                &self.storage,
+-                extent,
+-                self.anchor.sealed_len,
+-                &descriptor,
+-                |bytes| visitor(&bytes[first..last]),
+-            )?;
+-        }
+-        Ok(())
++            Ok(Selected { extent, descriptor, first, last })
+     }
+     /// Listing intentionally traverses filesystem metadata, not fragment,
+     /// variable or form-value records and never their payloads or spare space.
+diff --git a/rust/revault_lockbox_api/src/file_format/data_extent.rs b/rust/revault_lockbox_api/src/file_format/data_extent.rs
+index 79ee4c2e..610af3d5 100644
+--- a/rust/revault_lockbox_api/src/file_format/data_extent.rs
++++ b/rust/revault_lockbox_api/src/file_format/data_extent.rs
+@@ -350,14 +350,8 @@ impl Codec {
+         stored.resize(len, 0);
+         let result = (|| {
+             storage.read_at_into(extent.start, &mut stored)?;
+-            if strong_checksum(&stored) != extent.digest {
+-                return Err(Error::CorruptRecord);
+-            }
+-            let encoded_len = descriptor.encoded_len as usize;
+-            if stored[encoded_len..].iter().any(|b| *b != 0) {
+-                return Err(Error::CorruptRecord);
+-            }
+-            visitor(&stored[..encoded_len])
++            verify_stored(&stored, extent)?;
++            visitor(encoded_payload(&stored, descriptor)?)
+         })();
+         // Includes partial failed reads and failed callbacks. If the callback
+         // unwinds, the local ZeroizingBytes instead wipes on drop, leaving the
+@@ -378,9 +372,29 @@ impl Codec {
+     ) -> Result<ZeroizingBytes> {
+         self.validate_extent(extent, sealed, descriptor)?;
+         let stored = ZeroizingBytes::new(storage.read_at(extent.start, extent.len as usize)?);
+-        if stored.len() != extent.len as usize || strong_checksum(&stored) != extent.digest {
+-            return Err(Error::CorruptRecord);
+-        }
++        self.decode_stored(stored, extent, descriptor)
++    }
++
++    /// Worker entry point for caller-thread I/O. Ownership keeps queued input
++    /// wipeable on every error/unwind; membership is still the caller's duty.
++    pub(crate) fn load_stored(
++        &mut self,
++        stored: ZeroizingBytes,
++        extent: Extent,
++        sealed: u64,
++        descriptor: &Descriptor,
++    ) -> Result<ZeroizingBytes> {
++        self.validate_extent(extent, sealed, descriptor)?;
++        self.decode_stored(stored, extent, descriptor)
++    }
++
++    fn decode_stored(
++        &mut self,
++        stored: ZeroizingBytes,
++        extent: Extent,
++        descriptor: &Descriptor,
++    ) -> Result<ZeroizingBytes> {
++        verify_stored(&stored, extent)?;
+         let decoded = if let Some(key) = &self.key {
+             ZeroizingBytes::new(open_with_nonce(
+                 &stored[12..],
+@@ -392,9 +406,7 @@ impl Codec {
+             stored
+         };
+         let encoded_len = descriptor.encoded_len as usize;
+-        if decoded.len() < encoded_len || decoded[encoded_len..].iter().any(|b| *b != 0) {
+-            return Err(Error::CorruptRecord);
+-        }
++        encoded_payload(&decoded, descriptor)?;
+         if descriptor.codec == COMPRESSION_NONE {
+             let mut decoded = decoded;
+             decoded.truncate(encoded_len);
+@@ -420,5 +432,20 @@ impl Codec {
+     }
+ }
+ 
++fn verify_stored(stored: &[u8], extent: Extent) -> Result<()> {
++    if stored.len() != extent.len as usize || strong_checksum(stored) != extent.digest {
++        return Err(Error::CorruptRecord);
++    }
++    Ok(())
++}
++
++fn encoded_payload<'a>(decoded: &'a [u8], descriptor: &Descriptor) -> Result<&'a [u8]> {
++    let encoded_len = descriptor.encoded_len as usize;
++    if decoded.len() < encoded_len || decoded[encoded_len..].iter().any(|b| *b != 0) {
++        return Err(Error::CorruptRecord);
++    }
++    Ok(&decoded[..encoded_len])
++}
++
+ #[cfg(test)]
+ mod tests;

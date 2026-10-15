@@ -1,0 +1,145 @@
+{
+  "scope": "Non-publishing validation of registry-native binding package workflows and focused corrected Vault integration tests",
+  "workspace": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance",
+    "head": "353ded7da454de970a075819add09073e4190e28",
+    "root_cargo_lock_sha256": "f735a39d4862d0f8fa34269e1026ae0dd765e1916a1c30306668b843b3644d28",
+    "vault_api_test_source_sha256_after_test_only_windows_lock_fix": "d39e890311cf5955f93392eb8a060e5e081a3b22904a84595de79de37f86c454"
+  },
+  "vault_test_only_windows_lock_fix": {
+    "file": "rust/revault_vault_api/tests/vault_api.rs",
+    "production_code_changed": false,
+    "tests": [
+      {
+        "name": "vault_open_uses_key_directory_backup_when_embedded_directory_is_corrupt",
+        "command": "cargo +1.88.0 test --locked --offline -p revault_vault_api --test vault_api vault_open_uses_key_directory_backup_when_embedded_directory_is_corrupt -- --exact --nocapture --test-threads=1",
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "log": "vault-corrected/backup-recovery.log"
+      },
+      {
+        "name": "unsigned_contact_backup_preserves_recipient_write_access",
+        "command": "cargo +1.88.0 test --locked --offline -p revault_vault_api --test vault_api unsigned_contact_backup_preserves_recipient_write_access -- --exact --nocapture --test-threads=1",
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "log": "vault-corrected/contact-backup.log"
+      },
+      {
+        "name": "vault_open_populates_cache_for_password_lockbox",
+        "command": "cargo +1.88.0 test --locked --offline -p revault_vault_api --test vault_api vault_open_populates_cache_for_password_lockbox -- --exact --nocapture --test-threads=1",
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "log": "vault-corrected/password-cache.log"
+      },
+      {
+        "name": "vault_password_create_and_open_cache_keys_outside_secure_read_access",
+        "command": "cargo +1.88.0 test --locked --offline -p revault_vault_api --test vault_api vault_password_create_and_open_cache_keys_outside_secure_read_access -- --exact --nocapture --test-threads=1",
+        "status": "passed",
+        "passed": 1,
+        "failed": 0,
+        "log": "vault-corrected/password-create-cache.log"
+      }
+    ],
+    "clippy": {
+      "command": "cargo +1.88.0 clippy --locked --offline -p revault_vault_api --test vault_api -- -D warnings",
+      "status": "passed",
+      "log": "vault-corrected/clippy-test-target.log"
+    }
+  },
+  "registry_native_package_checks": {
+    "javascript": {
+      "command": "npm pack --dry-run --json ./bindings/javascript",
+      "status": "passed",
+      "node": "24.19.0",
+      "json_sha256": "2a97877d04ceac0f26061ac266874e89fd1b8aacaeb6247490965b5fcb5f537c"
+    },
+    "wasm": {
+      "command": "npm pack --dry-run --json ./bindings/wasm",
+      "status": "passed",
+      "json_sha256": "f762ed7a2947373563c5bf176f02cf83082dcd3894e6d914c3d91c1c6453614b4"
+    },
+    "python": {
+      "command": "python -m build bindings/python --outdir /out && python -m twine check /out/*",
+      "status": "passed",
+      "image_digest": "sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f",
+      "artifacts": [
+        {
+          "name": "revault_api-0.2.0.tar.gz",
+          "bytes": 45673,
+          "sha256": "fb30ffce1216fbd8eede05d1a73f5aedd69df2f4b80cca77a42c0db824d74bcf"
+        },
+        {
+          "name": "revault_api-0.2.0-py3-none-linux_x86_64.whl",
+          "bytes": 42945,
+          "sha256": "52a4f3842cf78d06691f704df3dd3a5118d1f53611cb80b76787840717473037"
+        }
+      ]
+    },
+    "csharp": {
+      "command": "dotnet pack RevaultBindings.csproj -warnaserror -o /out",
+      "status": "passed",
+      "image_digest": "sha256:ec9c0a0dc5f60adc2065762050638dd5ed5facfc53716d4580a42d86027c8e80",
+      "artifact": {
+        "name": "Revault.Api.0.2.0.nupkg",
+        "bytes": 106682,
+        "sha256": "2f76eaa4b35afbdfab2f1d055e3ac8b95fd4562f5f3c72a795e09a3b4f991e97"
+      }
+    },
+    "php": {
+      "command": "composer validate --working-dir /pkg --strict --no-check-publish",
+      "status": "passed",
+      "image_digest": "sha256:af98f42dfff7c68ba8d53c2164fd9fde1087b7d449514baa38c418b1f6bc4bac",
+      "warning": "Composer could not determine root package version and assumed 1.0.0",
+      "log_sha256": "0703a2dcbed20d1691bf9d0945237065e0ee60d9318b53daf0a79bd47f6e8c4e"
+    },
+    "ruby": {
+      "corrected_command": "cd bindings/ruby && gem build revault_api.gemspec --output ../../build/registry/revault_api.gem",
+      "status": "passed",
+      "image_digest": "sha256:a91b6ac1b9b18d33812480856e4bc39c5c492ff9c6cc810d916cc3f0cc1d0eab",
+      "artifact": {
+        "name": "revault_api.gem",
+        "bytes": 37888,
+        "sha256": "92e190d8fbb4e33ab7c07ca13865c3dcbb49a62917b248301857355a9246a609"
+      },
+      "payload_assertion": "passed",
+      "prior_incomplete_root_cwd_gem_sha256": "caba74c99cf17fc24f54dd2c6de521a65d37f69a3d1ea16af77b3e452fd8e159"
+    },
+    "lua": {
+      "command": "luarocks lint bindings/lua/revault_api-0.2.0-1.rockspec",
+      "status": "passed",
+      "image_digest": "sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f",
+      "runtime": "LuaJIT 2.1.0+openresty20250117-2 / LuaRocks 3.8.0"
+    },
+    "rust_facade": {
+      "command": "cargo package --locked --manifest-path bindings/rust/Cargo.toml (with workflow path patch configs)",
+      "status": "passed",
+      "cargo": "1.88.0",
+      "artifact": {
+        "name": "revault-api-0.2.0.crate",
+        "bytes": 25127,
+        "sha256": "f841f3e13e133d4f79db6f848abb5bba82d506a456740c1c2eea678ce6a7dd79"
+      },
+      "lock_sha256": "dde7ab1817eab5e6fea5a0cb2c80744a5a9211fec81ab7ae578fdc470ff09b8d",
+      "log": "cargo/cargo-package.log"
+    }
+  },
+  "swift": {
+    "status": "passed",
+    "toolchain": "Swift 6.1.3",
+    "image_digest": "sha256:6e43114610e161e38ad41636ebcafd6940dc67dfab355eace3a0ca100b2263db",
+    "package_dump": "passed",
+    "build": "passed",
+    "tests": {
+      "passed": 1,
+      "failed": 0
+    },
+    "package_input_manifest_sha256": "88c37f88fd1ded5460074c1ad072205a4e39c569fb2acc97f521c6a1baa06a62",
+    "native_library_sha256": "b98d5617f838fd33fa4abdd50c091cfd8c2d8971838754ab6a615d90603f8ae5",
+    "public_header_sha256": "4a5008ae9ac75d56f61b67fff22899bda2fd4c7d034f0abe8a0857d456ffadaa",
+    "note": "An initial package-only mount failed header resolution; corrected faithful-layout attempt passed. FlatBuffers emitted a nonfatal deprecated iOS deployment target warning."
+  },
+  "publication": "No package was published; all package outputs are local validation artifacts."
+}

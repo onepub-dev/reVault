@@ -334,6 +334,19 @@ public struct ProfileHistory {
     }
 }
 
+/// A local Vault alias mapping a normalized name to a stable lockbox identity; resolution does not open the target.
+public struct LockboxAlias {
+    /// Case-sensitive normalized NFC alias name.
+    public let name: String
+    /// Stable binary target identity; verify it when opening the resolved path.
+    public let lockboxId: [UInt8]
+    /// Creates an application-owned LockboxAlias value.
+    public init(name: String, lockboxId: [UInt8]) {
+        self.name = name
+        self.lockboxId = lockboxId
+    }
+}
+
 /// A lockbox identifier and host path remembered by the local vault for later discovery.
 public struct KnownLockbox {
     /// Stable binary identifier of the remembered lockbox.
@@ -464,17 +477,20 @@ public struct AgentEntry {
 
 /// The host capabilities used to protect cached secrets across suspend and sleep.
 public struct SleepSupport {
-    /// Whether the host reports impending system suspend.
+    /// Whether suspend notification support is compiled for this host.
     public let suspendNotifications: Bool
-    /// Whether the agent can delay sleep while handling secrets.
+    /// Whether sleep inhibition support is compiled for this host.
     public let sleepInhibition: Bool
-    /// Whether the host supplies enough integration for safe caching.
+    /// Whether this build includes the host integration; this is not runtime watcher readiness.
     public let supported: Bool
+    /// Whether the current compatible Session Agent reports an active suspend cache watcher; false when absent or unavailable. Notification delivery is platform-dependent.
+    public let cacheClearingActive: Bool
     /// Creates an application-owned SleepSupport value.
-    public init(suspendNotifications: Bool, sleepInhibition: Bool, supported: Bool) {
+    public init(suspendNotifications: Bool, sleepInhibition: Bool, supported: Bool, cacheClearingActive: Bool) {
         self.suspendNotifications = suspendNotifications
         self.sleepInhibition = sleepInhibition
         self.supported = supported
+        self.cacheClearingActive = cacheClearingActive
     }
 }
 
@@ -638,6 +654,12 @@ enum DomainCodec {
     static func profileHistory(_ data: Data) -> ProfileHistory {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__ProfileHistory = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
+    private static func convert(_ value: revault_internal__LockboxAliasT) -> LockboxAlias {
+        LockboxAlias(name: value.name ?? "", lockboxId: value.lockboxId)
+    }
+    static func lockboxAlias(_ data: Data) -> LockboxAlias {
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__LockboxAlias = getRoot(byteBuffer: &buffer); return convert(root.unpack())
+    }
     private static func convert(_ value: revault_internal__KnownLockboxT) -> KnownLockbox {
         KnownLockbox(lockboxId: value.lockboxId, path: value.path ?? "", lastSeenUnixMs: value.lastSeenUnixMs)
     }
@@ -687,7 +709,7 @@ enum DomainCodec {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__AgentEntry = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     private static func convert(_ value: revault_internal__SleepSupportT) -> SleepSupport {
-        SleepSupport(suspendNotifications: value.suspendNotifications, sleepInhibition: value.sleepInhibition, supported: value.supported)
+        SleepSupport(suspendNotifications: value.suspendNotifications, sleepInhibition: value.sleepInhibition, supported: value.supported, cacheClearingActive: value.cacheClearingActive)
     }
     static func sleepSupport(_ data: Data) -> SleepSupport {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__SleepSupport = getRoot(byteBuffer: &buffer); return convert(root.unpack())
@@ -733,6 +755,9 @@ enum DomainCodec {
     }
     static func contactList(_ data: Data) -> [Contact] {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__ContactList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
+    }
+    static func lockboxAliasList(_ data: Data) -> [LockboxAlias] {
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__LockboxAliasList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
     static func knownLockboxList(_ data: Data) -> [KnownLockbox] {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__KnownLockboxList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)

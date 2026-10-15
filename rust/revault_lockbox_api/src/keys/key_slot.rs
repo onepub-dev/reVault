@@ -1,6 +1,5 @@
 use chacha20poly1305::aead::{Aead, KeyInit};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
-use zeroize::Zeroize;
 
 use crate::key_derivation::{derive_key_from_password, derive_key_from_password_bytes};
 use crate::key_wrap::{ContactKeyPair, ContactPublicKey, ContactWrappedKey};
@@ -103,9 +102,9 @@ impl KeySlot {
         salt: Vec<u8>,
         content_key: &[u8],
     ) -> Result<Self> {
-        let mut wrapping_key = derive_key_from_password_bytes(password, &salt)?;
+        let wrapping_key =
+            zeroize::Zeroizing::new(derive_key_from_password_bytes(password, &salt)?);
         let encrypted_key = encrypt_wrapped_key(&wrapping_key, content_key)?;
-        wrapping_key.zeroize();
         Ok(Self::Password {
             id,
             salt,
@@ -131,10 +130,14 @@ impl KeySlot {
                 encrypted_key,
                 ..
             } => {
-                let mut wrapping_key = derive_key_from_password(password, salt)?;
-                let key = decrypt_wrapped_key(&wrapping_key, encrypted_key);
-                wrapping_key.zeroize();
-                key
+                // Reject malformed wrapping inputs before the expensive KDF.
+                // Content-key APIs permit variable key lengths; the AEAD tag is fixed.
+                if salt.len() != 16 || encrypted_key.len() < 16 {
+                    return Err(Error::InvalidKey);
+                }
+                let wrapping_key =
+                    zeroize::Zeroizing::new(derive_key_from_password(password, salt)?);
+                decrypt_wrapped_key(&wrapping_key, encrypted_key)
             }
             _ => Err(Error::InvalidKey),
         }

@@ -17,6 +17,7 @@ members = [
     "revault_tooling",
     "xtask",
 ]
+exclude = ["vendor/zstd-complete"]
 resolver = "2"
 
 # CLI integration tests repeatedly derive real password keys. Optimize external
@@ -28,3 +29,6 @@ opt-level = 3
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+# Corrected codec is published as zstd-complete 0.3.0. The historical
+# vendor snapshot is no longer used to resolve this workspace.

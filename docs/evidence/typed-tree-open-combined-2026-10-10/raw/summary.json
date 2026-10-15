@@ -1,0 +1,205 @@
+{
+  "scope": "single-version verified typed-tree open diagnostic; 100 repeated opens per fixture, no comparison/qualification",
+  "commit": "83ab5c028e3c3f7c28b703342a3a75715806ec0d",
+  "cpu": 2,
+  "repeats_per_fixture": 100,
+  "inputs_stable": true,
+  "cases": {
+    "small512-mixed-compressed": {
+      "status": "passed",
+      "repeats": 100,
+      "verified": true,
+      "archive_sha256": "3d9e2d0ce9aab8dc3e6a52b075a701fb67fb9452c24b2efffc13a87e868990c2",
+      "median_total_us": 688.4795,
+      "stages": {
+        "codec": {
+          "median_us": 0.06,
+          "share_of_median_total_percent": 0.008714856433633825
+        },
+        "index_walk_and_decode": {
+          "median_us": 342.35,
+          "share_of_median_total_percent": 49.72551833424234
+        },
+        "owner_payload_verification": {
+          "median_us": 0.09999999999999999,
+          "share_of_median_total_percent": 0.014524760722723042
+        },
+        "ownership_graph": {
+          "median_us": 1.4,
+          "share_of_median_total_percent": 0.2033466501181226
+        },
+        "pack_padding": {
+          "median_us": 20.360000000000003,
+          "share_of_median_total_percent": 2.957241283146412
+        },
+        "reclaimed_space": {
+          "median_us": 42.1055,
+          "share_of_median_total_percent": 6.11572312610615
+        },
+        "selected_publication": {
+          "median_us": 83.92600000000002,
+          "share_of_median_total_percent": 12.190050684152542
+        },
+        "storage_handle": {
+          "median_us": 8.64,
+          "share_of_median_total_percent": 1.2549393264432709
+        },
+        "typed_validation": {
+          "median_us": 187.08700000000002,
+          "share_of_median_total_percent": 27.173939093320858
+        },
+        "value_key": {
+          "median_us": 0.16,
+          "share_of_median_total_percent": 0.02323961715635687
+        }
+      }
+    },
+    "raw8m-random": {
+      "status": "passed",
+      "repeats": 100,
+      "verified": true,
+      "archive_sha256": "7ee2a3befc88ff9f583f55dbaa7e5ad187f779ad06cd8f0fa7728d067ffb1694",
+      "median_total_us": 277.1234999999999,
+      "stages": {
+        "codec": {
+          "median_us": 0.06,
+          "share_of_median_total_percent": 0.021650996757763236
+        },
+        "index_walk_and_decode": {
+          "median_us": 110.7065,
+          "share_of_median_total_percent": 39.948434542721934
+        },
+        "owner_payload_verification": {
+          "median_us": 0.09999999999999999,
+          "share_of_median_total_percent": 0.03608499459627206
+        },
+        "ownership_graph": {
+          "median_us": 13.0055,
+          "share_of_median_total_percent": 4.6930339722181635
+        },
+        "pack_padding": {
+          "median_us": 6.409999999999999,
+          "share_of_median_total_percent": 2.313048153621039
+        },
+        "reclaimed_space": {
+          "median_us": 41.385,
+          "share_of_median_total_percent": 14.933775013667194
+        },
+        "selected_publication": {
+          "median_us": 83.1365,
+          "share_of_median_total_percent": 29.999801532529723
+        },
+        "storage_handle": {
+          "median_us": 6.6905,
+          "share_of_median_total_percent": 2.4142665634635825
+        },
+        "typed_validation": {
+          "median_us": 12.0455,
+          "share_of_median_total_percent": 4.346618024093952
+        },
+        "value_key": {
+          "median_us": 0.13,
+          "share_of_median_total_percent": 0.046910492975153685
+        }
+      }
+    },
+    "compressed8m-pattern": {
+      "status": "passed",
+      "repeats": 100,
+      "verified": true,
+      "archive_sha256": "6c526254bfdbf96819c355466e40ebbcf6edff708509677f46e3843d805c4c90",
+      "median_total_us": 210.703,
+      "stages": {
+        "codec": {
+          "median_us": 0.04,
+          "share_of_median_total_percent": 0.01898406762124887
+        },
+        "index_walk_and_decode": {
+          "median_us": 70.441,
+          "share_of_median_total_percent": 33.431417682709785
+        },
+        "owner_payload_verification": {
+          "median_us": 0.09,
+          "share_of_median_total_percent": 0.04271415214780995
+        },
+        "ownership_graph": {
+          "median_us": 0.795,
+          "share_of_median_total_percent": 0.37730834397232127
+        },
+        "pack_padding": {
+          "median_us": 5.765,
+          "share_of_median_total_percent": 2.736078745912493
+        },
+        "reclaimed_space": {
+          "median_us": 39.8755,
+          "share_of_median_total_percent": 18.92497971077773
+        },
+        "selected_publication": {
+          "median_us": 82.896,
+          "share_of_median_total_percent": 39.34258173827615
+        },
+        "storage_handle": {
+          "median_us": 6.484999999999999,
+          "share_of_median_total_percent": 3.077791963094972
+        },
+        "typed_validation": {
+          "median_us": 2.6854999999999998,
+          "share_of_median_total_percent": 1.274542839921596
+        },
+        "value_key": {
+          "median_us": 0.11,
+          "share_of_median_total_percent": 0.05220618595843439
+        }
+      }
+    },
+    "raw64m-random": {
+      "status": "passed",
+      "repeats": 100,
+      "verified": true,
+      "archive_sha256": "0c098194eb7cfe027762af2a933f96a814854366773cd3bf6d67f9efeacf6775",
+      "median_total_us": 1178.0004999999999,
+      "stages": {
+        "codec": {
+          "median_us": 0.06,
+          "share_of_median_total_percent": 0.005093376445935295
+        },
+        "index_walk_and_decode": {
+          "median_us": 755.42,
+          "share_of_median_total_percent": 64.127307246474
+        },
+        "owner_payload_verification": {
+          "median_us": 0.09499999999999999,
+          "share_of_median_total_percent": 0.008064512706064215
+        },
+        "ownership_graph": {
+          "median_us": 149.942,
+          "share_of_median_total_percent": 12.728517517607166
+        },
+        "pack_padding": {
+          "median_us": 50.1105,
+          "share_of_median_total_percent": 4.253860673234009
+        },
+        "reclaimed_space": {
+          "median_us": 48.7205,
+          "share_of_median_total_percent": 4.135864118903176
+        },
+        "selected_publication": {
+          "median_us": 83.431,
+          "share_of_median_total_percent": 7.08242483768046
+        },
+        "storage_handle": {
+          "median_us": 8.344999999999999,
+          "share_of_median_total_percent": 0.7084037740221671
+        },
+        "typed_validation": {
+          "median_us": 79.646,
+          "share_of_median_total_percent": 6.761117673549374
+        },
+        "value_key": {
+          "median_us": 0.15,
+          "share_of_median_total_percent": 0.012733441114838238
+        }
+      }
+    }
+  }
+}

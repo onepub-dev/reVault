@@ -1,0 +1,9 @@
+case,metric,main_us,branch_us,paired_change_pct,low95_pct,high95_pct,pairs
+encrypted-signed/false/write,total,128510.252,88977.119,-32.380,-38.313,-30.880,9
+encrypted-signed/true/write,total,36322.223,36517.475,-0.899,-3.842,4.455,9
+encrypted/false/write,total,128340.639,90993.638,-31.118,-40.142,-23.596,9
+encrypted/true/write,total,33012.663,33191.094,-1.388,-3.292,4.630,9
+plain/false/write,total,110895.805,73080.188,-35.131,-44.372,-32.337,9
+plain/true/write,total,32876.981,32797.159,0.598,-1.216,12.015,9
+signed/false/write,total,125299.123,85885.128,-30.812,-36.310,-22.073,9
+signed/true/write,total,41923.864,42125.335,1.087,-3.859,2.869,9

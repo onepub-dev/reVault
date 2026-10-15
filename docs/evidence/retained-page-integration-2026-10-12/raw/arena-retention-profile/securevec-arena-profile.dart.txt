@@ -1,0 +1,36 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const worktree='/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance';
+const rust='$worktree/rust';
+const evidence='$worktree/docs/evidence/retained-page-integration-2026-10-12/raw/arena-retention-profile';
+const temp='/home/bsutton/.cache/rv4-security-20261011';
+const cargo='/home/bsutton/.cargo/bin/cargo';
+const toolbin='/home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/bin';
+void require(bool ok,String message){if(!ok)throw StateError(message);}
+void save(String p,Object v)=>File(p).writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(v)}\n',flush:true);
+Future<int> phase(String name,List<String> args,int cap)async{
+ final out=File('$evidence/$name.stdout').openWrite();final err=File('$evidence/$name.stderr').openWrite();final sw=Stopwatch()..start();
+ final env={'PATH':'$toolbin:/home/bsutton/.cargo/bin:/usr/bin:/bin','HOME':'/home/bsutton','TMPDIR':temp};
+ final p=await Process.start('/usr/bin/timeout',['--kill-after=10s','${cap}s',...args],workingDirectory:rust,environment:env,includeParentEnvironment:false);
+ print(green('$name started pid=${p.pid} cap=${cap}s'));
+ final o=p.stdout.listen(out.add).asFuture<void>();final e=p.stderr.listen(err.add).asFuture<void>();final code=await p.exitCode;await Future.wait([o,e]);await out.close();await err.close();sw.stop();
+ save('$evidence/$name.json',{'argv':['/usr/bin/timeout','--kill-after=10s','${cap}s',...args],'cwd':rust,'pid':p.pid,'exit_code':code,'elapsed_seconds':sw.elapsedMilliseconds/1000,'timed_out':code==124||code==137});
+ print(green('$name ended exit=$code elapsed=${sw.elapsedMilliseconds/1000}s'));require(code==0,'$name failed; preserved logs remain');return code;
+}
+Future<void> main()async{
+ Directory(evidence).createSync(recursive:true);
+ final source=File('$rust/revault_page_api/examples/securevec_arena_retention_profile.rs');require(source.existsSync(),'example missing');
+ final buildArgs=[cargo,'+1.88.0','build','--locked','--offline','--release','-p','revault_page_api@0.0.34','--example','securevec_arena_retention_profile'];
+ await phase('corrected-build',buildArgs,300);
+ final exe='$rust/target/release/examples/securevec_arena_retention_profile';require(File(exe).existsSync(),'profile executable missing');
+ await phase('profile-run',[exe],30);
+ final rows=File('$evidence/profile-run.stdout').readAsLinesSync().where((s)=>s.startsWith('{')).map((s)=>jsonDecode(s) as Map<String,dynamic>).toList();
+ require(rows.length==97,'expected 97 JSONL samples, got ${rows.length}');require(rows.every((r)=>(r['VmLck_bytes'] as num)<=2097152),'VmLck > 2MiB');
+ require(rows.where((r)=>r['pass']==2&&r['stage']=='live').length==16,'second pass incomplete');
+ final live=rows.where((r)=>r['stage']=='live').map((r)=>(r['VmLck_bytes'] as num).toInt()).toList();
+ final plateau=live.take(16).reduce((a,b)=>a>b?a:b);require(live.skip(16).every((v)=>v<=plateau),'second pass VmLck grew beyond first-pass plateau');
+ save('$evidence/validation.json',{'samples':rows.length,'live_samples':32,'pass2_live_samples':16,'max_observed_VmLck_bytes':rows.map((r)=>(r['VmLck_bytes'] as num).toInt()).reduce((a,b)=>a>b?a:b),'first_pass_live_plateau_bytes':plateau,'planned_locked_backing_bytes':1060864,'limit_bytes':2097152,'capacities':'inferred from source; not exposed by public API','all_checks_passed':true});
+ print(green('Validated 97 samples; second pass stayed at/below first-pass live VmLck plateau.'));
+}

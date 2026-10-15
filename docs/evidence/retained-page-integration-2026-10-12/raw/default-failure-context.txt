@@ -1,0 +1,39 @@
+385-test file_format::candidate_files::tests::tree_tests::variables::prepared::prepared_staging_aggregate_guarded_source_probe ... ignored, fresh-process guarded aggregate staging probe
+386-test file_format::candidate_files::tests::tree_tests::variables::prepared::prepared_staging_preflight_and_second_pass_failures_preserve_selected_values_all_modes ... ok
+387-test file_format::candidate_files::tests::tree_tests::variables::resource::typed_variable_resource_probe ... ignored, fixed fresh-process variable resource runner only
+388-test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variable_max_revision_can_be_deleted_but_not_replaced ... ok
+389:test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_guarded_transaction_and_recovery_faults ... FAILED
+390-test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes ... ok
+391-test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_maximum_empty_and_one_over_all_modes ... ok
+392-test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_selected_ownership_corruption_and_salvage_all_modes ... ok
+393-test file_format::candidate_files::tests::update_source_changes_and_failures_abort_staged_bytes_without_losing_old_files ... ok
+--
+408-test file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures ... ok
+409-test file_format::data_extent::tests::raw_visit_still_refuses_authenticated_nonzero_internal_padding ... ok
+410-test file_format::data_extent::tests::repeated_decoder_matches_fresh_decoder_for_independent_extent_streams ... ok
+411-test file_format::data_extent::tests::stored_commitment_and_encryption_context_prevent_substitution ... ok
+412:test file_format::form_segments::tests::form_segments_empty_utf8_boundary_and_one_mib_all_modes ... FAILED
+413:test file_format::candidate_files::tests::tree_tests::forms::selected_source::selected_source_replacement_guarded_atomic_recovery_faults ... FAILED
+414:test file_format::form_segments::tests::form_segments_refuse_limits_context_substitution_and_corruption ... FAILED
+415-test file_format::header_v2::tests::initial_region_has_one_valid_slot ... ok
+416:test file_format::form_segments::tests::form_segments_same_size_permutation_and_cross_value_substitution ... FAILED
+417-test file_format::header_v2::tests::newest_valid_slot_wins ... ok
+418-test file_format::header_v2::tests::torn_newest_slot_falls_back_to_prior_slot ... ok
+419-test file_format::indexed_frame::block_page::tests::block_page_rejects_header_metadata_and_extent_corruption_before_use ... ok
+420-test file_format::indexed_frame::block_page::tests::block_page_rejects_invalid_manifest_and_rechecksummed_metadata_bombs ... ok
+--
+432-test file_format::key_directory::tests::key_directory_header_numeric_fields_are_little_endian ... ok
+433-test file_format::key_directory::tests::key_directory_rejects_reserved_field_tampering ... ok
+434-test file_format::metadata_budget::tests::budget_refuses_before_growth_and_does_not_wrap ... ok
+435-test file_format::indexed_frame::tests::native_block_maximum_frames_preserve_incompressible_fallback ... ok
+436:test file_format::page::secure_storage::tests::secure_staging_matches_plaintext_wire_and_secure_reader_all_modes ... FAILED
+437-test file_format::page::tests::arithmetic_page_sizes_match_serialized_bodies_in_every_explicit_mode ... ok
+438-test file_format::page::tests::arithmetic_sizing_handles_shared_secure_payloads_and_physical_limits ... ok
+439-test file_format::page::tests::canonical_control_decoder_requires_one_object_and_matching_identity ... ok
+440-test file_format::page::tests::canonical_control_extent_matches_writer_across_modes_and_boundaries ... ok
+441-test file_format::page::tests::clear_text_page_uses_page_checksum_for_body_integrity ... ok
+442:test file_format::page::tests::direct_clear_raw_pages_match_legacy_full_bytes_and_extent_rules ... FAILED
+443-test file_format::page::tests::object_stream_reservation_preserves_fixed_wire_bytes_and_scoped_payloads ... ok
+444-test file_format::page::tests::page_rejects_public_header_checksum_tampering ... ok
+445-test file_format::page::tests::page_rejects_tampering ... ok
+446-test file_format::page::tests::page_round_trips_objects_and_has_fixed_size ... ok

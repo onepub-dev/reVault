@@ -1,0 +1,29 @@
+
+running 1 test
+test file_format::candidate_files::tests::tree_tests::typed_tree_filesystem_growth_deletion_permissions_and_copy_loss_all_modes ... TYPED_TREE_LIFECYCLE mode=0 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=1 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=2 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=3 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=4 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=5 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=6 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=7 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=8 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=9 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=10 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=11 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=12 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=13 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=14 nodes=2504 completed_bytes=1114112
+TYPED_TREE_LIFECYCLE mode=15 nodes=2504 completed_bytes=1114112
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 567 filtered out; finished in 1.20s
+
+{"archive_bytes":720896,"archive_sha256":"95de9cb7d816c986760e13f968e75835217230e04ddaeb4e289fd0f4e34014f0","kind":"typed_tree_fixture","layout":"shared-control-typed-tree","scope":"fresh canonical typed files; no timing or migration claim","verified":true}
+{"archive_bytes":8650752,"archive_sha256":"51511223d9f6cfb8523603b5dbf47bbef978fee1acddf2a32c6144f3990b11d6","kind":"typed_tree_fixture","layout":"shared-control-typed-tree","scope":"fresh canonical typed files; no timing or migration claim","verified":true}
+{"archive_bytes":327680,"archive_sha256":"b9c008fd55c89fafd77ba61efbf4f8897dfe8c3b64c2850b11ac648da91ec65d","kind":"typed_tree_fixture","layout":"shared-control-typed-tree","scope":"fresh canonical typed files; no timing or migration claim","verified":true}
+{"access":"stream","backend":"lockbox","baseline_peak_rss_kib":4492,"candidate_scope":"fresh typed file reader; unchanged integrity; no native activation or full-format qualification","candidate_test_executable_sha256":"11ff0a3dd29d4592ddf205b54d1641f50e051428ce11ffbd2e42845a67bab152","first_byte_seconds":0.001726512,"kind":"sample","layout":"shared-control-typed-tree","logical_bytes_read":2097152,"open_resources":{"cpu_seconds":0.0016090000000000002,"major_faults":0,"system_seconds":0.0,"user_seconds":0.0016090000000000002},"open_seconds":0.001643261,"passes":1,"peak_rss_kib":6528,"probe_overhead_seconds":1.6599999999996826e-6,"read_resources":{"cpu_seconds":0.0036049999999999997,"major_faults":0,"system_seconds":0.001165,"user_seconds":0.0024399999999999995},"read_seconds":0.003604525,"resources":{"cpu_seconds":0.005214,"major_faults":0,"system_seconds":0.001165,"user_seconds":0.004049},"total_seconds":0.005249446,"verified":true}
+{"access":"stream","backend":"lockbox","baseline_peak_rss_kib":4336,"candidate_scope":"fresh typed file reader; unchanged integrity; no native activation or full-format qualification","candidate_test_executable_sha256":"11ff0a3dd29d4592ddf205b54d1641f50e051428ce11ffbd2e42845a67bab152","first_byte_seconds":0.000793726,"kind":"sample","layout":"shared-control-typed-tree","logical_bytes_read":8388608,"open_resources":{"cpu_seconds":0.000732,"major_faults":0,"system_seconds":0.0,"user_seconds":0.000732},"open_seconds":0.000730145,"passes":1,"peak_rss_kib":5940,"probe_overhead_seconds":1.460000000000003e-6,"read_resources":{"cpu_seconds":0.006220000000000001,"major_faults":0,"system_seconds":0.001271,"user_seconds":0.004949},"read_seconds":0.006218774,"resources":{"cpu_seconds":0.006952000000000001,"major_faults":0,"system_seconds":0.001271,"user_seconds":0.005681},"total_seconds":0.006950379,"verified":true}
+{"access":"range","backend":"lockbox","baseline_peak_rss_kib":4236,"candidate_scope":"fresh typed file reader; unchanged integrity; no native activation or full-format qualification","candidate_test_executable_sha256":"11ff0a3dd29d4592ddf205b54d1641f50e051428ce11ffbd2e42845a67bab152","first_byte_seconds":0.001495931,"kind":"sample","layout":"shared-control-typed-tree","logical_bytes_read":4096,"open_resources":{"cpu_seconds":0.0014400000000000003,"major_faults":0,"system_seconds":0.0003970000000000002,"user_seconds":0.001043},"open_seconds":0.00143748,"passes":1,"peak_rss_kib":5956,"probe_overhead_seconds":1.349999999999877e-6,"read_resources":{"cpu_seconds":0.000059999999999999724,"major_faults":0,"system_seconds":0.00003999999999999967,"user_seconds":0.000019999999999999836},"read_seconds":0.000058391,"resources":{"cpu_seconds":0.0015,"major_faults":0,"system_seconds":0.0004369999999999999,"user_seconds":0.001063},"total_seconds":0.001497221,"verified":true}
+{"access":"stream","backend":"lockbox","baseline_peak_rss_kib":4512,"candidate_scope":"fresh typed file reader; unchanged integrity; no native activation or full-format qualification","candidate_test_executable_sha256":"11ff0a3dd29d4592ddf205b54d1641f50e051428ce11ffbd2e42845a67bab152","first_byte_seconds":0.000940217,"kind":"sample","layout":"shared-control-typed-tree","logical_bytes_read":8388608,"open_resources":{"cpu_seconds":0.0005730000000000002,"major_faults":0,"system_seconds":0.0005730000000000002,"user_seconds":0.0},"open_seconds":0.000571225,"passes":1,"peak_rss_kib":6812,"probe_overhead_seconds":1.2300000000005015e-6,"read_resources":{"cpu_seconds":0.0036699999999999997,"major_faults":0,"system_seconds":0.0,"user_seconds":0.00367},"read_seconds":0.003669406,"resources":{"cpu_seconds":0.004243,"major_faults":0,"system_seconds":0.0005730000000000002,"user_seconds":0.00367},"total_seconds":0.004241861,"verified":true}

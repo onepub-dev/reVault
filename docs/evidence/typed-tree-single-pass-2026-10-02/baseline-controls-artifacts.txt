@@ -1,0 +1,9 @@
+/tmp/revault-typed-read-20261002/baseline-controls/large-compressed/candidate.lbox 327680
+/tmp/revault-typed-read-20261002/baseline-controls/large-compressed/case.json 121
+/tmp/revault-typed-read-20261002/baseline-controls/large-compressed/dense.lbox 327680
+/tmp/revault-typed-read-20261002/baseline-controls/large-raw/candidate.lbox 8650752
+/tmp/revault-typed-read-20261002/baseline-controls/large-raw/case.json 121
+/tmp/revault-typed-read-20261002/baseline-controls/large-raw/dense.lbox 8650752
+/tmp/revault-typed-read-20261002/baseline-controls/small-plain/candidate.lbox 720896
+/tmp/revault-typed-read-20261002/baseline-controls/small-plain/case.json 118
+/tmp/revault-typed-read-20261002/baseline-controls/small-plain/dense.lbox 720896

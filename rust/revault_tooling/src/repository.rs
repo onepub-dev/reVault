@@ -466,6 +466,9 @@ fn check_cpp_documentation(repository: &Path, relative: &str) -> Result<usize> {
     let mut count = 0usize;
     for (index, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
+        if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with('*') {
+            continue;
+        }
         classes.retain(|(class_depth, _)| depth >= *class_depth);
         let internal_detail = detail_start
             .zip(detail_end)
@@ -548,6 +551,11 @@ fn check_documented_surface(
     let mut count = 0usize;
     for (index, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
+        // Documentation can itself contain function-like text. It is never a
+        // declaration, including JSDoc prose with parentheses.
+        if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with('*') {
+            continue;
+        }
         let declaration = match style {
             DocumentationSurface::C => trimmed.ends_with(");") && trimmed.contains('('),
             DocumentationSurface::CSharp => trimmed.starts_with("public "),
@@ -777,6 +785,7 @@ fn rust_item_name(item: &str) -> &str {
 }
 
 fn public_rust_function_names(repository: &Path) -> Result<BTreeSet<String>> {
+    crate::private_api_boundary::verify(&repository.join("rust/revault_lockbox_api/src"))?;
     let mut names = BTreeSet::new();
     for crate_path in ["rust/revault_lockbox_api/src", "rust/revault_vault_api/src"] {
         for entry in walkdir::WalkDir::new(repository.join(crate_path)) {
@@ -788,6 +797,13 @@ fn public_rust_function_names(repository: &Path) -> Result<BTreeSet<String>> {
                     .file_name()
                     .and_then(|value| value.to_str())
                     .is_some_and(|name| name.contains("test"))
+            {
+                continue;
+            }
+            if crate_path == "rust/revault_lockbox_api/src"
+                && crate::private_api_boundary::excluded(
+                    path.strip_prefix(repository.join(crate_path))?,
+                )
             {
                 continue;
             }
@@ -1089,6 +1105,8 @@ fn generate_flatbuffers(repository: &Path) -> Result {
         "document_lua_models.py",
     ] {
         let status = Command::new("python3")
+            // Bytecode embeds the temporary source path and is not generated API output.
+            .env("PYTHONDONTWRITEBYTECODE", "1")
             .arg(repository.join("bindings/flatbuffers").join(generator))
             .status()?;
         if !status.success() {
@@ -1096,6 +1114,27 @@ fn generate_flatbuffers(repository: &Path) -> Result {
         }
     }
 
+    // flatc Go output needs canonical Go formatting as well as the model
+    // generator (which already formats its own domain_models.go output).
+    let status = Command::new("gofmt")
+        .arg("-w")
+        .arg(repository.join("bindings/go/internal/transport/revault_bindings_generated.go"))
+        .status()?;
+    if !status.success() {
+        return Err(format!("generated Go formatting failed with {status}").into());
+    }
+
+    // Match the required binding lint gate so regeneration does not restore
+    // unformatted Dart output. Limit formatting to generator-owned files.
+    let status = Command::new("dart")
+        .current_dir(&repository)
+        .args(["format", "--language-version=3.10"])
+        .arg(repository.join("bindings/dart/lib/src/domain_models.dart"))
+        .arg(repository.join("bindings/dart/lib/src/generated/flatbuffers"))
+        .status()?;
+    if !status.success() {
+        return Err(format!("generated Dart formatting failed with {status}").into());
+    }
     Ok(())
 }
 
@@ -1120,6 +1159,52 @@ fn normalize_generated_tree(directory: &Path) -> Result {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn documentation_prose_is_not_a_typescript_declaration() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("facade.js");
+        fs::write(
+            &path,
+            "  /** Sets a limit (auto, disabled, or bytes). */\n  setLimit(mode) {}\n",
+        )
+        .unwrap();
+        assert_eq!(
+            check_documented_surface(root.path(), "facade.js", DocumentationSurface::TypeScript)
+                .unwrap(),
+            1
+        );
+        fs::write(&path, "  setLimit(mode) {}\n").unwrap();
+        assert!(check_documented_surface(
+            root.path(),
+            "facade.js",
+            DocumentationSurface::TypeScript
+        )
+        .is_err());
+        fs::write(&path, "  /** A comment with calls(foo), not an API. */\n").unwrap();
+        assert_eq!(
+            check_documented_surface(root.path(), "facade.js", DocumentationSurface::TypeScript)
+                .unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn documentation_prose_is_not_a_cpp_declaration() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("facade.hpp");
+        fs::write(&path, "/** A facade. */\nclass Facade {\npublic:\n  /** Sets a limit (auto or bytes). */\n  void set_limit(int mode);\n};\n").unwrap();
+        assert_eq!(
+            check_cpp_documentation(root.path(), "facade.hpp").unwrap(),
+            2
+        );
+        fs::write(
+            &path,
+            "/** A facade. */\nclass Facade {\npublic:\n  void set_limit(int mode);\n};\n",
+        )
+        .unwrap();
+        assert!(check_cpp_documentation(root.path(), "facade.hpp").is_err());
+    }
+
     #[test]
     fn parses_pointer_and_value_declarations() {
         let names = declarations("uint32_t api_abi_version(void);\nvoid * lockbox_create(void);\nRevaultBuffer buffer_last_error(void);");

@@ -1,0 +1,9 @@
+
+running 4 tests
+test api_tests::password_access_rekey_preserves_signing_and_current_content ... ok
+test keys::signing::tests::hybrid_signature_verification_rejects_duplicate_algorithm ... ok
+test keys::signing::tests::hybrid_signature_verification_rejects_missing_algorithm ... ok
+test lockbox::commit::tests::contact_cannot_replace_the_established_owner_signing_key ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 715 filtered out; finished in 3.18s
+

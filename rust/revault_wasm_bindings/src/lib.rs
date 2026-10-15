@@ -268,6 +268,28 @@ impl WasmLockbox {
             .map_err(error)
     }
 
+    /// Opens using an explicit per-credential KDF budget for a trusted archive.
+    pub fn open_with_password_budget(
+        bytes: &[u8],
+        password: &str,
+        max_derivations: f64,
+    ) -> Result<WasmLockbox, JsValue> {
+        if !max_derivations.is_finite()
+            || max_derivations.fract() != 0.0
+            || max_derivations < 0.0
+            || max_derivations > u32::MAX as f64
+        {
+            return Err(JsValue::from_str(
+                "max_derivations must be an unsigned 32-bit integer",
+            ));
+        }
+        let password = SecretString::try_from_slice(password.as_bytes())
+            .map_err(|value| JsValue::from_str(&value.to_string()))?;
+        Lockbox::open_with_password_budget(bytes.to_vec(), &password, max_derivations as u32)
+            .map(WasmLockbox)
+            .map_err(error)
+    }
+
     /// Adds a file at `path`, optionally replacing an existing file.
     pub fn add_file(&mut self, path: &str, data: &[u8], replace: bool) -> Result<(), JsValue> {
         let path = LockboxPath::new(path).map_err(|e| JsValue::from_str(&e.to_string()))?;
@@ -301,6 +323,23 @@ impl WasmLockbox {
         self.0
             .create_parent_dirs_for(&lockbox_path(path)?)
             .map_err(error)
+    }
+
+    /// Sets a soft page/native-frame cache target: `auto`, `disabled`, or `bytes`.
+    /// Pending writes and active shared owners remain valid; this is not a total-memory limit.
+    pub fn set_cache_limit(&mut self, mode: &str, bytes: u64) -> Result<(), JsValue> {
+        let limit = match mode {
+            "auto" => revault_lockbox_api::CacheLimit::Auto,
+            "disabled" => revault_lockbox_api::CacheLimit::Disabled,
+            "bytes" => revault_lockbox_api::CacheLimit::Bytes(bytes),
+            _ => {
+                return Err(JsValue::from_str(
+                    "cache mode must be auto, disabled, or bytes",
+                ))
+            }
+        };
+        self.0.set_cache_limit(limit);
+        Ok(())
     }
 
     /// Selects an `interactive`, `bulk-import`, `read-mostly`, or `extract-many` profile.

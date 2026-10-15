@@ -1,0 +1,4 @@
+cwd=/tmp/rv-security-cli-isolated-20261013/source/rust
+env=CARGO_TARGET_DIR=/tmp/rv-security-cli-isolated-20261013/target TMPDIR=/home/bsutton/.cache/rv4-security-20261011
+command=cargo +1.88.0 test --locked --offline --release --no-run -p revault_cli --test migration_cli --test publish_integration
+timeout=900s + 30s kill grace

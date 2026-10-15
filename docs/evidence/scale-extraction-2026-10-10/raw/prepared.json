@@ -1,0 +1,27 @@
+{
+  "scale_root": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1",
+  "cases": [
+    {
+      "name": "raw-random-1gib",
+      "root": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib",
+      "files": 1,
+      "bytes_each": 1073741824,
+      "payload_bytes": 1073741824,
+      "read_only_source_links": true
+    },
+    {
+      "name": "raw-mixed-10000x64k",
+      "root": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-mixed-10000x64k",
+      "files": 10000,
+      "bytes_each": 65536,
+      "payload_bytes": 655360000,
+      "read_only_source_links": true
+    }
+  ],
+  "artifact_cap_bytes": 21474836480,
+  "existing_apparent_logical_bytes_below_parent": 5206166456,
+  "projected_new_work_bytes": 5187305472,
+  "available_bytes_after_preparation": 1559832199168,
+  "scope": "preparation only; source, case and ZIP are symlinked from retained failed capacity cases; no candidate invoked",
+  "generator_caveat": "The retained mixed 10,000 × 65,536-byte fixture is patterned: the old generator alternates pattern/random only every 256 KiB within a file, so no file in this case reaches a random interval."
+}

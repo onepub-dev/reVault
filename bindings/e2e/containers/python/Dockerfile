@@ -1,7 +1,7 @@
 FROM revault-e2e-native:local
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    dbus-x11 gnome-keyring libsecret-tools libdbus-1-dev pkg-config \
+    dbus-x11 gnome-keyring libsecret-tools libglib2.0-bin libdbus-1-dev pkg-config \
     python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
 

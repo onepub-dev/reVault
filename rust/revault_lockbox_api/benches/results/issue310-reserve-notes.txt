@@ -1,0 +1,75 @@
+Issue #310: large-file baseline and raw whole-output reservation
+
+Baseline production revision: cb7b08e.
+Before binary SHA256: 9421621be419f27eb1383cb26bc1f353ac92276519a492060e810324accb1e3e
+Unconditional-reservation prototype SHA256: b379db4ac182c4b3afd9c567257fbd1cb6a0b7a73fdb747ef8fb9e52430c298d
+Final binary SHA256: 5fa0a2800c6be16f7f59c141813a5f11b82d727a8fde5ed2852b86c5d68a7757
+Release zip_read benchmark with native-block-layout, before formatting hook.
+Feature remains experimental; no format, migration or default activation change.
+The allocation change also applies to released-layout raw multi-frame reads.
+
+large-current.csv contains the cb7b08e baseline: 192 rows, three runs, five
+samples each, four files per archive, 1 MiB/8 MiB sizes, pattern/random corpora,
+plain mode, both requested compression settings, Interactive/ReadMostly read
+profiles and stream/random/whole/range access. Creation profile Interactive.
+Every returned byte is checked. Each sample opens a fresh archive; OS caches
+are warm. ZIP deflate range reads decode prefixes without a whole-entry CRC.
+The matrix still shows substantial large-file gaps; it is not a parity gate.
+
+A whole-process perf recording of 20 samples of plain raw 8 MiB whole reads
+included fixture creation, ZIP reads and byte comparisons as well as Lockbox.
+SHA256 accounted for 22.33% self samples, memmove 7.03%, zeroization 3.67%;
+reallocation was visible in cumulative stacks. Kernel symbols were unavailable.
+This is a diagnostic lead, not attribution exclusively to get_file.
+
+Raw multi-frame get_file now makes one fallible exact reservation using the
+known logical length, instead of growing the output while appending chunks.
+Single covering chunks still transfer the decoded allocation directly.
+Every chunk and sparse gap still passes through existing extraction checks.
+Impossible raw/sparse reservations return SecurityLimitExceeded; no panic or
+attempt to materialize an unaddressable sparse hole is needed.
+
+Unconditional reservation was rejected: eight alternating before/after pairs
+showed a repeatable ~5% slowdown for compressible 8 MiB data even though raw
+cases improved. The final policy reserves only when all stored chunks are raw;
+compressed and mixed-codec files retain their previous allocation order.
+Compression-policy=true incompressible fixtures fall back to actual raw frames
+and therefore exercise the reservation optimization.
+
+Prototype-reads CSV: 96 rows, three interleaved pairs, five samples, both sizes,
+corpora, compression settings and read profiles, ACCESS=whole.
+Prototype-controls CSV: 96 rows, eight alternating-order pairs, nine samples,
+Interactive reads; unchanged 1 MiB raw/random and compressed/pattern controls,
+plus all four 8 MiB corpus/compression combinations.
+Final reserve-reads CSV: repeats that exact 96-row control protocol with the
+raw-only reservation policy. Timing ran after correctness checks finished.
+
+Final medians across eight runs: speedup=before/after lockbox total time;
+after/ZIP=after lockbox/ZIP total time (lower is better).
+1048576 false Interactive random: speedup 0.998, after/ZIP 6.506
+1048576 true Interactive pattern: speedup 1.021, after/ZIP 4.821
+8388608 false Interactive pattern: speedup 1.079, after/ZIP 5.230
+8388608 false Interactive random: speedup 1.075, after/ZIP 5.049
+8388608 true Interactive pattern: speedup 1.007, after/ZIP 4.252
+8388608 true Interactive random: speedup 1.123, after/ZIP 2.091
+
+These measurements cover plain warm whole-file reads only; they do not prove
+signed/encrypted throughput, cold I/O, range/handle parity, or write lifecycle
+completion. The existing two native recovery failures remain release blockers.
+Regression coverage includes byte-exact sparse get_file after reopen and
+fallible rejection of a unit-level unaddressable sparse-length fixture.
+
+Final result: raw multi-frame cases improved 1.075-1.123x; compressed 8 MiB
+control was 1.007x and single-frame controls were 0.998-1.021x. Raw 8 MiB
+whole reads still took approximately 5.05-5.23x ZIP in this final matrix.
+
+Validation:
+- Default-feature suite: 340 unit tests passed, 5 ignored; all executed
+  integration and documentation tests passed.
+- Native + external-source unit suite: 346 passed, 5 ignored, the same two
+  known recovery failures: recovery_skips_truncated_tail_and_keeps_prior_intact_files;
+  native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+  Native integration/doc tests were not reached after those unit failures.
+- Native + external-source all-targets Clippy with -D warnings passed.
+- Three focused sparse tests passed; final release benchmark build passed.
+- All 192 baseline and 288 prototype/final paired rows checked returned bytes.

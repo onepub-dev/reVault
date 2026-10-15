@@ -1,0 +1,1 @@
+command=cargo +1.88.0 check --locked --offline -p zstd-complete@0.2.0 --tests

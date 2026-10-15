@@ -1,0 +1,1 @@
+PYTHONPYCACHEPREFIX=/tmp/revault-security-binding-pycache python3 -m compileall -q -f bindings/python

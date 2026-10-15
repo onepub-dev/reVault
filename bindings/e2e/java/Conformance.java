@@ -113,6 +113,8 @@ public final class Conformance {
       pass("lockbox_list", 2); pass("lockbox_stat", 2);
       box.setWorkloadProfile("read-mostly"); box.setWorkerPolicy("single", 1);
       check(!box.runtimeOptions().workloadProfile().isEmpty(), "runtime");
+      box.setCacheLimit("bytes", 8192); check(box.cacheStats().limitBytes() == 8192, "cache limit");
+      box.setCacheLimit("auto", 0); pass("lockbox_set_cache_limit");
       pass("lockbox_set_workload_profile"); pass("lockbox_set_worker_policy"); pass("lockbox_runtime_options");
       box.commit(); check(box.storageLength() > 0, "storage");
       pass("lockbox_commit"); pass("lockbox_storage_len");
@@ -260,6 +262,9 @@ public final class Conformance {
             check(Arrays.equals(opened.getFile("/password.txt"), "password protected".getBytes()), "password open");
           }
           pass("lockbox_open_password", 2);
+          try (var budgetOpen = API.openLockboxWithPasswordBudget(passwordArchive, "archive password".getBytes(), 1)) {
+            check(Arrays.equals(budgetOpen.getFile("/password.txt"), "password protected".getBytes()), "budget password bytes");
+          } pass("lockbox_open_password_with_budget", 2);
         }
         try (var contactBox = API.createLockboxForContact(publicKey)) {
           contactBox.addFile("/contact.txt", "contact protected".getBytes(), false); contactBox.commit();
@@ -286,6 +291,8 @@ public final class Conformance {
       var extractedFile = extractRoot.resolve("account.txt"); Files.deleteIfExists(extractedFile);
       box.extractFile("/account.txt", extractedFile.toString(), false);
       check(Files.exists(extractedFile), "extract file"); pass("lockbox_extract_file", 2);
+      box.extractFileWithPolicy("/account.txt", extractedFile.toString(), 1 << 20, 1 << 20, 1, true, true);
+      check(Arrays.equals(Files.readAllBytes(extractedFile), box.getFile("/account.txt")), "policy extracted bytes"); pass("lockbox_extract_file_with_policy", 2);
       var extractedTree = extractRoot.resolve("tree"); Files.createDirectories(extractedTree);
       box.extractDirectory(extractedTree.toString(), 1 << 20, 4 << 20, 100, false, true, false);
       check(Files.exists(extractedTree), "extract dir"); pass("lockbox_extract_directory", 2);
@@ -294,6 +301,7 @@ public final class Conformance {
   }
 
   private static void vaultLifecycle() throws Exception {
+    var aliasPath = artifactRoot().resolve("remembered-alias-target.lbox").toAbsolutePath().toString();
     var root = artifactRoot().resolve("vault"); Files.createDirectories(root);
     var password = "vault password".getBytes(); var newPassword = "new vault password".getBytes();
     var id = new byte[16]; for (int i = 0; i < id.length; i++) id[i] = (byte) (0xa0 + i);
@@ -341,9 +349,15 @@ public final class Conformance {
         vault.storeBackup(id, "encrypted backup bytes".getBytes()); check(vault.backupCount() == 1, "count");
         check(Arrays.equals(vault.loadBackup(id), "encrypted backup bytes".getBytes()), "backup");
         pass("vault_directory_store_backup"); pass("vault_directory_backup_count"); pass("vault_directory_load_backup", 3);
-        vault.rememberLockbox(id, "/tmp/example.lbox");
+        vault.rememberLockbox(id, aliasPath);
         check(vault.listKnownLockboxes().size() == 1, "known");
         pass("vault_directory_remember_lockbox"); pass("vault_directory_list_known_lockboxes");
+        vault.setLockboxAlias("portable", id); vault.setLockboxAlias("portable", id);
+        check(vault.listLockboxAliases().size() == 1 && vault.listLockboxAliases().get(0).name().equals("portable"), "alias repeat and list");
+        check(vault.resolveLockboxAlias("portable").path().equals(aliasPath), "alias resolution");
+        pass("vault_directory_set_lockbox_alias", 2); pass("vault_directory_list_lockbox_aliases", 2); pass("vault_directory_resolve_lockbox_alias");
+        vault.removeLockboxAlias("portable"); vault.removeLockboxAlias("portable");
+        check(vault.listLockboxAliases().isEmpty(), "alias removal repeat"); pass("vault_directory_remove_lockbox_alias", 3);
         vault.rememberAccessSlotLabel(id, 7, "primary");
         check(vault.listAccessSlotLabels(id).size() == 1, "labels");
         check(vault.findAccessSlotLabels(id, "primary").size() == 1, "find");
@@ -360,12 +374,13 @@ public final class Conformance {
         pass("vault_directory_list_form_revisions", 2);
         check(vault.seedForms() > 0, "seed"); pass("vault_directory_seed_forms");
         check(vault.listFormAliases().size() > 0, "aliases"); pass("vault_directory_list_form_aliases");
-        vault.forgetAccessSlotLabel(id, 7); vault.forgetLockbox("/tmp/example.lbox"); vault.deleteContact("bob");
+        vault.forgetAccessSlotLabel(id, 7); vault.forgetLockbox(aliasPath); vault.deleteContact("bob");
         pass("vault_directory_forget_access_slot_label"); pass("vault_directory_forget_lockbox");
         pass("vault_directory_delete_contact");
         vault.deletePrivateKey("alice"); check(!vault.privateKeyExists("alice"), "deleted");
         vault.restorePrivateKey("alice", profile, owner, true); check(vault.privateKeyExists("alice"), "restored");
         pass("vault_directory_delete_private_key", 2); pass("vault_directory_restore_private_key", 2);
+        vault.rememberLockbox(id, aliasPath); vault.setLockboxAlias("portable", id);
       }
       pass("vault_directory_free");
       // The writable vault's scope must end before an independent path probe.
@@ -379,6 +394,9 @@ public final class Conformance {
         pass("vault_read_only_open"); pass("vault_read_only_list_profile_names", 2);
         pass("vault_read_only_list_contact_names"); pass("vault_read_only_list_form_aliases", 2);
         pass("vault_read_only_list_known_lockboxes");
+        check(readonly.listLockboxAliases().size() == 1 && readonly.listLockboxAliases().get(0).name().equals("portable"), "persisted read-only alias");
+        check(readonly.resolveLockboxAlias("portable").path().equals(aliasPath), "read-only alias resolution");
+        pass("vault_read_only_list_lockbox_aliases", 2); pass("vault_read_only_resolve_lockbox_alias");
       }
       pass("vault_read_only_free");
     }

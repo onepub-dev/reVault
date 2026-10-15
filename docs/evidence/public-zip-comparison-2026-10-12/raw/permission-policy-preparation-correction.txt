@@ -1,0 +1,1 @@
+Owned0664 smoke: native default output0644 passed prior gate; ZIP default output0664 failed prior0644 gate. This is different public metadata policy, not corrupt output. Enable supported native --restore-permissions; require both0664; fresh owned smoke-restore path preserves previous attempt. No original source/output chmod. No timed samples or freeze yet.

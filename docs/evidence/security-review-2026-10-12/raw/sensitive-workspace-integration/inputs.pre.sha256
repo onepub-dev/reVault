@@ -1,0 +1,4 @@
+a7cb78402445860f85c79ce8b64a47d6af3ae65f521c756231ffecd8a90f1a87  rust/Cargo.lock
+2de5bae61c5bb96f06a2f2337aaba891fb3d3b2125b50a80260e203780990a65  rust/vendor/zstd-complete/Cargo.toml
+2e7f8887d017297f736e2876c28cefca86a01c81f8811c7e297927baeaa767e8  rust/vendor/zstd-complete/tests/workspaces.rs
+6a38f57a9c39b46361e1673fd17ad7ebcc9e818e3870966e57485b4ecba50bfa  rust/vendor/zstd-complete/src/workspace.rs

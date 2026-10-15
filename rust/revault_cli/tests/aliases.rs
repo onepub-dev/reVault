@@ -213,7 +213,10 @@ impl Fixture {
             .current_dir(self.root.path())
             .args(args)
             .env("LOCKBOX_VAULT_DIR", self.root.path().join("vault"))
-            .env("LOCKBOX_SESSION_AGENT_DIR", self.root.path().join("agent"))
+            .env(
+                "LOCKBOX_SESSION_AGENT_DIR",
+                common::agent_socket_dir(&self.root.path().join("agent")),
+            )
             .env(
                 "LOCKBOX_SESSION_AGENT_LOG",
                 self.root.path().join("agent.log"),
@@ -321,7 +324,7 @@ fn alias_lifecycle_persists_and_tracks_identity() {
     f.ok(&["vault", "lockbox", "alias", "remove", "dev"]);
     assert!(!f.run(VALUE, &["a@dev", "TOKEN"]).status.success());
     assert!(f.run(VALUE, &["other.lbox", "TOKEN"]).status.success());
-    for name in ["a@b", "../bad", "", "bad.name"] {
+    for name in ["a@b", "../bad", "", "bad name"] {
         assert!(!f
             .run(
                 LBX,
@@ -1080,30 +1083,42 @@ fn new_names_reserve_at_but_host_paths_do_not() {
 }
 
 #[test]
-fn older_cli_preserves_additive_alias_records() {
+fn format_three_reader_refuses_unicode_format_four_vault_without_mutation() {
     let Ok(baseline) = std::env::var("REVAULT_ALIAS_BASELINE_BIN") else {
         return;
     };
     let f = Fixture::new();
-    for args in [
-        vec!["vault", "lockbox", "list"],
-        vec!["vault", "profile", "create", "older-writer"],
-        vec!["vault", "backup", "older.backup"],
-        vec!["vault", "restore", "older.backup", "--overwrite"],
-    ] {
-        let output = f.run(&baseline, &args);
-        assert!(output.status.success(), "{args:?}: {output:?}");
-    }
-    assert_eq!(f.read("TOKEN"), b"synthetic-token");
-    std::fs::write(f.root.path().join("historical-input"), b"historical-file").unwrap();
-    let old_file = f.run(
-        &baseline,
-        &["dev.lbox", "add", "historical-input", "--to", "/old@file"],
+    f.ok(&["vault", "lockbox", "alias", "set", "東京.dév", "dev.lbox"]);
+    let vault_path = f.root.path().join("vault/local-vault.lbox");
+    let before = std::fs::read(&vault_path).unwrap();
+    let output = f.run(&baseline, &["vault", "lockbox", "alias", "list"]);
+    assert!(!output.status.success(), "{output:?}");
+    let diagnostic = String::from_utf8_lossy(&output.stderr).to_lowercase();
+    assert_eq!(output.status.code(), Some(14), "{diagnostic}");
+    assert!(
+        diagnostic.contains("unsupported") && diagnostic.contains("format"),
+        "{diagnostic}"
     );
-    assert!(old_file.status.success(), "{old_file:?}");
+    assert!(
+        diagnostic.contains(
+            "found lockbox container version 4; this revault build supports container version 3"
+        ),
+        "{diagnostic}"
+    );
+    assert!(
+        diagnostic.contains("use a revault build that supports this newer format"),
+        "{diagnostic}"
+    );
+    assert!(
+        diagnostic.contains("automatic downgrade is not supported"),
+        "{diagnostic}"
+    );
+    assert!(!diagnostic.contains("migrate"), "{diagnostic}");
+    assert!(!diagnostic.contains("invalid record name"), "{diagnostic}");
+    assert_eq!(std::fs::read(vault_path).unwrap(), before);
     assert_eq!(
-        f.ok(&["dev.lbox", "cat", "/old@file"]).stdout,
-        b"historical-file"
+        f.run(VALUE, &["a@東京.dév", "TOKEN"]).stdout,
+        b"synthetic-token"
     );
 }
 
@@ -1285,7 +1300,7 @@ fn create_rejects_invalid_aliases_and_does_not_register_failed_creations() {
         "",
         "a@bad",
         "../bad",
-        "bad.name",
+        "bad name",
         "bad name",
         &"a".repeat(129),
     ] {
@@ -1295,9 +1310,6 @@ fn create_rejects_invalid_aliases_and_does_not_register_failed_creations() {
         assert_eq!(failed.stderr, existing.stderr);
         assert!(!f.root.path().join("invalid.lbox").exists());
     }
-    let dotted = f.run(LBX, &["project.prod.lbox", "create"]);
-    assert!(!dotted.status.success(), "{dotted:?}");
-    assert!(!f.root.path().join("project.prod.lbox").exists());
     for args in [
         vec!["dev.lbox", "create", "--alias", "should-not-exist"],
         vec!["dev.lbox/new.lbox", "create", "--alias", "not-a-directory"],
@@ -1356,40 +1368,41 @@ fn create_validates_options_and_vault_before_creating_an_archive() {
         );
         assert!(!f.root.path().join("new.lbox").exists());
     }
-    // An explicit alias requests Vault access, including initialization when
-    // the Vault credentials are supplied.
-    f.ok(&[
+    // Standalone unsigned creation must not initialize a Vault for auto-aliases.
+    let created = f.ok(&[
         "plain.lbox",
         "create",
         "--encryption",
         "none",
         "--signing",
         "none",
-        "--alias",
-        "plain",
     ]);
+    assert!(String::from_utf8_lossy(&created.stderr).contains("no unlocked Vault"));
+    assert!(!f.root.path().join("vault").exists());
     f.ok(&[
-        "a@plain",
+        "plain.lbox",
         "variable",
         "set",
         "VALUE",
         "synthetic-plain-value",
     ]);
-    let value = f.run(VALUE, &["a@plain", "VALUE"]);
-    assert!(value.status.success(), "{value:?}");
-    assert_eq!(value.stdout, b"synthetic-plain-value");
+    assert_eq!(
+        f.run(VALUE, &["plain.lbox", "VALUE"]).stdout,
+        b"synthetic-plain-value"
+    );
+    f.ok(&["vault", "init"]);
     let failed = f
         .command(
             LBX,
             &[
                 "new.lbox",
                 "create",
+                "--alias",
+                "explicit",
                 "--encryption",
                 "none",
                 "--signing",
                 "none",
-                "--alias",
-                "new",
             ],
         )
         .env("LOCKBOX_VAULT_PASSWORD", "wrong-synthetic-password")
@@ -1397,8 +1410,167 @@ fn create_validates_options_and_vault_before_creating_an_archive() {
         .unwrap();
     assert!(!failed.status.success(), "{failed:?}");
     assert!(!f.root.path().join("new.lbox").exists());
-    let listed = f.ok(&["vault", "lockbox", "alias", "list", "--format", "json"]);
-    assert!(!String::from_utf8_lossy(&listed.stdout).contains("new"));
+}
+
+#[test]
+fn unicode_alias_lifecycle_normalizes_and_preserves_persisted_values() {
+    let f = Fixture::new();
+    let decomposed = "cafe\u{0301}.東京";
+    let canonical = "café.東京";
+    f.ok(&["vault", "lockbox", "alias", "set", decomposed, "dev.lbox"]);
+    let first = f
+        .ok(&["vault", "lockbox", "alias", "list", "--format", "json"])
+        .stdout;
+    f.ok(&["vault", "lockbox", "alias", "set", canonical, "dev.lbox"]);
+    assert_eq!(
+        first,
+        f.ok(&["vault", "lockbox", "alias", "list", "--format", "json"])
+            .stdout
+    );
+    assert!(String::from_utf8_lossy(&first).contains(canonical));
+    assert!(!String::from_utf8_lossy(&first).contains(decomposed));
+    assert_eq!(
+        f.run(VALUE, &[&format!("a@{decomposed}"), "TOKEN"]).stdout,
+        b"synthetic-token"
+    );
+    f.ok(&["other.lbox", "variable", "set", "TOKEN", "replacement"]);
+    f.ok(&["vault", "lockbox", "alias", "set", decomposed, "other.lbox"]);
+    assert_eq!(
+        f.run(VALUE, &[&format!("a@{canonical}"), "TOKEN"]).stdout,
+        b"replacement"
+    );
+    f.ok(&["vault", "backup", "unicode.backup"]);
+    f.ok(&["vault", "lockbox", "alias", "remove", canonical]);
+    f.ok(&["vault", "restore", "unicode.backup", "--overwrite"]);
+    assert_eq!(
+        f.run(VALUE, &[&format!("a@{decomposed}"), "TOKEN"]).stdout,
+        b"replacement"
+    );
+    f.ok(&["vault", "lockbox", "alias", "remove", decomposed]);
+    f.ok(&["vault", "lockbox", "alias", "remove", canonical]);
+    assert!(!f
+        .run(VALUE, &[&format!("a@{canonical}"), "TOKEN"])
+        .status
+        .success());
+    assert_eq!(
+        f.run(VALUE, &["other.lbox", "TOKEN"]).stdout,
+        b"replacement"
+    );
+}
+
+#[test]
+fn unicode_creation_derives_names_and_preserves_normalization_collisions() {
+    let f = Fixture::new();
+    for (filename, alias) in [
+        ("cafe\u{0301}.東京.lbox", "café.東京"),
+        ("space  name.lbox", "space__name"),
+        (".hidden.lbox", "_hidden"),
+    ] {
+        f.ok(&[filename, "create"]);
+        let selector = format!("a@{alias}");
+        f.ok(&[&selector, "variable", "set", "VALUE", alias]);
+        assert_eq!(f.run(VALUE, &[&selector, "VALUE"]).stdout, alias.as_bytes());
+        assert_eq!(f.run(VALUE, &[filename, "VALUE"]).stdout, alias.as_bytes());
+    }
+    let collision = f.ok(&["another.lbox", "create", "--alias", "cafe\u{0301}.東京"]);
+    assert!(String::from_utf8_lossy(&collision.stderr).contains("already exists"));
+    assert_eq!(
+        f.run(VALUE, &["a@café.東京", "VALUE"]).stdout,
+        "café.東京".as_bytes()
+    );
+    f.ok(&["another.lbox", "variable", "set", "VALUE", "new archive"]);
+    assert_eq!(
+        f.run(VALUE, &["another.lbox", "VALUE"]).stdout,
+        b"new archive"
+    );
+    let long_filename = format!("{}.lbox", "é".repeat(65));
+    let created = f.ok(&[&long_filename, "create"]);
+    assert!(String::from_utf8_lossy(&created.stderr).contains("128 UTF-8 bytes"));
+    f.ok(&[&long_filename, "variable", "set", "VALUE", "kept"]);
+    assert_eq!(f.run(VALUE, &[&long_filename, "VALUE"]).stdout, b"kept");
+}
+
+#[test]
+fn unicode_alias_helpers_normalize_lookup_and_completion_prefixes() {
+    let f = Fixture::new();
+    f.form();
+    f.ok(&["vault", "lockbox", "alias", "set", "café", "dev.lbox"]);
+    for shell in ["bash", "fish"] {
+        for (binary, program) in [(VALUE, "lbxv"), (EXEC, "lbxx")] {
+            let output = f
+                .command(binary, &["--", program, "a@cafe\u{0301}"])
+                .env("COMPLETE", shell)
+                .env("_CLAP_COMPLETE_INDEX", "1")
+                .env("_CLAP_COMPLETE_COMP_TYPE", "9")
+                .env("_CLAP_COMPLETE_SPACE", "true")
+                .test_output()
+                .unwrap();
+            assert!(output.status.success(), "{output:?}");
+            let expected = if shell == "fish" {
+                "a@cafe\u{0301}"
+            } else {
+                "a@café"
+            };
+            assert!(
+                String::from_utf8_lossy(&output.stdout).contains(expected),
+                "{output:?}"
+            );
+            assert!(!String::from_utf8_lossy(&output.stdout).contains("synthetic"));
+        }
+    }
+    assert_eq!(
+        f.run(VALUE, &["a@cafe\u{0301}", "TOKEN"]).stdout,
+        b"synthetic-token"
+    );
+    let child = std::env::current_exe().unwrap();
+    let output = f
+        .command(
+            EXEC,
+            &[
+                "a@cafe\u{0301}",
+                "TOKEN",
+                "/work/github@username",
+                "RENAMED=/work/github@token",
+                "--",
+                child.to_str().unwrap(),
+                "--exact",
+                "environment_child",
+                "--nocapture",
+            ],
+        )
+        .env("REVAULT_ALIAS_TEST_CHILD", "1")
+        .test_output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(37), "{output:?}");
+    assert!(String::from_utf8_lossy(&output.stdout).contains("environment verified"));
+}
+
+#[test]
+fn older_cli_preserves_additive_alias_records() {
+    let Ok(baseline) = std::env::var("REVAULT_ALIAS_BASELINE_BIN") else {
+        return;
+    };
+    let f = Fixture::new();
+    for args in [
+        vec!["vault", "lockbox", "list"],
+        vec!["vault", "profile", "create", "older-writer"],
+        vec!["vault", "backup", "older.backup"],
+        vec!["vault", "restore", "older.backup", "--overwrite"],
+    ] {
+        let output = f.run(&baseline, &args);
+        assert!(output.status.success(), "{args:?}: {output:?}");
+    }
+    assert_eq!(f.read("TOKEN"), b"synthetic-token");
+    std::fs::write(f.root.path().join("historical-input"), b"historical-file").unwrap();
+    let old_file = f.run(
+        &baseline,
+        &["dev.lbox", "add", "historical-input", "--to", "/old@file"],
+    );
+    assert!(old_file.status.success(), "{old_file:?}");
+    assert_eq!(
+        f.ok(&["dev.lbox", "cat", "/old@file"]).stdout,
+        b"historical-file"
+    );
 }
 
 #[test]

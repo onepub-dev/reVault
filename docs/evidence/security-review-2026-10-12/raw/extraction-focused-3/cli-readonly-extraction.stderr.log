@@ -1,0 +1,3 @@
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+    Finished `release` profile [optimized] target(s) in 0.16s
+     Running tests/cli_flow.rs (target/release/deps/cli_flow-cb29573fe936d28c)

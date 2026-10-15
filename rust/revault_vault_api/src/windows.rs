@@ -94,20 +94,13 @@ pub(crate) fn serve_agent() -> io::Result<()> {
 
         let pipe = create_pipe()?;
         connect_pipe(pipe.as_raw())?;
+        let _deadline = PipeDeadline::start()?;
         log_agent_event("agent client connected");
 
         last_activity = Instant::now();
         let stop = {
-            let mut cache = match lock_cache(&cache) {
-                Ok(cache) => cache,
-                Err(err) => {
-                    log_agent_event(format!("agent cache lock failed: {err}"));
-                    return Err(err);
-                }
-            };
-            log_agent_event("agent cache locked");
             match catch_unwind(AssertUnwindSafe(|| {
-                handle_client(pipe.as_raw(), &current_user_sid, &mut cache, &active)
+                handle_client(pipe.as_raw(), &current_user_sid, &cache, &active)
             })) {
                 Ok(Ok(stop)) => {
                     log_agent_event("agent request handled");
@@ -135,16 +128,24 @@ fn start_sleep_cache_clearer(
     cache: Arc<Mutex<BTreeMap<String, CacheEntry>>>,
     active: Arc<Mutex<ActiveSecretRegistry>>,
 ) {
+    crate::sleep_watcher::set_cache_monitor_active(true);
     let Ok(watcher) = SleepWatcher::start() else {
+        crate::sleep_watcher::set_cache_monitor_active(false);
         log_agent_event("sleep watcher unavailable");
         return;
     };
     log_agent_event("sleep watcher started");
-    let _ = thread::Builder::new()
+    let started = thread::Builder::new()
         .name("lockbox-sleep-cache-clearer".to_string())
         .spawn(move || {
             while let Ok(event) = watcher.recv() {
-                if event == SleepEvent::SuspendRequested {
+                if event == SleepEvent::Unavailable {
+                    crate::sleep_watcher::set_cache_monitor_active(false);
+                }
+                if matches!(
+                    event,
+                    SleepEvent::SuspendRequested | SleepEvent::Unavailable
+                ) {
                     if let Ok(mut cache) = cache.lock() {
                         let count = cache.len();
                         cache.clear();
@@ -157,9 +158,25 @@ fn start_sleep_cache_clearer(
                     }
                 } else if event == SleepEvent::Resumed {
                     log_agent_event("resume observed");
+                    if let Ok(mut active) = active.lock() {
+                        if let Err(err) = active.resumed() {
+                            log_agent_event(format!("resume sleep inhibition unavailable: {err}"));
+                        }
+                    }
                 }
             }
+            crate::sleep_watcher::set_cache_monitor_active(false);
+            if let Ok(mut cache) = cache.lock() {
+                cache.clear();
+            }
+            if let Ok(mut active) = active.lock() {
+                active.suspend_requested();
+            }
         });
+    if let Err(err) = started {
+        crate::sleep_watcher::set_cache_monitor_active(false);
+        log_agent_event(format!("sleep cache watcher thread unavailable: {err}"));
+    }
 }
 
 fn lock_cache(
@@ -182,6 +199,22 @@ pub(crate) fn verify_agent_transport_security() -> io::Result<()> {
     let _security = PipeSecurity::current_owner_only()?;
     let _sid = current_process_user_sid()?;
     Ok(())
+}
+
+pub(crate) fn suspend_cache_clearing_active() -> io::Result<bool> {
+    let Some(response) = request_existing(&encode_info()?)? else {
+        return Ok(false);
+    };
+    match response {
+        AgentResponse::Info(protocol, implementation, active)
+            if agent_is_compatible(protocol, &implementation) =>
+        {
+            Ok(active)
+        }
+        _ => Err(io::Error::other(
+            "Session Agent capability response unavailable or incompatible",
+        )),
+    }
 }
 
 pub(crate) fn get(lockbox_id: LockboxId) -> io::Result<Option<SecretVec>> {
@@ -260,9 +293,10 @@ pub(crate) fn list() -> io::Result<Vec<CachedLockbox>> {
     }
 }
 
-pub(crate) fn register_secret_activity(kind: SecretActivityKind) -> io::Result<u64> {
+pub(crate) fn register_secret_activity(kind: SecretActivityKind) -> io::Result<(u64, bool)> {
     match request_control(&encode_register_secret_activity(std::process::id(), kind)?)? {
-        ControlResponse::Registered(token) => Ok(token),
+        ControlResponse::Registered(token, terminate) => Ok((token, terminate)),
+        ControlResponse::Err(message) => Err(io::Error::other(message)),
         response => invalid_control_response(response),
     }
 }
@@ -327,6 +361,7 @@ fn request_control_existing(message: &[u8]) -> io::Result<Option<ControlResponse
 }
 
 fn request_with_handle(handle: OwnedHandle, message: &SecretVec) -> io::Result<AgentResponse> {
+    let _deadline = PipeDeadline::start()?;
     message
         .with_bytes(|message| write_all(handle.as_raw(), message))
         .map_err(io::Error::other)?
@@ -338,6 +373,7 @@ fn request_with_handle(handle: OwnedHandle, message: &SecretVec) -> io::Result<A
 }
 
 fn request_control_with_handle(handle: OwnedHandle, message: &[u8]) -> io::Result<ControlResponse> {
+    let _deadline = PipeDeadline::start()?;
     write_all(handle.as_raw(), message)
         .map_err(|err| io::Error::new(err.kind(), format!("agent pipe write failed: {err}")))?;
     parse_control_response(
@@ -430,7 +466,7 @@ fn agent_compatibility() -> io::Result<AgentCompatibility> {
         return Ok(AgentCompatibility::Unavailable);
     };
     match request_with_handle(handle, &encode_info()?) {
-        Ok(AgentResponse::Info(protocol, implementation))
+        Ok(AgentResponse::Info(protocol, implementation, _))
             if agent_is_compatible(protocol, &implementation) =>
         {
             Ok(AgentCompatibility::Compatible)
@@ -645,7 +681,7 @@ fn open_pipe(pipe_name: &[u16]) -> io::Result<OwnedHandle> {
 fn handle_client(
     pipe: HANDLE,
     current_user_sid: &[u8],
-    cache: &mut BTreeMap<String, CacheEntry>,
+    cache: &Arc<Mutex<BTreeMap<String, CacheEntry>>>,
     active: &Arc<Mutex<ActiveSecretRegistry>>,
 ) -> io::Result<bool> {
     let request = read_agent_frame(pipe, max_message_bytes())?;
@@ -657,11 +693,21 @@ fn handle_client(
     let mut stop = false;
     let response = match request {
         AgentFrame::Cache(request) => {
-            let response = handle_cache_request(&request, cache, &mut stop)?;
+            let response = {
+                let mut cache = lock_cache(cache)?;
+                handle_cache_request(&request, &mut cache, &mut stop)?
+            };
             AgentReply::Cache(response)
         }
         AgentFrame::Control(request) => {
-            let response = handle_control_request(&request, active)?;
+            let mut peer_pid = 0u32;
+            if unsafe {
+                windows_sys::Win32::System::Pipes::GetNamedPipeClientProcessId(pipe, &mut peer_pid)
+            } == 0
+            {
+                return Err(io::Error::last_os_error());
+            }
+            let response = handle_control_request(&request, active, peer_pid)?;
             AgentReply::Control(response)
         }
     };
@@ -692,6 +738,11 @@ fn handle_cache_request(
         Ok(AgentRequest::Put(lockbox_id, key, path, ttl_seconds)) => {
             log_agent_event(format!("agent request put {lockbox_id}"));
             let ttl_seconds = ttl_seconds.unwrap_or(DEFAULT_TTL_SECONDS);
+            let expires_at = Instant::now()
+                .checked_add(Duration::from_secs(ttl_seconds))
+                .ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "cache TTL exceeds clock range")
+                })?;
             log_agent_event(format!(
                 "cached lockbox {lockbox_id} ttl_seconds={ttl_seconds} path={}",
                 path.as_deref().unwrap_or("")
@@ -701,7 +752,7 @@ fn handle_cache_request(
                 CacheEntry {
                     key,
                     path,
-                    expires_at: Instant::now() + Duration::from_secs(ttl_seconds),
+                    expires_at,
                 },
             );
             encode_ok_response()?
@@ -753,14 +804,29 @@ fn handle_cache_request(
 fn handle_control_request(
     request: &[u8],
     active: &Arc<Mutex<ActiveSecretRegistry>>,
+    peer_pid: u32,
 ) -> io::Result<Vec<u8>> {
     match parse_control_request(request) {
         Ok(ControlRequest::RegisterSecretActivity(pid, kind)) => {
+            if pid != peer_pid {
+                return encode_control_err_response(
+                    "process identity does not match authenticated peer",
+                );
+            }
             log_agent_event("agent request register-secret-activity");
-            let token = lock_active(active)?.register(pid, kind)?;
-            encode_registered_response(token)
+            let mut registry = lock_active(active)?;
+            let token = match registry.register(pid, kind) {
+                Ok(token) => token,
+                Err(error) => return encode_control_err_response(&error.to_string()),
+            };
+            encode_registered_response(token, registry.terminate_on_suspend())
         }
         Ok(ControlRequest::UnregisterSecretActivity(pid, token)) => {
+            if pid != peer_pid {
+                return encode_control_err_response(
+                    "process identity does not match authenticated peer",
+                );
+            }
             log_agent_event("agent request unregister-secret-activity");
             lock_active(active)?.unregister(pid, token);
             encode_control_ok_response()
@@ -898,6 +964,7 @@ fn equal_sid(left: &[u8], right: &[u8]) -> bool {
 
 fn write_all(handle: HANDLE, mut bytes: &[u8]) -> io::Result<()> {
     while !bytes.is_empty() {
+        check_pipe_deadline()?;
         let mut written = 0u32;
         let chunk_len = bytes.len().min(PIPE_BUFFER_BYTES as usize) as u32;
         // SAFETY: `bytes` points to at least `chunk_len` readable bytes,
@@ -906,6 +973,13 @@ fn write_all(handle: HANDLE, mut bytes: &[u8]) -> io::Result<()> {
         let ok = unsafe { WriteFile(handle, bytes.as_ptr(), chunk_len, &mut written, null_mut()) };
         if ok == 0 {
             return Err(io::Error::last_os_error());
+        }
+        check_pipe_deadline()?;
+        if written == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::WriteZero,
+                "agent pipe made no progress",
+            ));
         }
         bytes = &bytes[written as usize..];
     }
@@ -1003,7 +1077,7 @@ fn read_exact_plain(handle: HANDLE, mut out: &mut [u8]) -> io::Result<()> {
 }
 
 fn read_exact_secure(handle: HANDLE, mut remaining: usize, out: &mut SecretVec) -> io::Result<()> {
-    let mut buffer = [0u8; 4096];
+    let mut buffer = zeroize::Zeroizing::new([0u8; 4096]);
     while remaining > 0 {
         let read = read_chunk(handle, &mut buffer[..remaining.min(4096)])?;
         if read == 0 {
@@ -1014,13 +1088,14 @@ fn read_exact_secure(handle: HANDLE, mut remaining: usize, out: &mut SecretVec) 
         }
         out.try_extend_from_slice(&buffer[..read])
             .map_err(io::Error::other)?;
-        buffer[..read].fill(0);
+        zeroize::Zeroize::zeroize(&mut buffer[..read]);
         remaining -= read;
     }
     Ok(())
 }
 
 fn read_chunk(handle: HANDLE, buffer: &mut [u8]) -> io::Result<usize> {
+    check_pipe_deadline()?;
     let mut read = 0u32;
     // SAFETY: `buffer` and `read` are valid writable storage for the duration
     // of the call, and the pipe handle is valid for reading.
@@ -1036,7 +1111,96 @@ fn read_chunk(handle: HANDLE, buffer: &mut [u8]) -> io::Result<usize> {
     if ok == 0 {
         return Err(io::Error::last_os_error());
     }
+    check_pipe_deadline()?;
     Ok(read as usize)
+}
+
+thread_local! {
+    static PIPE_DEADLINE: std::cell::Cell<Option<Instant>> = const { std::cell::Cell::new(None) };
+}
+
+fn check_pipe_deadline() -> io::Result<()> {
+    if PIPE_DEADLINE.with(|slot| {
+        slot.get()
+            .is_some_and(|deadline| Instant::now() >= deadline)
+    }) {
+        return Err(io::Error::new(
+            io::ErrorKind::TimedOut,
+            "agent request deadline expired",
+        ));
+    }
+    Ok(())
+}
+
+// Synchronous pipe calls retain their buffers/handles until Windows reports
+// completion. The watchdog requests cancellation of stalled transport without abandoning
+// a live syscall or transferring its borrowed buffers to another thread.
+struct PipeDeadline {
+    done: Arc<(Mutex<bool>, std::sync::Condvar)>,
+    watcher: Option<thread::JoinHandle<()>>,
+    previous: Option<Instant>,
+}
+
+impl PipeDeadline {
+    fn start() -> io::Result<Self> {
+        use std::os::windows::io::{AsRawHandle, FromRawHandle};
+        use windows_sys::Win32::System::Threading::{
+            GetCurrentThreadId, OpenThread, THREAD_TERMINATE,
+        };
+        let raw = unsafe { OpenThread(THREAD_TERMINATE, 0, GetCurrentThreadId()) };
+        if raw.is_null() {
+            return Err(io::Error::last_os_error());
+        }
+        let thread_handle = unsafe { std::os::windows::io::OwnedHandle::from_raw_handle(raw) };
+        let previous = PIPE_DEADLINE.with(|slot| slot.get());
+        let requested = Instant::now() + Duration::from_secs(10);
+        let deadline = previous.map_or(requested, |old| old.min(requested));
+        let done = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
+        let signal = done.clone();
+        let watcher = thread::Builder::new()
+            .name("agent-io-deadline".into())
+            .spawn(move || {
+                let (lock, wake) = &*signal;
+                let mut finished = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                while !*finished {
+                    let now = Instant::now();
+                    if now >= deadline {
+                        // A cancellation may race just before a syscall starts.
+                        // Repeat until the owning scope has actually completed.
+                        unsafe {
+                            windows_sys::Win32::System::IO::CancelSynchronousIo(
+                                thread_handle.as_raw_handle(),
+                            );
+                        }
+                    }
+                    let delay = deadline
+                        .checked_duration_since(now)
+                        .unwrap_or(Duration::from_millis(10));
+                    finished = wake
+                        .wait_timeout(finished, delay)
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .0;
+                }
+            })?;
+        PIPE_DEADLINE.with(|slot| slot.set(Some(deadline)));
+        Ok(Self {
+            done,
+            watcher: Some(watcher),
+            previous,
+        })
+    }
+}
+
+impl Drop for PipeDeadline {
+    fn drop(&mut self) {
+        let (lock, wake) = &*self.done;
+        *lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = true;
+        wake.notify_one();
+        if let Some(watcher) = self.watcher.take() {
+            let _ = watcher.join();
+        }
+        PIPE_DEADLINE.with(|slot| slot.set(self.previous));
+    }
 }
 
 fn prune_expired(cache: &mut BTreeMap<String, CacheEntry>) {
@@ -1081,7 +1245,7 @@ fn invalid_agent_response<T>(response: AgentResponse) -> io::Result<T> {
         AgentResponse::Miss => "MISS",
         AgentResponse::Key(_) => "KEY",
         AgentResponse::List(_) => "LIST",
-        AgentResponse::Info(_, _) => "INFO",
+        AgentResponse::Info(_, _, _) => "INFO",
         AgentResponse::Err(_) => "ERR",
     };
     Err(io::Error::new(
@@ -1093,7 +1257,7 @@ fn invalid_agent_response<T>(response: AgentResponse) -> io::Result<T> {
 fn invalid_control_response<T>(response: ControlResponse) -> io::Result<T> {
     let label = match response {
         ControlResponse::Ok => "OK",
-        ControlResponse::Registered(_) => "REGISTERED",
+        ControlResponse::Registered(_, _) => "REGISTERED",
         ControlResponse::Err(_) => "ERR",
     };
     Err(io::Error::new(

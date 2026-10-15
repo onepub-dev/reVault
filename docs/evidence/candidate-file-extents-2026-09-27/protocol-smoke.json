@@ -1,0 +1,20 @@
+[
+  {
+    "phase": "create",
+    "verified": true,
+    "layout": "candidate-65536",
+    "scope": "protocol smoke test; timings not used as evidence"
+  },
+  {
+    "phase": "stream",
+    "verified": true,
+    "layout": "candidate-65536",
+    "scope": "protocol smoke test; timings not used as evidence"
+  },
+  {
+    "phase": "range",
+    "verified": true,
+    "layout": "candidate-65536",
+    "scope": "protocol smoke test; timings not used as evidence"
+  }
+]

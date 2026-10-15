@@ -1,0 +1,71 @@
+# Extraction worker scoped decoder workspace and last-use trial
+
+The prior last-use-only candidate was rejected for 20–30% compressed slowdown.
+A separate fixed eight-run diagnostic observed compressed minor faults85,076→763,034
+and madvise50→520, with unchanged read/write syscall counts. These support a
+discard/refault hypothesis, not proof of callsite/advice. This distinct candidate
+adds one existing with_decode_workspace scope around each eligible worker job
+alongside last-use retirement; no new decoder, output pool or global allocator policy.
+Scope is native Auto + ExtractMany only. Raw-only workers allocate no scratch.
+Existing decoder eligibility64KiB–4MiB output/window, fallbacks, reinitialization,
+checksum/error checks and full-capacity wipe on growth/scope exit remain unchanged.
+On x86_64 source layout, required_size(window,0)=window+1,593,527 bytes,
+so max5,787,831 bytes per worker (up to23,151,324 for four), not a4MiB total
+scratch claim. Decode outputs and caches are additional allocations. Prior stream_content
+workspace evidence does not establish extraction performance.
+
+The current four-cohort screen verified all data but measured CLI peaks of
+119–254 MB. Trial only native Auto + ExtractMany parallel workers: plan the last
+job index using each frame ID and every segment page offset. After a file has
+successfully finished, release cache ownership only for references with no later
+local use. Preserve dirty/staged/discard/zeroed state and all external Arc owners.
+Parent, explicit cache policies, job grouping/order, cache limits, workers,
+authentication, signing, compression, format and public APIs remain unchanged.
+
+Use the same four pinned plaintext unsigned archives and split source trees:
+raw/compressed, 256 × 256 KiB and 1,024 × 1 MiB. Reuse independently verified
+current baseline output modes and fixtures; no extra setup extraction is needed.
+Reference CLI is retained4142dd04 with original build provenance. Candidate is
+the release build from checkpoint7d8277d2 plus exactly the two reviewed files.
+Pin both executables and source/build provenance before timing.
+
+Fixed112 complete public extraction processes: four cohorts × 14 rounds ×
+two variants. Order old/new alternates by (case index + round); no samples added
+or replaced. Rounds0/1 per variant/case are excluded preparation, leaving96
+measured and16 preparation samples. Fresh private agent per process; all-task
+child lists, socket inode, executable hash and PID generation checked. No Vault
+initialization for these plaintext unsigned archives. CPU0–4, umask0022,
+current default permissions/workers/profiles. Cold archive admission requires
+fincore RES0 after sync/eviction. Fresh destinations; outside timing verify every
+file byte, exact tree/types and frozen modes, drain output, then remove only owned
+output. Existing source/archive hashes checked before/after, never mutated.
+
+Primary retention metrics are complete CLI elapsed and GNUtime process peak RSS.
+All FOUR cohorts require paired elapsed ratio upper95 ≤1.05 and measured maximum
+RSS new/old ≤1.05. BOTH named large cohorts (1024-files-1gib and
+1024-source-files-1gib) additionally require median RSS new/old ≤0.80.
+All guards AND both usefulness gates must pass; no outcome-based threshold or
+cohort change. Report absolute candidate peaks including preparation separately;
+the overall100,000,000-byte target is not replaced by these improvement gates.
+
+Use12 matched measured rounds per cohort, six adjacent two-round blocks of log
+new/old elapsed ratios; bootstrap10,000 resamples of six blocks, equal weighting.
+The frozen summarize-adaptive-workers helper provides seedFor/Seeded/percentile.
+Labels are <case>/aggregate and <case>/stratum0/1; seedFor starts0x6b2175d9,
+folds UTF-8 with16777619, then xorshift32 rejection sampling. Percentile endpoints
+0.025/0.975; upper95 denotes the97.5 endpoint. Report both round-stratum views,
+six pairs each, without changing the aggregate decision rule.
+
+Also record per-sample CLIpeak + post-command agentVmHWM, including agent startup,
+as a conservative helper-inclusive bound. This is not observed simultaneous RSS
+or unique physical memory, and boundary child inventory is not a complete
+transient census. Report bounds without substituting them for frozen CLI gates.
+
+Thirty-minute work budget with60-second cleanup reserve; command timeouts clamped
+to remaining time, at most600 seconds plus10-second kill grace. Independent
+bounded cleanup in finally, owned agents/private contexts only. Existing24 GiB
+logical artifact cap includes both binaries and preceding evidence/context roots;
+per-output reservation logical bytes +256 MiB and2 GiB free headroom. Identical
+root paths deduplicated. No concurrent tests/builds/formatting/source edits.
+Reject/revert failed candidate; retained candidate receives focused shared-frame,
+last-use, pending-state, ownership and authenticated lifecycle validation.

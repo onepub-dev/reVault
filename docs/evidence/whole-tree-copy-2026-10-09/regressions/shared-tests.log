@@ -1,0 +1,11 @@
+    Finished `release` profile [optimized] target(s) in 0.15s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 4 tests
+test file_format::publication_anchor::shared::tests::changing_the_shared_profile_bytes_does_not_preserve_publication_authentication ... ok
+test file_format::publication_anchor::shared::tests::shared_control_image_bootstraps_and_decrypts_after_either_region_is_lost ... ok
+test file_format::publication_anchor::shared::tests::shared_control_profile_is_authenticated_and_cannot_cross_decode_as_separated ... ok
+test file_format::publication_anchor::shared::tests::shared_control_roles_exclude_anchors_journals_and_other_private_subranges ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 631 filtered out; finished in 0.83s
+

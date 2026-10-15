@@ -1,3 +1,4 @@
+use super::secure_output::{OutputRoot, StagedDirectory};
 use super::Lockbox;
 use crate::host_path::HostPath;
 use crate::lockbox_path::{canonicalize_stored_path, validate_symlink_paths as validate_symlink};
@@ -5,9 +6,153 @@ use crate::node_kind::NodeKind;
 use crate::toc_entry::TocEntry;
 use crate::{Error, ExtractPolicy, Result};
 use std::collections::BTreeMap;
-use std::fs::{self, File, OpenOptions};
+use std::fs;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
+
+// Workers consume already authenticated entry references from the parent's plan.
+// Keep the data-page reader, but do not duplicate unrelated archive metadata for
+// every thread. This private wrapper deliberately exposes no Lockbox/Deref API:
+// its empty metadata collections are not a general-purpose archive view.
+struct ExtractionWorker {
+    reader: Lockbox<super::ReadOnly>,
+}
+
+impl ExtractionWorker {
+    fn new<State>(parent: &Lockbox<State>) -> Result<Self> {
+        if !parent.pending_small_files.is_empty() {
+            return Err(Error::InvalidOperation(
+                "parallel extraction requires flushed small files".into(),
+            ));
+        }
+        let source = &parent.staged;
+        Ok(Self {
+            reader: Lockbox {
+                format_mode: parent.format_mode,
+                storage: parent.storage.clone(),
+                key: parent.key.try_clone()?,
+                staged: super::StagedLockboxState {
+                    control_reservations: Default::default(),
+                    commit_chain: source.commit_chain.clone(),
+                    published_sequence: source.published_sequence,
+                    header_slot: source.header_slot,
+                    header_generation: source.header_generation,
+                    cleanup_sequence: source.cleanup_sequence,
+                    cleanup_completed_ranges: source.cleanup_completed_ranges,
+                    cleanup_completed_pages: source.cleanup_completed_pages,
+                    cleanup_completed_bytes: source.cleanup_completed_bytes,
+                    toc_tree: Default::default(),
+                    toc_root_commitment: source.toc_root_commitment,
+                    variable_root_offset: source.variable_root_offset,
+                    variable_root_commitment: source.variable_root_commitment,
+                    form_root_commitment: source.form_root_commitment,
+                    free_index_offset: source.free_index_offset,
+                    free_index_commitment: source.free_index_commitment,
+                    post_cleanup_free_index_offset: source.post_cleanup_free_index_offset,
+                    post_cleanup_free_index_commitment: source.post_cleanup_free_index_commitment,
+                    redaction_manifest_offset: source.redaction_manifest_offset,
+                    redaction_manifest_commitment: source.redaction_manifest_commitment,
+                    redaction_range_count: source.redaction_range_count,
+                    redaction_total_bytes: source.redaction_total_bytes,
+                    key_directory: source.key_directory,
+                    poisoned: source.poisoned.clone(),
+                    key_slots: Vec::new(),
+                    toc_entries: BTreeMap::new(),
+                    variables: std::cell::RefCell::new(Some(BTreeMap::new())),
+                    variable_root: None,
+                    variable_leaves: Vec::new(),
+                    dirty_variables: false,
+                    forms: super::FormStore::loaded(),
+                    free_space: Default::default(),
+                    record_ref_counts: Default::default(),
+                    pending_redactions: BTreeMap::new(),
+                    pending_redaction_object_count: 0,
+                    redacted_free_slots: Vec::new(),
+                    pending_small_files: BTreeMap::new(),
+                    pending_small_file_bytes: 0,
+                    pending_symlinks: BTreeMap::new(),
+                    mirror_mutation_root: None,
+                    needs_packing: false,
+                    access_widening_pending: false,
+                },
+                lockbox_id: parent.lockbox_id,
+                read_only: true,
+                owner_signing_key: None,
+                // Preserve cached and uncommitted data pages. PageCache clones
+                // retain shared page owners and independent eviction bookkeeping.
+                page_manager: std::cell::RefCell::new(parent.page_manager.borrow().clone()),
+                compression_frame_cache: Default::default(),
+                import_stats: Default::default(),
+                workload_profile: parent.workload_profile,
+                worker_policy: parent.worker_policy,
+                transaction_start_len: parent.transaction_start_len,
+                trim_origin_len: parent.trim_origin_len,
+                preparing: parent.preparing,
+                rollback_required: parent.rollback_required,
+                state: std::marker::PhantomData,
+            },
+        })
+    }
+
+    fn extract(
+        &self,
+        entry: &TocEntry,
+        root: &OutputRoot,
+        relative: &Path,
+        policy: &ExtractPolicy,
+    ) -> Result<()> {
+        self.reader
+            .extract_file_entry_to_root(entry, root, relative, policy)
+    }
+
+    fn retire(&self, last_use: &mut ExtractionLastUse, entry: &TocEntry, index: usize) {
+        last_use.retire(&self.reader, entry, index);
+    }
+}
+
+struct ExtractionLastUse {
+    frames: BTreeMap<u64, usize>,
+    pages: BTreeMap<u64, usize>,
+}
+
+impl ExtractionLastUse {
+    fn new(job: &[(usize, &TocEntry)]) -> Self {
+        let mut uses = Self {
+            frames: BTreeMap::new(),
+            pages: BTreeMap::new(),
+        };
+        for (index, (_, entry)) in job.iter().enumerate() {
+            for chunk in &entry.chunks {
+                uses.frames.insert(chunk.compression_frame_id, index);
+                for segment in &chunk.segments {
+                    uses.pages.insert(segment.page_offset, index);
+                }
+            }
+        }
+        uses
+    }
+
+    fn retire<State>(&mut self, worker: &Lockbox<State>, entry: &TocEntry, index: usize) {
+        for chunk in &entry.chunks {
+            if self.frames.get(&chunk.compression_frame_id) == Some(&index) {
+                self.frames.remove(&chunk.compression_frame_id);
+                let mut cache = worker.compression_frame_cache.borrow_mut();
+                if let Some(old) = cache.entries.remove(&chunk.compression_frame_id) {
+                    cache.used_bytes = cache.used_bytes.saturating_sub(old.data.len());
+                }
+            }
+            for segment in &chunk.segments {
+                if self.pages.get(&segment.page_offset) == Some(&index) {
+                    self.pages.remove(&segment.page_offset);
+                    worker
+                        .page_manager
+                        .borrow_mut()
+                        .retire_clean_file_page(segment.page_offset);
+                }
+            }
+        }
+    }
+}
 
 impl<State: Send> Lockbox<State> {
     /// Extract all permitted entries into a destination directory.
@@ -19,29 +164,20 @@ impl<State: Send> Lockbox<State> {
     pub fn extract_to_directory(&self, destination: &Path, policy: &ExtractPolicy) -> Result<()> {
         let destination = HostPath::new(destination);
         let destination = destination.as_path();
-        if !destination.exists() {
-            return self.extract_to_new_directory(destination, policy);
-        }
-
         match fs::symlink_metadata(destination) {
-            Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
-            Ok(_) if !policy.overwrite => {
-                return Err(Error::SecurityLimitExceeded(format!(
-                    "destination exists: {}",
-                    destination.display()
-                )));
+            Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {
+                let root = OutputRoot::open(destination).map_err(output_error)?;
+                self.extract_entries_to_root(&root, policy)?;
+                root.finish_directories().map_err(output_error)
             }
-            Ok(_) => {
-                fs::remove_file(destination).map_err(|err| Error::Io(err.to_string()))?;
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                self.extract_to_new_directory(destination, policy)
             }
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-            Err(err) => return Err(Error::Io(err.to_string())),
+            Ok(_) => Err(Error::SecurityLimitExceeded(
+                "destination is not a non-symlink directory".into(),
+            )),
+            Err(error) => Err(output_error(error)),
         }
-        fs::create_dir_all(destination).map_err(|err| Error::Io(err.to_string()))?;
-        let destination = destination
-            .canonicalize()
-            .map_err(|err| Error::Io(err.to_string()))?;
-        self.extract_entries_to_directory(&destination, policy)
     }
 
     /// Extract one stored directory and its contents to an exact host directory.
@@ -79,150 +215,83 @@ impl<State: Send> Lockbox<State> {
             .collect::<Vec<_>>();
         self.validate_extract_entries(&entries, policy)?;
 
-        fs::create_dir_all(destination).map_err(|err| Error::Io(err.to_string()))?;
-        let destination = destination
-            .canonicalize()
-            .map_err(|err| Error::Io(err.to_string()))?;
-        let mut directories = Vec::new();
-        for (index, entry) in entries.into_iter().enumerate() {
+        let (stage, root) = match fs::symlink_metadata(destination) {
+            Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {
+                (None, OutputRoot::open(destination).map_err(output_error)?)
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                let (stage, root) = StagedDirectory::at(destination).map_err(output_error)?;
+                (Some(stage), root)
+            }
+            Ok(_) => {
+                return Err(Error::SecurityLimitExceeded(
+                    "destination is not a non-symlink directory".into(),
+                ))
+            }
+            Err(error) => return Err(output_error(error)),
+        };
+        for entry in entries {
             let relative = entry
                 .path
                 .as_str()
                 .strip_prefix(source)
                 .ok_or_else(|| Error::InvalidPath(entry.path.to_string()))?
                 .trim_start_matches('/');
-            let out_path = if relative.is_empty() {
-                destination.clone()
-            } else {
-                checked_destination(&destination, &format!("/{relative}"))?
-            };
-            match entry.node_kind {
-                NodeKind::Directory => {
-                    if out_path.exists() && !out_path.is_dir() && !policy.overwrite {
-                        return Err(Error::SecurityLimitExceeded(format!(
-                            "destination exists: {}",
-                            out_path.display()
-                        )));
-                    }
-                    fs::create_dir_all(&out_path).map_err(|err| Error::Io(err.to_string()))?;
-                    reject_symlink_components(&destination, &out_path)?;
-                    directories.push((out_path, entry.permissions));
-                }
-                NodeKind::File => self.extract_file_entry_to_path(
-                    entry,
-                    &destination,
-                    &out_path,
-                    policy,
-                    index as u64,
-                )?,
-                NodeKind::Symlink if policy.restore_symlinks => {
-                    let target = self.get_symlink_target(&entry.path)?;
-                    validate_symlink(entry.path.as_str(), target.as_str())?;
-                    if out_path.exists() && !policy.overwrite {
-                        return Err(Error::SecurityLimitExceeded(format!(
-                            "destination exists: {}",
-                            out_path.display()
-                        )));
-                    }
-                    if let Some(parent) = out_path.parent() {
-                        fs::create_dir_all(parent).map_err(|err| Error::Io(err.to_string()))?;
-                    }
-                    reject_symlink_components(&destination, &out_path)?;
-                    create_symlink(target.as_str(), &out_path, policy.overwrite)?;
-                }
-                NodeKind::Symlink => {}
-            }
+            self.extract_entry_to_root(entry, &root, Path::new(relative), policy)?;
         }
-        for (directory, permissions) in directories.into_iter().rev() {
-            restore_permissions(&directory, permissions, policy)?;
+        if let Some(stage) = stage {
+            stage.publish(root).map_err(output_error)
+        } else {
+            root.finish_directories().map_err(output_error)
         }
-        Ok(())
     }
 
     fn extract_to_new_directory(&self, destination: &Path, policy: &ExtractPolicy) -> Result<()> {
-        let parent = destination.parent().unwrap_or_else(|| Path::new("."));
-        fs::create_dir_all(parent).map_err(|err| Error::Io(err.to_string()))?;
-        let parent = parent
-            .canonicalize()
-            .map_err(|err| Error::Io(err.to_string()))?;
-        let Some(file_name) = destination.file_name() else {
-            return Err(Error::Io("destination must name a directory".to_string()));
-        };
-        let final_destination = parent.join(file_name);
-        let (temp_path, temp_root) = create_temp_directory(&parent)?;
-        let extract_result = self.extract_entries_to_directory(&temp_root, policy);
-        if let Err(err) = extract_result {
-            let _ = fs::remove_dir_all(&temp_path);
-            return Err(err);
-        }
-        if final_destination.exists() && !policy.overwrite {
-            let _ = fs::remove_dir_all(&temp_path);
-            return Err(Error::SecurityLimitExceeded(format!(
-                "destination exists: {}",
-                final_destination.display()
-            )));
-        }
-        if let Err(err) = move_directory(&temp_path, &final_destination) {
-            let _ = fs::remove_dir_all(&temp_path);
-            return Err(Error::Io(err.to_string()));
+        let (stage, root) = StagedDirectory::at(destination).map_err(output_error)?;
+        self.extract_entries_to_root(&root, policy)?;
+        stage.publish(root).map_err(output_error)
+    }
+
+    fn extract_entries_to_root(&self, root: &OutputRoot, policy: &ExtractPolicy) -> Result<()> {
+        let current_entries = self.validate_extract_plan(policy)?;
+        if self.should_extract_files_in_parallel(&current_entries) {
+            self.extract_entries_to_directory_parallel(root, policy, &current_entries)?;
+        } else {
+            for entry in current_entries {
+                let relative = extraction_relative(&entry.path)?;
+                self.extract_entry_to_root(entry, root, &relative, policy)?;
+            }
         }
         Ok(())
     }
 
-    fn extract_entries_to_directory(
+    fn extract_entry_to_root(
         &self,
-        destination: &Path,
+        entry: &TocEntry,
+        root: &OutputRoot,
+        relative: &Path,
         policy: &ExtractPolicy,
     ) -> Result<()> {
-        let current_entries = self.validate_extract_plan(policy)?;
-        if self.should_extract_files_in_parallel(&current_entries) {
-            self.extract_entries_to_directory_parallel(destination, policy, &current_entries)?;
-            return Ok(());
-        }
-        for (index, entry) in current_entries.into_iter().enumerate() {
-            match entry.node_kind {
-                NodeKind::Directory => {
-                    let out_path = checked_destination(destination, &entry.path)?;
-                    if out_path.exists() && !out_path.is_dir() && !policy.overwrite {
-                        return Err(Error::SecurityLimitExceeded(format!(
-                            "destination exists: {}",
-                            out_path.display()
-                        )));
-                    }
-                    fs::create_dir_all(&out_path).map_err(|err| Error::Io(err.to_string()))?;
-                    reject_symlink_components(destination, &out_path)?;
-                    restore_permissions(&out_path, entry.permissions, policy)?;
-                }
-                NodeKind::File => {
-                    let out_path = checked_destination(destination, &entry.path)?;
-                    self.extract_file_entry_to_path(
-                        entry,
-                        destination,
-                        &out_path,
-                        policy,
-                        index as u64,
-                    )?;
-                }
-                NodeKind::Symlink => {
-                    if !policy.restore_symlinks {
-                        continue;
-                    }
-                    let target = self.get_symlink_target(&entry.path)?;
-                    validate_symlink(entry.path.as_str(), target.as_str())?;
-                    let out_path = checked_destination(destination, &entry.path)?;
-                    if out_path.exists() && !policy.overwrite {
-                        return Err(Error::SecurityLimitExceeded(format!(
-                            "destination exists: {}",
-                            out_path.display()
-                        )));
-                    }
-                    if let Some(parent) = out_path.parent() {
-                        fs::create_dir_all(parent).map_err(|err| Error::Io(err.to_string()))?;
-                    }
-                    reject_symlink_components(destination, &out_path)?;
-                    create_symlink(target.as_str(), &out_path, policy.overwrite)?;
+        match entry.node_kind {
+            NodeKind::Directory => {
+                root.directory(relative, true).map_err(output_error)?;
+                if policy.restore_permissions {
+                    root.restore_directory(relative, entry.permissions)
+                        .map_err(output_error)?;
                 }
             }
+            NodeKind::File => self.extract_file_entry_to_root(entry, root, relative, policy)?,
+            NodeKind::Symlink if policy.restore_symlinks => {
+                let target = self.get_symlink_target(&entry.path)?;
+                validate_symlink(entry.path.as_str(), target.as_str())?;
+                root.symlink(
+                    relative,
+                    Path::new(target.as_str().trim_start_matches('/')),
+                    policy.overwrite,
+                )
+                .map_err(output_error)?;
+            }
+            NodeKind::Symlink => {}
         }
         Ok(())
     }
@@ -242,7 +311,7 @@ impl<State: Send> Lockbox<State> {
 
     fn extract_entries_to_directory_parallel(
         &self,
-        destination: &Path,
+        root: &OutputRoot,
         policy: &ExtractPolicy,
         current_entries: &[&TocEntry],
     ) -> Result<()> {
@@ -251,10 +320,8 @@ impl<State: Send> Lockbox<State> {
             .copied()
             .filter(|entry| entry.node_kind == NodeKind::Directory)
         {
-            let out_path = checked_destination(destination, &entry.path)?;
-            fs::create_dir_all(&out_path).map_err(|err| Error::Io(err.to_string()))?;
-            reject_symlink_components(destination, &out_path)?;
-            restore_permissions(&out_path, entry.permissions, policy)?;
+            let relative = extraction_relative(&entry.path)?;
+            self.extract_entry_to_root(entry, root, &relative, policy)?;
         }
 
         let file_entries: Vec<_> = current_entries
@@ -270,22 +337,35 @@ impl<State: Send> Lockbox<State> {
             .min(file_entries.len().max(1));
         let worker_jobs = group_parallel_extraction_jobs(file_entries, workers);
 
+        let retire_after_last_use = !cfg!(target_arch = "wasm32")
+            && self.workload_profile == crate::WorkloadProfile::ExtractMany
+            && matches!(
+                self.page_manager.borrow().configured_limit(),
+                crate::CacheLimit::Auto
+            );
+
         let parallel_result = std::thread::scope(|scope| {
             let mut handles = Vec::new();
             for job in worker_jobs {
-                let worker = self.try_clone()?;
+                let worker = ExtractionWorker::new(self)?;
                 handles.push(scope.spawn(move || {
-                    for (path_id, entry) in job {
-                        let out_path = checked_destination(destination, &entry.path)?;
-                        worker.extract_file_entry_to_path(
-                            entry,
-                            destination,
-                            &out_path,
-                            policy,
-                            path_id as u64,
-                        )?;
+                    let extract_job = || {
+                        let mut last_use =
+                            retire_after_last_use.then(|| ExtractionLastUse::new(&job));
+                        for (index, (_, entry)) in job.into_iter().enumerate() {
+                            let relative = extraction_relative(&entry.path)?;
+                            worker.extract(entry, root, &relative, policy)?;
+                            if let Some(last_use) = &mut last_use {
+                                worker.retire(last_use, entry, index);
+                            }
+                        }
+                        Ok(())
+                    };
+                    if retire_after_last_use {
+                        crate::compression::with_decode_workspace(extract_job)
+                    } else {
+                        extract_job()
                     }
-                    Ok(())
                 }));
             }
 
@@ -310,22 +390,9 @@ impl<State: Send> Lockbox<State> {
             if !policy.restore_symlinks {
                 continue;
             }
-            let target = self.get_symlink_target(&entry.path)?;
-            validate_symlink(entry.path.as_str(), target.as_str())?;
-            let out_path = checked_destination(destination, &entry.path)?;
-            if out_path.exists() && !policy.overwrite {
-                return Err(Error::SecurityLimitExceeded(format!(
-                    "destination exists: {}",
-                    out_path.display()
-                )));
-            }
-            if let Some(parent) = out_path.parent() {
-                fs::create_dir_all(parent).map_err(|err| Error::Io(err.to_string()))?;
-            }
-            reject_symlink_components(destination, &out_path)?;
-            create_symlink(target.as_str(), &out_path, policy.overwrite)?;
+            let relative = extraction_relative(&entry.path)?;
+            self.extract_entry_to_root(entry, root, &relative, policy)?;
         }
-
         Ok(())
     }
 
@@ -386,79 +453,21 @@ impl<State: Send> Lockbox<State> {
         Ok(())
     }
 
-    fn extract_file_entry_to_path(
+    fn extract_file_entry_to_root(
         &self,
         entry: &TocEntry,
-        root: &Path,
-        out_path: &Path,
+        root: &OutputRoot,
+        relative: &Path,
         policy: &ExtractPolicy,
-        path_id: u64,
     ) -> Result<()> {
-        let parent = out_path
-            .parent()
-            .ok_or_else(|| Error::InvalidPath(entry.path.to_string()))?;
-        fs::create_dir_all(parent).map_err(|err| Error::Io(err.to_string()))?;
-        reject_symlink_components(root, out_path)?;
-
-        if !policy.overwrite {
-            let mut out = match OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(out_path)
-            {
-                Ok(file) => file,
-                Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
-                    return Err(Error::SecurityLimitExceeded(format!(
-                        "destination exists: {}",
-                        out_path.display()
-                    )));
-                }
-                Err(err) => return Err(Error::Io(err.to_string())),
-            };
-            if let Err(err) = self.write_file_entry_cached(entry, &mut out) {
-                let _ = fs::remove_file(out_path);
-                return Err(err);
-            }
-            drop(out);
-            restore_permissions(out_path, entry.permissions, policy)?;
-            return Ok(());
-        }
-
-        if !out_path.exists() {
-            let mut out = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(out_path)
-                .map_err(|err| Error::Io(err.to_string()))?;
-            if let Err(err) = self.write_file_entry_cached(entry, &mut out) {
-                let _ = fs::remove_file(out_path);
-                return Err(err);
-            }
-            drop(out);
-            restore_permissions(out_path, entry.permissions, policy)?;
-            return Ok(());
-        }
-
-        let (temp_path, mut temp_file) = create_temp_file(parent, path_id)?;
-        let write_result = self.write_file_entry_cached(entry, &mut temp_file);
-        if let Err(err) = write_result {
-            let _ = fs::remove_file(&temp_path);
-            return Err(err);
-        }
-        drop(temp_file);
-
-        if policy.overwrite && out_path.exists() {
-            if let Err(err) = fs::remove_file(out_path) {
-                let _ = fs::remove_file(&temp_path);
-                return Err(Error::Io(err.to_string()));
-            }
-        }
-        if let Err(err) = move_file(&temp_path, out_path) {
-            let _ = fs::remove_file(&temp_path);
-            return Err(Error::Io(err.to_string()));
-        }
-        restore_permissions(out_path, entry.permissions, policy)?;
-        Ok(())
+        let mut staged = root.stage_file(relative).map_err(output_error)?;
+        self.write_file_entry_cached(entry, staged.writer())?;
+        staged
+            .publish(
+                policy.overwrite,
+                policy.restore_permissions.then_some(entry.permissions),
+            )
+            .map_err(output_error)
     }
 
     fn write_file_entry_cached(&self, entry: &TocEntry, writer: &mut impl Write) -> Result<()> {
@@ -491,7 +500,10 @@ impl<State: Send> Lockbox<State> {
             if chunk.file_offset.saturating_add(chunk.len) > entry.len {
                 return Err(Error::CorruptRecord);
             }
-            let decoded = self.read_file_chunk_compression_frame(entry.len, &chunk)?;
+            let decoded = crate::page_buffer::SensitiveBytes::new(
+                self.read_file_chunk_compression_frame(entry.len, &chunk)?,
+                !self.format_mode.plaintext(),
+            );
             writer
                 .write_all(&decoded)
                 .map_err(|err| Error::Io(err.to_string()))?;
@@ -505,6 +517,39 @@ impl<State: Send> Lockbox<State> {
         }
         Ok(())
     }
+}
+
+fn output_error(error: std::io::Error) -> Error {
+    #[cfg(unix)]
+    let component_refused = matches!(
+        error.raw_os_error(),
+        Some(libc::ELOOP) | Some(libc::ENOTDIR)
+    );
+    #[cfg(not(unix))]
+    let component_refused = false;
+    if matches!(
+        error.kind(),
+        std::io::ErrorKind::AlreadyExists | std::io::ErrorKind::PermissionDenied
+    ) || component_refused
+    {
+        Error::SecurityLimitExceeded(format!(
+            "output refused (existing destination or symlink component): {error}"
+        ))
+    } else {
+        Error::Io(error.to_string())
+    }
+}
+
+fn extraction_relative(path: &crate::LockboxPath) -> Result<PathBuf> {
+    canonicalize_stored_path(path.as_str(), false)?;
+    let relative = PathBuf::from(path.as_str().trim_start_matches('/'));
+    if relative
+        .components()
+        .any(|c| !matches!(c, Component::Normal(_)))
+    {
+        return Err(Error::InvalidPath(path.to_string()));
+    }
+    Ok(relative)
 }
 
 fn write_zeroes(writer: &mut impl Write, mut len: u64) -> Result<()> {
@@ -549,6 +594,7 @@ fn group_parallel_extraction_jobs<'a>(
     jobs.into_iter().filter(|job| !job.is_empty()).collect()
 }
 
+#[cfg(test)]
 fn checked_destination(root: &Path, lockbox_path: &str) -> Result<PathBuf> {
     canonicalize_stored_path(lockbox_path, false)?;
     let relative = lockbox_path.trim_start_matches('/');
@@ -568,6 +614,7 @@ fn checked_destination(root: &Path, lockbox_path: &str) -> Result<PathBuf> {
     Ok(out)
 }
 
+#[cfg(test)]
 fn reject_symlink_components(root: &Path, destination: &Path) -> Result<()> {
     let relative = destination.strip_prefix(root).map_err(|_| {
         Error::SecurityLimitExceeded("extraction destination escaped root".to_string())
@@ -595,166 +642,6 @@ fn reject_symlink_components(root: &Path, destination: &Path) -> Result<()> {
     Ok(())
 }
 
-fn create_temp_file(parent: &Path, index: u64) -> Result<(PathBuf, File)> {
-    let process_id = std::process::id();
-    for attempt in 0..1000u64 {
-        let temp_path = parent.join(format!(
-            ".lockbox-extract-{process_id}-{index}-{attempt}.tmp"
-        ));
-        match OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temp_path)
-        {
-            Ok(file) => return Ok((temp_path, file)),
-            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(err) => return Err(Error::Io(err.to_string())),
-        }
-    }
-    Err(Error::Io(
-        "unable to create unique extraction temporary file".to_string(),
-    ))
-}
-
-fn create_temp_directory(parent: &Path) -> Result<(PathBuf, PathBuf)> {
-    let process_id = std::process::id();
-    for attempt in 0..1000u64 {
-        let temp_path = parent.join(format!(".lockbox-extract-{process_id}-{attempt}.tmpdir"));
-        match fs::create_dir(&temp_path) {
-            Ok(()) => {
-                let canonical = temp_path
-                    .canonicalize()
-                    .map_err(|err| Error::Io(err.to_string()))?;
-                return Ok((temp_path, canonical));
-            }
-            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(err) => return Err(Error::Io(err.to_string())),
-        }
-    }
-    Err(Error::Io(
-        "unable to create unique extraction temporary directory".to_string(),
-    ))
-}
-
-fn move_file(source: &Path, destination: &Path) -> std::io::Result<()> {
-    match fs::rename(source, destination) {
-        Ok(()) => Ok(()),
-        Err(err) if is_cross_device_error(&err) => {
-            fs::copy(source, destination)?;
-            fs::remove_file(source)
-        }
-        Err(err) => Err(err),
-    }
-}
-
-fn move_directory(source: &Path, destination: &Path) -> std::io::Result<()> {
-    match fs::rename(source, destination) {
-        Ok(()) => Ok(()),
-        Err(err) if is_cross_device_error(&err) => {
-            copy_directory_recursive(source, destination)?;
-            fs::remove_dir_all(source)
-        }
-        Err(err) => Err(err),
-    }
-}
-
-fn copy_directory_recursive(source: &Path, destination: &Path) -> std::io::Result<()> {
-    fs::create_dir(destination)?;
-    for entry in fs::read_dir(source)? {
-        let entry = entry?;
-        let source_path = entry.path();
-        let destination_path = destination.join(entry.file_name());
-        let file_type = entry.file_type()?;
-        if file_type.is_dir() {
-            copy_directory_recursive(&source_path, &destination_path)?;
-        } else if file_type.is_file() {
-            fs::copy(&source_path, &destination_path)?;
-        } else if file_type.is_symlink() {
-            copy_symlink(&source_path, &destination_path)?;
-        }
-    }
-    Ok(())
-}
-
-#[cfg(unix)]
-fn is_cross_device_error(err: &std::io::Error) -> bool {
-    err.raw_os_error() == Some(libc::EXDEV)
-}
-
-#[cfg(windows)]
-fn is_cross_device_error(err: &std::io::Error) -> bool {
-    const ERROR_NOT_SAME_DEVICE: i32 = 17;
-    err.raw_os_error() == Some(ERROR_NOT_SAME_DEVICE)
-}
-
-#[cfg(not(any(unix, windows)))]
-fn is_cross_device_error(_err: &std::io::Error) -> bool {
-    false
-}
-
-#[cfg(unix)]
-fn copy_symlink(source: &Path, destination: &Path) -> std::io::Result<()> {
-    std::os::unix::fs::symlink(fs::read_link(source)?, destination)
-}
-
-#[cfg(windows)]
-fn copy_symlink(source: &Path, destination: &Path) -> std::io::Result<()> {
-    let target = fs::read_link(source)?;
-    if source.is_dir() {
-        std::os::windows::fs::symlink_dir(target, destination)
-    } else {
-        std::os::windows::fs::symlink_file(target, destination)
-    }
-}
-
-#[cfg(not(any(unix, windows)))]
-fn copy_symlink(_source: &Path, _destination: &Path) -> std::io::Result<()> {
-    Err(std::io::Error::new(
-        std::io::ErrorKind::Unsupported,
-        "copying symlinks is not supported on this platform",
-    ))
-}
-
-#[cfg(unix)]
-fn restore_permissions(path: &Path, permissions: u32, policy: &ExtractPolicy) -> Result<()> {
-    if policy.restore_permissions {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(path, fs::Permissions::from_mode(permissions))
-            .map_err(|err| Error::Io(err.to_string()))?;
-    }
-    Ok(())
-}
-
-#[cfg(not(unix))]
-fn restore_permissions(_path: &Path, _permissions: u32, _policy: &ExtractPolicy) -> Result<()> {
-    Ok(())
-}
-
-#[cfg(unix)]
-fn create_symlink(target: &str, path: &Path, overwrite: bool) -> Result<()> {
-    if overwrite && path.exists() {
-        fs::remove_file(path).map_err(|err| Error::Io(err.to_string()))?;
-    }
-    std::os::unix::fs::symlink(target.trim_start_matches('/'), path)
-        .map_err(|err| Error::Io(err.to_string()))
-}
-
-#[cfg(windows)]
-fn create_symlink(target: &str, path: &Path, overwrite: bool) -> Result<()> {
-    if overwrite && path.exists() {
-        fs::remove_file(path).map_err(|err| Error::Io(err.to_string()))?;
-    }
-    std::os::windows::fs::symlink_file(target.trim_start_matches('/'), path)
-        .map_err(|err| Error::Io(err.to_string()))
-}
-
-#[cfg(not(any(unix, windows)))]
-fn create_symlink(_target: &str, _path: &Path, _overwrite: bool) -> Result<()> {
-    Err(Error::SecurityLimitExceeded(
-        "symlink extraction is not supported on this platform".to_string(),
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -768,22 +655,96 @@ mod tests {
     }
 
     #[test]
-    fn copy_directory_recursive_copies_nested_files() {
-        let root =
-            std::env::temp_dir().join(format!("lockbox-copy-dir-test-{}", std::process::id()));
-        let source = root.join("source");
-        let destination = root.join("destination");
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(source.join("nested")).unwrap();
-        fs::write(source.join("nested/file.txt"), b"content").unwrap();
+    fn extraction_worker_keeps_dirty_payloads_without_archive_metadata() {
+        let mut parent = Lockbox::create("worker dirty payload");
+        let path = crate::LockboxPath::new("/large.bin").unwrap();
+        parent.add_file(&path, b"old", false).unwrap();
+        parent.commit().unwrap();
+        let expected: Vec<u8> = (0..2 * 1024 * 1024).map(|i| (i % 251) as u8).collect();
+        parent.add_file(&path, &expected, true).unwrap();
+        assert!(parent.pending_small_files.is_empty());
+        assert!(parent.page_manager.borrow().has_dirty_pages());
+        assert!(!parent.toc_entries.is_empty());
+        let worker = ExtractionWorker::new(&parent).unwrap();
+        assert!(worker.reader.toc_entries.is_empty());
+        assert!(worker.reader.toc_tree.root.is_none());
+        assert!(worker.reader.toc_tree.leaves.is_empty());
+        assert!(worker.reader.record_ref_counts.is_empty());
+        assert!(worker.reader.key_slots.is_empty());
+        assert!(worker.reader.owner_signing_key.is_none());
+        assert!(worker.reader.read_only);
+        assert!(worker.reader.page_manager.borrow().has_dirty_pages());
+        let entry = parent.toc_entries.get(path.as_str()).unwrap();
+        let mut actual = Vec::new();
+        worker
+            .reader
+            .write_file_entry_cached(entry, &mut actual)
+            .unwrap();
+        assert_eq!(actual, expected);
+        drop(worker);
+        assert!(parent.page_manager.borrow().has_dirty_pages());
+        assert_eq!(
+            parent
+                .read_file_range(&path, 0, expected.len() as u64)
+                .unwrap(),
+            expected
+        );
+    }
 
-        copy_directory_recursive(&source, &destination).unwrap();
+    #[test]
+    fn extraction_worker_rejects_changed_frame_digest_and_pending_small_files() {
+        let mut parent = Lockbox::create("worker digest");
+        let path = crate::LockboxPath::new("/file").unwrap();
+        parent
+            .add_file(&path, b"authenticated file", false)
+            .unwrap();
+        assert!(matches!(
+            ExtractionWorker::new(&parent),
+            Err(Error::InvalidOperation(_))
+        ));
+        parent.commit().unwrap();
+        let mut entry = parent.toc_entries.get(path.as_str()).unwrap().clone();
+        assert!(!entry.chunks.is_empty());
+        let worker = ExtractionWorker::new(&parent).unwrap();
+        let mut actual = Vec::new();
+        worker
+            .reader
+            .write_file_entry_cached(&entry, &mut actual)
+            .unwrap();
+        assert_eq!(actual, b"authenticated file");
+        // Keep every length, offset and slice valid; change only the committed
+        // digest. A fresh worker must reject via the authenticated frame path.
+        entry.chunks[0].compression_frame_digest[0] ^= 1;
+        let worker = ExtractionWorker::new(&parent).unwrap();
+        let mut rejected = Vec::new();
+        assert!(matches!(
+            worker.reader.write_file_entry_cached(&entry, &mut rejected),
+            Err(Error::CorruptRecord)
+        ));
+        assert!(rejected.is_empty());
+        assert_eq!(
+            parent.read_file_range(&path, 0, 18).unwrap(),
+            b"authenticated file"
+        );
+    }
 
+    #[test]
+    fn private_tree_publication_preserves_nested_files() {
+        let parent = unique_test_root("private-tree-publication");
+        fs::create_dir_all(&parent).unwrap();
+        let destination = parent.join("output");
+        let (stage, root) = StagedDirectory::at(&destination).unwrap();
+        let mut file = root.stage_file(Path::new("nested/file.txt")).unwrap();
+        file.writer().write_all(b"content").unwrap();
+        file.publish(false, Some(0o600)).unwrap();
+        assert!(!destination.exists());
+        stage.publish(root).unwrap();
         assert_eq!(
             fs::read(destination.join("nested/file.txt")).unwrap(),
             b"content"
         );
-        let _ = fs::remove_dir_all(&root);
+        assert_eq!(fs::read_dir(&parent).unwrap().count(), 1);
+        fs::remove_dir_all(parent).unwrap();
     }
 
     #[test]
@@ -891,5 +852,239 @@ mod tests {
 
         drop(lockbox);
         let _ = fs::remove_dir_all(&root);
+    }
+    #[test]
+    fn last_use_retirement_preserves_later_shared_frames_pages_and_parent() {
+        use crate::page::{DecodedPage, PageObject, PageObjectKind};
+        use crate::page_cache::PageSecurity;
+        use std::sync::Arc;
+        let mut parent = Lockbox::create("last use");
+        parent
+            .add_file(&crate::LockboxPath::new("/a").unwrap(), b"a", false)
+            .unwrap();
+        parent.commit().unwrap();
+        let template = parent.toc_entries.get("/a").unwrap().clone();
+        assert!(!template.chunks.is_empty());
+        // Synthetic references exercise planning only. Their page payload bytes are
+        // observed below; no synthetic metadata is used as an authenticated archive.
+        let chunk = |frame, page| {
+            let mut value = template.chunks[0].clone();
+            value.compression_frame_id = frame;
+            value.segments[0].page_offset = page;
+            value.segments.truncate(1);
+            value
+        };
+        let mut first = template.clone();
+        let mut second = template.clone();
+        let mut third = template.clone();
+        first.chunks = vec![chunk(10, 8192), chunk(12, 16384)];
+        // Duplicate references in one file must not release a later file's page.
+        let duplicate = first.chunks[1].segments[0].clone();
+        first.chunks[1].segments.push(duplicate);
+        second.chunks = vec![chunk(11, 8192)];
+        third.chunks = vec![chunk(12, 16384)];
+        parent.set_cache_limit(crate::CacheLimit::Bytes(1024 * 1024));
+        for (offset, byte) in [(8192, 41), (16384, 73)] {
+            parent.page_manager.borrow_mut().insert_page(
+                offset,
+                DecodedPage {
+                    page_id: offset,
+                    sequence: 1,
+                    objects: vec![PageObject::new(
+                        PageObjectKind::FileData,
+                        offset,
+                        vec![byte; 1024],
+                    )],
+                },
+                4096,
+            );
+        }
+        let worker = ExtractionWorker::new(&parent).unwrap().reader;
+        let held = worker
+            .page_manager
+            .borrow_mut()
+            .cached_page(8192, PageSecurity::Normal)
+            .unwrap()
+            .unwrap();
+        let weak = Arc::downgrade(&held);
+        for frame in [10, 11, 12] {
+            let data = vec![frame as u8; 32];
+            let mut cache = worker.compression_frame_cache.borrow_mut();
+            cache.used_bytes += data.len();
+            cache.entries.insert(
+                frame,
+                super::super::CachedCompressionFrame {
+                    native_reference: None,
+                    compression: crate::compression::COMPRESSION_NONE,
+                    compression_frame_len: 32,
+                    compressed_len: 32,
+                    compression_frame_digest: [0; 32],
+                    slices: vec![],
+                    data,
+                },
+            );
+        }
+        let parent_bytes = parent.page_manager.borrow().stats().used_bytes;
+        let job = vec![(0, &first), (1, &second), (2, &third)];
+        let mut uses = ExtractionLastUse::new(&job);
+        uses.retire(&worker, &first, 0);
+        assert_eq!(worker.compression_frame_cache.borrow().used_bytes, 64);
+        assert!(worker
+            .page_manager
+            .borrow_mut()
+            .cached_page(8192, PageSecurity::Normal)
+            .unwrap()
+            .is_some());
+        assert!(worker
+            .page_manager
+            .borrow_mut()
+            .cached_page(16384, PageSecurity::Normal)
+            .unwrap()
+            .is_some());
+        uses.retire(&worker, &second, 1);
+        assert_eq!(worker.compression_frame_cache.borrow().used_bytes, 32);
+        assert!(worker
+            .page_manager
+            .borrow_mut()
+            .cached_page(8192, PageSecurity::Normal)
+            .unwrap()
+            .is_none());
+        assert!(worker
+            .page_manager
+            .borrow_mut()
+            .cached_page(16384, PageSecurity::Normal)
+            .unwrap()
+            .is_some());
+        assert_eq!(
+            held.objects[0].with_payload(|v| v.to_vec()).unwrap(),
+            vec![41; 1024]
+        );
+        uses.retire(&worker, &third, 2);
+        assert!(uses.frames.is_empty() && uses.pages.is_empty());
+        assert_eq!(worker.compression_frame_cache.borrow().used_bytes, 0);
+        assert!(worker
+            .page_manager
+            .borrow_mut()
+            .cached_page(16384, PageSecurity::Normal)
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            parent.page_manager.borrow().stats().used_bytes,
+            parent_bytes
+        );
+        assert!(parent
+            .page_manager
+            .borrow_mut()
+            .cached_page(8192, PageSecurity::Normal)
+            .unwrap()
+            .is_some());
+        drop(worker);
+        drop(parent);
+        assert!(weak.upgrade().is_some());
+        drop(held);
+        assert!(weak.upgrade().is_none());
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn protected_compressed_parallel_extraction_preserves_all_file_bytes() {
+        compressed_parallel_extraction_preserves_all_file_bytes(true);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn plaintext_compressed_parallel_extraction_preserves_all_file_bytes() {
+        compressed_parallel_extraction_preserves_all_file_bytes(false);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn compressed_parallel_extraction_preserves_all_file_bytes(protected: bool) {
+        let root = unique_test_root("protected-parallel-workspace");
+        fs::create_dir_all(&root).unwrap();
+        let archive = root.join("source.lbox");
+        let destination = root.join("extracted");
+        let key = [71u8; 32];
+        let signer = crate::OwnerSigningKeyPair::generate().unwrap();
+        let mut writer = Lockbox::create_file_with_options(
+            &archive,
+            crate::LockboxCreateOptions::new(
+                if protected {
+                    crate::Encryption::Encrypted(crate::LockboxProtection::ContentKey(
+                        crate::SecretVec::try_from_slice(&key).unwrap(),
+                    ))
+                } else {
+                    crate::Encryption::None
+                },
+                if protected {
+                    crate::Signing::Owner(&signer)
+                } else {
+                    crate::Signing::None
+                },
+            ),
+        )
+        .unwrap();
+        for index in 0..256usize {
+            let mut data = vec![(index % 251) as u8; 65536];
+            data[..8].copy_from_slice(&(index as u64).to_le_bytes());
+            writer
+                .add_file(
+                    &crate::LockboxPath::new(format!("/file-{index:03}.bin")).unwrap(),
+                    &data,
+                    false,
+                )
+                .unwrap();
+        }
+        writer.commit().unwrap();
+        drop(writer);
+        let archive_before = fs::read(&archive).unwrap();
+        let mut reader = Lockbox::open(
+            &archive,
+            if protected {
+                crate::LockboxOpen::ContentKey(crate::SecretVec::try_from_slice(&key).unwrap())
+            } else {
+                crate::LockboxOpen::Unencrypted
+            },
+        )
+        .unwrap();
+        reader.set_workload_profile(crate::WorkloadProfile::ExtractMany);
+        reader.set_cache_limit(crate::CacheLimit::Auto);
+        let policy = ExtractPolicy::default();
+        let entries = reader.validate_extract_plan(&policy).unwrap();
+        assert!(reader.should_extract_files_in_parallel(&entries));
+        let files: Vec<_> = entries
+            .iter()
+            .copied()
+            .filter(|e| e.node_kind == NodeKind::File)
+            .enumerate()
+            .collect();
+        // This focused native test requires the same multicore host as the
+        // existing parallel-extraction tests; do not silently skip the path.
+        let workers = std::thread::available_parallelism()
+            .unwrap()
+            .get()
+            .clamp(1, 4);
+        assert!(workers > 1);
+        let jobs = group_parallel_extraction_jobs(files, workers);
+        assert!(jobs.iter().filter(|job| !job.is_empty()).count() > 1);
+        assert!(entries
+            .iter()
+            .flat_map(|entry| &entry.chunks)
+            .any(
+                |chunk| chunk.compression != crate::compression::COMPRESSION_NONE
+                    && chunk.compression_frame_len >= 65536
+            ));
+        reader.extract_to_directory(&destination, &policy).unwrap();
+        assert_eq!(fs::read_dir(&destination).unwrap().count(), 256);
+        for index in 0..256usize {
+            let mut expected = vec![(index % 251) as u8; 65536];
+            expected[..8].copy_from_slice(&(index as u64).to_le_bytes());
+            assert_eq!(
+                fs::read(destination.join(format!("file-{index:03}.bin"))).unwrap(),
+                expected
+            );
+        }
+        assert_eq!(fs::read(&archive).unwrap(), archive_before);
+        drop(reader);
+        fs::remove_dir_all(&root).unwrap();
     }
 }

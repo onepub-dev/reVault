@@ -1,0 +1,10 @@
+{
+  "getconf_pagesize": "4096",
+  "memlock_expected_bytes": 8388608,
+  "profile_cap_seconds": 30,
+  "build_cap_seconds": 300,
+  "workspace_resolver": "2",
+  "same_dependency_tree": true,
+  "profile_count": "old natural refusal + new 128 allocations",
+  "hot_timing_launched": false
+}

@@ -95,3 +95,10 @@ try_read	Optional external-source Rust embedding API; checked closures, source c
 cancel	Optional external-source Rust embedding API; checked closures, source callbacks and sparse cache lifetimes have no C ABI contract. Custom WASM wrappers can enable the Rust feature.
 supply	Optional external-source Rust embedding API; checked closures, source callbacks and sparse cache lifetimes have no C ABI contract. Custom WASM wrappers can enable the Rust feature.
 cached_bytes	Optional external-source Rust embedding API; checked closures, source callbacks and sparse cache lifetimes have no C ABI contract. Custom WASM wrappers can enable the Rust feature.
+default_for	Credential-scoped Rust PasswordWorkBudget constructor; foreign open APIs select the default or explicit scalar budget without exposing its borrowed lifetime.
+path_with_password_budget	Vault-integration ledger-sharing hook matching path_with_password; foreign archives expose explicit per-credential budget through lockbox_open_password_with_budget.
+key_directory_backup_with_password_budget	Vault-integration shared-ledger backup hook matching key_directory_backup_with_password; not a standalone foreign key-unwrapping primitive.
+open_password_read_only_with_budget	CLI headless session orchestration matching open_password_read_only; foreign byte-open uses lockbox_open_password_with_budget and existing Vault operations retain default policy.
+derive_lockbox_alias_name	Rust/CLI display and derived-name policy; foreign alias CRUD uses the same core normalization and validation at its native boundary.
+normalize_lockbox_alias_name	Rust/CLI display and derived-name policy; foreign alias CRUD uses the same core normalization and validation at its native boundary.
+normalize_lockbox_alias_prefix	Rust/CLI display and derived-name policy; foreign alias CRUD uses the same core normalization and validation at its native boundary.

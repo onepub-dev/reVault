@@ -1,0 +1,8 @@
+{
+  "raw64m-random-range": "Cpus_allowed_list:\t2",
+  "raw64m-random-stream": "Cpus_allowed_list:\t2",
+  "raw8m-random-range": "Cpus_allowed_list:\t2",
+  "compressed8m-pattern-stream": "Cpus_allowed_list:\t2",
+  "raw8m-random-stream": "Cpus_allowed_list:\t2",
+  "small512-mixed-compressed-stream": "Cpus_allowed_list:\t2"
+}

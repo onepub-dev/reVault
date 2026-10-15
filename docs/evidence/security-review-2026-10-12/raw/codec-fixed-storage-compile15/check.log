@@ -1,0 +1,345 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+error[E0308]: `if` and `else` have incompatible types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:165:12
+    |
+160 |         let new_table = if search_smallest_table {
+    |  _______________________-
+161 | | /         huff0_encoder::HuffmanTable::build_smallest_from_counts_with_stream_counts(
+162 | | |             literal_stats.counts(),
+163 | | |             stream_counts.as_ref(),
+164 | | |         )
+    | | |_________- expected because of this
+165 | |       } else if config.c_literal_cost_model {
+    | |  ____________^
+166 | | |         let table_log = huff0_encoder::HuffmanTable::c_fast_table_log(
+167 | | |             literals.len(),
+168 | | |             literal_stats.counts().len() - 1,
+...   | |
+183 | | |     };
+    | | |     ^
+    | |_|_____|
+    |   |_____`if` and `else` have incompatible types
+    |         expected `HuffmanTable`, found `Result<HuffmanTable, CapacityError>`
+    |
+    = note: expected struct `huff0_encoder::table::HuffmanTable`
+                 found enum `Result<huff0_encoder::table::HuffmanTable, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<huff0_encoder::table::HuffmanTable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+183 |     }.expect("REASON");
+    |      +++++++++++++++++
+
+error[E0308]: `match` arms have incompatible types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:178:26
+    |
+162 |           match (huffman_scratch.as_deref_mut(), fse_build_scratch) {
+    |           --------------------------------------------------------- `match` arms have incompatible types
+163 |               (Some(huffman_scratch), Some(fse_scratch)) => {
+164 | /                 huff0_encoder::HuffmanTable::build_from_counts_with_max_bits_and_workspaces(
+165 | |                     literal_stats.counts(),
+166 | |                     table_log,
+167 | |                     huffman_scratch,
+168 | |                     fse_scratch,
+169 | |                 )
+    | |_________________- this is found to be of type `Result<huff0_encoder::table::HuffmanTable, CapacityError>`
+...
+172 | /                 huff0_encoder::HuffmanTable::build_from_counts_with_max_bits_and_scratch(
+173 | |                     literal_stats.counts(),
+174 | |                     table_log,
+175 | |                     scratch,
+176 | |                 )
+    | |_________________- this is found to be of type `Result<huff0_encoder::table::HuffmanTable, CapacityError>`
+177 |               }
+178 |               (None, _) => huff0_encoder::HuffmanTable::build_from_counts_with_max_bits(
+    |  __________________________^
+179 | |                 literal_stats.counts(),
+180 | |                 table_log,
+181 | |             ),
+    | |_____________^ expected `Result<HuffmanTable, CapacityError>`, found `HuffmanTable`
+    |
+    = note: expected enum `Result<huff0_encoder::table::HuffmanTable, CapacityError>`
+             found struct `huff0_encoder::table::HuffmanTable`
+help: try wrapping the expression in `core::prelude::v1::Ok`
+    |
+178 ~             (None, _) => core::prelude::v1::Ok(huff0_encoder::HuffmanTable::build_from_counts_with_max_bits(
+179 |                 literal_stats.counts(),
+180 |                 table_log,
+181 ~             )),
+    |
+
+error[E0308]: `match` arms have incompatible types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:197:26
+    |
+184 |           match (huffman_scratch.as_deref_mut(), fse_build_scratch) {
+    |           --------------------------------------------------------- `match` arms have incompatible types
+185 |               (Some(huffman_scratch), Some(fse_scratch)) => {
+186 | /                 huff0_encoder::HuffmanTable::build_from_counts_with_max_bits_and_workspaces(
+187 | |                     literal_stats.counts(),
+188 | |                     11,
+189 | |                     huffman_scratch,
+190 | |                     fse_scratch,
+191 | |                 )
+    | |_________________- this is found to be of type `Result<huff0_encoder::table::HuffmanTable, CapacityError>`
+192 |               }
+193 |               (Some(scratch), None) => huff0_encoder::HuffmanTable::build_from_counts_with_scratch(
+    |  ______________________________________-
+194 | |                 literal_stats.counts(),
+195 | |                 scratch,
+196 | |             ),
+    | |_____________- this is found to be of type `Result<huff0_encoder::table::HuffmanTable, CapacityError>`
+197 |               (None, _) => huff0_encoder::HuffmanTable::build_from_counts(literal_stats.counts()),
+    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<HuffmanTable, CapacityError>`, found `HuffmanTable`
+    |
+    = note: expected enum `Result<huff0_encoder::table::HuffmanTable, CapacityError>`
+             found struct `huff0_encoder::table::HuffmanTable`
+help: try wrapping the expression in `core::prelude::v1::Ok`
+    |
+197 |             (None, _) => core::prelude::v1::Ok(huff0_encoder::HuffmanTable::build_from_counts(literal_stats.counts())),
+    |                          ++++++++++++++++++++++                                                                      +
+
+error[E0308]: `match` arms have incompatible types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_bitstream.rs:101:25
+    |
+99  |               let table = match scratch.as_deref_mut() {
+    |  _________________________-
+100 | |                 Some(scratch) => scratch.share_table(table),
+    | |                                  -------------------------- this is found to be of type `Result<SharedFSETable, CapacityError>`
+101 | |                 None => SharedFSETable::new(table),
+    | |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<SharedFSETable, CapacityError>`, found `SharedFSETable`
+102 | |             };
+    | |_____________- `match` arms have incompatible types
+    |
+    = note: expected enum `Result<SharedFSETable, CapacityError>`
+             found struct `SharedFSETable`
+help: try wrapping the expression in `core::prelude::v1::Ok`
+    |
+101 |                 None => core::prelude::v1::Ok(SharedFSETable::new(table)),
+    |                         ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/builder.rs:229:30
+    |
+226 | ) -> FSETable {
+    |      -------- expected `fse_encoder::table::FSETable` because of return type
+...
+229 |             Some(scratch) => build_table_from_probabilities_with_scratch(probs, acc_log, scratch),
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+    |
+    = note: expected struct `fse_encoder::table::FSETable`
+                 found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+229 |             Some(scratch) => build_table_from_probabilities_with_scratch(probs, acc_log, scratch).expect("REASON"),
+    |                                                                                                  +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/builder.rs:234:17
+    |
+226 | ) -> FSETable {
+    |      -------- expected `fse_encoder::table::FSETable` because of return type
+...
+234 |                 build_probability_table_for_estimate_with_scratch(probs, acc_log, scratch)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+    |
+    = note: expected struct `fse_encoder::table::FSETable`
+                 found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+234 |                 build_probability_table_for_estimate_with_scratch(probs, acc_log, scratch).expect("REASON")
+    |                                                                                           +++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/frame_compressor.rs:98:25
+   |
+98 |             ll_default: crate::fse::fse_encoder::default_ll_table_with_scratch(scratch),
+   |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+   |
+   = note: expected struct `fse_encoder::table::FSETable`
+                found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+98 |             ll_default: crate::fse::fse_encoder::default_ll_table_with_scratch(scratch).expect("REASON"),
+   |                                                                                        +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/frame_compressor.rs:101:25
+    |
+101 |             ml_default: crate::fse::fse_encoder::default_ml_table_with_scratch(scratch),
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+    |
+    = note: expected struct `fse_encoder::table::FSETable`
+                 found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+101 |             ml_default: crate::fse::fse_encoder::default_ml_table_with_scratch(scratch).expect("REASON"),
+    |                                                                                        +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/frame_compressor.rs:104:25
+    |
+104 |             of_default: crate::fse::fse_encoder::default_of_table_with_scratch(scratch),
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+    |
+    = note: expected struct `fse_encoder::table::FSETable`
+                 found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+104 |             of_default: crate::fse::fse_encoder::default_of_table_with_scratch(scratch).expect("REASON"),
+    |                                                                                        +++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/fse/fse_encoder/normalize.rs:57:5
+   |
+49 | ) -> FSETable {
+   |      -------- expected `fse_encoder::table::FSETable` because of return type
+...
+57 |     build_table_from_probabilities_with_scratch(&probabilities[..counts.len()], acc_log, scratch)
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+   |
+   = note: expected struct `fse_encoder::table::FSETable`
+                found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+57 |     build_table_from_probabilities_with_scratch(&probabilities[..counts.len()], acc_log, scratch).expect("REASON")
+   |                                                                                                  +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/fse/fse_encoder/normalize.rs:224:5
+    |
+205 | ) -> FSETable {
+    |      -------- expected `fse_encoder::table::FSETable` because of return type
+...
+224 |     build_table_from_probabilities_with_scratch(probabilities, acc_log, scratch)
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+    |
+    = note: expected struct `fse_encoder::table::FSETable`
+                 found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+224 |     build_table_from_probabilities_with_scratch(probabilities, acc_log, scratch).expect("REASON")
+    |                                                                                 +++++++++++++++++
+
+For more information about this error, try `rustc --explain E0308`.
+warning: `zstd-complete` (lib) generated 20 warnings
+error: could not compile `zstd-complete` (lib) due to 11 previous errors; 20 warnings emitted

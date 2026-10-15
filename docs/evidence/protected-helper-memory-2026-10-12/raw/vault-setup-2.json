@@ -1,0 +1,7 @@
+{
+  "public_init_exit": 0,
+  "synthetic_default_profile": true,
+  "raw_output_discarded": true,
+  "password_transport": "in-memory child environment",
+  "outside_timing": true
+}

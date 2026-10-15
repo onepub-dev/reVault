@@ -1,0 +1,13 @@
+{
+  "source_commit": "1b60c0d4",
+  "cases": {
+    "small-plain": "/tmp/revault-packed-comparison-20260927/small/other",
+    "small-protected": "/tmp/revault-whole-layout-cost-model-20260927/small-protected",
+    "large-raw": "/tmp/revault-packed-comparison-20260927/raw64/other",
+    "large-compressed": "/tmp/revault-packed-comparison-20260927/compressed256/other",
+    "large-protected": "/tmp/revault-packed-comparison-20260927/compressed-encrypted-signed/other"
+  },
+  "observations": 1,
+  "unit": 262144,
+  "kind": "size feasibility only; no performance claims"
+}

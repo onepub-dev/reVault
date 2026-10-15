@@ -1,0 +1,1 @@
+{"case":{"bytes":4096,"compressed":true,"corpus":"mixed","files":2,"mode":"encrypted-signed","unpadded":true},"completed_pairs":1,"evidence":"/tmp/revault-tree-read-20261010/smokes/encrypted-signed_compressed_none/samples.jsonl","layout":"external-primary","warmup_pairs":3}

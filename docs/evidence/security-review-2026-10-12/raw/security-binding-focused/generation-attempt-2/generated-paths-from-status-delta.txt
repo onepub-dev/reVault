@@ -1,0 +1,2 @@
+bindings/cpp/domain_codec.hpp
+bindings/lua/revault_flatbuffers.lua

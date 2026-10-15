@@ -1,0 +1,169 @@
+{
+  "release_ready": false,
+  "base_commit": "d0d7b35c2ce4bcc48f13a230681bc9a708170a8d",
+  "prior_uninstrumented_screen": {
+    "cli_hwm_bytes": 100524032,
+    "helper_hwm_bytes": 8998912,
+    "hard_limit_bytes": 100000000,
+    "failed": true,
+    "verified_lifecycles": 0,
+    "protected_mode_run": false,
+    "source": "/tmp/revault-worker-resource-screen-d0d7b35c2ce4/terminal.json"
+  },
+  "diagnostic": {
+    "qualification_claim": false,
+    "complete": true,
+    "owned_root_removed": true,
+    "cli_sha256": "cf118f7ff3ce5abcdae172a17510f60391affb006fdd4f35e67df38a25965794",
+    "terminal_sha256": "961150e0b6b27027fc61b69cc2ebc057dad8c85d698325c1cfa7ecc33e965e4e",
+    "numeric_allocation_records": [
+      {
+        "label": "native_extract",
+        "values": {
+          "kind": 0,
+          "entry_count": 10000,
+          "map_owned_lower": 3650000,
+          "tree_owned_lower": 3260480,
+          "leaf_directory_owned_lower": 3260576,
+          "page_cache_weight": 368640,
+          "page_cache_entries": 13,
+          "decode_maxima": [
+            19671,
+            0,
+            126995,
+            127043,
+            273703,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "label": "native_extract",
+        "values": {
+          "kind": 1,
+          "worker": 1,
+          "job_files": 2477,
+          "page_cache_max_weight": 7560192,
+          "decoded_frame_cache_max_bytes": 2097152,
+          "max_file_output_len": 65536,
+          "last_use_frames": 78,
+          "last_use_pages": 78,
+          "page_cache_final_weight": 368640,
+          "decoded_frame_cache_final_bytes": 0,
+          "decode_maxima": [
+            7190584,
+            0,
+            0,
+            7190644,
+            14381228,
+            3690679,
+            2097152,
+            0
+          ]
+        }
+      },
+      {
+        "label": "native_extract",
+        "values": {
+          "kind": 1,
+          "worker": 0,
+          "job_files": 2507,
+          "page_cache_max_weight": 7560192,
+          "decoded_frame_cache_max_bytes": 2097152,
+          "max_file_output_len": 65536,
+          "last_use_frames": 79,
+          "last_use_pages": 79,
+          "page_cache_final_weight": 368640,
+          "decoded_frame_cache_final_bytes": 0,
+          "decode_maxima": [
+            7190584,
+            0,
+            0,
+            7190644,
+            14381228,
+            3690679,
+            2097152,
+            0
+          ]
+        }
+      },
+      {
+        "label": "native_extract",
+        "values": {
+          "kind": 1,
+          "worker": 2,
+          "job_files": 2508,
+          "page_cache_max_weight": 7560192,
+          "decoded_frame_cache_max_bytes": 2097152,
+          "max_file_output_len": 65536,
+          "last_use_frames": 79,
+          "last_use_pages": 79,
+          "page_cache_final_weight": 368640,
+          "decoded_frame_cache_final_bytes": 0,
+          "decode_maxima": [
+            7190584,
+            0,
+            0,
+            7190644,
+            14381228,
+            3690679,
+            2097152,
+            0
+          ]
+        }
+      },
+      {
+        "label": "native_extract",
+        "values": {
+          "kind": 1,
+          "worker": 3,
+          "job_files": 2508,
+          "page_cache_max_weight": 7560192,
+          "decoded_frame_cache_max_bytes": 2097152,
+          "max_file_output_len": 65536,
+          "last_use_frames": 79,
+          "last_use_pages": 79,
+          "page_cache_final_weight": 368640,
+          "decoded_frame_cache_final_bytes": 0,
+          "decode_maxima": [
+            7190584,
+            0,
+            0,
+            7190644,
+            14381228,
+            3690679,
+            2097152,
+            0
+          ]
+        }
+      }
+    ]
+  },
+  "focused_validation": {
+    "page": 18,
+    "page_buffer": 3,
+    "page_cache": 20,
+    "extraction": 10,
+    "failed": 0,
+    "ignored": 0,
+    "all_target_clippy_warnings_denied": true,
+    "manifest": {
+      "command_count": 5,
+      "commands_completed": 5,
+      "last_exit_code": 0,
+      "source_identity_unchanged": true,
+      "input_count": 1090,
+      "manifest_sha256": "5a38b4debd03e754e2cca072e93bb5364a5c93375dad2c865556844f2a5897b1",
+      "after_manifest_sha256": "5a38b4debd03e754e2cca072e93bb5364a5c93375dad2c865556844f2a5897b1"
+    },
+    "raw_directory": "/tmp/revault-owned-page-tests-d0d7b35c"
+  },
+  "test_input_sha256": {
+    "rust/revault_lockbox_api/src/file_format/page.rs": "e2780ab2dae53a1045fb092bfc30dbe0fb738317e5de3feddcbe33501b5af7c1",
+    "rust/revault_lockbox_api/src/file_format/page_buffer.rs": "e0c2e08eb1e2af7bb2810835621d515e16b24b44a41e241bc2467538781f7773",
+    "rust/revault_lockbox_api/src/storage/page_cache.rs": "eb5c9ed51faf2ea869fe78f534a8983ba0f927c26d25b4d555efd1681da3844c"
+  },
+  "scope": "Capacities are partial lower bounds or non-simultaneous maxima, not a measured decomposition of peak RSS. Exact uninstrumented correction resource qualification is pending."
+}

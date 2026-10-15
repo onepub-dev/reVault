@@ -1,0 +1,16 @@
+
+running 1 test
+test file_format::candidate_files::tests::tree_tests::variables::resource::typed_variable_resource_probe ... VARIABLE_RESOURCE_PHASE {"after":{"vm_hwm_kib":77296,"vm_lck_kib":4752,"vm_rss_kib":19464},"before":{"vm_hwm_kib":77296,"vm_lck_kib":1352,"vm_rss_kib":15488},"cpu_seconds":0.07650699999999999,"phase":"create","process_peak_rss_kib":77296,"result":{"changed":true},"system_seconds":0.052895,"user_seconds":0.023611999999999994,"wall_seconds":0.0765051}
+
+thread 'file_format::candidate_files::tests::tree_tests::variables::resource::typed_variable_resource_probe' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/resource.rs:66:46:
+called `Result::unwrap()` on an `Err` value: LockUnavailable("timed out locking archive /tmp/revault-variable-resource-2026-10-09/pilot/mode-02.archive")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    file_format::candidate_files::tests::tree_tests::variables::resource::typed_variable_resource_probe
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 589 filtered out; finished in 30.24s
+

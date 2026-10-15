@@ -1,0 +1,332 @@
+diff --git a/rust/revault_lockbox_api/src/compression/encode_workspace.rs b/rust/revault_lockbox_api/src/compression/encode_workspace.rs
+index 6ca67086..33749db2 100644
+--- a/rust/revault_lockbox_api/src/compression/encode_workspace.rs
++++ b/rust/revault_lockbox_api/src/compression/encode_workspace.rs
+@@ -7,6 +7,7 @@ const MAX_RETAINED: usize = 8 * 1024 * 1024;
+ struct Buffers {
+     scratch: ZeroizingBytes,
+     output: ZeroizingBytes,
++    trace: crate::import_memory_trace::Lease,
+ }
+ thread_local! { static POOL: RefCell<Option<Buffers>> = const { RefCell::new(None) }; }
+ struct Lease(Option<Buffers>);
+@@ -16,12 +17,14 @@ impl Lease {
+             .try_with(|slot| slot.try_borrow_mut().ok().and_then(|mut slot| slot.take()))
+             .ok()
+             .flatten();
+-        let buffers = cached
++        let mut buffers = cached
+             .filter(|b| b.scratch.len() == required && b.output.len() == output_size)
+             .unwrap_or_else(|| Buffers {
+                 scratch: ZeroizingBytes::new(vec![0; required]),
+                 output: ZeroizingBytes::new(vec![0; output_size]),
++                trace: crate::import_memory_trace::Lease::default(),
+             });
++        buffers.trace.set(crate::import_memory_trace::ENCODER, buffers.scratch.capacity() + buffers.output.capacity());
+         Self(Some(buffers))
+     }
+ }
+@@ -42,6 +45,7 @@ impl Drop for Lease {
+                 return;
+             }
+         }
++        if let Some(buffers) = &mut buffers { buffers.trace.stage(crate::import_memory_trace::POOLED); }
+         let _ = POOL.try_with(|slot| {
+             if let Ok(mut slot) = slot.try_borrow_mut() {
+                 if slot.is_none() {
+@@ -118,7 +122,7 @@ pub(crate) fn with_frame_encoder<R>(
+         return operation(&mut fallback);
+     }
+     let mut lease = Lease::acquire(required, output_size);
+-    let Buffers { scratch, output } = lease.0.as_mut().expect("lease owns buffers");
++    let Buffers { scratch, output, .. } = lease.0.as_mut().expect("lease owns buffers");
+     let Ok(mut encoder) = StaticEncoderWorkspace::new(scratch, level, first_frame.len) else {
+         return operation(&mut fallback);
+     };
+diff --git a/rust/revault_lockbox_api/src/file_format/page.rs b/rust/revault_lockbox_api/src/file_format/page.rs
+index 3a8e6dda..7c3f0594 100644
+--- a/rust/revault_lockbox_api/src/file_format/page.rs
++++ b/rust/revault_lockbox_api/src/file_format/page.rs
+@@ -559,6 +559,7 @@ fn encode_objects_body(
+     mode: crate::creation_options::FormatMode,
+ ) -> Result<Vec<u8>> {
+     let mut object_stream = encode_object_stream(objects)?;
++    let _stream_trace = crate::import_memory_trace::Lease::new(crate::import_memory_trace::OBJECT_STREAM, object_stream.capacity());
+     let compress_body = objects_allow_body_compression(objects, mode);
+     let body = if mode.0 == 0
+         || !compress_body
+@@ -598,6 +599,7 @@ pub(crate) fn encode_page_with_format(
+         return Err(Error::CorruptRecord);
+     }
+     let mut body = encode_objects_body(objects, mode)?;
++    let _body_trace = crate::import_memory_trace::Lease::new(crate::import_memory_trace::BODY, body.capacity());
+     let clear_text = mode.plaintext() || page_objects_are_clear_text(objects)?;
+     let flags = if clear_text { PAGE_FLAG_CLEAR_TEXT } else { 0 }
+         | if mode.unpadded() {
+@@ -627,6 +629,7 @@ pub(crate) fn encode_page_with_format(
+         );
+         seal_with_random_nonce(&body, key, &aad)?
+     };
++    let _stored_trace = crate::import_memory_trace::Lease::new(crate::import_memory_trace::STORED_BODY, stored_body.capacity());
+     body.zeroize();
+     let stored_body_len = u32::try_from(stored_body.len())
+         .map_err(|_| Error::SecurityLimitExceeded("page body is too large".to_string()))?;
+@@ -640,6 +643,8 @@ pub(crate) fn encode_page_with_format(
+     }
+ 
+     let mut page = vec![0; page_size];
++    // This gauge ends when the encoded page is returned, not at final deallocation.
++    let _page_trace = crate::import_memory_trace::Lease::new(crate::import_memory_trace::PAGE, page.capacity());
+     page[0..8].copy_from_slice(PAGE_MAGIC);
+     page[8..10].copy_from_slice(&PAGE_VERSION.to_le_bytes());
+     page[10..12].copy_from_slice(&flags.to_le_bytes());
+@@ -1365,7 +1370,10 @@ fn encode_page_body_plaintext(object_stream: &[u8], compress: bool) -> Vec<u8> {
+     } else {
+         object_stream.to_vec()
+     };
++    let _temporary_trace = crate::import_memory_trace::Lease::new(crate::import_memory_trace::BODY_TEMP, stored.capacity());
+     let mut body = Vec::with_capacity(16 + stored.len());
++    // Caller registers returned BODY after this helper's lease ends.
++    let _body_trace = crate::import_memory_trace::Lease::new(crate::import_memory_trace::BODY, body.capacity());
+     body.push(PAGE_BODY_VERSION);
+     body.push(if compress {
+         COMPRESSION_NORMAL
+diff --git a/rust/revault_lockbox_api/src/lib.rs b/rust/revault_lockbox_api/src/lib.rs
+index 30a55573..f0e78b85 100644
+--- a/rust/revault_lockbox_api/src/lib.rs
++++ b/rust/revault_lockbox_api/src/lib.rs
+@@ -38,6 +38,7 @@
+ //! See the [reVault repository README](https://github.com/onepub-dev/reVault#readme)
+ //! for installation, security guidance, and end-to-end examples.
+ 
++mod import_memory_trace;
+ mod checked;
+ mod compression;
+ mod constants;
+diff --git a/rust/revault_lockbox_api/src/lockbox/commit.rs b/rust/revault_lockbox_api/src/lockbox/commit.rs
+index 2c7bf1c1..b1452137 100644
+--- a/rust/revault_lockbox_api/src/lockbox/commit.rs
++++ b/rust/revault_lockbox_api/src/lockbox/commit.rs
+@@ -39,6 +39,8 @@ impl Lockbox<crate::Writable> {
+     /// Ambiguous publication errors require reopening before further writes.
+     /// Successful commits also attempt authenticated free-tail truncation.
+     pub fn commit(&mut self) -> Result<()> {
++        let stats = self.page_manager.borrow().stats();
++        crate::import_memory_trace::cache("commit_start", stats.used_bytes, stats.limit_bytes, stats.entries);
+         self.require_clean_transaction()?;
+         if self.read_only {
+             return Err(Error::InvalidOperation(
+@@ -62,6 +64,8 @@ impl Lockbox<crate::Writable> {
+         match self.commit_inner() {
+             Ok(()) => {
+                 self.transaction_start_len = self.storage.len()?;
++                let stats = self.page_manager.borrow().stats();
++                crate::import_memory_trace::boundary("commit_done", stats.used_bytes, stats.limit_bytes, stats.entries);
+                 Ok(())
+             }
+             Err(err) => {
+diff --git a/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs b/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs
+index d912b1c5..303ad9e0 100644
+--- a/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs
++++ b/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs
+@@ -61,6 +61,7 @@ pub(super) struct PreparedCompressionFrame {
+     pub(super) slices: Vec<CompressionFrameSlice>,
+     pub(super) stored: ZeroizingBytes,
+     pub(super) prepare_nanos: u128,
++    pub(super) trace: crate::import_memory_trace::Lease,
+ }
+ 
+ #[cfg(any(test, feature = "native-block-layout"))]
+@@ -95,6 +96,7 @@ pub(super) struct ParallelCompressionJob {
+     pub(super) total_len: u64,
+     pub(super) file_offset: u64,
+     pub(super) data: Vec<u8>,
++    pub(super) trace: crate::import_memory_trace::Lease,
+ }
+ 
+ impl Drop for ParallelCompressionJob {
+@@ -183,7 +185,7 @@ impl FileImportPipeline {
+         } else {
+             Cow::Owned(payload)
+         };
+-        self.prepare_payload_with_encoder(payload, slices, prepare_start, encode)
++        self.prepare_payload_with_encoder(payload, slices, prepare_start, encode, crate::import_memory_trace::Lease::default())
+     }
+ 
+     pub(super) fn prepare_batches(
+@@ -258,6 +260,7 @@ impl FileImportPipeline {
+             vec![slice],
+             prepare_start,
+             encode,
++            std::mem::take(&mut job.trace),
+         );
+         ParallelCompressionResult { index, frame }
+     }
+@@ -277,18 +280,26 @@ impl FileImportPipeline {
+         slices: Vec<CompressionFrameSlice>,
+         prepare_start: Instant,
+         encode: &mut FrameEncoder<'_>,
++        mut trace: crate::import_memory_trace::Lease,
+     ) -> PreparedCompressionFrame {
+         // Own input under a wiping guard before calling an encoder that may unwind.
+         let payload = match payload {
+             Cow::Borrowed(bytes) => FrameInput::Borrowed(bytes),
+             Cow::Owned(bytes) => FrameInput::Owned(ZeroizingBytes::new(bytes)),
+         };
++        if let FrameInput::Owned(bytes) = &payload { trace.set(crate::import_memory_trace::INPUT, bytes.capacity()); }
+         let compression_frame_len = payload.as_slice().len() as u64;
+-        let (compression, stored) = match encode(payload.as_slice()) {
+-            FrameEncoding::Raw => (crate::compression::COMPRESSION_NONE, payload.into_raw()),
++        let (compression, stored, trace) = match encode(payload.as_slice()) {
++            FrameEncoding::Raw => {
++                let stored = payload.into_raw();
++                trace.set(crate::import_memory_trace::PREPARED, stored.capacity());
++                (crate::compression::COMPRESSION_NONE, stored, trace)
++            }
+             FrameEncoding::Compressed(stored) => {
++                let stored_trace = crate::import_memory_trace::Lease::new(crate::import_memory_trace::PREPARED, stored.capacity());
+                 drop(payload);
+-                (crate::compression::COMPRESSION_ZSTD, stored)
++                drop(trace);
++                (crate::compression::COMPRESSION_ZSTD, stored, stored_trace)
+             }
+         };
+         let integrity = if self.native_blocks {
+@@ -304,6 +315,7 @@ impl FileImportPipeline {
+             slices,
+             stored,
+             prepare_nanos: prepare_start.elapsed().as_nanos(),
++            trace,
+         }
+     }
+ }
+@@ -341,6 +353,7 @@ mod tests {
+                     total_len: len as u64 + 19,
+                     file_offset: 19,
+                     data: input,
++                    trace: crate::import_memory_trace::Lease::default(),
+                 };
+                 let result = pipeline.with_encoder(first, |encode| {
+                     pipeline.prepare_parallel_job_with_encoder(job, encode)
+@@ -584,6 +597,7 @@ mod tests {
+                                 total_len: inputs[1].len() as u64,
+                                 file_offset: 0,
+                                 data: inputs[1].clone(),
++                                trace: crate::import_memory_trace::Lease::default(),
+                             });
+                             assert_eq!(result.index, 7);
+                             assert!(matches!(
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index 85fabcdd..5c3af256 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -769,7 +769,7 @@ impl<State> Lockbox<State> {
+         let (result_tx, result_rx) = std::sync::mpsc::channel::<ParallelCompressionResult>();
+         let job_rx = Arc::new(Mutex::new(job_rx));
+ 
+-        std::thread::scope(|scope| -> Result<(u64, Vec<FileChunk>)> {
++        let result = std::thread::scope(|scope| -> Result<(u64, Vec<FileChunk>)> {
+             for _ in 0..jobs {
+                 let job_rx = Arc::clone(&job_rx);
+                 let result_tx = result_tx.clone();
+@@ -781,6 +781,7 @@ impl<State> Lockbox<State> {
+                     let Ok(mut job) = first_job else {
+                         return;
+                     };
++                    job.trace.stage(crate::import_memory_trace::INPUT);
+                     // Keep one scoped encoder per worker. Its existing lease
+                     // wipes backing buffers on normal exit and unwinding.
+                     pipeline.with_encoder(pipeline.encoder_frame(&job.data), |encode| loop {
+@@ -793,7 +794,7 @@ impl<State> Lockbox<State> {
+                             Err(_) => return,
+                         };
+                         match next_job {
+-                            Ok(next) => job = next,
++                            Ok(next) => { job = next; job.trace.stage(crate::import_memory_trace::INPUT); },
+                             Err(_) => return,
+                         }
+                     });
+@@ -807,6 +808,7 @@ impl<State> Lockbox<State> {
+             let mut file_offset = 0u64;
+             let mut job_count = 0usize;
+             let mut buffer = vec![0; FILE_COMPRESSION_FRAME_BYTES];
++            let _scratch_trace = crate::import_memory_trace::Lease::new(crate::import_memory_trace::SCRATCH, buffer.capacity());
+             loop {
+                 let read_start = Instant::now();
+                 let read = read_next_chunk(&mut reader, &mut buffer)?;
+@@ -823,6 +825,7 @@ impl<State> Lockbox<State> {
+                                 total_len: 0,
+                                 file_offset: 0,
+                                 data: Vec::new(),
++                                trace: crate::import_memory_trace::Lease::new(crate::import_memory_trace::QUEUED, 0),
+                             })
+                             .map_err(|_| {
+                                 Error::Io("compression worker stopped unexpectedly".to_string())
+@@ -841,6 +844,7 @@ impl<State> Lockbox<State> {
+                         total_len: 0,
+                         file_offset,
+                         data: buffer[..read].to_vec(),
++                        trace: crate::import_memory_trace::Lease::new(crate::import_memory_trace::QUEUED, read),
+                     })
+                     .map_err(|_| {
+                         Error::Io("compression worker stopped unexpectedly".to_string())
+@@ -859,7 +863,11 @@ impl<State> Lockbox<State> {
+             }
+             writer.finish(&mut chunks)?;
+             Ok((file_offset, chunks))
+-        })
++        });
++        // Scope has joined all workers and dropped producer scratch/writer.
++        let stats = self.page_manager.borrow().stats();
++        crate::import_memory_trace::boundary("parallel_joined", stats.used_bytes, stats.limit_bytes, stats.entries);
++        result
+     }
+ 
+     /// Return the complete contents of a file.
+@@ -2602,10 +2610,11 @@ impl ParallelFrameOrder {
+ 
+     fn accept<State>(
+         &mut self,
+-        result: ParallelCompressionResult,
++        mut result: ParallelCompressionResult,
+         writer: &mut FilePageWriter<'_, State>,
+         chunks: &mut Vec<FileChunk>,
+     ) -> Result<()> {
++        result.frame.trace.stage(crate::import_memory_trace::ORDERED);
+         self.received_count += 1;
+         self.pending.insert(result.index, result.frame);
+         while let Some(frame) = self.pending.remove(&self.next_index) {
+@@ -2707,13 +2716,14 @@ impl<'a, State> FilePageWriter<'a, State> {
+ 
+     fn write_prepared_compression_frame(
+         &mut self,
+-        prepared: PreparedCompressionFrame,
++        mut prepared: PreparedCompressionFrame,
+         chunks: &mut Vec<FileChunk>,
+     ) -> Result<Vec<usize>> {
+         #[cfg(any(test, feature = "native-block-layout"))]
+         if self.native_blocks {
+             return self.write_prepared_native_frame(prepared, chunks);
+         }
++        prepared.trace.stage(crate::import_memory_trace::WRITING);
+         let compression_frame_digest = prepared.integrity.legacy_checksum()?;
+         self.lockbox.add_frame_prepare_nanos(prepared.prepare_nanos);
+         self.lockbox.sequence += 1;
+@@ -2887,6 +2897,8 @@ impl<'a, State> FilePageWriter<'a, State> {
+         if self.packer.is_empty() {
+             return Ok(());
+         }
++        let stats = self.lockbox.page_manager.borrow().stats();
++        crate::import_memory_trace::cache("before_flush", stats.used_bytes, stats.limit_bytes, stats.entries);
+         let write_start = Instant::now();
+         // This operation-local writer is discarded on errors. Transfer payloads
+         // into the page, retaining only the small reference-publication context.
+@@ -2915,6 +2927,8 @@ impl<'a, State> FilePageWriter<'a, State> {
+                 .mark_new_file_page(page_offset);
+             self.lockbox.flush_file_pages_under_pressure()?;
+         }
++        let stats = self.lockbox.page_manager.borrow().stats();
++        crate::import_memory_trace::cache("after_flush", stats.used_bytes, stats.limit_bytes, stats.entries);
+         for (object_id, context) in contexts {
+             for chunk_index in context.chunk_indices {
+                 if let Some(chunk) = chunks.get_mut(chunk_index) {

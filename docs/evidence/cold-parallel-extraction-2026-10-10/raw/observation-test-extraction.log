@@ -1,0 +1,30 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 1m 13s
+     Running unittests src/lib.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 13 tests
+test file_format::candidate_files::resource_probe::extraction::observation::tests::device_names_and_counter_deltas_are_bounded ... ok
+test file_format::candidate_files::resource_probe::extraction::observation::tests::identity_and_strict_parity_are_checked ... ok
+test file_format::candidate_files::resource_probe::extraction::tests::durability_setting_is_explicit_and_io_counters_are_checked ... ok
+test file_format::candidate_files::resource_probe::extraction::tests::durable_extraction_syncs_files_and_directory_chain_before_verification ... ok
+test file_format::candidate_files::resource_probe::extraction::tests::extraction_checks_reopened_bytes_across_buffer_boundary ... ok
+test file_format::candidate_files::resource_probe::extraction::tests::extraction_refuses_existing_destination_before_opening_archive ... 
+thread 'file_format::candidate_files::resource_probe::extraction::tests::extraction_refuses_existing_destination_before_opening_archive' panicked at revault_lockbox_api/src/file_format/candidate_files/../../benchmark_extraction.rs:79:5:
+extraction requires a fresh destination
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+ok
+test file_format::candidate_files::resource_probe::extraction::tests::extraction_rejects_wrong_output_even_with_correct_reported_count ... 
+thread 'file_format::candidate_files::resource_probe::extraction::tests::extraction_rejects_wrong_output_even_with_correct_reported_count' panicked at revault_lockbox_api/src/file_format/candidate_files/../../benchmark_extraction.rs:130:13:
+assertion `left == right` failed: file-000000.bin: output bytes differ
+  left: [99, 111, 114, 114, 101, 99, 116]
+ right: [99, 111, 114, 114, 117, 112, 116]
+ok
+test file_format::candidate_files::resource_probe::extraction::tests::wrong_parity_skips_before_archive_open_and_output_creation ... ok
+test lockbox::extraction::tests::checked_destination_rejects_existing_symlink_parent ... ok
+test lockbox::extraction::tests::copy_directory_recursive_copies_nested_files ... ok
+test lockbox::extraction::tests::extract_directory_to_writes_only_the_selected_subtree ... ok
+test lockbox::extraction::tests::parallel_extraction_rejects_existing_symlink_parent ... ok
+test lockbox::extraction::tests::sequential_extraction_rejects_existing_symlink_parent ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 669 filtered out; finished in 0.01s
+

@@ -246,6 +246,7 @@ fn extract_args_from_matches(matches: &ArgMatches) -> CliResult<Vec<String>> {
             ("overwrite", "--overwrite"),
             ("restore-symlinks", "--restore-symlinks"),
             ("restore-permissions", "--restore-permissions"),
+            ("no-restore-permissions", "--no-restore-permissions"),
         ] {
             if matches.get_flag(name) {
                 args.push(flag.to_string());
@@ -258,6 +259,7 @@ fn extract_args_from_matches(matches: &ArgMatches) -> CliResult<Vec<String>> {
         ("overwrite", "--overwrite"),
         ("restore-symlinks", "--restore-symlinks"),
         ("restore-permissions", "--restore-permissions"),
+        ("no-restore-permissions", "--no-restore-permissions"),
     ] {
         if matches.get_flag(name) {
             args.push(flag.to_string());
@@ -275,6 +277,10 @@ fn add(request: AddRequest, access: &Access, worker_policy: WorkerPolicy) -> Cli
         || request.sources.iter().any(|source| source.is_directory)
     {
         lb.set_workload_profile(WorkloadProfile::BulkImport);
+    } else {
+        // A single-file import does not need to retain all prior file pages.
+        // Keep its existing profile, compression and worker policy unchanged.
+        lb.set_cache_limit(revault_lockbox_api::CacheLimit::Bytes(8 * 1024 * 1024));
     }
     for source in &request.sources {
         if !request.overwrite && !source.is_directory && lb.stat(&source.destination).is_some() {
@@ -392,9 +398,9 @@ pub(crate) fn extract(args: &[String], access: &Access) -> CliResult<()> {
                 lb.extract_directory_to(&path, Path::new(dest), &policy)?;
             }
             LockboxEntryKind::File => {
-                lb.set_workload_profile(WorkloadProfile::ReadMostly);
-                let replace = policy.overwrite && Path::new(dest).exists();
-                lb.extract_file_to(&path, Path::new(dest), replace)?;
+                // A full-file extraction is a stream, not an interactive read set.
+                lb.set_workload_profile(WorkloadProfile::ExtractMany);
+                lb.extract_file_to_with_policy(&path, Path::new(dest), &policy)?;
             }
             LockboxEntryKind::Symlink => {
                 return Err(cli_error(format!(
@@ -684,12 +690,16 @@ fn nanos_to_secs(nanos: u128) -> f64 {
 }
 
 fn extract_policy_from_args(args: &[String]) -> ExtractPolicy {
-    let mut policy = ExtractPolicy::default();
+    let mut policy = ExtractPolicy {
+        restore_permissions: true,
+        ..ExtractPolicy::default()
+    };
     for arg in args {
         match arg.as_str() {
             "--overwrite" => policy.overwrite = true,
             "--restore-symlinks" => policy.restore_symlinks = true,
             "--restore-permissions" => policy.restore_permissions = true,
+            "--no-restore-permissions" => policy.restore_permissions = false,
             _ => {}
         }
     }

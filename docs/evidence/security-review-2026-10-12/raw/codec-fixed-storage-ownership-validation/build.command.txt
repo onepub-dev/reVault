@@ -1,0 +1,2 @@
+cwd=/tmp/revault-codec-fixed-storage-compile31/crate
+timeout --kill-after=30s 600s env TMPDIR=/home/bsutton/.cache/rv4-security-20261011 CARGO_TARGET_DIR=/tmp/revault-codec-fixed-storage-compile31/target cargo +1.88.0 test --locked --offline -p zstd-complete@0.2.0 --lib --no-run

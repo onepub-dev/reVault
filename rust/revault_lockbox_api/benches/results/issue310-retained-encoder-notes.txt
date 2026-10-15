@@ -1,0 +1,71 @@
+Issue #310: reject retained encoder state for large slice writes
+Base fa0cb40; production unchanged from f4b1d91. Attached full candidate patch
+is reverted, including candidate-only tests. Reproduce with git apply
+--unidiff-zero. No production or dependency changes retained.
+
+The preceding scoped-storage candidate rebuilt StaticEncoderWorkspace per frame.
+This candidate keeps the initialized encoder and caller-backed scratch/output
+alive across equal-sized frames within one synchronous large slice write. No TLS
+or new unsafe code. Owning ZeroizingBytes locals outlive the encoder borrow and
+wipe their full allocations on scope completion/error/unwind. Buffers never grow
+or shrink while borrowed. Encoded output is copied to compact owned Vecs.
+Short final frames, entropy-skipped data, unsupported scratch sizes and ordinary
+non-numeric compression policies use the original path. Scratch bounded to32MiB.
+This version eagerly initializes scratch and output to zero on allocation.
+FileImportPipeline accepts an explicit encoder callback; ordinary callers retain
+the original encoder, metadata construction and integrity calculation.
+
+An initial differential test found valid but non-identical output at level18:
+first mixed 131073-byte input encoded to65614 vs65615 bytes. Decoding was correct.
+The final candidate preserves the ordinary path for levels18-22. Its differential
+test then passes levels1-22 across repeated mixed/repetitive inputs, changed
+frame sizes and empty input, comparing encoded bytes and independent round trips.
+This is tested-case equivalence, not proof of identical output for every input.
+No new file format or compression algorithm is introduced.
+
+Validation:
+Default + external-source:348 unit tests passed,5 ignored; all executed
+integration/doc tests passed, including15 external-source tests and10 doc tests.
+Native + external-source:353 passed,5 ignored, with the same two known failures:
+api_tests::recovery_skips_truncated_tail_and_keeps_prior_intact_files
+lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes
+Large slice/reader replace/abort/reopen lifecycle test passes in both layouts.
+Clippy all targets native+external passes after replacing the callback signature
+with a type alias. That type-only cleanup followed the candidate release build;
+benchmark implementation otherwise matches the attached patch.
+
+Native baseline SHA256:
+791178ff9a9de09314f4fe6cc4bdaff89c54d0c0fb8fdbf066866ed8f6c019a3
+Candidate SHA256:
+d5e8e551561ca86c9ad424c57a6ea86c200c8133e9da209b67d457722a0faa70
+Saved as target/issue310-codec-cap-before and target/issue310-retained-encoder-after.
+Both native layout. CSV main=baseline,branch=candidate. Defaultpadding,
+synthetic keys/noKDF,CPU2,warmOS. All owned builds/tests finished before timing;
+unrelated host activity uncontrolled. Timed create/add/commit/drop with persisted
+reopen and full-byte verification outside the timer after every write.
+Fixed protocol:8MiB pattern/random, all4protection modes,raw/compressed,
+5ABBA/BAABgroups and3childsamples excluding first:640 broad rows. Prespecified
+encrypted-only/compressed/pattern focus:15groups,6childsamples excluding first,
+300rows. All940measured+380warmup writes verified; runner exited zero.
+Command matches preceding workspace experiment with retained-encoder binary and
+output paths. Summaries use5000 whole-group bootstrap resamples and per-group
+median ratios; pooled medians are descriptive only.
+
+Focused result:+5.513%,95%[+4.882%,+7.110%]. Pooled medians14.000257ms baseline,
+14.852035ms candidate. This establishes a slowdown for the measured workload.
+Reject it. Retaining initialized encoder state did not rescue the earlier
+scoped-workspace approach. Do not combine with other sessions or infer a trend
+from their differing absolute medians. All broad/control results retained.
+
+Possible remaining costs include initialization/wiping of the full codec arena
+and compact-output copying. Their separate contributions were not measured.
+StaticEncoderWorkspace also offers new_uninit with caller-provided MaybeUninit
+storage; examining that API could avoid redundant initialization while retaining
+full-capacity wiping, but that change has NOT been implemented or measured here.
+This experiment does not justify weakening wiping or retaining a regression.
+
+Production native/default write gate remains unmet. ZIP read parity, cold I/O,
+CLI lifecycles, signed recovery and migration/release requirements remain open.
+Native stays opt-in. Native release executable currently contains this rejected
+candidate; default release executable contains earlier drop diagnostics. Rebuild
+both before production timing. No push or publication.

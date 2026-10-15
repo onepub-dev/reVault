@@ -1,0 +1,30 @@
+Issue #310: fixed-size confirmation of the identity-cache write control
+Production revision: 18f8efc. No production changes for this confirmation.
+
+This is a separate follow-up to the inconclusive fifteen-group interval in
+issue310-file-identity-write-focus-summary.csv. The sixty-group sample size was
+selected before this run. Earlier measurements remain intact and are not pooled
+or selectively discarded. Baseline/candidate binaries and fixture settings are
+identical to that run; hashes are recorded in issue310-file-identity-notes.txt.
+
+Sixty ABBA/BAAB paired groups, 240 fixture writes, two observations per layout
+per group. Each zip_read invocation creates four 8 MiB compressed pattern files
+in plain mode using Interactive creation, records create/add/commit/drop time,
+then independently reopens and verifies every file through public Read handles.
+CPU 2; SAMPLES=1, PASSES=1, PROFILE=Interactive, WRITE_PROFILE=1. No warmup fixture
+is discarded. No agent builds or tests overlapped. Unrelated host activity was
+present. These are native-layout before/after measurements, not comparisons with
+the default layout. The unchanged paired summarizer resamples whole groups.
+
+Result: +0.624% paired write time, 95% interval [-0.148%, +1.524%].
+Pooled medians: 54.133 ms baseline, 55.334 ms candidate. Absolute times differ
+from the earlier run, illustrating system variation; compare within paired runs.
+The upper bound is below +5%, so this specific identity-change non-regression
+check passes. It is not evidence of a write speedup, universal equivalence,
+protected-mode performance or fsync/power-loss durability.
+
+All 240 fixture writes completed byte-exact independent readback. Archive timing
+rows and summary are retained. This evidence adds no new production code or
+correctness-test claim. The earlier native/default compressed protected-write
+gate, full write lifecycles, ZIP read parity and two native recovery failures
+remain separate unresolved work.

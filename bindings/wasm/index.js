@@ -35,7 +35,7 @@ const handles = new Set([
   'Vault',
   'Lockbox', 'ContactKeyPair', 'ContactPublicKey', 'WrappedContactKey',
   'ProfileSigningKeyPair', 'ProfileSigningPublicKey', 'VaultDirectory',
-  'ReadOnlyVaultDirectory', 'Agent', 'AgentSession', 'AgentActivity', 'Platform',
+  'ReadOnlyVaultDirectory', 'ReadOnlyVault', 'Agent', 'AgentSession', 'AgentActivity', 'Platform',
   'LocalVault',
 ]);
 const snake = value => value.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
@@ -55,6 +55,7 @@ function operation(className, method) {
       'restorePrivateKey', 'storeContactSigningKey',
       'loadContactSigningKey', 'listProfileGenerations', 'rotatePrivateKey',
       'rememberLockbox', 'forgetLockbox',
+      'setLockboxAlias', 'listLockboxAliases', 'removeLockboxAlias', 'resolveLockboxAlias',
       'rememberKnownLockbox', 'listKnownLockboxes', 'forgetKnownLockbox',
       'rememberAccessSlotLabel', 'listAccessSlotLabels',
       'findAccessSlotLabels', 'forgetAccessSlotLabel', 'defineForm',
@@ -108,7 +109,7 @@ function operation(className, method) {
     return 'key_signing_public_free';
   }
   if (className === 'VaultDirectory') return `vault_directory_${name}`;
-  if (className === 'ReadOnlyVaultDirectory') return `vault_read_only_${name}`;
+  if (className === 'ReadOnlyVaultDirectory' || className === 'ReadOnlyVault') return `vault_read_only_${name}`;
   if (className === 'Agent') {
     if (method === 'isRunning') return 'vault_is_running';
     if (method === 'forgetAll') return 'vault_forget_all';

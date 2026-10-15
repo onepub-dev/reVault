@@ -1,0 +1,33 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+warning: field `payload` is never read
+  --> revault_lockbox_api/src/model/record.rs:26:16
+   |
+22 | pub(crate) struct DecodedRecord {
+   |                   ------------- field in this struct
+...
+26 |     pub(crate) payload: Vec<u8>,
+   |                ^^^^^^^
+   |
+   = note: `DecodedRecord` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `revault_lockbox_api` (lib test) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 1m 10s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-a596bb400f031d5b)
+
+running 12 tests
+test file_format::page::tests::canonical_control_decoder_requires_one_object_and_matching_identity ... ok
+test file_format::page::tests::clear_text_page_uses_page_checksum_for_body_integrity ... ok
+test file_format::page::tests::page_round_trips_objects_and_has_fixed_size ... ok
+test file_format::page::tests::physical_length_recovery_preserves_checksum_and_rejects_other_damage ... ok
+test file_format::page::tests::page_rejects_public_header_checksum_tampering ... ok
+test file_format::page::tests::page_rejects_tampering ... ok
+test file_format::page::tests::object_stream_reservation_preserves_fixed_wire_bytes_and_scoped_payloads ... ok
+test file_format::page::tests::secure_payload_can_be_read_only_through_scoped_access ... ok
+test file_format::page::tests::canonical_control_extent_matches_writer_across_modes_and_boundaries ... ok
+test file_format::page::tests::arithmetic_page_sizes_match_serialized_bodies_in_every_explicit_mode ... ok
+test file_format::page::tests::direct_clear_raw_pages_match_legacy_full_bytes_and_extent_rules ... ok
+test file_format::page::tests::arithmetic_sizing_handles_shared_secure_payloads_and_physical_limits ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 708 filtered out; finished in 0.04s
+

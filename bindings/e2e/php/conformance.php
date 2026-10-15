@@ -96,6 +96,8 @@ function archiveLifecycle(ApiRuntime $api): void {
     check(count($box->list('/', true)->getEntries()) > 0, 'list'); pass('lockbox_list', 2);
     $box->stat('/renamed.txt'); pass('lockbox_stat', 2);
     $box->setWorkloadProfile('read-mostly'); pass('lockbox_set_workload_profile');
+    $box->setCacheLimit('bytes', 8192); check($box->cacheStats()->getLimitBytes() == 8192, 'cache limit');
+    $box->setCacheLimit('auto', 0); pass('lockbox_set_cache_limit');
     $box->setWorkerPolicy('single', 1); pass('lockbox_set_worker_policy');
     $box->runtimeOptions(); pass('lockbox_runtime_options');
     $box->commit(); pass('lockbox_commit');
@@ -188,6 +190,7 @@ function advancedArchive(ApiRuntime $api): void {
     $passwordBox = $api->lockboxCreatePassword('archive password'); $passwordBox->addFile('/password.txt', 'password protected', false); $passwordBox->commit();
     $passwordArchive = $passwordBox->toBytes(); $passwordBox->free(); pass('lockbox_create_password');
     $passwordOpen = $api->lockboxOpenPassword($passwordArchive, 'archive password'); $passwordOpen->getFile('/password.txt'); $passwordOpen->free(); pass('lockbox_open_password', 2);
+    $budgetOpen = $api->lockboxOpenPasswordWithBudget($passwordArchive, 'archive password', 1); check($budgetOpen->getFile('/password.txt') === 'password protected', 'budget password bytes'); $budgetOpen->free(); pass('lockbox_open_password_with_budget', 2);
     $contactBox = $api->lockboxCreateContact($public); $contactBox->addFile('/contact.txt', 'contact protected', false); $contactBox->commit();
     $contactArchive = $contactBox->toBytes(); $contactBox->free(); pass('lockbox_create_contact');
     $contactOpen = $api->lockboxOpenContact($contactArchive, $contact); $contactOpen->getFile('/contact.txt'); $contactOpen->free(); pass('lockbox_open_contact', 2);
@@ -196,6 +199,7 @@ function advancedArchive(ApiRuntime $api): void {
     $signed = $api->lockboxCreateWithSigningKey($key, $signing); $signed->commit(); $signed->free(); pass('lockbox_create_with_signing_key', 2);
     $extract = sys_get_temp_dir() . '/revault-php-extract-' . bin2hex(random_bytes(4)); mkdir($extract, 0700, true);
     $box->extractFile('/account.txt', "$extract/account.txt", false); pass('lockbox_extract_file', 2);
+    $box->extractFileWithPolicy('/account.txt', "$extract/account.txt", 1 << 20, 1 << 20, 1, true, true); check(file_get_contents("$extract/account.txt") === $box->getFile('/account.txt'), 'policy extracted bytes'); pass('lockbox_extract_file_with_policy', 2);
     $tree = "$extract/tree"; if (!is_dir($tree)) mkdir($tree, 0700, true);
     $box->extractDirectory($tree, 1 << 20, 4 << 20, 100, false, true, false); pass('lockbox_extract_directory', 2);
     $box->deleteFormRecord('/account.form'); pass('lockbox_delete_form_record');
@@ -203,6 +207,7 @@ function advancedArchive(ApiRuntime $api): void {
 }
 
 function vaultLifecycle(ApiRuntime $api): void {
+    $aliasPath = realpath(artifactRoot()) . DIRECTORY_SEPARATOR . 'remembered-alias-target.lbox';
     $root = artifactRoot() . '/vault'; if (!is_dir($root)) mkdir($root, 0700, true);
     $password = 'vault password'; $changed = 'new vault password'; $id = implode('', array_map(chr(...), range(0xa0, 0xaf)));
     $profile = $api->keyContactGenerate(); $contact = $api->keyContactGenerate();
@@ -231,8 +236,15 @@ function vaultLifecycle(ApiRuntime $api): void {
     pass('vault_directory_list_private_keys'); pass('vault_directory_list_private_key_names'); pass('vault_directory_list_contact_names');
     $vault->storeBackup($id, 'encrypted backup bytes'); $vault->backupCount(); check($vault->loadBackup($id) === 'encrypted backup bytes', 'backup');
     pass('vault_directory_store_backup'); pass('vault_directory_backup_count'); pass('vault_directory_load_backup', 3);
-    $vault->rememberLockbox($id, '/tmp/example.lbox'); $vault->listKnownLockboxes();
+    $vault->rememberLockbox($id, $aliasPath); $vault->listKnownLockboxes();
     pass('vault_directory_remember_lockbox'); pass('vault_directory_list_known_lockboxes');
+    $vault->setLockboxAlias('portable', $id); $vault->setLockboxAlias('portable', $id);
+    $aliases = $vault->listLockboxAliases()->values;
+    check(count($aliases) === 1 && $aliases[0]->name === 'portable', 'alias repeat and list');
+    check($vault->resolveLockboxAlias('portable')->path === $aliasPath, 'alias resolution');
+    pass('vault_directory_set_lockbox_alias', 2); pass('vault_directory_list_lockbox_aliases', 2); pass('vault_directory_resolve_lockbox_alias');
+    $vault->removeLockboxAlias('portable'); $vault->removeLockboxAlias('portable');
+    check(count($vault->listLockboxAliases()->values) === 0, 'alias removal repeat'); pass('vault_directory_remove_lockbox_alias', 3);
     $vault->rememberAccessSlotLabel($id, 7, 'primary'); $vault->listAccessSlotLabels($id); $vault->findAccessSlotLabels($id, 'primary');
     pass('vault_directory_remember_access_slot_label'); pass('vault_directory_list_access_slot_labels'); pass('vault_directory_find_access_slot_labels');
     $vault->rememberPassword($id, $password); $vault->rememberedPassword($id);
@@ -241,16 +253,21 @@ function vaultLifecycle(ApiRuntime $api): void {
     pass('vault_directory_define_form'); pass('vault_directory_resolve_form'); pass('vault_directory_list_forms');
     $vault->listFormRevisions($vaultForm->getTypeId()); pass('vault_directory_list_form_revisions', 2);
     $vault->seedForms(); pass('vault_directory_seed_forms'); $vault->listFormAliases(); pass('vault_directory_list_form_aliases');
-    $vault->forgetAccessSlotLabel($id, 7); $vault->forgetLockbox('/tmp/example.lbox'); $vault->deleteContact('bob');
+    $vault->forgetAccessSlotLabel($id, 7); $vault->forgetLockbox($aliasPath); $vault->deleteContact('bob');
     pass('vault_directory_forget_access_slot_label'); pass('vault_directory_forget_lockbox'); pass('vault_directory_delete_contact');
     $vault->deletePrivateKey('alice'); $vault->restorePrivateKey('alice', $profile, $owner, true);
     pass('vault_directory_delete_private_key', 2); pass('vault_directory_restore_private_key', 2);
+    $vault->rememberLockbox($id, $aliasPath); $vault->setLockboxAlias('portable', $id);
     $vault->free(); pass('vault_directory_free');
     // Release the writable vault before an independent path-based probe.
     check($api->vaultDirectoryProbeStructureVersion($root, $password) === $current, 'vault probe');
     pass('vault_directory_probe_structure_version', 2);
     $readonly = $api->vaultReadOnlyOpen($root, $password); $readonly->listProfileNames(); $readonly->listContactNames(); $readonly->listFormAliases(); $readonly->listKnownLockboxes();
     pass('vault_read_only_open'); pass('vault_read_only_list_profile_names', 2); pass('vault_read_only_list_contact_names'); pass('vault_read_only_list_form_aliases', 2); pass('vault_read_only_list_known_lockboxes');
+    $persistedAliases = $readonly->listLockboxAliases()->values;
+    check(count($persistedAliases) === 1 && $persistedAliases[0]->name === 'portable', 'persisted read-only alias');
+    check($readonly->resolveLockboxAlias('portable')->path === $aliasPath, 'read-only alias resolution');
+    pass('vault_read_only_list_lockbox_aliases', 2); pass('vault_read_only_resolve_lockbox_alias');
     $readonly->free(); pass('vault_read_only_free');
     $api->vaultDirectoryChangePassword($root, $password, $changed); pass('vault_directory_change_password');
     Vault::open($root, $changed)->free(); pass('vault_directory_open'); echo "ARTIFACT\tphp\tvault-opened\t$root\n";

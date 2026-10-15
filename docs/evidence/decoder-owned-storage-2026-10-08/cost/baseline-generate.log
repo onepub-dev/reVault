@@ -1,0 +1,3 @@
+small	raw=4096	encoded=188	window=4096
+medium	raw=262144	encoded=2959	window=262144
+large	raw=8388608	encoded=7648	window=2097152

@@ -1,0 +1,651 @@
+#! /usr/bin/env dcli
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const scaleRoot = '/home/bsutton/.cache/revault-performance-20261010-large/scale-v1';
+const oldRoot = '/home/bsutton/.cache/revault-performance-20261010-large';
+const evidenceRoot = '/tmp/revault-scale-20261010';
+const rustRoot = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust';
+const artifactCap = 20 * 1024 * 1024 * 1024;
+const probe = 'file_format::candidate_files::resource_probe::candidate_file_resource_probe';
+
+class CaseSpec {
+  const CaseSpec(this.name, this.files, this.bytes, this.unit);
+  final String name;
+  final int files;
+  final int bytes;
+  final int unit;
+  String get oldPath => '$oldRoot/$name';
+  String get root => '$scaleRoot/$name';
+  int get payloadBytes => files * bytes;
+}
+
+const cases = <CaseSpec>[
+  CaseSpec('raw-random-1gib', 1, 1073741824, 65536),
+  CaseSpec('raw-mixed-10000x64k', 10000, 65536, 65536),
+];
+
+void main(List<String> args) async {
+  if (args.isEmpty) usage();
+  Directory(evidenceRoot).createSync(recursive: true);
+  final action = args.first;
+  if (action == 'prepare') {
+    if (args.length != 1) usage();
+    prepare();
+    return;
+  }
+  if (action == 'create' || action == 'read') {
+    if (args.length != 3) usage();
+    final spec = caseFor(args[2]);
+    final executable = File(args[1]).absolute.path;
+    if (!File(executable).existsSync()) throw StateError('Candidate executable missing: $executable');
+    validatePrepared(spec);
+    _validateBudget(projectedNewBytes: action == 'create' ? _projectedAllWorkBytes() : 0);
+    final phase = action == 'create' ? 'tree-create' : 'tree-sample';
+    await runProbe(spec, executable, phase);
+    return;
+  }
+  if (action == 'extract-tree' || action == 'extract-zip') {
+    if (args.length != 3) usage();
+    final spec = caseFor(args[2]);
+    final executable = File(args[1]).absolute.path;
+    if (!File(executable).existsSync()) throw StateError('Executable missing: $executable');
+    validatePrepared(spec);
+    _validateBudget(projectedNewBytes: spec.payloadBytes);
+    await runExtraction(spec, executable, action == 'extract-tree' ? 'typed-tree' : 'zip');
+    return;
+  }
+  if (action == 'extract-batch') {
+    if (args.length != 3) usage();
+    final treeExecutable = File(args[1]).absolute.path;
+    final zipRunner = File(args[2]).absolute.path;
+    if (!File(treeExecutable).existsSync() || !File(zipRunner).existsSync()) {
+      throw StateError('Candidate executable or ZIP runner is missing');
+    }
+    for (final spec in cases) validateReadyForExtraction(spec);
+    _validateBudget(projectedNewBytes: _projectedAllWorkBytes());
+    await runExtractionBatch(treeExecutable, zipRunner);
+    return;
+  }
+  usage();
+}
+
+Never usage() => throw ArgumentError(
+    'Usage: ./run.dart prepare | create <candidate-test-executable> <case-name> | read <candidate-test-executable> <case-name> | extract-tree <candidate-test-executable> <case-name> | extract-zip <zip-runner> <case-name> | extract-batch <candidate-test-executable> <zip-runner>');
+
+CaseSpec caseFor(String name) =>
+    cases.firstWhere((item) => item.name == name, orElse: () => throw ArgumentError('Unknown case: $name'));
+
+void prepare() {
+  for (final spec in cases) {
+    if (FileSystemEntity.typeSync(spec.root, followLinks: false) != FileSystemEntityType.notFound) {
+      throw StateError('Refusing existing scale fixture root: ${spec.root}');
+    }
+    for (final required in ['case.json', 'inventory.json', 'archive.zip', 'source']) {
+      if (FileSystemEntity.typeSync('${spec.oldPath}/$required', followLinks: false) == FileSystemEntityType.notFound) {
+        throw StateError('Missing retained source artifact ${spec.oldPath}/$required');
+      }
+    }
+  }
+  _validateBudget(projectedNewBytes: _projectedAllWorkBytes());
+  Directory(scaleRoot).createSync(recursive: true);
+  for (final spec in cases) {
+    final target = Directory(spec.root)..createSync();
+    _link('${spec.oldPath}/case.json', '${target.path}/case.json');
+    _link('${spec.oldPath}/inventory.json', '${target.path}/inventory.json');
+    _link('${spec.oldPath}/archive.zip', '${target.path}/archive.zip');
+    _link('${spec.oldPath}/source', '${target.path}/source');
+    Directory('${target.path}/extract-output').createSync();
+    final caseData = jsonDecode(File('${spec.oldPath}/case.json').readAsStringSync()) as Map<String, dynamic>;
+    if (caseData['files'] != spec.files || caseData['bytes'] != spec.bytes || caseData['mode'] != 'plain' || caseData['compressed'] != false) {
+      throw StateError('Unexpected retained case descriptor for ${spec.name}: $caseData');
+    }
+  }
+  _record('prepared.json', {
+    'scale_root': scaleRoot,
+    'cases': [for (final spec in cases) {'name': spec.name, 'root': spec.root, 'files': spec.files, 'bytes_each': spec.bytes, 'payload_bytes': spec.payloadBytes, 'read_only_source_links': true}],
+    'artifact_cap_bytes': artifactCap,
+    'existing_apparent_logical_bytes_below_parent': _apparentBytes(Directory(oldRoot)),
+    'projected_new_work_bytes': _projectedAllWorkBytes(),
+    'available_bytes_after_preparation': _availableBytes(),
+    'scope': 'preparation only; source, case and ZIP are symlinked from retained failed capacity cases; no candidate invoked',
+    'generator_caveat': 'The retained mixed 10,000 × 65,536-byte fixture is patterned: the old generator alternates pattern/random only every 256 KiB within a file, so no file in this case reaches a random interval.',
+  });
+  print(green('Prepared empty scale-v1 roots with read-only-by-protocol input symlinks. No candidate was run.'));
+}
+
+void _link(String source, String destination) {
+  final result = Process.runSync('ln', ['-s', source, destination]);
+  if (result.exitCode != 0) throw StateError('Could not create symlink $destination: ${result.stderr}');
+  final resolved = FileSystemEntity.typeSync(destination, followLinks: true);
+  if (resolved == FileSystemEntityType.notFound) throw StateError('Broken symlink: $destination');
+}
+
+void validatePrepared(CaseSpec spec) {
+  for (final name in ['case.json', 'inventory.json', 'archive.zip', 'source']) {
+    final path = '${spec.root}/$name';
+    if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.link) {
+      throw StateError('Expected preserved input symlink at $path; run prepare once first.');
+    }
+  }
+  final root = Directory(spec.root);
+  if (!root.existsSync()) throw StateError('Run prepare first; missing ${spec.root}');
+  final requiredData = jsonDecode(File('${spec.root}/case.json').readAsStringSync()) as Map<String, dynamic>;
+  if (requiredData['files'] != spec.files || requiredData['bytes'] != spec.bytes) throw StateError('Case descriptor mismatch at ${spec.root}');
+  if (!File('${spec.root}/source/${_sourceName(spec, 0)}').existsSync()) throw StateError('Source fixture missing in ${spec.root}');
+}
+
+void validateReadyForExtraction(CaseSpec spec) {
+  validatePrepared(spec);
+  for (final name in ['tree.lbox', 'tree.public']) {
+    final file = File('${spec.root}/$name');
+    if (!file.existsSync() || file.lengthSync() == 0) throw StateError('Tree fixture is not ready: ${file.path}');
+  }
+}
+
+int _projectedAllWorkBytes() => cases.fold<int>(0, (sum, spec) => sum + 3 * spec.payloadBytes);
+
+int _apparentBytes(Directory directory) {
+  if (!directory.existsSync()) return 0;
+  var total = 0;
+  for (final entity in directory.listSync(followLinks: false)) {
+    final type = FileSystemEntity.typeSync(entity.path, followLinks: false);
+    if (type == FileSystemEntityType.file) {
+      total += File(entity.path).lengthSync();
+    } else if (type == FileSystemEntityType.directory) {
+      total += _apparentBytes(Directory(entity.path));
+    }
+  }
+  return total;
+}
+
+int _availableBytes() {
+  final result = Process.runSync('df', ['-Pk', '/home/bsutton/.cache']);
+  if (result.exitCode != 0) throw StateError('df failed: ${result.stderr}');
+  final lines = '${result.stdout}'.trim().split('\n');
+  final fields = lines.last.trim().split(RegExp(r'\s+'));
+  return int.parse(fields[3]) * 1024;
+}
+
+void _validateBudget({required int projectedNewBytes}) {
+  final existing = _apparentBytes(Directory(oldRoot));
+  final projectedTotal = existing + projectedNewBytes;
+  final available = _availableBytes();
+  if (projectedTotal > artifactCap) {
+    throw StateError('Refusing scale workload: existing apparent logical bytes $existing + projected $projectedNewBytes exceeds 20 GiB cap');
+  }
+  if (available < projectedNewBytes) {
+    throw StateError('Insufficient free space: $available bytes available for $projectedNewBytes projected new bytes');
+  }
+}
+
+String _sourceName(CaseSpec spec, int index) => spec.files == 1 ? 'file-000000.bin' : 'file-${index.toString().padLeft(6, '0')}.bin';
+
+Future<void> runProbe(CaseSpec spec, String executable, String phase) async {
+  final root = spec.root;
+  final outputDir = Directory('$evidenceRoot/${spec.name}')..createSync(recursive: true);
+  final outputStem = '$phase-${DateTime.now().toUtc().toIso8601String().replaceAll(':', '').replaceAll('.', '')}';
+  final binaryHash = _sha(executable);
+  final sourceBefore = _sourceIdentity(spec);
+  final archiveBefore = _sha('${root}/archive.zip');
+  final command = [
+    'taskset', '-c', '2', '/usr/bin/time', '-v', 'timeout', '900', executable,
+    '--exact', probe, '--ignored', '--nocapture',
+  ];
+  final env = <String, String>{
+    ...Platform.environment,
+    'REVAULT_CANDIDATE_ROOT': root,
+    'REVAULT_CANDIDATE_PHASE': phase,
+    'REVAULT_CANDIDATE_UNIT': '${spec.unit}',
+  };
+  if (phase == 'tree-sample') {
+    env['REVAULT_CANDIDATE_ACCESS'] = 'stream';
+    env['REVAULT_CANDIDATE_PASSES'] = '1';
+  }
+  _write('$outputStem.command.json', {
+    'command': command,
+    'environment': {
+      'REVAULT_CANDIDATE_ROOT': root,
+      'REVAULT_CANDIDATE_PHASE': phase,
+      'REVAULT_CANDIDATE_UNIT': '${spec.unit}',
+      if (phase == 'tree-sample') 'REVAULT_CANDIDATE_ACCESS': 'stream',
+      if (phase == 'tree-sample') 'REVAULT_CANDIDATE_PASSES': '1',
+    },
+    'candidate_sha256_before': binaryHash,
+    'source_inventory_before': sourceBefore,
+    'archive_zip_sha256_before': archiveBefore,
+    'spec': {'files': spec.files, 'bytes_each': spec.bytes, 'payload_bytes': spec.payloadBytes, 'unit': spec.unit},
+  });
+  final process = await Process.start(command.first, command.skip(1).toList(), environment: env);
+  final stdoutFuture = process.stdout.transform(utf8.decoder).join();
+  final stderrFuture = process.stderr.transform(utf8.decoder).join();
+  final exitCode = await process.exitCode;
+  final output = await stdoutFuture;
+  final error = await stderrFuture;
+  File('${outputDir.path}/$outputStem.stdout').writeAsStringSync(output, flush: true);
+  File('${outputDir.path}/$outputStem.stderr').writeAsStringSync(error, flush: true);
+  File('${outputDir.path}/$outputStem.log').writeAsStringSync('$output\n--- STDERR ---\n$error', flush: true);
+  final marker = phase == 'tree-create' ? 'CANDIDATE_SAMPLE ' : 'CANDIDATE_SAMPLE ';
+  final records = output.split('\n').where((line) => line.contains(marker)).toList();
+  Map<String, dynamic>? sample;
+  if (records.length == 1) {
+    sample = jsonDecode(records.single.substring(records.single.indexOf(marker) + marker.length)) as Map<String, dynamic>;
+  }
+  final sourceAfter = _sourceIdentity(spec);
+  final archiveAfter = _sha('${root}/archive.zip');
+  final binaryAfter = _sha(executable);
+  final outputFiles = _ownedOutputSizes();
+  final ownedOutputBytes = _apparentBytes(Directory(scaleRoot));
+  final physicalTotal = _apparentBytes(Directory(oldRoot));
+  final stableInputs = jsonEncode(sourceBefore) == jsonEncode(sourceAfter) && archiveBefore == archiveAfter;
+  final success = exitCode == 0 && sample != null && sample['verified'] == true && stableInputs && binaryHash == binaryAfter && physicalTotal <= artifactCap;
+  _write('$outputStem.result.json', {
+    'exit_code': exitCode,
+    'success': success,
+    'sample': sample,
+    'source_inventory_after': sourceAfter,
+    'archive_zip_sha256_after': archiveAfter,
+    'candidate_sha256_after': binaryAfter,
+    'source_stable': jsonEncode(sourceBefore) == jsonEncode(sourceAfter),
+    'archive_stable': archiveBefore == archiveAfter,
+    'candidate_stable': binaryHash == binaryAfter,
+    'owned_output_files_and_bytes': outputFiles,
+    'owned_output_files_total_bytes': ownedOutputBytes,
+    'apparent_logical_artifact_bytes_below_old_root': physicalTotal,
+    'owned_output_cap_bytes': artifactCap,
+    'remaining_owned_output_cap_bytes': artifactCap - physicalTotal,
+    'log': '${outputDir.path}/$outputStem.log',
+  });
+  if (!success) throw StateError('$phase ${spec.name} failed/failed verification; inspect ${outputDir.path}/$outputStem.*; artifacts were retained.');
+  print(green('$phase ${spec.name} passed output verification; logs: ${outputDir.path}/$outputStem.log'));
+}
+
+Future<Map<String, dynamic>> _extractSample(
+  CaseSpec spec,
+  String backend,
+  String executable,
+  int pairIndex,
+  bool warmup,
+  String evidenceDir,
+) async {
+  _validateBudget(projectedNewBytes: spec.payloadBytes);
+  final label = '${warmup ? 'warmup' : 'sample'}-${pairIndex.toString().padLeft(2, '0')}-$backend';
+  final output = '${spec.root}/extract-output/$label';
+  if (FileSystemEntity.typeSync(output, followLinks: false) != FileSystemEntityType.notFound) {
+    throw StateError('Refusing existing extraction output: $output');
+  }
+  final isTree = backend == 'typed-tree';
+  final command = isTree
+      ? <String>[
+          'taskset', '-c', '2', '/usr/bin/time', '-v', 'timeout', '900', executable,
+          '--exact', probe, '--ignored', '--nocapture',
+        ]
+      : <String>['taskset', '-c', '2', '/usr/bin/time', '-v', 'timeout', '900', executable, 'extract-zip', spec.root, output];
+  final env = <String, String>{
+    ...Platform.environment,
+    if (isTree) 'REVAULT_CANDIDATE_ROOT': spec.root,
+    if (isTree) 'REVAULT_CANDIDATE_PHASE': 'tree-extract',
+    if (isTree) 'REVAULT_CANDIDATE_UNIT': '${spec.unit}',
+    if (isTree) 'REVAULT_EXTRACT_OUTPUT': output,
+  };
+  final commandInfo = {
+    'command': command,
+    'environment': {for (final key in ['REVAULT_CANDIDATE_ROOT', 'REVAULT_CANDIDATE_PHASE', 'REVAULT_CANDIDATE_UNIT', 'REVAULT_EXTRACT_OUTPUT']) if (env.containsKey(key)) key: env[key]},
+    'case': spec.name,
+    'backend': backend,
+    'pair_index': pairIndex,
+    'warmup': warmup,
+    'candidate_sha256_before': _sha(executable),
+    'output_directory': output,
+  };
+  final process = await Process.start(command.first, command.skip(1).toList(), environment: env);
+  final stdoutFuture = process.stdout.transform(utf8.decoder).join();
+  final stderrFuture = process.stderr.transform(utf8.decoder).join();
+  final exitCode = await process.exitCode;
+  final stdoutText = await stdoutFuture;
+  final stderrText = await stderrFuture;
+  final parsedTime = _parseTime(stderrText);
+  Map<String, dynamic>? sample;
+  try {
+    if (isTree) {
+      const marker = 'CANDIDATE_SAMPLE ';
+      final lines = stdoutText.split('\n').where((line) => line.contains(marker)).toList();
+      if (lines.length == 1) sample = jsonDecode(lines.single.substring(lines.single.indexOf(marker) + marker.length)) as Map<String, dynamic>;
+    } else {
+      sample = jsonDecode(stdoutText.trim()) as Map<String, dynamic>;
+    }
+  } catch (_) {
+    sample = null;
+  }
+  final outputDirectory = Directory(output);
+  final outputExists = outputDirectory.existsSync();
+  final extractedFiles = outputExists ? _directoryFileInventory(outputDirectory) : <String, int>{};
+  final extractedBytes = extractedFiles.values.fold<int>(0, (sum, value) => sum + value);
+  final resources = sample?['resources'];
+  final contentOk = sample != null &&
+      sample['verified'] == true &&
+      sample['files'] == spec.files &&
+      sample['logical_bytes_written'] == spec.payloadBytes &&
+      resources is Map &&
+      resources['cpu'] is Map &&
+      resources['peak_rss_kib'] is num &&
+      extractedFiles.length == spec.files &&
+      extractedBytes == spec.payloadBytes;
+  final successful = exitCode == 0 && contentOk;
+  final result = <String, dynamic>{
+    ...commandInfo,
+    'exit_code': exitCode,
+    'verified': successful,
+    'sample': sample,
+    'time_v': parsedTime,
+    'process_wall_seconds': parsedTime['elapsed_seconds'],
+    'process_max_rss_kib': parsedTime['maximum_resident_set_kib'],
+    'process_user_seconds': parsedTime['user_seconds'],
+    'process_system_seconds': parsedTime['system_seconds'],
+    'extracted_file_count': extractedFiles.length,
+    'extracted_total_bytes': extractedBytes,
+    'extracted_output_inventory': extractedFiles,
+    'source_verified_by_probe_after_timed_write': sample?['verified'] == true,
+    'output_retained_on_failure': !successful,
+  };
+  final sampleKey = '${spec.name}/$label';
+  final sampleDir = Directory('$evidenceDir/logs')..createSync(recursive: true);
+  File('${sampleDir.path}/$label.stdout').writeAsStringSync(stdoutText, flush: true);
+  File('${sampleDir.path}/$label.stderr').writeAsStringSync(stderrText, flush: true);
+  File('${sampleDir.path}/$label.command.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(commandInfo), flush: true);
+  result.remove('extracted_output_inventory');
+  final samplesFile = File('$evidenceDir/samples.jsonl');
+  samplesFile.writeAsStringSync('${jsonEncode(result)}\n', mode: FileMode.append, flush: true);
+  if (!successful) {
+    _writeBatch('${spec.name}/failed-$label.json', result);
+    throw StateError('Extraction failed for $sampleKey; outputs/logs retained at $output and ${sampleDir.path}');
+  }
+  if (!output.startsWith('${spec.root}/extract-output/') || !outputDirectory.existsSync()) {
+    throw StateError('Refusing cleanup outside runner-owned extraction directory: $output');
+  }
+  outputDirectory.deleteSync(recursive: true);
+  result['successful_output_removed_after_verification'] = true;
+  result['apparent_logical_artifact_bytes_after_cleanup'] = _apparentBytes(Directory(oldRoot));
+  return result;
+}
+
+Future<void> runExtraction(CaseSpec spec, String executable, String backend) async {
+  validateReadyForExtraction(spec);
+  final result = await _extractSample(spec, backend, executable, 0, false, '$evidenceRoot/single/${spec.name}');
+  _writeBatch('single-${spec.name}-$backend.json', result);
+  print(green('Verified $backend extraction for ${spec.name}; raw logs retained under $evidenceRoot/single/${spec.name}.'));
+}
+
+Future<void> runExtractionBatch(String treeExecutable, String zipRunner) async {
+  final dir = Directory('$evidenceRoot/batch');
+  if (dir.existsSync()) throw StateError('Refusing existing extraction batch directory: ${dir.path}');
+  dir.createSync(recursive: true);
+  _validateBudget(projectedNewBytes: _projectedAllWorkBytes());
+  final frozenBefore = _batchIdentity(treeExecutable, zipRunner);
+  _writeBatch('batch-identity-before.json', frozenBefore);
+  _writeBatch('batch-capacity-before.json', {
+    'existing_apparent_logical_bytes_below_parent': _apparentBytes(Directory(oldRoot)),
+    'projected_remaining_new_bytes': _projectedAllWorkBytes(),
+    'projected_total_bytes': _apparentBytes(Directory(oldRoot)) + _projectedAllWorkBytes(),
+    'artifact_cap_bytes': artifactCap,
+    'available_bytes': _availableBytes(),
+    'capacity_assertion_passed': true,
+  });
+  Object? failure;
+  StackTrace? failureStack;
+  var sampleRows = 0;
+  try {
+    for (final spec in cases) {
+      validateReadyForExtraction(spec);
+      final sourceBefore = _sourceIdentity(spec);
+      final archiveBefore = _sha('${spec.root}/archive.zip');
+      final treeBefore = _sha('${spec.root}/tree.lbox');
+      Object? caseFailure;
+      StackTrace? caseFailureStack;
+      var completedPairs = 0;
+      var zipCount = 0;
+      var treeCount = 0;
+      try {
+        for (var pair = 0; pair < 33; pair++) {
+          final warmup = pair < 3;
+          final order = pair.isEven ? ['zip', 'typed-tree'] : ['typed-tree', 'zip'];
+          final pairResults = <Map<String, dynamic>>[];
+          for (final backend in order) {
+            final executable = backend == 'zip' ? zipRunner : treeExecutable;
+            final result = await _extractSample(spec, backend, executable, pair, warmup, '$evidenceRoot/batch/${spec.name}');
+            pairResults.add(result);
+            sampleRows++;
+            if (backend == 'zip') { zipCount++; } else { treeCount++; }
+          }
+          completedPairs++;
+          _writeBatch('${spec.name}/pair-${pair.toString().padLeft(2, '0')}.json', {
+            'case': spec.name,
+            'pair_index': pair,
+            'warmup': warmup,
+            'order': order,
+            'results': pairResults,
+          });
+        }
+      } catch (error, stack) {
+        caseFailure = error;
+        caseFailureStack = stack;
+      }
+      final sourceAfter = _sourceIdentity(spec);
+      final archiveAfter = _sha('${spec.root}/archive.zip');
+      final treeAfter = _sha('${spec.root}/tree.lbox');
+      final stable = jsonEncode(sourceBefore) == jsonEncode(sourceAfter) && archiveBefore == archiveAfter && treeBefore == treeAfter;
+      _writeBatch('${spec.name}/batch-audit.json', {
+        'case': spec.name,
+        'source_before': sourceBefore,
+        'source_after': sourceAfter,
+        'archive_sha256_before': archiveBefore,
+        'archive_sha256_after': archiveAfter,
+        'tree_sha256_before': treeBefore,
+        'tree_sha256_after': treeAfter,
+        'stable': stable,
+        'completed_pairs': completedPairs,
+        'warmup_pair_count_planned': 3,
+        'measured_pair_count_planned': 30,
+        'backend_sample_counts': {'zip': zipCount, 'typed-tree': treeCount},
+        'generator_caveat': spec.name == 'raw-mixed-10000x64k'
+            ? 'Retained mixed generator alternates pattern/random only every 256 KiB within a file; this 64 KiB-per-file corpus is patterned, not broadly representative mixed content.'
+            : null,
+        'failure': caseFailure?.toString(),
+      });
+      if (!stable) throw StateError('Input/output hashes changed during batch for ${spec.name}; all evidence retained.');
+      if (caseFailure != null) Error.throwWithStackTrace(caseFailure, caseFailureStack!);
+    }
+  } catch (error, stack) {
+    failure = error;
+    failureStack = stack;
+  } finally {
+    final frozenAfter = _batchIdentity(treeExecutable, zipRunner);
+    _writeBatch('batch-identity-after.json', frozenAfter);
+    if (!_stableBatchIdentity(frozenBefore, frozenAfter)) {
+      failure ??= StateError('Source or executable hashes changed during batch; evidence retained.');
+      failureStack ??= StackTrace.current;
+    }
+  }
+  if (failure != null) Error.throwWithStackTrace(failure, failureStack!);
+  _writeBatch('batch-complete.json', {
+    'complete': true,
+    'pair_count_per_case': 33,
+    'warmup_pairs': 3,
+    'measured_pairs': 30,
+    'alternating_order': true,
+    'all_runs_successful_and_verified': true,
+    'sample_rows': sampleRows,
+    'artifact_cap_bytes': artifactCap,
+    'apparent_logical_artifact_bytes_after_batch': _apparentBytes(Directory(oldRoot)),
+    'scope': 'paired extraction capacity/read experiment; no user archive, no production format claim',
+  });
+  print(green('Completed fixed 3-warmup + 30-pair extraction batch for both cases.'));
+}
+
+Map<String, dynamic> _batchIdentity(String treeExecutable, String zipRunner) {
+  final sourceFiles = <String, String>{
+    'candidate_probe': '$rustRoot/revault_lockbox_api/src/file_format/candidate_files/resource_probe.rs',
+    'tree_probe': '$rustRoot/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs',
+    'extract_sink': '$rustRoot/revault_lockbox_api/src/benchmark_extraction.rs',
+    'zip_runner': '$rustRoot/revault_lockbox_api/benches/evaluation/runner.rs',
+    'file_format_mod': '$rustRoot/revault_lockbox_api/src/file_format/mod.rs',
+    'metadata_budget': '$rustRoot/revault_lockbox_api/src/file_format/metadata_budget.rs',
+    'cost_model': '$rustRoot/revault_lockbox_api/src/file_format/candidate_files/cost_model.rs',
+    'dense_catalogue': '$rustRoot/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs',
+    'dense_catalogue_forms': '$rustRoot/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs',
+    'overflow': '$rustRoot/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs',
+    'fresh_export': '$rustRoot/revault_lockbox_api/src/file_format/candidate_files/tree_image/fresh.rs',
+    'fresh_export_tests': '$rustRoot/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/fresh.rs',
+    'forms_admission_tests': '$rustRoot/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/admission.rs',
+    'publication_ownership': '$rustRoot/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs',
+    'publication_tree': '$rustRoot/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs',
+    'cargo_lock': '$rustRoot/Cargo.lock',
+    'scale_runner': Platform.script.toFilePath(),
+  };
+  final hashes = {for (final entry in sourceFiles.entries) entry.key: _sha(entry.value)};
+  final head = Process.runSync('git', ['rev-parse', 'HEAD'], workingDirectory: rustRoot);
+  final status = Process.runSync('git', ['status', '--short'], workingDirectory: rustRoot);
+  return {
+    'source_revision': '${head.stdout}'.trim(),
+    'worktree_status': '${status.stdout}'.trim(),
+    'source_hashes': hashes,
+    'tree_test_executable': treeExecutable,
+    'tree_test_executable_sha256': _sha(treeExecutable),
+    'zip_runner_executable': zipRunner,
+    'zip_runner_executable_sha256': _sha(zipRunner),
+    'captured_utc': DateTime.now().toUtc().toIso8601String(),
+    'available_cpus': Process.runSync('nproc', []).stdout.toString().trim(),
+    'cpu_affinity': File('/proc/self/status').readAsLinesSync().firstWhere((line) => line.startsWith('Cpus_allowed_list:'), orElse: () => 'unknown'),
+    'load_average': File('/proc/loadavg').readAsStringSync().trim(),
+    'cpu_model': File('/proc/cpuinfo').readAsLinesSync().firstWhere((line) => line.startsWith('model name'), orElse: () => 'model name: unknown'),
+  };
+}
+
+bool _stableBatchIdentity(Map<String, dynamic> before, Map<String, dynamic> after) {
+  const keys = ['source_revision', 'worktree_status', 'source_hashes', 'tree_test_executable', 'tree_test_executable_sha256', 'zip_runner_executable', 'zip_runner_executable_sha256'];
+  return keys.every((key) => jsonEncode(before[key]) == jsonEncode(after[key]));
+}
+
+Map<String, dynamic> _parseTime(String text) {
+  double? number(String pattern) {
+    final match = RegExp(pattern, multiLine: true).firstMatch(text);
+    return match == null ? null : double.tryParse(match.group(1)!);
+  }
+  final elapsed = RegExp(r'Elapsed \(wall clock\) time \(h:mm:ss or m:ss\): ([0-9:.]+)').firstMatch(text)?.group(1);
+  final elapsedSeconds = elapsed == null ? null : _parseClock(elapsed);
+  final rss = RegExp(r'Maximum resident set size \(kbytes\): (\d+)').firstMatch(text)?.group(1);
+  return {
+    'user_seconds': number(r'User time \(seconds\): ([0-9.]+)'),
+    'system_seconds': number(r'System time \(seconds\): ([0-9.]+)'),
+    'elapsed_raw': elapsed,
+    'elapsed_seconds': elapsedSeconds,
+    'maximum_resident_set_kib': rss == null ? null : int.parse(rss),
+    'raw_stderr_retained_separately': true,
+  };
+}
+
+double _parseClock(String value) {
+  final fields = value.split(':');
+  if (fields.length == 2) return int.parse(fields[0]) * 60 + double.parse(fields[1]);
+  if (fields.length == 3) return int.parse(fields[0]) * 3600 + int.parse(fields[1]) * 60 + double.parse(fields[2]);
+  throw FormatException('Unrecognized elapsed time: $value');
+}
+
+Map<String, int> _directoryFileInventory(Directory directory) {
+  final result = <String, int>{};
+  void visit(Directory current, String relative) {
+    for (final entity in current.listSync(followLinks: false)) {
+      final basename = _basename(entity.path);
+      final name = relative.isEmpty ? basename : '$relative/$basename';
+      final type = FileSystemEntity.typeSync(entity.path, followLinks: false);
+      if (type == FileSystemEntityType.file) {
+        result[name] = File(entity.path).lengthSync();
+      } else if (type == FileSystemEntityType.directory) {
+        visit(Directory(entity.path), name);
+      }
+    }
+  }
+  visit(directory, '');
+  return result;
+}
+
+void _writeBatch(String relativePath, Object value) {
+  final file = File('$evidenceRoot/batch/$relativePath');
+  file.parent.createSync(recursive: true);
+  file.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(value), flush: true);
+}
+
+Map<String, String> _sourceIdentity(CaseSpec spec) {
+  final inventoryPath = '${spec.root}/inventory.json';
+  final inventory = jsonDecode(File(inventoryPath).readAsStringSync()) as List<dynamic>;
+  if (inventory.length != spec.files) throw StateError('Inventory count mismatch for ${spec.name}');
+  final paths = <String>[];
+  final expected = <String, String>{};
+  for (final raw in inventory) {
+    final row = raw as Map<String, dynamic>;
+    final path = '${spec.root}/source/${row['path']}';
+    paths.add(path);
+    expected[path] = row['sha256'] as String;
+    if (row['bytes'] != spec.bytes) throw StateError('Inventory size mismatch for $path');
+  }
+  final result = Process.runSync('sha256sum', paths);
+  if (result.exitCode != 0) throw StateError('Source hashing failed for ${spec.name}: ${result.stderr}');
+  final actual = <String, String>{};
+  for (final line in (result.stdout as String).split('\n').where((line) => line.isNotEmpty)) {
+    final split = line.indexOf('  ');
+    if (split < 0) throw StateError('Unexpected sha256sum output: $line');
+    actual[line.substring(split + 2)] = line.substring(0, split);
+  }
+  if (actual.length != expected.length || expected.entries.any((entry) => actual[entry.key] != entry.value)) {
+    throw StateError('Source files do not match retained inventory for ${spec.name}');
+  }
+  return {'inventory_sha256': _sha(inventoryPath), 'file_count': '${actual.length}', 'aggregate_manifest_sha256': _shaManifest(actual)};
+}
+
+String _shaManifest(Map<String, String> hashes) {
+  final lines = hashes.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+  final bytes = utf8.encode(lines.map((entry) => '${entry.value}  ${entry.key}\n').join());
+  final temp = File('$evidenceRoot/.manifest-${DateTime.now().microsecondsSinceEpoch}');
+  temp.writeAsBytesSync(bytes, flush: true);
+  final hash = _sha(temp.path);
+  temp.deleteSync();
+  return hash;
+}
+
+Map<String, int> _ownedOutputSizes() {
+  final result = <String, int>{};
+  final root = Directory(scaleRoot);
+  if (!root.existsSync()) return result;
+  void visit(Directory directory, String relative) {
+    for (final entity in directory.listSync(followLinks: false)) {
+      final basename = _basename(entity.path);
+      final name = relative.isEmpty ? basename : '$relative/$basename';
+      final type = FileSystemEntity.typeSync(entity.path, followLinks: false);
+      if (type == FileSystemEntityType.file) {
+        result[name] = File(entity.path).lengthSync();
+      } else if (type == FileSystemEntityType.directory) {
+        visit(Directory(entity.path), name);
+      }
+    }
+  }
+  visit(root, '');
+  return result;
+}
+
+String _basename(String path) {
+  final trimmed = path.replaceAll(RegExp(r'/+$'), '');
+  return trimmed.substring(trimmed.lastIndexOf('/') + 1);
+}
+
+String _sha(String path) {
+  final result = Process.runSync('sha256sum', [path]);
+  if (result.exitCode != 0) throw StateError('sha256sum failed for $path: ${result.stderr}');
+  return '${result.stdout}'.split(RegExp(r'\s+')).first;
+}
+
+void _write(String filename, Object value) => File('$evidenceRoot/$filename')
+    .writeAsStringSync(const JsonEncoder.withIndent('  ').convert(value), flush: true);
+
+void _record(String filename, Object value) => _write(filename, value);

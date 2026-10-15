@@ -1,0 +1,129 @@
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+    Finished `release` profile [optimized] target(s) in 0.16s
+     Running tests/cli_flow.rs (target/release/deps/cli_flow-a494ce2937cf1fad)
+
+running 1 test
+test help_is_grouped_and_commands_have_specific_help ... CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713119
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713119 elapsed=25.289626ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713120
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713120 elapsed=25.267466ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713121
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713121 elapsed=25.353627ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713122
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713122 elapsed=25.428168ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713123
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713123 elapsed=25.346497ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713126
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713126 elapsed=25.292575ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713145
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713145 elapsed=25.344776ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713147
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713147 elapsed=25.365766ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713148
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713148 elapsed=25.384347ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713149
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713149 elapsed=25.388387ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713150
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713150 elapsed=25.298816ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713151
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713151 elapsed=25.362757ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713152
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713152 elapsed=25.361107ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713153
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713153 elapsed=25.376386ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713154
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713154 elapsed=25.299696ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713155
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713155 elapsed=25.427197ms status=exit status: 2
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713156
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713156 elapsed=2.030726279s status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713274
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713274 elapsed=25.56827ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713275
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713275 elapsed=25.518379ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713276
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713276 elapsed=25.426627ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713277
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713277 elapsed=25.447148ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713278
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713278 elapsed=25.387686ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713279
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713279 elapsed=25.441308ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713280
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713280 elapsed=25.375737ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713281
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713281 elapsed=25.366536ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713283
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713283 elapsed=25.304076ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713284
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713284 elapsed=25.313966ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713285
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713285 elapsed=25.355577ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713286
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713286 elapsed=25.331456ms status=exit status: 2
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713287
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713287 elapsed=25.405357ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713288
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713288 elapsed=25.425527ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713289
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713289 elapsed=25.450568ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713290
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713290 elapsed=25.374077ms status=exit status: 2
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713291
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713291 elapsed=25.468218ms status=exit status: 2
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713292
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713292 elapsed=25.376987ms status=exit status: 2
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713293
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713293 elapsed=25.395467ms status=exit status: 2
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713294
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713294 elapsed=25.403997ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713295
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713295 elapsed=25.380137ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713296
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713296 elapsed=25.396538ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713297
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713297 elapsed=25.380437ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713298
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713298 elapsed=25.365147ms status=exit status: 2
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713299
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713299 elapsed=25.401667ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713300
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713300 elapsed=25.357056ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713301
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713301 elapsed=25.387097ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713302
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713302 elapsed=25.370997ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713303
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713303 elapsed=25.366247ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713304
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713304 elapsed=25.375047ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713305
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713305 elapsed=25.416728ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713307
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713307 elapsed=25.480318ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713308
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713308 elapsed=25.382427ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713309
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713309 elapsed=25.368567ms status=exit status: 2
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713310
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713310 elapsed=25.459528ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713311
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713311 elapsed=25.389427ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713312
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713312 elapsed=25.386347ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713313
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713313 elapsed=25.372987ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713314
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713314 elapsed=25.385617ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713315
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713315 elapsed=25.375007ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713316
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713316 elapsed=25.472968ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713317
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713317 elapsed=25.405627ms status=exit status: 0
+CLI start: test=help_is_grouped_and_commands_have_specific_help pid=713318
+CLI end: test=help_is_grouped_and_commands_have_specific_help pid=713318 elapsed=25.377177ms status=exit status: 0
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 77 filtered out; finished in 3.55s
+

@@ -2882,6 +2882,9 @@ fn doctor_recover_detects_and_completes_interrupted_cleanup() {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     let lockbox = dir.join("interrupted.lbox");
+    // Test-support exception: the public CLI cannot deliberately interrupt a
+    // transaction at a deterministic persistence boundary. Recovery and all
+    // resulting content checks below use separate public CLI invocations.
     revault_lockbox_api::write_interrupted_transaction_fixture(&lockbox, b"test-key").unwrap();
 
     let diagnosis = run_output(bin, &[lockbox.to_str().unwrap(), "doctor"]);
@@ -3161,6 +3164,7 @@ fn add_can_default_destination_and_list_recursively() {
     );
     assert_success(&first_add);
     assert!(String::from_utf8_lossy(&first_add.stdout).contains("Added 1 file to"));
+    fs::write(&source_file, "refused replacement").unwrap();
     let protected_existing = run_output(
         bin,
         &[
@@ -3171,6 +3175,9 @@ fn add_can_default_destination_and_list_recursively() {
     );
     assert!(!protected_existing.status.success());
     assert!(String::from_utf8_lossy(&protected_existing.stderr).contains("already exists"));
+    let preserved = run_output(bin, &[lockbox.to_str().unwrap(), "cat", "alpha.txt"]);
+    assert_success(&preserved);
+    assert_eq!(preserved.stdout, b"alpha");
     fs::write(&source_file, "alpha updated").unwrap();
     let overwritten = run_output(
         bin,
@@ -3653,6 +3660,26 @@ fn access_subcommands_manage_lockbox_access() {
         &vault_root,
         &agent_root,
     );
+    // Revocation rekeys the archive and deliberately evicts the old cache.
+    let closed = run_output_without_lockbox_password(
+        bin,
+        &[lockbox.to_str().unwrap(), "access", "ls"],
+        &vault_root,
+        &agent_root,
+    )
+    .test_output()
+    .unwrap();
+    assert!(!closed.status.success());
+    assert!(String::from_utf8_lossy(&closed.stderr).contains("Lockbox is closed"));
+    let reopened = run_output_without_lockbox_password(
+        bin,
+        &[lockbox.to_str().unwrap(), "open-key", "sharee2"],
+        &vault_root,
+        &agent_root,
+    )
+    .test_output()
+    .unwrap();
+    assert_success(&reopened);
     let access = run_output_without_lockbox_password(
         bin,
         &[lockbox.to_str().unwrap(), "access", "ls", "--format", "tsv"],
@@ -3723,7 +3750,7 @@ fn access_subcommands_manage_lockbox_access() {
 }
 
 #[test]
-fn password_create_requires_explicit_vault_init() {
+fn owner_signed_password_create_requires_explicit_vault_init() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let dir = unique_dir_named("create-vault-init");
     let _ = fs::remove_dir_all(&dir);
@@ -3734,7 +3761,13 @@ fn password_create_requires_explicit_vault_init() {
 
     let create_without_vault = run_output_without_content_key(
         bin,
-        &[lockbox.to_str().unwrap(), "create", "--password"],
+        &[
+            lockbox.to_str().unwrap(),
+            "create",
+            "--password",
+            "--signing",
+            "owner",
+        ],
         &vault_root,
         &agent_root,
     );
@@ -3957,8 +3990,7 @@ fn vault_beget_supports_custom_output_contact_and_no_contact() {
     fs::create_dir_all(&dir).unwrap();
     let vault_root = dir.join("vault");
     let agent_root = dir.join("agent");
-    let current_password = SecretString::try_from_bytes(b"test-vault-password".to_vec()).unwrap();
-    VaultDirectory::open_or_create(&vault_root, &current_password).unwrap();
+    run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     let custom_path = dir.join("nested").join("runner.vault.lbx");
 
     let custom = Command::new(bin)
@@ -3979,10 +4011,20 @@ fn vault_beget_supports_custom_output_contact_and_no_contact() {
         .unwrap();
     assert_success(&custom);
     assert!(custom_path.is_file());
-    let current = VaultDirectory::open_or_create(&vault_root, &current_password).unwrap();
-    assert!(current.contact_exists("ci-production").unwrap());
-    assert!(!current.contact_exists("production").unwrap());
-    drop(current);
+    let contacts = run_output_without_content_key(
+        bin,
+        &["vault", "contact", "list", "--format", "json"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&contacts);
+    let contacts = String::from_utf8(contacts.stdout)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+        .collect::<Vec<_>>();
+    assert!(contacts.iter().any(|row| row["name"] == "ci-production"));
+    assert!(!contacts.iter().any(|row| row["name"] == "production"));
 
     let no_contact_root = dir.join("missing-current-vault");
     let no_contact_path = dir.join("isolated.vault.lbx");
@@ -3997,13 +4039,74 @@ fn vault_beget_supports_custom_output_contact_and_no_contact() {
         ])
         .env("LOCKBOX_VAULT_DIR", &no_contact_root)
         .env("LOCKBOX_NEW_VAULT_PASSWORD", "isolated-vault-password")
-        .env("LOCKBOX_SESSION_AGENT_DIR", dir.join("isolated-agent"))
+        .env(
+            "LOCKBOX_SESSION_AGENT_DIR",
+            agent_socket_dir(&dir.join("isolated-agent")),
+        )
         .test_output()
         .unwrap();
     assert_success(&no_contact);
     assert!(no_contact_path.is_file());
     assert!(!no_contact_root.exists());
     assert!(String::from_utf8_lossy(&no_contact.stdout).contains("Contact:\n  Not created"));
+
+    for (source, profile, password) in [
+        (&custom_path, "production", "custom-vault-password"),
+        (&no_contact_path, "isolated", "isolated-vault-password"),
+    ] {
+        // The public CLI selects a Vault directory, not an arbitrary Vault filename.
+        // Install an unchanged copy at its documented local filename; all content
+        // inspection and public-key export below use separate public CLI commands.
+        let installed = dir.join(format!("reopened-{profile}"));
+        assert!(!installed.exists());
+        fs::create_dir(&installed).unwrap();
+        let original = fs::read(source).unwrap();
+        let installed_file = installed.join("local-vault.lbox");
+        assert!(!installed_file.exists());
+        fs::copy(source, &installed_file).unwrap();
+        assert_eq!(fs::read(&installed_file).unwrap(), original);
+        let reopened_agent = dir.join(format!("reopened-agent-{profile}"));
+        let list = run_output_without_content_key_with_env(
+            bin,
+            &["vault", "profile", "list", "--format", "json"],
+            &installed,
+            &reopened_agent,
+            "LOCKBOX_VAULT_PASSWORD",
+            password,
+        );
+        assert_success(&list);
+        let rows = String::from_utf8(list.stdout)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+            .collect::<Vec<_>>();
+        assert!(rows.iter().any(|row| row["name"] == profile));
+        let mut exports = Vec::new();
+        for index in 0..2 {
+            let output = dir.join(format!("{profile}-{index}.public.pem"));
+            assert!(!output.exists());
+            let exported = run_output_without_content_key_with_env(
+                bin,
+                &[
+                    "vault",
+                    "profile",
+                    "export",
+                    output.to_str().unwrap(),
+                    "--name",
+                    profile,
+                ],
+                &installed,
+                &reopened_agent,
+                "LOCKBOX_VAULT_PASSWORD",
+                password,
+            );
+            assert_success(&exported);
+            exports.push(fs::read(output).unwrap());
+        }
+        assert!(!exports[0].is_empty());
+        assert_eq!(exports[0], exports[1]);
+        assert_eq!(fs::read(source).unwrap(), original);
+    }
 
     let missing_password_path = dir.join("missing-password.vault.lbx");
     let missing_password = Command::new(bin)
@@ -4017,7 +4120,10 @@ fn vault_beget_supports_custom_output_contact_and_no_contact() {
         ])
         .env("LOCKBOX_VAULT_DIR", &no_contact_root)
         .env_remove("LOCKBOX_NEW_VAULT_PASSWORD")
-        .env("LOCKBOX_SESSION_AGENT_DIR", dir.join("isolated-agent"))
+        .env(
+            "LOCKBOX_SESSION_AGENT_DIR",
+            agent_socket_dir(&dir.join("isolated-agent")),
+        )
         .test_output()
         .unwrap();
     assert!(!missing_password.status.success());
@@ -4164,6 +4270,8 @@ fn vault_init_prompt_mentions_minimum_pass_phrase_length() {
         .args(["vault", "init"])
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4200,6 +4308,8 @@ fn vault_init_generated_pass_phrase_requires_stored_confirmation() {
         .args(["vault", "init"])
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4234,7 +4344,13 @@ fn vault_lockbox_list_reports_owner_size_and_path() {
     run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     run_without_content_key(
         bin,
-        &[lockbox.to_str().unwrap(), "create", "--password"],
+        &[
+            lockbox.to_str().unwrap(),
+            "create",
+            "--password",
+            "--signing",
+            "owner",
+        ],
         &vault_root,
         &agent_root,
     );
@@ -4308,6 +4424,37 @@ fn vault_lockbox_list_reports_owner_size_and_path() {
     assert_success(&tsv);
     let tsv = String::from_utf8_lossy(&tsv.stdout);
     assert!(tsv.contains("listed.lbox\tmissing\t-\t-\t"));
+
+    // Password-only creation is intentionally unsigned unless requested.
+    // Verify through separate public invocations, not archive internals.
+    let unsigned = dir.join("unsigned-password.lbox");
+    run_without_content_key(
+        bin,
+        &[unsigned.to_str().unwrap(), "create", "--password"],
+        &vault_root,
+        &agent_root,
+    );
+    let inspection = run_output_without_content_key(
+        bin,
+        &[unsigned.to_str().unwrap(), "doctor"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&inspection);
+    assert!(String::from_utf8_lossy(&inspection.stdout).contains("signing: none"));
+    let unsigned_listing = run_output_without_content_key(
+        bin,
+        &["vault", "lockbox", "list", "--format", "json"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&unsigned_listing);
+    let unsigned_listing = String::from_utf8_lossy(&unsigned_listing.stdout);
+    let unsigned_row = unsigned_listing
+        .lines()
+        .find(|line| line.contains("unsigned-password.lbox"))
+        .expect("unsigned archive listed");
+    assert!(unsigned_row.contains("\"owner\":\"unsigned\""));
 }
 
 #[test]
@@ -4549,6 +4696,8 @@ fn vault_init_generated_pass_phrase_accepts_stored_confirmation() {
         .args(["vault", "init"])
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4560,7 +4709,10 @@ fn vault_init_generated_pass_phrase_accepts_stored_confirmation() {
     child.stdin.as_mut().unwrap().write_all(b"\ny\n").unwrap();
     let output = child.wait_with_output().unwrap();
 
-    assert_success(&output);
+    assert!(
+        output.status.success(),
+        "synthetic Vault initialization failed; recovery output suppressed"
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Generated Vault passphrase:"));
     assert!(stdout.contains("Continue after storing it? [y/N]:"));
@@ -4585,6 +4737,8 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4598,7 +4752,10 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
         .unwrap()
         .write_all(format!("2\n{vault_password}\n{vault_password}\n").as_bytes())
         .unwrap();
-    assert_success(&init.wait_with_output().unwrap());
+    assert!(
+        init.wait_with_output().unwrap().status.success(),
+        "synthetic Vault initialization failed; recovery output suppressed"
+    );
 
     let mut create = Command::new(bin)
         .args([lockbox.to_str().unwrap(), "create"])
@@ -4606,6 +4763,8 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4631,6 +4790,8 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4662,6 +4823,8 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4702,6 +4865,8 @@ fn interactive_password_open_distinguishes_vault_and_lockbox_passwords() {
         .env_remove("LOCKBOX_KEY")
         .env("LOCKBOX_VAULT_PASSWORD", vault_password)
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4715,6 +4880,8 @@ fn interactive_password_open_distinguishes_vault_and_lockbox_passwords() {
         .env("LOCKBOX_PASSWORD", lockbox_password)
         .env("LOCKBOX_VAULT_PASSWORD", vault_password)
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4728,6 +4895,8 @@ fn interactive_password_open_distinguishes_vault_and_lockbox_passwords() {
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4771,18 +4940,25 @@ fn profile_only_open_never_falls_back_to_a_password_prompt() {
         .env_remove("LOCKBOX_KEY")
         .env("LOCKBOX_VAULT_PASSWORD", original_password)
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
         .test_output()
         .unwrap();
-    assert_success(&init);
+    assert!(
+        init.status.success(),
+        "synthetic Vault initialization failed; recovery output suppressed"
+    );
 
     let create = Command::new(bin)
         .args([lockbox.to_str().unwrap(), "create"])
         .env_remove("LOCKBOX_KEY")
         .env("LOCKBOX_VAULT_PASSWORD", original_password)
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4795,12 +4971,17 @@ fn profile_only_open_never_falls_back_to_a_password_prompt() {
         .env_remove("LOCKBOX_KEY")
         .env("LOCKBOX_VAULT_PASSWORD", replacement_password)
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
         .test_output()
         .unwrap();
-    assert_success(&replace);
+    assert!(
+        replace.status.success(),
+        "synthetic Vault initialization failed; recovery output suppressed"
+    );
 
     let mut open = Command::new(bin)
         .args([lockbox.to_str().unwrap(), "open"])
@@ -4808,6 +4989,8 @@ fn profile_only_open_never_falls_back_to_a_password_prompt() {
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -7361,6 +7544,8 @@ fn run_output_in_with_stdin(
         .args(args)
         .env("LOCKBOX_KEY", "test-key")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
@@ -7425,6 +7610,8 @@ fn run_output_without_lockbox_password(
     command
         .args(args)
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root);
@@ -7464,6 +7651,8 @@ fn run_output_without_content_key_with_stdin(
         .args(args)
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
@@ -7592,6 +7781,37 @@ fn read_only_archive_supports_cli_listing_and_byte_exact_extraction() {
         &vault,
         &agent,
     );
+    let positional = dir.join("positional.bin");
+    let positional_args = [
+        path.to_str().unwrap(),
+        "extract",
+        "/payload.bin",
+        positional.to_str().unwrap(),
+    ];
+    assert_success(&run_output_in(bin, &positional_args, &vault, &agent));
+    assert_eq!(fs::read(&positional).unwrap(), payload);
+    // Host output state is intentionally distinct so refusal and replacement
+    // are observable independently of the archive payload.
+    fs::write(&positional, b"existing destination").unwrap();
+    let repeated = run_output_in(bin, &positional_args, &vault, &agent);
+    assert!(
+        !repeated.status.success(),
+        "existing output requires overwrite"
+    );
+    assert_eq!(fs::read(&positional).unwrap(), b"existing destination");
+    assert_success(&run_output_in(
+        bin,
+        &[
+            path.to_str().unwrap(),
+            "extract",
+            "/payload.bin",
+            positional.to_str().unwrap(),
+            "--overwrite",
+        ],
+        &vault,
+        &agent,
+    ));
+    assert_eq!(fs::read(&positional).unwrap(), payload);
     fs::set_permissions(&archives, fs::Permissions::from_mode(0o755)).unwrap();
     assert_success(&listing);
     assert!(String::from_utf8_lossy(&listing.stdout).contains("payload.bin"));

@@ -1,0 +1,47 @@
+Issue #310: write-stage diagnostics and rejected small-metadata experiment
+Base 2d11caf, 2026-09-22.
+
+protection_gate now supports REVAULT_GATE_WRITE_PROFILE=1 for direct write runs.
+It emits stage observations to stderr without altering the timing CSV schema:
+create/add/commit elapsed time plus existing cumulative frame preparation,
+page-write and host-read counters. Extra stage clocks/counter snapshots are
+conditional; normal paired gate runs leave the flag unset. Diagnostic output is
+after the total timer, which still includes handle teardown. Persisted byte
+verification remains mandatory outside the timer. These diagnostic runs are not
+used to declare a regression gate passed.
+
+Direct diagnostic runs: current default/native, 8 MiB pattern, compressed,
+encrypted-signed, 15 samples each, CPU 2, default padding, same benchmark source.
+Raw stage output and normal CSV retain warmup sample zero. They suggest similar
+frame preparation, native work shifted toward add_file and away from commit.
+Typical warmed add times were ~9.3 ms default versus ~11.3 ms native, while commit
+was ~8.7-10 ms versus ~7-8 ms with substantial fluctuations. These sequential
+unpaired observations are exploratory. Page-write counters are not directly
+comparable: native encoding is charged during add, legacy flush can be deferred.
+
+Tested candidate: in native block_page::encode_packet choose Compression::None
+for descriptor+manifest metadata of at most 512 bytes, while larger metadata
+keeps the configured codec. Block-page integrity/padding tests passed. This used
+an existing encoding option; no protection checks or page padding were removed.
+
+Isolated paired comparison against the unmodified native writer:
+REVAULT_GATE_CHILD_SAMPLES=6 taskset -c 2 AFTER compare-write BEFORE AFTER ROOT
+8388608 pattern 15 encrypted-signed/true/write
+300 measured rows, 150 per variant; first sample discarded in each child;
+ABBA/BAAB groups; no builds or tests overlapped. Both variants include the same
+optional benchmark instrumentation, disabled for paired runs. Every write was
+independently reopened and compared byte-for-byte. Both produced 326016 bytes.
+
+Result: paired change +0.664%, 95% interval [-1.338%, +1.833%]. Pooled medians
+23.067 ms before / 23.211 ms after. No speed improvement established. Candidate
+REVERTED in full; retained files change only the benchmark and evidence.
+The earlier native-vs-default compressed encrypted-signed gate is still
+inconclusive, not resolved by this experiment. Next investigation should account
+for deferred flush/commit work rather than treating coarse page counters as an
+isolated encoding cost. Read parity, recovery/cache integration and other release
+gates also remain open.
+
+Validation: both benchmark variants built; 30 direct profiled writes and 300
+measured paired writes plus warmups independently verified. Four native block-page
+tests passed on the discarded candidate. Strict benchmark Clippy passed for the
+retained default and native builds. No production source changes retained.

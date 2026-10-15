@@ -354,17 +354,23 @@ backslashes, NUL bytes, or control characters are rejected.
 
 ## Permissions
 
-Ignore archive permissions and use safe defaults:
+CLI extraction restores stored file and directory permissions by default where
+the host supports them, including mirror extraction. To use host-created
+permissions instead:
 
 ```bash
 lockbox secrets.lbox extract --to ./out --no-restore-permissions
 ```
 
-Restore stored permissions where supported:
+The existing explicit restoration flag remains accepted:
 
 ```bash
 lockbox secrets.lbox extract --to ./out --restore-permissions
 ```
+
+Current ordinary add and mirror import store the default file mode `0600`;
+restoration therefore does not imply that those imports preserved the original
+host mode. This extraction option does not change import behaviour.
 
 The format stores only basic permission bits. Special bits and platform-specific
 metadata should be rejected or ignored unless explicitly supported later.

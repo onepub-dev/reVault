@@ -1,0 +1,16 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 0.94s
+     Running tests/evaluation_checks.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/evaluation_checks-5953c9776633eec3)
+
+running 8 tests
+test runner::extraction::tests::durability_setting_is_explicit_and_io_counters_are_checked ... ok
+test runner::existing::tests::only_zip_may_have_reduced_protection ... ok
+test runner::extraction::tests::extraction_rejects_wrong_output_even_with_correct_reported_count ... ok
+test runner::extraction::tests::extraction_refuses_existing_destination_before_opening_archive ... ok
+test runner::extraction::tests::durable_extraction_syncs_files_and_directory_chain_before_verification ... ok
+test runner::extraction::tests::extraction_checks_reopened_bytes_across_buffer_boundary ... ok
+test runner::tests::paired_interval_preserves_known_ratios_and_reproducibility ... ok
+test runner::tests::corpus_generation_is_independent_of_read_chunking ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

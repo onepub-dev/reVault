@@ -1,0 +1,5 @@
+2026-10-02T16:00:51Z
+ 02:00:51 up 20 days, 13:55,  1 user,  load average: 0.63, 1.11, 1.95
+1217376 lbx             /home/bsutton/.cargo/bin/lbx __agent
+3107364 bash            /bin/bash -lc date -u +%Y-%m-%dT%H:%M:%SZ > /tmp/revault-typed-read-20261002/inline-host-context-after.txt && uptime >> /tmp/revault-typed-read-20261002/inline-host-context-after.txt && ps -eo pid,comm,args | rg 'cargo|rustc|revault|candidate_driver|shared-read-runner|HMB' >> /tmp/revault-typed-read-20261002/inline-host-context-after.txt
+3107425 rg              rg cargo|rustc|revault|candidate_driver|shared-read-runner|HMB

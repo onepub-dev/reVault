@@ -1,0 +1,110 @@
+    Checking revault_page_api v0.0.34 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_page_api)
+    Checking revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+error[E0365]: `TreeImage` is private, and cannot be re-exported
+  --> revault_lockbox_api/src/file_format/candidate_files/tree_image.rs:11:16
+   |
+11 | pub(super) use reader::TreeImage;
+   |                ^^^^^^^^^^^^^^^^^ re-export of private `TreeImage`
+   |
+   = note: consider declaring type or module `TreeImage` with `pub`
+
+error[E0603]: struct import `TreeImage` is private
+  --> revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs:6:61
+   |
+6  | use crate::file_format::candidate_files::tree_image::{self, TreeImage};
+   |                                                             ^^^^^^^^^ private struct import
+   |
+note: the struct import `TreeImage` is defined here...
+  --> revault_lockbox_api/src/file_format/candidate_files/tree_image.rs:11:16
+   |
+11 | pub(super) use reader::TreeImage;
+   |                ^^^^^^^^^^^^^^^^^
+note: ...and refers to the struct `TreeImage` which is defined here
+  --> revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs:10:1
+   |
+10 | pub(super) struct TreeImage<S: Storage> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0308]: `?` operator has incompatible types
+   --> revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs:187:82
+    |
+187 |         let bytes = layout.read(&self.image.storage, self.image.anchor.archive, &self.image.value_key()?, self.image.anchor.sealed_len)?;
+    |                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^ expected `[u8; 32]`, found `Zeroizing<[u8; 32]>`
+    |
+    = note: `?` operator cannot convert from `zeroize::Zeroizing<[u8; 32]>` to `[u8; 32]`
+    = note: expected array `[u8; 32]`
+              found struct `zeroize::Zeroizing<[u8; 32]>`
+help: consider dereferencing the type
+    |
+187 |         let bytes = layout.read(&self.image.storage, self.image.anchor.archive, &*self.image.value_key()?, self.image.anchor.sealed_len)?;
+    |                                                                                  +
+
+error[E0308]: `?` operator has incompatible types
+   --> revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs:195:82
+    |
+195 |         let bytes = layout.read(&self.image.storage, self.image.anchor.archive, &self.image.value_key()?, self.image.anchor.sealed_len)?;
+    |                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^ expected `[u8; 32]`, found `Zeroizing<[u8; 32]>`
+    |
+    = note: `?` operator cannot convert from `zeroize::Zeroizing<[u8; 32]>` to `[u8; 32]`
+    = note: expected array `[u8; 32]`
+              found struct `zeroize::Zeroizing<[u8; 32]>`
+help: consider dereferencing the type
+    |
+195 |         let bytes = layout.read(&self.image.storage, self.image.anchor.archive, &*self.image.value_key()?, self.image.anchor.sealed_len)?;
+    |                                                                                  +
+
+error[E0308]: `?` operator has incompatible types
+   --> revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs:203:14
+    |
+203 |             &self.image.value_key()?, self.image.anchor.sealed_len)).transpose()
+    |              ^^^^^^^^^^^^^^^^^^^^^^^ expected `[u8; 32]`, found `Zeroizing<[u8; 32]>`
+    |
+    = note: `?` operator cannot convert from `zeroize::Zeroizing<[u8; 32]>` to `[u8; 32]`
+    = note: expected array `[u8; 32]`
+              found struct `zeroize::Zeroizing<[u8; 32]>`
+note: return type inferred to be `[u8; 32]` here
+   --> revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs:203:14
+    |
+203 |             &self.image.value_key()?, self.image.anchor.sealed_len)).transpose()
+    |              ^^^^^^^^^^^^^^^^^^^^^^^
+help: consider dereferencing the type
+    |
+203 |             &*self.image.value_key()?, self.image.anchor.sealed_len)).transpose()
+    |              +
+
+error[E0308]: `?` operator has incompatible types
+   --> revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs:212:14
+    |
+212 |             &self.image.value_key()?, self.image.anchor.sealed_len)).transpose()
+    |              ^^^^^^^^^^^^^^^^^^^^^^^ expected `[u8; 32]`, found `Zeroizing<[u8; 32]>`
+    |
+    = note: `?` operator cannot convert from `zeroize::Zeroizing<[u8; 32]>` to `[u8; 32]`
+    = note: expected array `[u8; 32]`
+              found struct `zeroize::Zeroizing<[u8; 32]>`
+note: return type inferred to be `[u8; 32]` here
+   --> revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs:212:14
+    |
+212 |             &self.image.value_key()?, self.image.anchor.sealed_len)).transpose()
+    |              ^^^^^^^^^^^^^^^^^^^^^^^
+help: consider dereferencing the type
+    |
+212 |             &*self.image.value_key()?, self.image.anchor.sealed_len)).transpose()
+    |              +
+
+error[E0308]: `?` operator has incompatible types
+   --> revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs:217:87
+    |
+217 | ...e, self.image.anchor.archive, &self.image.value_key()?, self.image.anchor.sealed_len)?;
+    |                                   ^^^^^^^^^^^^^^^^^^^^^^^ expected `[u8; 32]`, found `Zeroizing<[u8; 32]>`
+    |
+    = note: `?` operator cannot convert from `zeroize::Zeroizing<[u8; 32]>` to `[u8; 32]`
+    = note: expected array `[u8; 32]`
+              found struct `zeroize::Zeroizing<[u8; 32]>`
+help: consider dereferencing the type
+    |
+217 |         let value = field.read_value(&self.image.storage, self.image.anchor.archive, &*self.image.value_key()?, self.image.anchor.sealed_len)?;
+    |                                                                                       +
+
+Some errors have detailed explanations: E0308, E0365, E0603.
+For more information about an error, try `rustc --explain E0308`.
+error: could not compile `revault_lockbox_api` (lib test) due to 7 previous errors

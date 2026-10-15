@@ -1,0 +1,95 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const root = '/tmp/revault-tree-read-combined-20261010';
+const rust = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust';
+const testJson = '$root/test-build.jsonl';
+const benchJson = '$root/bench-build.jsonl';
+const binary = '$root/bin/revault_lockbox_api_tests';
+const bench = '$root/bin/archive_evaluation';
+const adapterSource = '$rust/revault_lockbox_api/benches/evaluation/candidate_driver.rs';
+
+String sha(String path) {
+  final result = Process.runSync('sha256sum', [path]);
+  if (result.exitCode != 0) throw StateError('sha256sum failed for $path: ${result.stderr}');
+  return '${result.stdout}'.split(RegExp(r'\s+')).first;
+}
+
+String artifact(String path, String name, String kind, {bool? testProfile}) {
+  for (final line in File(path).readAsLinesSync()) {
+    try {
+      final item = jsonDecode(line);
+      if (item is! Map || item['reason'] != 'compiler-artifact') continue;
+      final target = item['target'];
+      final profile = item['profile'];
+      if (target is! Map || profile is! Map || target['name'] != name) continue;
+      if (!(target['kind'] as List).contains(kind)) continue;
+      if (testProfile != null && profile['test'] != testProfile) continue;
+      final executable = item['executable'];
+      if (executable is String && executable.isNotEmpty) return executable;
+    } on FormatException { continue; }
+  }
+  throw StateError('Missing Cargo JSON artifact $name/$kind in $path');
+}
+
+void run(String executable, List<String> args, {Map<String, String>? environment}) {
+  final result = Process.runSync(executable, args, environment: environment);
+  if (result.exitCode != 0) {
+    throw StateError('$executable $args failed (${result.exitCode}):\n${result.stdout}\n${result.stderr}');
+  }
+}
+
+String adapter(String name, {String? variant}) {
+  final output = '$root/bin/$name';
+  final environment = <String, String>{
+    ...Platform.environment,
+    'REVAULT_CANDIDATE_FROZEN_TEST_BINARY': binary,
+    if (variant == 'packed') 'REVAULT_CANDIDATE_FROZEN_DENSE': '1',
+    if (variant == 'tree') 'REVAULT_CANDIDATE_FROZEN_TREE': '1',
+  };
+  run('rustc', ['+1.88.0', '--edition=2021', '-O', adapterSource, '-o', output], environment: environment);
+  run('chmod', ['755', output]);
+  return output;
+}
+
+void main() {
+  Directory('$root/bin').createSync(recursive: true);
+  final coreSource = artifact(testJson, 'revault_lockbox_api', 'lib', testProfile: true);
+  final benchSource = artifact(benchJson, 'archive_evaluation', 'bench');
+  File(coreSource).copySync(binary);
+  File(benchSource).copySync(bench);
+  run('chmod', ['755', binary, bench]);
+  final packed = adapter('adapter_packed', variant: 'packed');
+  final tree = adapter('adapter_tree', variant: 'tree');
+  final c = adapter('adapter_c');
+
+  final sourceFiles = <String, String>{
+    'cargo_lock': '$rust/Cargo.lock',
+    'runner_source': '$rust/revault_lockbox_api/benches/evaluation/runner.rs',
+    'comparison_source': '$rust/revault_lockbox_api/benches/evaluation/existing.rs',
+    'candidate_driver_source': adapterSource,
+    'resource_probe_source': '$rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe.rs',
+    'tree_probe_source': '$rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs',
+  };
+  final hashes = <String, String>{
+    'core_test_binary': sha(binary),
+    'packed_adapter': sha(packed),
+    'tree_adapter': sha(tree),
+    'c_adapter': sha(c),
+    'archive_evaluation_runner': sha(bench),
+    for (final entry in sourceFiles.entries) entry.key: sha(entry.value),
+  };
+  File('$root/build-artifacts.txt').writeAsStringSync('''core_test_source=$coreSource
+core_test_copy=$binary
+bench_source=$benchSource
+bench_copy=$bench
+packed_adapter_source=$adapterSource
+tree_adapter_source=$adapterSource
+c_adapter_source=$adapterSource
+rustc=${Process.runSync('rustc', ['+1.88.0', '--version']).stdout.toString().trim()}
+${const JsonEncoder.withIndent('  ').convert({'paths': sourceFiles, 'sha256': hashes})}
+''', flush: true);
+  print('FROZEN_BUILD ${const JsonEncoder().convert(hashes)}');
+}

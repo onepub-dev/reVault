@@ -1,0 +1,29 @@
+{
+  "status": "incomplete API suites; consumers passed",
+  "default_api": {
+    "exit": 124,
+    "timeout_seconds": 1200,
+    "observed_passed": 283,
+    "observed_ignored": 11,
+    "observed_failed": 0,
+    "complete_summary": false
+  },
+  "native_api": {
+    "exit": 124,
+    "timeout_seconds": 1200,
+    "observed_passed": 287,
+    "observed_ignored": 11,
+    "observed_failed": 0,
+    "complete_summary": false
+  },
+  "last_reported_running_test_both": "file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_upgrade_guarded_atomic_recovery_faults",
+  "consumer_passed": {
+    "cli_creation_options": 3,
+    "cli_password_profiles": 2,
+    "vault_api_lib": 30
+  },
+  "focused_credential_tests_passed": 11,
+  "scope": "Complete API --lib suites, default and native-block-layout, with normal ignore declarations and no skips. No complete-suite or release-qualification claim.",
+  "initial_attempt": "api-default.log was a wrong-working-directory Cargo invocation; no tests ran.",
+  "source_epoch": "Pre-format snapshots and source epochs retained; commit hook follows validation."
+}

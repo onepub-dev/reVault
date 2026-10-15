@@ -1,0 +1,107 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs b/rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs
+index 3a02e758..75989f08 100644
+--- a/rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs
++++ b/rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs
+@@ -198,8 +198,8 @@ impl Index {
+         sealed: u64,
+     ) -> Result<CachedNode> {
+         validate_ref(reference, sealed)?;
+-        let bytes = ZeroizingBytes::new(reference.read_verified(storage)?);
+-        self.decode_cached_node(&bytes, sealed)
++        let bytes = ZeroizingBytes::new(crate::file_format::diagnostic_timing::measure(6, || reference.read_verified(storage))?);
++        crate::file_format::diagnostic_timing::measure(7, || self.decode_cached_node(&bytes, sealed))
+     }
+ }
+ 
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+index f4ba7aeb..0eb3211b 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+@@ -138,6 +138,8 @@ pub(super) fn run(
+         verify(&mut open(), root, count, bytes);
+         let mut observations = Vec::with_capacity(repeats);
+         for _ in 0..repeats {
++            let scope=crate::file_format::diagnostic_timing::begin();
++            let mut functions=serde_json::Map::new();
+             let mut stages = serde_json::Map::new();
+             let started = Instant::now();
+             let storage = storage_meter::Meter::new(StorageBackend::file(&target).unwrap());
+@@ -151,15 +153,17 @@ pub(super) fn run(
+             let opened =
+                 TreeImage::open_observed(storage, archive(), mode, &authority, key, |name| {
+                     let now = Instant::now();
++                    functions.insert(name.into(),crate::file_format::diagnostic_timing::take());
+                     storage_stages.insert(name.into(), meter.take().json());
+                     stages.insert(name.into(), json!(now.duration_since(last).as_secs_f64()));
+                     last = now;
+                 })
+                 .unwrap();
+             let total = started.elapsed().as_secs_f64();
++            drop(scope);
+             assert_eq!(opened.image.filesystem_metadata().unwrap().len(), count);
+             drop(opened);
+-            observations.push(json!({"total_seconds":total,"stages_seconds":stages,"storage_by_stage":storage_stages}));
++            observations.push(json!({"total_seconds":total,"stages_seconds":stages,"storage_by_stage":storage_stages,"functions_by_stage":functions}));
+         }
+         verify(&mut open(), root, count, bytes);
+         assert_eq!(digest_file(&target), before);
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
+index c8a0487e..938cd9d3 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
+@@ -54,7 +54,7 @@ impl<S: Storage> TreeImage<S> {
+             codec: Codec::shared_packed(archive, mode, key)?,
+             key: key.map(|v| Zeroizing::new(v.to_vec())),
+         };
+-        let format = image.required(5, b"format")?;
++        let format = crate::file_format::diagnostic_timing::measure(5, || image.required(5, b"format"))?;
+         if !matches!(
+             format.value.as_slice(),
+             b"RV4FS001" | b"RV4FS002" | b"RV4FS003"
+diff --git a/rust/revault_lockbox_api/src/file_format/mod.rs b/rust/revault_lockbox_api/src/file_format/mod.rs
+index 36a769e0..4e985895 100644
+--- a/rust/revault_lockbox_api/src/file_format/mod.rs
++++ b/rust/revault_lockbox_api/src/file_format/mod.rs
+@@ -1,3 +1,5 @@
++#[cfg(test)]
++pub(crate) mod diagnostic_timing;
+ pub(crate) mod commit_auth;
+ pub(crate) mod commit_root;
+ pub(crate) mod current_header;
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared.rs
+index bd9fb8e6..2e371189 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared.rs
+@@ -289,10 +289,8 @@ fn private_in(
+         if !anchor.keys.absent() {
+             super::bootstrap::read_directory_in(storage, &anchor, Layout::Shared)?;
+         }
+-        crate::file_format::preparation_journal::compact::session::InlineSession::open(
+-            storage, archive, mode, key,
+-        )?
+-        .require_idle(commitment(&anchor)?)?;
++        let session = crate::file_format::diagnostic_timing::measure(3, || crate::file_format::preparation_journal::compact::session::InlineSession::open(storage, archive, mode, key))?;
++        session.require_idle(crate::file_format::diagnostic_timing::measure(4, || commitment(&anchor))?)?;
+     }
+     Ok((anchor, body))
+ }
+@@ -345,7 +343,7 @@ pub(crate) fn snapshot(
+     authority: &Authority<'_>,
+     key: Option<&[u8]>,
+ ) -> Result<(Anchor, crate::page_buffer::ZeroizingBytes)> {
+-    let anchor = select_in(storage, archive, mode, authority, Layout::Shared)?.anchor;
++    let anchor = crate::file_format::diagnostic_timing::measure(0, || select_in(storage, archive, mode, authority, Layout::Shared))?.anchor;
+     if anchor.index.len != PRIVATE_BYTES as u64
+         || anchor.object_root != anchor.index.digest
+         || !anchor.allocation.absent()
+@@ -354,8 +352,8 @@ pub(crate) fn snapshot(
+         return Err(Error::CorruptRecord);
+     }
+     let stored =
+-        crate::page_buffer::ZeroizingBytes::new(read_root(storage, &anchor, RootRole::Private)?);
+-    let body = catalogue::Codec::new(archive, mode, key)?.decode(&stored)?;
++        crate::page_buffer::ZeroizingBytes::new(crate::file_format::diagnostic_timing::measure(1, || read_root(storage, &anchor, RootRole::Private))?);
++    let body = crate::file_format::diagnostic_timing::measure(2, || catalogue::Codec::new(archive, mode, key)?.decode(&stored))?;
+     Ok((anchor, body))
+ }
+ pub(crate) fn encode_private(

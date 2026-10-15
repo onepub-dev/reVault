@@ -1,0 +1,113 @@
+[package]
+edition = "2021"
+rust-version = "1.88"
+name = "revault_vault_v2_container_v1_reader"
+version = "0.0.4"
+build = false
+exclude = ["AGENT_SLEEP_VM_TESTING.md"]
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "Frozen historical reVault compatibility reader for isolated migration"
+documentation = "https://docs.rs/revault_vault_v2_container_v1_reader"
+readme = "README.md"
+license-file = "LICENSE"
+repository = "https://github.com/onepub-dev/reVault"
+
+[lib]
+name = "revault_vault_api"
+path = "src/lib.rs"
+test = false
+doctest = false
+
+[dependencies.base64ct]
+version = "1"
+features = ["alloc"]
+
+[dependencies.chacha20poly1305]
+version = "0.11"
+
+[dependencies.getrandom]
+version = "0.4"
+
+[dependencies.revault_lockbox_api]
+package = "revault_archive_v1_reader"
+version = "0.0.4"
+path = "../revault_archive_v1_reader"
+features = ["vault-integration"]
+
+[dependencies.serde]
+version = "1"
+features = ["derive"]
+
+[dependencies.serde_json]
+version = "1"
+
+[dependencies.sha2]
+version = "0.11"
+
+[dependencies.zeroize]
+version = "1.9"
+
+[target.'cfg(target_os = "linux")'.dependencies.dbus]
+version = "0.9.11"
+
+[target.'cfg(target_os = "linux")'.dependencies.keyring]
+version = "4.1.4"
+features = ["v1"]
+default-features = false
+
+[target.'cfg(target_os = "linux")'.dependencies.secret-service]
+version = "5.1.0"
+features = ["rt-async-io-crypto-rust"]
+
+[target.'cfg(target_os = "linux")'.dependencies.zbus]
+version = "5"
+features = [
+    "async-io",
+    "blocking-api",
+]
+default-features = false
+
+[target.'cfg(target_os = "macos")'.dependencies.keyring]
+version = "4.1.4"
+features = ["v1"]
+default-features = false
+
+[target.'cfg(target_os = "macos")'.dependencies.objc2-core-foundation]
+version = "0.3.2"
+features = ["CFRunLoop"]
+
+[target.'cfg(target_os = "macos")'.dependencies.objc2-io-kit]
+version = "0.3.2"
+features = [
+    "libc",
+    "pwr_mgt",
+]
+default-features = false
+
+[target."cfg(unix)".dependencies.libc]
+version = "0.2"
+
+[target."cfg(windows)".dependencies.keyring]
+version = "4.1.4"
+features = ["v1"]
+default-features = false
+
+[target."cfg(windows)".dependencies.windows-sys]
+version = "0.61"
+features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_EventLog",
+    "Win32_System_IO",
+    "Win32_System_Memory",
+    "Win32_System_Power",
+    "Win32_System_Pipes",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+]

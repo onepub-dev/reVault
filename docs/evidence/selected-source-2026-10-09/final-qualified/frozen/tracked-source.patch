@@ -1,0 +1,282 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
+index fdf01059..a251c439 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
+@@ -245,3 +245,5 @@ fn typed_form_snapshots_large_metadata_history_and_retention_all_modes() {
+ }
+ 
+ mod moves;
++
++mod selected_source;
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/aggregate.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/aggregate.rs
+index 2d72a435..81a7ecf5 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/aggregate.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/aggregate.rs
+@@ -19,7 +19,11 @@ fn memory() -> serde_json::Value {
+ }
+ #[test]
+ #[ignore = "fresh-process form aggregate endpoint probe"]
+-fn typed_form_aggregate_guarded_snapshot_probe() {
++fn typed_form_aggregate_guarded_snapshot_probe() {run(false)}
++#[test]
++#[ignore="fresh-process selected-source aggregate endpoint probe"]
++fn typed_form_selected_source_aggregate_probe(){run(true)}
++fn run(selected_source:bool) {
+     let bits: usize = std::env::var("REVAULT_FORM_MODE").unwrap().parse().unwrap();
+     assert!(bits < 16);
+     let path = std::path::PathBuf::from(std::env::var_os("REVAULT_FORM_IMAGE").unwrap());
+@@ -108,6 +112,15 @@ fn typed_form_aggregate_guarded_snapshot_probe() {
+     drop(record);
+     drop(def);
+     drop(source);
++    let mut after_selected_source=None;
++    let ranges=if selected_source {
++        let writer=Guarded::new(StorageBackend::file_for_write(&path).unwrap(),ranges);
++        let old={let opened=TreeImage::open(crate::file_format::allocation_map::compaction::View(&writer),archive(),mode,&authority,key(mode)).unwrap();opened.image.catalogue.forms.texts().into_iter().flat_map(|t|t.extents.iter().copied()).collect::<Vec<_>>()};
++        let writer=super::selected_source::replace_without_clone(writer,mode,&authority,&owner).unwrap();
++        after_selected_source=Some(memory());
++        for extent in old{if extent.start<writer.len().unwrap(){let len=extent.len.min(writer.len().unwrap()-extent.start)as usize;let bytes=writer.read_at_secure(extent.start,len).unwrap();bytes.with_bytes(|b|assert!(b.iter().all(|b|*b==0))).unwrap();}}
++        let ranges=writer.spans.borrow().clone();drop(writer);ranges
++    }else{ranges};
+     let mut opened = TreeImage::open(
+         Guarded::new(StorageBackend::file(&path).unwrap(), ranges),
+         archive(),
+@@ -277,8 +290,9 @@ fn typed_form_aggregate_guarded_snapshot_probe() {
+     ] {
+         assert!(metric["vm_lck_kib"].as_u64().unwrap() <= 8192);
+     }
++    if let Some(metric)=&after_selected_source{assert!(metric["vm_lck_kib"].as_u64().unwrap()<=8192);}
+     println!(
+-        "FORM_AGGREGATE {}",
+-        serde_json::json!({"mode":bits,"source_secret_bytes":size,"secret_fields":8,"logical_bytes":logical_bytes,"stored_payload_bytes":stored_payload_bytes,"archive_bytes":opened.image.storage.len().unwrap(),"before_source":before_source,"after_source":after_source,"after_definition":after_definition,"after_record":after_record,"after_read":after_read,"after_salvage":after_salvage})
++        "{} {}",if selected_source{"SELECTED_FORM_AGGREGATE"}else{"FORM_AGGREGATE"},
++        serde_json::json!({"mode":bits,"source_secret_bytes":size,"secret_fields":8,"logical_bytes":logical_bytes,"stored_payload_bytes":stored_payload_bytes,"archive_bytes":opened.image.storage.len().unwrap(),"before_source":before_source,"after_source":after_source,"after_definition":after_definition,"after_record":after_record,"after_read":after_read,"after_salvage":after_salvage,"after_selected_source":after_selected_source})
+     );
+ }
+diff --git a/rust/revault_lockbox_api/src/file_format/form_segments.rs b/rust/revault_lockbox_api/src/file_format/form_segments.rs
+index 14efeceb..795ad886 100644
+--- a/rust/revault_lockbox_api/src/file_format/form_segments.rs
++++ b/rust/revault_lockbox_api/src/file_format/form_segments.rs
+@@ -182,7 +182,24 @@ impl Layout {
+     ) -> Result<SecureVec> {
+         self.validate(sealed)?;
+         let mut value = SecureVec::new();
+-        for (ordinal, extent) in self.extents.iter().enumerate() {
++        for ordinal in 0..self.count() {
++            self.append_part(storage,archive,content_key,sealed,ordinal,&mut value)?;
++        }
++        if value.len() != self.length {
++            return Err(Error::CorruptRecord);
++        }
++        value.with_bytes(|bytes| {
++            let text = std::str::from_utf8(bytes).map_err(|_| Error::CorruptRecord)?;
++            crate::security::validate_variable_value_ref(text).map_err(|_| Error::CorruptRecord)
++        })??;
++        Ok(value)
++    }
++    /// Validate one stored segment before appending only its body. Individual
++    /// segments may split UTF-8; full-text semantic admission remains separate.
++    #[allow(clippy::too_many_arguments)]
++    pub(crate) fn append_part(&self,storage:&impl Storage,archive:LockboxId,content_key:&[u8;32],sealed:u64,ordinal:usize,target:&mut SecureVec)->Result<()> {
++        self.validate(sealed)?;
++        let extent=self.extents.get(ordinal).ok_or(Error::CorruptRecord)?;
+             let mut page = storage.read_at_secure(extent.start, extent.len as usize)?;
+             if page.with_bytes(strong_checksum)? != extent.digest {
+                 return Err(Error::CorruptRecord);
+@@ -210,17 +227,10 @@ impl Layout {
+             {
+                 return Err(Error::CorruptRecord);
+             }
+-            value.try_extend_secure_range(payload, PREFIX, length)?;
+-        }
+-        if value.len() != self.length {
+-            return Err(Error::CorruptRecord);
+-        }
+-        value.with_bytes(|bytes| {
+-            let text = std::str::from_utf8(bytes).map_err(|_| Error::CorruptRecord)?;
+-            crate::security::validate_variable_value_ref(text).map_err(|_| Error::CorruptRecord)
+-        })??;
+-        Ok(value)
++            target.try_extend_secure_range(payload, PREFIX, length)?;
++        Ok(())
+     }
++
+ }
+ 
+ /// Borrowed input: guarded secret/byte sources retain scoped access; ordinary
+@@ -377,3 +387,33 @@ pub(crate) fn context(
+ 
+ #[cfg(test)]
+ mod tests;
++
++pub(crate) struct PreparedStoredSegments {
++ pub layout:Layout,
++ pub pages:super::page::secure_storage::PreparedSecurePages,
++ pub payload:super::publication_anchor::shared::tree::StoragePayloadCallback<'static>,
++}
++/// Source capability is admitted before this first full semantic read. Rendering
++/// later revalidates each old segment and the prepared destination fingerprint.
++#[allow(clippy::too_many_arguments)]
++pub(crate) fn prepare_stored(source:&Layout,view:super::publication_anchor::shared::tree::ReadView<'_>,archive:LockboxId,mode:FormatMode,content_key:&[u8;32],id:[u8;16],context:[u8;32],revision:u64,sensitivity:VariableSensitivity)->Result<PreparedStoredSegments>{
++ if source.mode!=mode{return Err(Error::CorruptRecord);}
++ let sealed=view.len()?;
++ let validated=source.read(&view,archive,content_key,sealed)?;
++ let mut layout=source_layout(Source::Bytes(&validated),mode,id,context,revision,sensitivity)?;
++ drop(validated);
++ let template=layout.clone();let source=source.clone();let source_key=zeroize::Zeroizing::new(*content_key);
++ let payload=move|ordinal:usize,view:super::publication_anchor::shared::tree::ReadView<'_>|->Result<SecureVec>{
++  if ordinal>=template.count(){return Err(Error::CorruptRecord);}
++  let mut raw=SecureVec::try_from_slice(&template.prefix(archive,ordinal))?;
++  source.append_part(&view,archive,&source_key,view.len()?,ordinal,&mut raw)?;
++  Ok(raw)
++ };
++ let mut pages=super::page::secure_storage::PreparedSecurePages::new(layout.count())?;
++ for ordinal in 0..layout.count(){
++  let raw=payload(ordinal,view)?;
++  pages.push(SecureSingleObjectPage{format_mode:mode,page_size:secure_page_size(raw.len(),mode)?,lockbox_id:archive,page_id:layout.page_id(ordinal),sequence:revision,content_key,kind:PageObjectKind::FormLeaf,id:layout.page_id(ordinal),payload:&raw})?;
++  layout.extents.push(Extent{start:0,len:pages.size(ordinal)?as u64,digest:pages.digest(ordinal)?});
++ }
++ Ok(PreparedStoredSegments{layout,pages,payload:Box::new(payload)})
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
+index 52044793..cb9f1d7e 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
+@@ -262,4 +262,5 @@ pub(crate) use update::{
+     grow_dense_payload_records, grow_dense_records, recover_update, relocate_records,
+     rewrite_payload_records, rewrite_prepared_secure_payload_records, rewrite_records,
+     rewrite_secure_payload_records, PayloadPlan, PreparedSecurePayloadPlan, SecurePayloadPlan,
++    rewrite_prepared_storage_payload_records, PreparedStoragePayloadPlan, ReadView, SelectedSource, StoragePayloadCallback,
+ };
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update.rs
+index 234d670e..56bb85e1 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update.rs
+@@ -5,6 +5,9 @@ use crate::file_format::preparation_journal::compact::session::{InlineSession, O
+ 
+ pub(super) const MAX_APPEND: u64 =
+     (2 * MAX_PAGES as u64 + 5) * FAILURE_REGION + MAX_PAYLOAD_BYTES as u64;
++mod source;
++pub(crate) use source::{ReadView, SelectedSource};
++
+ const MAX_RECORD_BYTES: usize = 64 * 1024 * 1024;
+ const MAX_PAYLOAD_BYTES: usize = 64 * 1024 * 1024;
+ type RebindRecords = Box<dyn FnOnce(&[Extent]) -> Result<Vec<Entry>>>;
+@@ -34,7 +37,17 @@ pub(crate) struct PreparedSecurePayloadPlan<'a> {
+     pub payload: Box<dyn FnMut(usize) -> Result<crate::secret_vec::SecureVec> + 'a>,
+     pub rebind: RebindRecords,
+ }
++pub(crate) type StoragePayloadCallback<'a> = Box<dyn for<'s> FnMut(usize, ReadView<'s>) -> Result<crate::secret_vec::SecureVec> + 'a>;
++/// Regenerate from admitted old selected extents without cloning storage.
++pub(crate) struct PreparedStoragePayloadPlan<'a> {
++ pub source:SelectedSource,
++ pub retired:Vec<Extent>,
++ pub pages:crate::file_format::page::secure_storage::PreparedSecurePages,
++ pub payload:StoragePayloadCallback<'a>,
++ pub rebind:RebindRecords,
++}
+ enum StagingBytes<'a> {
++ Selected {source:SelectedSource,pages:crate::file_format::page::secure_storage::PreparedSecurePages,payload:StoragePayloadCallback<'a>},
+     Ready(Vec<PayloadBytes>),
+     Prepared {
+         pages: crate::file_format::page::secure_storage::PreparedSecurePages,
+@@ -45,13 +58,13 @@ impl StagingBytes<'_> {
+     fn count(&self) -> usize {
+         match self {
+             Self::Ready(bytes) => bytes.len(),
+-            Self::Prepared { pages, .. } => pages.len(),
++            Self::Prepared { pages, .. } | Self::Selected {pages,..} => pages.len(),
+         }
+     }
+     fn size(&self, index: usize) -> Result<usize> {
+         match self {
+             Self::Ready(bytes) => Ok(bytes.get(index).ok_or(Error::CorruptRecord)?.len()),
+-            Self::Prepared { pages, .. } => pages.size(index),
++            Self::Prepared { pages, .. } | Self::Selected {pages,..} => pages.size(index),
+         }
+     }
+     fn digest(&self, index: usize) -> Result<[u8; 32]> {
+@@ -60,24 +73,29 @@ impl StagingBytes<'_> {
+                 .get(index)
+                 .ok_or(Error::CorruptRecord)?
+                 .with_bytes(strong_checksum),
+-            Self::Prepared { pages, .. } => pages.digest(index),
++            Self::Prepared { pages, .. } | Self::Selected {pages,..} => pages.digest(index),
+         }
+     }
+-    fn with_page(
+-        &mut self,
+-        index: usize,
+-        f: impl FnOnce(&PayloadBytes) -> Result<()>,
+-    ) -> Result<()> {
++    fn with_page<S:Storage>(
++        &mut self,index:usize,storage:&mut S,
++        f:impl FnOnce(&PayloadBytes,&mut S)->Result<()>,
++    )->Result<()> {
+         match self {
+-            Self::Ready(bytes) => f(bytes.get(index).ok_or(Error::CorruptRecord)?),
+-            Self::Prepared { pages, payload } => {
+-                let raw = payload(index)?;
+-                let encoded = pages.render(index, &raw)?;
+-                drop(raw);
+-                f(&PayloadBytes::Secure(encoded))
++            Self::Ready(bytes)=>f(bytes.get(index).ok_or(Error::CorruptRecord)?,storage),
++            Self::Prepared{pages,payload}=>{
++                let raw=payload(index)?;let encoded=pages.render(index,&raw)?;drop(raw);
++                f(&PayloadBytes::Secure(encoded),storage)
++            }
++            Self::Selected{source,pages,payload}=>{
++                // Borrow only the Append wrapper. Each source read's inner
++                // RefCell borrow ends before raw returns, rendering or writes.
++                let raw={let view=source.view(&*storage);payload(index,view)?};
++                let encoded=pages.render(index,&raw)?;drop(raw);
++                f(&PayloadBytes::Secure(encoded),storage)
+             }
+         }
+     }
++
+ }
+ enum PayloadBytes {
+     Ordinary(crate::page_buffer::ZeroizingBytes),
+@@ -162,6 +180,15 @@ impl<'a> From<PreparedSecurePayloadPlan<'a>> for StagingPlan<'a> {
+         }
+     }
+ }
++impl<'a> From<PreparedStoragePayloadPlan<'a>> for StagingPlan<'a> {
++ fn from(plan:PreparedStoragePayloadPlan<'a>)->Self {
++  Self{base:plan.source.base(),retired:plan.retired,bytes:StagingBytes::Selected{source:plan.source,pages:plan.pages,payload:plan.payload},rebind:plan.rebind}
++ }
++}
++#[allow(clippy::too_many_arguments)]
++pub(crate) fn rewrite_prepared_storage_payload_records(storage:&mut impl Storage,archive:LockboxId,mode:FormatMode,authority:&Authority<'_>,signer:Option<&OwnerSigningKeyPair>,key:Option<&[u8]>,records:Vec<Entry>,payloads:PreparedStoragePayloadPlan<'_>)->Result<bool>{
++ rewrite_inner(storage,archive,mode,authority,signer,key,records,false,true,false,Some(payloads.into()))
++}
+ #[allow(clippy::too_many_arguments)]
+ pub(crate) fn rewrite_prepared_secure_payload_records(
+     storage: &mut impl Storage,
+@@ -370,6 +397,7 @@ fn rewrite_inner(
+         if plan.base != commitment(&old.anchor)? {
+             return Err(Error::CorruptRecord);
+         }
++        if let StagingBytes::Selected{source,..}=&plan.bytes{source.validate(&old)?;}
+         for extent in &plan.retired {
+             if !starts.insert(extent.start) || !live.contains(extent) {
+                 return Err(Error::CorruptRecord);
+@@ -665,7 +693,7 @@ fn rewrite_inner(
+             return Err(Error::CorruptRecord);
+         }
+         for (index, extent) in staged.iter().enumerate() {
+-            staged_bytes.with_page(index, |bytes| {
++            staged_bytes.with_page(index, &mut append, |bytes, append| {
+                 // Verify source reproduction before touching its reserved extent.
+                 if bytes.len() as u64 != extent.len
+                     || bytes.with_bytes(strong_checksum)? != extent.digest
+@@ -680,7 +708,7 @@ fn rewrite_inner(
+                     }
+                     Ok(())
+                 })??;
+-                bytes.verify(&append, *extent)
++                bytes.verify(append, *extent)
+             })?;
+         }
+         let padded = payload_end.div_ceil(FAILURE_REGION) * FAILURE_REGION;

@@ -1,0 +1,12 @@
+{
+  "focused_test_executions": 7,
+  "all_exit_zero": true,
+  "default_cache_lifecycle": 2,
+  "native_cache_lifecycle": 2,
+  "pressure_commit_abort_all_modes": 1,
+  "public_cli": 2,
+  "full_suite_rerun": false,
+  "runtime_changed_after_measurement": false,
+  "wasm_or_binding_change_required": false,
+  "remaining_usage_percent": 67
+}

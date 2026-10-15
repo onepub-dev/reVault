@@ -1,0 +1,54 @@
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+   Compiling revault_cli v0.5.0-dev.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli)
+    Finished `release` profile [optimized] target(s) in 1.08s
+     Running tests/mirror_cli.rs (target/release/deps/mirror_cli-bbde545f3f994456)
+
+running 1 test
+test extraction_restores_stored_permissions_by_default_with_opt_out ... CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714643
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714643 elapsed=25.767032ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714644
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714644 elapsed=326.368672ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714653
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714653 elapsed=401.943416ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714675
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714675 elapsed=401.964827ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714678
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714678 elapsed=427.14462ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714681
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714681 elapsed=402.276121ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714684
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714684 elapsed=402.281531ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714773
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714773 elapsed=402.125398ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714777
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714777 elapsed=402.275951ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714780
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714780 elapsed=402.22373ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714785
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714785 elapsed=426.849197ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714807
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714807 elapsed=401.831295ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714811
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714811 elapsed=402.058248ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714814
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714814 elapsed=402.073267ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714825
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714825 elapsed=401.959166ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714855
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714855 elapsed=427.488065ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714858
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714858 elapsed=402.239ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714862
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714862 elapsed=402.18527ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714865
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714865 elapsed=402.270291ms status=exit status: 1
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714868
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714868 elapsed=401.872375ms status=exit status: 0
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714871
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714871 elapsed=26.090896ms status=exit status: 2
+CLI start: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714872
+CLI end: test=extraction_restores_stored_permissions_by_default_with_opt_out pid=714872 elapsed=26.083716ms status=exit status: 2
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 7.74s
+

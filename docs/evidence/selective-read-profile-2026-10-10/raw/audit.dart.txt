@@ -1,0 +1,83 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const root = '/tmp/revault-selective-profile-20261010';
+const fixtureBase = '/tmp/revault-selective-read-20261010/fixtures';
+const previous = '/tmp/revault-selective-read-20261010';
+const names = ['raw8m-random', 'raw64m-random', 'compressed8m-pattern', 'small512-mixed-compressed'];
+
+String sha(String path) {
+  final result = Process.runSync('sha256sum', [path]);
+  if (result.exitCode != 0) throw StateError('sha256sum failed: ${result.stderr}');
+  return '${result.stdout}'.split(RegExp(r'\s+')).first;
+}
+
+Map<String, String> fixtureHashes(String name) {
+  final dir = '$fixtureBase/$name';
+  final paths = <String, String>{
+    'archive.zip': '$dir/archive.zip',
+    'candidate.lbox': '$dir/candidate.lbox',
+    'candidate.public': '$dir/candidate.public',
+    'case.json': '$dir/case.json',
+    'inventory.json': '$dir/inventory.json',
+    'other/case.json': '$dir/other/case.json',
+    'other/tree.lbox': '$dir/other/tree.lbox',
+    'other/tree.public': '$dir/other/tree.public',
+  };
+  for (final entity in Directory('$dir/source').listSync(recursive: true, followLinks: true)) {
+    if (entity is File) paths[entity.path.substring('$dir/'.length)] = entity.path;
+  }
+  return {for (final entry in paths.entries) entry.key: sha(entry.value)};
+}
+
+dynamic canonical(dynamic value) {
+  if (value is Map) {
+    final keys = value.keys.map((key) => key.toString()).toList()..sort();
+    return {for (final key in keys) key: canonical(value[key])};
+  }
+  if (value is List) return value.map(canonical).toList();
+  return value;
+}
+
+void main() {
+  final current = {for (final name in names) name: fixtureHashes(name)};
+  final priorBefore = jsonDecode(File('$previous/hash-before.json').readAsStringSync())['fixtures'] as Map<String, dynamic>;
+  final priorAfter = jsonDecode(File('$previous/hash-after.json').readAsStringSync())['fixtures'] as Map<String, dynamic>;
+  final summaryFile = File('$root/summary.json');
+  final summary = jsonDecode(summaryFile.readAsStringSync()) as Map<String, dynamic>;
+  final diagnosticMap = summary['diagnostics'] as Map<String, dynamic>;
+  final checkedArchives = {
+    for (final name in names)
+      name: diagnosticMap[name]['archive_sha256'] as String,
+  };
+  final raw64Stream = jsonDecode(File('$root/raw64m-stream-summary.json').readAsStringSync()) as Map<String, dynamic>;
+  final fixtureArchiveHashes = {
+    for (final name in names) name: current[name]!['other/tree.lbox'],
+  };
+  final stableAgainstPreparedBaseline = jsonEncode(canonical(priorBefore)) == jsonEncode(canonical(current)) && jsonEncode(canonical(priorAfter)) == jsonEncode(canonical(current));
+  final allVerified = diagnosticMap.values.every((value) => value['verified'] == true);
+  final raw64StreamVerified = raw64Stream['verified'] == true && raw64Stream['archive_sha256'] == current['raw64m-random']!['other/tree.lbox'];
+  final output = {
+    'fixtures_current_sha256': current,
+    'prepared_batch_before_fixture_sha256': priorBefore,
+    'prepared_batch_after_fixture_sha256': priorAfter,
+    'diagnostic_archive_sha256': checkedArchives,
+    'fixture_archive_sha256': fixtureArchiveHashes,
+    'fixture_archives_match_diagnostic': jsonEncode(checkedArchives) == jsonEncode(fixtureArchiveHashes),
+    'fixtures_match_prepared_batch_before_and_after': stableAgainstPreparedBaseline,
+    'all_content_verified': allVerified,
+    'raw64m_stream_diagnostic': raw64Stream,
+    'raw64m_stream_archive_and_bytes_verified': raw64StreamVerified,
+    'profile_binary_sha256_before_after': summary['binary_sha256_before_after'],
+    'profile_source_sha256_before': summary['source_sha256_before'],
+    'profile_source_sha256_after': summary['source_sha256_after'],
+  };
+  File('$root/audit.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(output), flush: true);
+  final archivesMatch = output['fixture_archives_match_diagnostic'] as bool;
+  if (!stableAgainstPreparedBaseline || !archivesMatch || !allVerified || !raw64StreamVerified) {
+    throw StateError('fixture or byte verification audit failed; see $root/audit.json');
+  }
+  print('AUDIT_OK $root/audit.json all_fixture_hashes_match=true all_diagnostics_verified=true');
+}

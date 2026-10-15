@@ -1,0 +1,343 @@
+{
+  "accepted": 112,
+  "measured": 96,
+  "preparation": 16,
+  "retain": false,
+  "all_nonregression_gates": false,
+  "both_large_median_memory_gates": true,
+  "results": [
+    {
+      "case": "256-files-64mib",
+      "aggregate": {
+        "geometric_mean_ratio": 0.886786164157751,
+        "low95": 0.8493944921714585,
+        "high95": 0.927851193431892,
+        "pairs": 12,
+        "blocks": 6,
+        "replicates": 10000,
+        "seed": 2637701995
+      },
+      "round_strata": [
+        {
+          "geometric_mean_ratio": 0.8937484670293713,
+          "low95": 0.8421226520706502,
+          "high95": 0.9539637261579567,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 1511448488
+        },
+        {
+          "geometric_mean_ratio": 0.8798780976435228,
+          "low95": 0.8306460052337828,
+          "high95": 0.9383636814684923,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 1528226107
+        }
+      ],
+      "variants": {
+        "old": {
+          "median_seconds": 0.665,
+          "minimum_seconds": 0.57,
+          "maximum_seconds": 0.7,
+          "median_rss_bytes": 210432000.0,
+          "maximum_rss_bytes": 211513344.0,
+          "maximum_including_preparation_rss_bytes": 211513344.0,
+          "every_rss_bytes": [
+            210137088.0,
+            210141184.0,
+            210284544.0,
+            210341888.0,
+            210374656.0,
+            210378752.0,
+            210485248.0,
+            210513920.0,
+            210677760.0,
+            210829312.0,
+            210919424.0,
+            211513344.0
+          ]
+        },
+        "new": {
+          "median_seconds": 0.58,
+          "minimum_seconds": 0.55,
+          "maximum_seconds": 0.6,
+          "median_rss_bytes": 59777024.0,
+          "maximum_rss_bytes": 60084224.0,
+          "maximum_including_preparation_rss_bytes": 60084224.0,
+          "every_rss_bytes": [
+            59400192.0,
+            59478016.0,
+            59527168.0,
+            59645952.0,
+            59650048.0,
+            59772928.0,
+            59781120.0,
+            59863040.0,
+            59908096.0,
+            60002304.0,
+            60067840.0,
+            60084224.0
+          ]
+        }
+      },
+      "archive_bytes": 67419520.0,
+      "maximum_rss_ratio": 0.28406824299463584,
+      "median_rss_ratio": 0.28406812652068125,
+      "nonregression_gate": true
+    },
+    {
+      "case": "1024-files-1gib",
+      "aggregate": {
+        "geometric_mean_ratio": 0.8972010973450101,
+        "low95": 0.8639999201917061,
+        "high95": 0.9265616796139199,
+        "pairs": 12,
+        "blocks": 6,
+        "replicates": 10000,
+        "seed": 3521477284
+      },
+      "round_strata": [
+        {
+          "geometric_mean_ratio": 0.9031755815294704,
+          "low95": 0.8742845283043713,
+          "high95": 0.9326163840417857,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 1794368393
+        },
+        {
+          "geometric_mean_ratio": 0.8912661342259995,
+          "low95": 0.8425960002197319,
+          "high95": 0.9457694221192074,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 1777590774
+        }
+      ],
+      "variants": {
+        "old": {
+          "median_seconds": 4.234999999999999,
+          "minimum_seconds": 3.86,
+          "maximum_seconds": 4.48,
+          "median_rss_bytes": 253884416.0,
+          "maximum_rss_bytes": 254427136.0,
+          "maximum_including_preparation_rss_bytes": 254427136.0,
+          "every_rss_bytes": [
+            253628416.0,
+            253661184.0,
+            253747200.0,
+            253788160.0,
+            253861888.0,
+            253882368.0,
+            253886464.0,
+            253943808.0,
+            253952000.0,
+            253988864.0,
+            254070784.0,
+            254427136.0
+          ]
+        },
+        "new": {
+          "median_seconds": 3.815,
+          "minimum_seconds": 3.38,
+          "maximum_seconds": 4.06,
+          "median_rss_bytes": 67698688.0,
+          "maximum_rss_bytes": 68022272.0,
+          "maximum_including_preparation_rss_bytes": 68022272.0,
+          "every_rss_bytes": [
+            67129344.0,
+            67366912.0,
+            67506176.0,
+            67530752.0,
+            67538944.0,
+            67641344.0,
+            67756032.0,
+            67858432.0,
+            67874816.0,
+            67944448.0,
+            67956736.0,
+            68022272.0
+          ]
+        }
+      },
+      "archive_bytes": 1074367872.0,
+      "maximum_rss_ratio": 0.2673546268272265,
+      "median_rss_ratio": 0.2666516088959158,
+      "nonregression_gate": true
+    },
+    {
+      "case": "256-source-files-64mib",
+      "aggregate": {
+        "geometric_mean_ratio": 1.3011796666995283,
+        "low95": 1.2748014494522748,
+        "high95": 1.3301045585002245,
+        "pairs": 12,
+        "blocks": 6,
+        "replicates": 10000,
+        "seed": 3888311341
+      },
+      "round_strata": [
+        {
+          "geometric_mean_ratio": 1.2375153312774065,
+          "low95": 1.1782380886445845,
+          "high95": 1.311686665507933,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 896127070
+        },
+        {
+          "geometric_mean_ratio": 1.3681192323368239,
+          "low95": 1.333299155568192,
+          "high95": 1.4050525330722536,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 912904689
+        }
+      ],
+      "variants": {
+        "old": {
+          "median_seconds": 0.35,
+          "minimum_seconds": 0.32,
+          "maximum_seconds": 0.38,
+          "median_rss_bytes": 118792192.0,
+          "maximum_rss_bytes": 120242176.0,
+          "maximum_including_preparation_rss_bytes": 120242176.0,
+          "every_rss_bytes": [
+            117301248.0,
+            117886976.0,
+            117907456.0,
+            118042624.0,
+            118382592.0,
+            118423552.0,
+            119160832.0,
+            119242752.0,
+            119644160.0,
+            119758848.0,
+            119881728.0,
+            120242176.0
+          ]
+        },
+        "new": {
+          "median_seconds": 0.445,
+          "minimum_seconds": 0.42,
+          "maximum_seconds": 0.49,
+          "median_rss_bytes": 39473152.0,
+          "maximum_rss_bytes": 40026112.0,
+          "maximum_including_preparation_rss_bytes": 40026112.0,
+          "every_rss_bytes": [
+            38469632.0,
+            38699008.0,
+            38834176.0,
+            39047168.0,
+            39088128.0,
+            39297024.0,
+            39649280.0,
+            39682048.0,
+            39731200.0,
+            39739392.0,
+            39956480.0,
+            40026112.0
+          ]
+        }
+      },
+      "archive_bytes": 11779456.0,
+      "maximum_rss_ratio": 0.3328791388472544,
+      "median_rss_ratio": 0.33228742845321013,
+      "nonregression_gate": false
+    },
+    {
+      "case": "1024-source-files-1gib",
+      "aggregate": {
+        "geometric_mean_ratio": 1.2051826787045314,
+        "low95": 1.1421694756484486,
+        "high95": 1.2532923179426325,
+        "pairs": 12,
+        "blocks": 6,
+        "replicates": 10000,
+        "seed": 3817158658
+      },
+      "round_strata": [
+        {
+          "geometric_mean_ratio": 1.1849839412303804,
+          "low95": 1.0766529194399086,
+          "high95": 1.2884910891580716,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 423346531
+        },
+        {
+          "geometric_mean_ratio": 1.2257257153555352,
+          "low95": 1.190829635206797,
+          "high95": 1.258091380101754,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 406568912
+        }
+      ],
+      "variants": {
+        "old": {
+          "median_seconds": 1.49,
+          "minimum_seconds": 1.41,
+          "maximum_seconds": 1.8,
+          "median_rss_bytes": 234586112.0,
+          "maximum_rss_bytes": 234991616.0,
+          "maximum_including_preparation_rss_bytes": 234991616.0,
+          "every_rss_bytes": [
+            232443904.0,
+            234409984.0,
+            234450944.0,
+            234491904.0,
+            234491904.0,
+            234577920.0,
+            234594304.0,
+            234696704.0,
+            234893312.0,
+            234934272.0,
+            234954752.0,
+            234991616.0
+          ]
+        },
+        "new": {
+          "median_seconds": 1.8050000000000002,
+          "minimum_seconds": 1.71,
+          "maximum_seconds": 1.91,
+          "median_rss_bytes": 45363200.0,
+          "maximum_rss_bytes": 46034944.0,
+          "maximum_including_preparation_rss_bytes": 46034944.0,
+          "every_rss_bytes": [
+            44802048.0,
+            44933120.0,
+            45113344.0,
+            45129728.0,
+            45256704.0,
+            45305856.0,
+            45420544.0,
+            45522944.0,
+            45527040.0,
+            45789184.0,
+            45817856.0,
+            46034944.0
+          ]
+        }
+      },
+      "archive_bytes": 183300480.0,
+      "maximum_rss_ratio": 0.19590036778163183,
+      "median_rss_ratio": 0.1933754714345579,
+      "nonregression_gate": false
+    }
+  ],
+  "samples_sha256": "bbce660ea4c6df2f7bb6cb379d353a0c71454bbc95894a422ebbd05acde075bd",
+  "identities_sha256": "ba4884463109ee76e801fc98ff8113370f4b7f0e5213a0f5f32ecd7714877cbb",
+  "analysis_script_sha256": "0404c76a375197adb4ba408c66df01145023c107536058212d0b0850e9dbd9df",
+  "statistics_helper_sha256": "44a33381aaa2e00a4c8913e9b5cb0c264dada5b67c3be0157f4861a40b6e89fb",
+  "scope": "Plaintext many-file extraction, CLI process RSS retention gate; agent-inclusive bounds separately recorded; preparation reported separately; no universal100MB claim."
+}

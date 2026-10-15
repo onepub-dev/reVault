@@ -1,0 +1,4 @@
+case,metric,main_us,branch_us,paired_change_pct,low95_pct,high95_pct,pairs
+encrypted-signed/true/whole,open,1002.405,1026.446,2.114,1.487,3.059,15
+encrypted-signed/true/whole,read,108502.597,93413.357,-14.224,-14.349,-13.299,15
+encrypted-signed/true/whole,total,109646.597,94535.233,-14.117,-14.240,-13.244,15

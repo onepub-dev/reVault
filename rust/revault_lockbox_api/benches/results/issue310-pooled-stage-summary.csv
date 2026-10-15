@@ -1,0 +1,7 @@
+metric,median_us,observations
+first_frame_flush_us,1667.312,99
+later_frame_flush_us,27.240,297
+per_write_encode_us,146.043,99
+per_write_flush_us,1748.883,99
+per_write_publish_us,3.450,99
+per_write_stage_us,8.631,99

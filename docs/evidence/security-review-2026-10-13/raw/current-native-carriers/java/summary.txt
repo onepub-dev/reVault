@@ -1,0 +1,1 @@
+Java core conformance: 182 PASS records, exit 0; synthetic temp root removed after capture.

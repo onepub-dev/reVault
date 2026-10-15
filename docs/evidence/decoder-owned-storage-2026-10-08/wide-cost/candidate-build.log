@@ -1,0 +1,4 @@
+   Compiling twox-hash v2.1.5
+   Compiling zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+   Compiling revault-decoder-wipe-cost v0.0.0 (/tmp/revault-wide-wipe-cost)
+    Finished `release` profile [optimized] target(s) in 18.34s

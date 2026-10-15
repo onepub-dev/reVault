@@ -727,7 +727,7 @@ fn project_extract(
         .collect::<Vec<_>>();
     let policy = ExtractPolicy {
         overwrite: matches.get_flag("overwrite"),
-        restore_permissions: matches.get_flag("restore-permissions"),
+        restore_permissions: !matches.get_flag("no-restore-permissions"),
         restore_symlinks: matches.get_flag("restore-symlinks"),
         ..ExtractPolicy::default()
     };
@@ -780,9 +780,7 @@ fn extract_project_entry(
                     human_size(policy.max_file_bytes)
                 )));
             }
-            let replace = policy.overwrite && destination.exists();
-            lb.extract_file_to(&source, destination, replace)?;
-            restore_host_permissions(destination, entry.permissions, policy.restore_permissions)?;
+            lb.extract_file_to_with_policy(&source, destination, policy)?;
         }
         LockboxEntryKind::Symlink => {
             return Err(cli_error(format!(
@@ -799,121 +797,13 @@ fn extract_project_tree(
     destination: &Path,
     policy: &ExtractPolicy,
 ) -> CliResult<()> {
-    fs::create_dir_all(destination)?;
-    let mut options = ListOptions::new(&project.destination);
-    options.recursive = true;
-    let entries = lb.list(options)?.collect::<Result<Vec<_>, _>>()?;
-    if entries.len() > policy.max_files {
-        return Err(cli_error(format!(
-            "project contains {} entries, exceeding the extraction limit of {}",
-            entries.len(),
-            policy.max_files
-        )));
-    }
-    let mut total_bytes = 0_u64;
-    let mut directories = Vec::new();
-    for entry in entries {
-        let relative = relative_lockbox_path(&project.destination, &entry.path);
-        if relative.is_empty() {
-            continue;
-        }
-        let host = destination.join(&relative);
-        match entry.kind {
-            LockboxEntryKind::Directory => {
-                prepare_extract_destination(&host, policy.overwrite, true)?;
-                fs::create_dir_all(&host)?;
-                directories.push((host, entry.permissions));
-            }
-            LockboxEntryKind::File => {
-                if entry.len > policy.max_file_bytes {
-                    return Err(cli_error(format!(
-                        "{} is {}, exceeding the per-file extraction limit of {}",
-                        entry.path,
-                        human_size(entry.len),
-                        human_size(policy.max_file_bytes)
-                    )));
-                }
-                total_bytes = total_bytes
-                    .checked_add(entry.len)
-                    .ok_or_else(|| cli_error("total extracted size overflow"))?;
-                if total_bytes > policy.max_total_bytes {
-                    return Err(cli_error(format!(
-                        "project extraction exceeds the total size limit of {}",
-                        human_size(policy.max_total_bytes)
-                    )));
-                }
-                if let Some(parent) = host.parent() {
-                    fs::create_dir_all(parent)?;
-                }
-                let replace = policy.overwrite && fs::symlink_metadata(&host).is_ok();
-                lb.extract_file_to(&entry.path, &host, replace)?;
-                restore_host_permissions(&host, entry.permissions, policy.restore_permissions)?;
-            }
-            LockboxEntryKind::Symlink if policy.restore_symlinks => {
-                if let Some(parent) = host.parent() {
-                    fs::create_dir_all(parent)?;
-                }
-                prepare_extract_destination(&host, policy.overwrite, false)?;
-                let target = lb.get_symlink_target(&entry.path)?;
-                create_host_symlink(target.as_str(), &host)?;
-            }
-            LockboxEntryKind::Symlink => {}
-        }
-    }
-    for (directory, permissions) in directories.into_iter().rev() {
-        restore_host_permissions(&directory, permissions, policy.restore_permissions)?;
-    }
-    Ok(())
-}
-
-fn prepare_extract_destination(path: &Path, overwrite: bool, directory: bool) -> CliResult<()> {
-    let Ok(metadata) = fs::symlink_metadata(path) else {
-        return Ok(());
-    };
-    if directory && metadata.is_dir() && !metadata.file_type().is_symlink() {
-        return Ok(());
-    }
-    if !overwrite {
-        return Err(cli_error(format!("destination exists: {}", path.display())));
-    }
-    if metadata.is_dir() && !metadata.file_type().is_symlink() {
-        fs::remove_dir_all(path)?;
+    // Share the API's held-directory confinement, limits, private staging and
+    // deferred directory permissions instead of reconstructing host paths.
+    if project.destination.as_str() == "/" {
+        lb.extract_to_directory(destination, policy)?;
     } else {
-        fs::remove_file(path)?;
+        lb.extract_directory_to(&project.destination, destination, policy)?;
     }
-    Ok(())
-}
-
-#[cfg(unix)]
-fn create_host_symlink(target: &str, path: &Path) -> CliResult<()> {
-    std::os::unix::fs::symlink(target, path)?;
-    Ok(())
-}
-
-#[cfg(windows)]
-fn create_host_symlink(target: &str, path: &Path) -> CliResult<()> {
-    std::os::windows::fs::symlink_file(target, path)?;
-    Ok(())
-}
-
-#[cfg(not(any(unix, windows)))]
-fn create_host_symlink(_target: &str, _path: &Path) -> CliResult<()> {
-    Err(cli_error(
-        "restoring symbolic links is unsupported on this platform",
-    ))
-}
-
-#[cfg(unix)]
-fn restore_host_permissions(path: &Path, permissions: u32, restore: bool) -> CliResult<()> {
-    if restore {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(path, fs::Permissions::from_mode(permissions))?;
-    }
-    Ok(())
-}
-
-#[cfg(not(unix))]
-fn restore_host_permissions(_path: &Path, _permissions: u32, _restore: bool) -> CliResult<()> {
     Ok(())
 }
 
@@ -1506,6 +1396,23 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
             plan.removed_files,
             plan.unchanged
         );
+    }
+    Ok(())
+}
+
+#[cfg(feature = "e2e-test-hooks")]
+fn wait_for_source_change_test() -> CliResult<()> {
+    let Some(directory) = std::env::var_os("REVAULT_TEST_MIRROR_SYNC") else {
+        return Ok(());
+    };
+    let directory = PathBuf::from(directory);
+    fs::write(directory.join("prepared"), b"ready")?;
+    let started = Instant::now();
+    while !directory.join("continue").exists() {
+        if started.elapsed() > Duration::from_secs(30) {
+            return Err(cli_error("mirror test synchronization timed out"));
+        }
+        std::thread::sleep(Duration::from_millis(10));
     }
     Ok(())
 }
@@ -2118,6 +2025,8 @@ fn verify_source_tree(
     source: &SourceSnapshot,
     strict: bool,
 ) -> CliResult<()> {
+    #[cfg(feature = "e2e-test-hooks")]
+    wait_for_source_change_test()?;
     fn mark_seen(source: &SourceSnapshot, relative: &str) -> CliResult<()> {
         if !source.source.contains(relative.as_bytes())? {
             return Err(cli_error(format!(

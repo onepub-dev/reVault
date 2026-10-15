@@ -1,0 +1,137 @@
+{
+  "scope": "Current initial release-mode CLI qualification, before queued test-only corrections",
+  "inventory": 188,
+  "passed": 168,
+  "failed": 13,
+  "ignored": 7,
+  "excluded_duplicate": "remaining-headless.log was an earlier debug invocation; release retry is authoritative",
+  "vault_separate": true,
+  "targets": [
+    {
+      "target": "lockbox",
+      "passed": 43,
+      "failed": 0,
+      "ignored": 1,
+      "log": "cli-runtime.log"
+    },
+    {
+      "target": "agent_flow",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 1,
+      "log": "cli-runtime.log"
+    },
+    {
+      "target": "aliases",
+      "passed": 21,
+      "failed": 0,
+      "ignored": 0,
+      "log": "cli-runtime.log"
+    },
+    {
+      "target": "cli_flow",
+      "passed": 78,
+      "failed": 0,
+      "ignored": 0,
+      "log": "cli-runtime.log"
+    },
+    {
+      "target": "compaction",
+      "passed": 1,
+      "failed": 1,
+      "ignored": 0,
+      "log": "cli-runtime.log"
+    },
+    {
+      "target": "completion",
+      "passed": 7,
+      "failed": 1,
+      "ignored": 0,
+      "log": "remaining-completion.log"
+    },
+    {
+      "target": "contact_receive_alias",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "log": "remaining-contact_receive_alias.log"
+    },
+    {
+      "target": "creation_options",
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0,
+      "log": "remaining-creation_options.log"
+    },
+    {
+      "target": "experimental_v4_migration",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 1,
+      "log": "remaining-experimental_v4_migration.log"
+    },
+    {
+      "target": "help_open_key",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "log": "remaining-help_open_key.log"
+    },
+    {
+      "target": "migration_cli",
+      "passed": 0,
+      "failed": 11,
+      "ignored": 0,
+      "log": "remaining-migration_cli.log"
+    },
+    {
+      "target": "mirror_cli",
+      "passed": 8,
+      "failed": 0,
+      "ignored": 1,
+      "log": "remaining-mirror_cli.log"
+    },
+    {
+      "target": "password_profiles",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "log": "remaining-password_profiles.log"
+    },
+    {
+      "target": "publish_integration",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 2,
+      "log": "remaining-publish_integration.log"
+    },
+    {
+      "target": "unicode_shell_cli",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 1,
+      "log": "remaining-unicode_shell_cli.log"
+    },
+    {
+      "target": "headless",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "log": "remaining-headless.release-retry1.log"
+    }
+  ],
+  "source_log_sha256": {
+    "cli-runtime.log": "ad3b5ee5a9ccafe5e8d32c4e123be5964d7767f403204d1f732dea436a3674f9",
+    "remaining-completion.log": "0ace5bcb6d55eacce83269ae26c98579389c080252028172ebda651fb7c28e10",
+    "remaining-contact_receive_alias.log": "1c6fb292a4b8bee9ff00de6059348c273e5d254747ca5acf084a1383cbb1f71f",
+    "remaining-creation_options.log": "4ef57f3d1e7917dfe573ed76c40ab14be9c1b62d88b35f852fdc56add8503e0a",
+    "remaining-experimental_v4_migration.log": "dec99898f8954d6cfcd00459461dda19c15a755e543682b50f2c64fadfd879b3",
+    "remaining-help_open_key.log": "cf7590c4c855ed689481f062675836f45e5c3482271ec7171e243473b6d39120",
+    "remaining-migration_cli.log": "242ebd7db9f3ec8f253f95d903ca8b21a855c622197690b177ca6b77de6ac664",
+    "remaining-mirror_cli.log": "bc1ba7b168a683d23fbeefacb1594649a999a14a46576cd767ac5ffc2da0933f",
+    "remaining-password_profiles.log": "afa56ee3b0b511a279daf2727f6d92124baeb8db26ed3cf4b0bb7686ce0804d0",
+    "remaining-publish_integration.log": "c95b76300c00bf970111c876afcc9861809aefd3ca4da588bb6a9105d59a32b7",
+    "remaining-unicode_shell_cli.log": "7fb3b3c5a16d663df92db6a18cbf64ec8c2d9dc0cbcaa740a307b2bd8ca6ecd7",
+    "remaining-headless.release-retry1.log": "2a6203a64af7454c91b7633af178fa4f5539ee944065c55e403bd9741508fd1f"
+  }
+}

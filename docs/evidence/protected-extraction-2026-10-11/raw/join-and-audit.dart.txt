@@ -1,0 +1,26 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const root='/home/bsutton/.cache/revault-protected-20261011-evidence';
+void check(bool b,String m){if(!b)throw StateError(m);}
+String sha(String p){final r=Process.runSync('sha256sum',[p]);check(r.exitCode==0,'sha');return '${r.stdout}'.split(' ').first;}
+void save(String p,Object o)=>File('$root/$p').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(o),flush:true);
+void main(){
+ final groups=[('balanced-buffered-batch',3),('recovery-buffered-batch',1),('final-buffered-batch',2)];
+ final cases=<String,dynamic>{};final batches=<Object>[];final physical=<Object>[];var rows=0;var excluded=0;
+ for(final (batch,n) in groups){final path='$root/$batch/metrics-summary.json';final s=jsonDecode(File(path).readAsStringSync()) as Map;final cs=s['cases'] as Map;check(cs.length==n&&s['selected_case_analysis_complete']==true,'summary completeness');
+ for(final e in cs.entries){check(!cases.containsKey(e.key),'duplicate');cases[e.key as String]=e.value;final variants=e.value['variants'] as Map;check(variants.length==4,'variants');for(final v in variants.values)check(v['measured_samples']==12,'samples');
+ for(var round=0;round<16;round++){final rr=jsonDecode(File('$root/$batch/${e.key}/round-${round.toString().padLeft(2,'0')}.json').readAsStringSync());check(rr['round']==round&&rr['warmup']==(round<4),'round');final results=rr['results'] as List;check(results.length==4,'rows');rows+=results.length;if(round==0){for(final r in results.where((r)=>r['backend']=='zip'||r['backend']=='typed-tree-1'))physical.add({'case':e.key,'backend':r['backend'],'apparent_bytes':r['archive_apparent_bytes'],'stat_allocated_bytes':r['archive_allocated_bytes'],'calibrated_physical_read_bytes':r['calibrated_archive_physical_read_bytes']});}}
+ }
+ final dirs=Directory('$root/$batch').listSync().whereType<Directory>();for(final dir in dirs){if(cs.containsKey(dir.uri.pathSegments.where((s)=>s.isNotEmpty).last))continue;for(final f in dir.listSync().whereType<File>().where((f)=>RegExp(r'/round-\d\d.json$').hasMatch(f.path))){excluded+=(jsonDecode(f.readAsStringSync())['results'] as List).length;}}
+ batches.add({'path':'$batch/metrics-summary.json','sha256':sha(path),'selected_cases':cs.keys.toList(),'batch_complete':s['original_batch_complete'],'global_final_binary_audit_available':s['gates']['global_final_binary_audit_available'],'executable_epoch':batch==groups.first.$1?'original-retained-binaries':'rebuilt-exact-original-source'});
+ }
+ check(rows==384&&excluded==48&&cases.length==6,'aggregatecounts');
+ var gates=0,retried=0,attempts=0,maxAttempts=0;final retriedPaths=<Object>[];
+ for(final f in Directory('$root/final-buffered-batch').listSync(recursive:true).whereType<File>().where((f)=>f.path.endsWith('.cache-gate.json'))){final g=jsonDecode(f.readAsStringSync());final aa=g['eviction_attempts'] as List;check(g['success']==true&&g['resident_bytes_after_dontneed']==0&&g['maximum_eviction_attempts']==3&&g['inter_attempt_delay_ms']==100,'gate');check(aa.isNotEmpty&&aa.length<=3,'bounded');for(var i=0;i<aa.length;i++){final a=aa[i];check(a['attempt']==i&&a['sync_exit_code']==0&&a['fadvise_exit_code']==0&&a['fincore_exit_code']==0,'attempt');final res=jsonDecode(a['fincore_stdout'])['fincore'][0]['res'];check(res==a['resident_bytes_after_dontneed']&&a['success']==(res==0),'fincore');check(i==aa.length-1?res==0:res>0,'selection');}gates++;attempts+=aa.length;if(aa.length>maxAttempts)maxAttempts=aa.length;if(aa.length>1){retried++;retriedPaths.add({'path':f.path.substring(root.length+1),'attempts':aa.length});}}
+ save('final-admission-audit.json',{'passed':true,'gate_count_including_parity_attempts':gates,'eviction_attempts':attempts,'gates_requiring_retry':retried,'maximum_attempts_observed':maxAttempts,'retried_gates':retriedPaths,'policy':'maximum3 attempts100ms apart; exact zero residency; timing-independent'});
+ save('combined-metrics-summary.json',{'selected_case_analysis_complete':true,'all_original_batches_complete':false,'executable_epochs':2,'measurement_batches':3,'accepted_observations':rows,'measured_observations':288,'preparatory_observations':96,'excluded_partial_case_observations':excluded,'successful_preflight_observations':40,'rejected_initial_smoke_observations':1,'batch_sources':batches,'pairing_scope':'within-case and within-executable-epoch only; no cross-mode paired causal comparisons','source_corpus_scope':'920 pinned committed code blobs framed into14341790-byte bundle and cyclically repeated to1GiB; original bytes14284673','physical_archive_bytes':physical,'cases':cases});
+ print(green('Joined6cases384accepted/48excluded; final gates=$gates retries=$retried attempts=$attempts.'));
+ final retain=File('$root/retain.dart');var text=retain.readAsStringSync();text=text.replaceAll("'tmp','.dart_tool','provenance-reconstruction'","'tmp','tooling-tmp','.dart_tool','provenance-reconstruction','bin','balanced-bin','build-target','target'");text=text.replaceAll('tooling tmp,.dart_tool,provenance-reconstruction andtar','tooling tmp,.dart_tool,provenance-reconstruction,bin/build-target/target andtar');retain.writeAsStringSync(text);
+}

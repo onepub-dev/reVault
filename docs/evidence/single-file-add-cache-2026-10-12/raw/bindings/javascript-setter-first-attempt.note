@@ -1,0 +1,3 @@
+First focused JavaScript setter attempt was a harness expectation error. It expected `setCacheLimit('invalid', 0)` to return `false`; the native ABI does return false, but the public JS facade wraps false with `requireValue` and throws `RevaultError: cache mode must be auto, disabled, or bytes`. The test was corrected to assert that exception and compare cache statistics before/after. The corrected lifecycle passed (see `javascript-setter-lifecycle-corrected.log`).
+
+The original full stderr was overwritten by the corrected run before it had been preserved. This note records only the recovered error/context from the tool output; it is not a copy of the complete original failure log.

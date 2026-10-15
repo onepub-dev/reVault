@@ -1,28 +1,29 @@
-# Lockbox Archive Format
+# Lockbox archive format 4 — default 0.5 compatibility line
 
-> Historical format reference; not the authoritative v4 wire format. In particular,
-> the fixed-header description below predates v4. The maintained transaction
-> protocol is [Transactions and recovery](../../manual/develop-with-revault/transactions.md).
-> The [v4 work entry point](../../docs/archive_v4_plan.md) identifies the branch
-> plan and evidence. Do not implement v4 from this historical text, or assume
-> that its mixed-era descriptions completely specify a released format.
+Normative specification for the selected default page layout. Experimental native-block
+and test-only candidate layouts are outside this specification. The maintained
+[transaction protocol](../../manual/develop-with-revault/transactions.md) forms
+part of the publication/recovery rules below. This document must be read with
+its exact conformance source and retained vectors; it does not qualify release
+artifacts by itself.
 
-This document records the intended pre-1.0 production format of reVault
-Lockboxes. All on-disk numeric fields are little-endian unless stated otherwise.
+This document specifies the default format-4 encoding for reVault 0.5. All on-disk numeric fields are little-endian unless stated otherwise.
 
 On-disk structures are field encodings, not native memory layouts. Native-endian
 conversions, memory transmutation, and raw struct layout are not part of the
 format. Every numeric field uses the explicit byte order stated by this
 document.
 
-The physical unit of the lockbox is a variable-size page rounded to a 1 KiB
-quantum and selected from a small set of page classes. Metadata pages may grow
+The physical unit is a variable-size page. Padded pages use a 1 KiB quantum;
+unpadded pages use their exact encoded extent. Secure metadata may deliberately
+use a fixed allocation rather than optimize physical occupancy. Metadata pages may grow
 up to 128 KiB. File-data pages may grow up to 8 MiB. Higher level structures
 such as TOC nodes, file chunks, variables, forms, key directories, free-space
 indexes, commit roots, and commit-auth records are encoded as objects inside
 pages.
 
-At a high level, a lockbox file is shaped like this:
+An encrypted, owner-signed archive is shaped like this (plaintext and unsigned
+modes retain structure but omit their corresponding protection):
 
 ```text
 secrets.lbox
@@ -34,7 +35,7 @@ secrets.lbox
 |
 |-- clear-text key-directory pages
 |   |-- password slot
-|   |   |-- Argon2id salt and parameters
+|   |   |-- Argon2id salt (parameters fixed by algorithm)
 |   |   `-- encrypted content key
 |   `-- contact slot
 |       |-- ML-KEM-768 encapsulation ciphertext
@@ -52,7 +53,7 @@ secrets.lbox
     |   `-- owner signatures for the published commit root
     |
     |-- TOC pages
-    |   `-- current file and symlink entries
+    |   `-- current file, directory and symlink entries
     |
     |-- variable pages
     |   `-- current variable entries
@@ -142,7 +143,7 @@ checksum(data) =
 
 This checksum is used for:
 
-- fixed header bytes `0..64`
+- each fixed-header slot’s bytes `0..160`
 - page header bytes `0..64`
 - clear-text page bodies, stored as `checksum(body) || body`
 - compression-frame digests over the stored compressed frame bytes
@@ -188,10 +189,9 @@ Page AEAD associated data binds the ciphertext to the public page identity:
 - commit sequence
 - public flags
 - stored body length
+- physical page length
 
-Clear-text pages are limited to public page classes, currently the key
-directory. They set the clear-text page flag, use a zero nonce, and store
-`checksum(body) || body`.
+Key-directory pages are cleartext for credential bootstrap. Plaintext archive modes also store content pages in cleartext. They set flag `0x0001`, use a zero nonce, and store `checksum(body) || body`. Encrypted-mode mixed key-directory/private-object pages are refused.
 
 ### Key Directory Wrapping
 
@@ -223,11 +223,11 @@ must not be reused with the same wrapping key for different plaintexts.
 
 ### Commit Signing
 
-Commit authentication is stored as an encrypted page object. Its signed message
+Commit authentication is stored as a page object, encrypted in encrypted modes. Its signed message
 is:
 
 ```text
-"lockbox-v1-commit-auth" || signed_commit_auth_fields
+"revault-v4-authenticated-graph-commit-v1" || signed_commit_auth_fields
 ```
 
 The signed fields include the lockbox UUID, commit sequence, commit-root page
@@ -273,38 +273,70 @@ the stored expected length when present.
 
 ## Fixed Header
 
-The fixed header is 96 bytes and is the only mutable fixed-location structure in
-the file.
+The v4 fixed header region is 384 bytes: two independently validated 192-byte
+publication slots. Slot offsets are 0 and 192. All integer fields are unsigned
+little-endian. The following offsets are relative to a slot:
 
-```text
-offset  size  field
-0       8     magic: "LBX1HDR\0"
-8       2     version: 1
-10      2     header flags
-12      4     header length as 32-bit unsigned little-endian integer: 96
-16      8     latest commit-root page offset, or 0
-24      8     latest commit sequence
-32      8     latest public key-directory offset, or 0
-40      16    public lockbox UUID
-56      8     latest commit-auth page offset, or 0
-64      32    checksum over bytes 0..64
-```
+| Offset | Bytes | Field |
+| --- | --- | --- |
+| 0 | 8 | Magic `LBX4HDR\0` |
+| 8 | 2 | Native format version, 4 |
+| 10 | 2 | Format mode |
+| 12 | 4 | Slot length, 192 |
+| 16 | 8 | Publication generation, nonzero |
+| 24 | 8 | Commit-root page offset, or zero for initial state |
+| 32 | 8 | Commit sequence |
+| 40 | 8 | Primary key-directory page offset |
+| 48 | 8 | Mirror key-directory page offset |
+| 56 | 16 | Public archive UUID |
+| 72 | 8 | Commit-auth page offset |
+| 80 | 8 | Cleanup sequence |
+| 88 | 4 | Completed cleanup range count |
+| 92 | 4 | Completed cleanup page count |
+| 96 | 8 | Completed cleanup byte count |
+| 104 | 8 | Sealed physical length |
+| 112 | 8 | Preparation state, exactly 0 or 1 |
+| 120 | 8 | Tail-trim origin length |
+| 128 | 24 | Metadata authentication tag |
+| 152 | 8 | Reserved, zero |
+| 160 | 32 | Public checksum of slot bytes `[0,160)` |
 
-The lockbox UUID is public metadata. It identifies a lockbox even if the file is
-renamed or moved. It must not be derived from file names, content, contacts, or
-passwords.
+The metadata tag is the first 24 bytes of
+`HMAC-SHA256(content_key, "lockbox-v2-header-metadata-auth/hmac-sha256" ||
+u64_le(128) || slot[0..128])`. The public checksum is not authorization. In plaintext mode the header key is
+32 zero bytes and no decryption slots are needed: this HMAC is public corruption
+binding, not secret authentication. Only owner-signed mode supplies owner
+authenticity for a plaintext archive.
+Sequence zero is a real authenticated initial state, not an authentication bypass.
+The UUID is random public identity, independent of names and user content.
+The structural reader chooses the highest checksum-valid generation; equal
+generations retain slot 0. Higher-layer authentication must then validate that
+selection. Structural checksum selection is not a fallback authorization.
 
-The header checksum is the domain-separated public checksum. It detects torn or
-malformed header updates. It is not a security boundary. Security decisions must
-be based on authenticated pages and authenticated commit roots.
+The maintained [transaction protocol](../../manual/develop-with-revault/transactions.md)
+defines publication, preparation, cleanup and recovery authority. Readers must
+validate a selected slot and the referenced authenticated graph before exposing
+content. A higher sequence in an unselected page does not establish publication.
+Do not choose an older otherwise valid publication to hide a damaged latest
+authoritative graph. Recovery candidates remain candidates until authentication.
 
-The key-directory pointer remains in the fixed header because users need the key
-directory before the content key is opened. The key directory stores only
-open metadata and must not contain private file metadata.
+### Persisted format mode
 
-The commit-auth pointer is public bootstrap metadata. The pointed-to object is
-encrypted and authenticated as a normal page object, and it signs the commit
-root referenced by the same header.
+The 16-bit mode uses bit 0 for plaintext, bit 1 for unsigned, bit 2 for no
+compression, bits 3–7 for Zstd level, and bit 8 for omitted optional padding.
+Bits 9–15 are invalid. With compression disabled, the level must be zero;
+otherwise a nonzero encoding requires level 1–22. Mode zero is the special
+legacy encoding: encrypted, owner-signed, Zstd level 1, default padding.
+`0x0100` is not a second legacy encoding and is invalid. Runtime cache and worker
+policies are not stored in this field.
+
+Every 0.5 reader must support all valid persisted choices above. A later patch
+must not emit new mandatory flags, codecs, versions or records unreadable by an
+earlier 0.5 reader. Such a change requires a new compatibility line. Experimental
+native-block-layout and test-only candidate encodings are not alternate default
+0.5 wire formats. Historical formats 1–3 use explicit migration readers; the
+native v4 reader refuses them. Earlier development v4 encodings with obsolete
+root/auth versions are not silently accepted as equivalent to this specification.
 
 ## Commit Model And Update Atomicity
 
@@ -327,8 +359,9 @@ redact or rewrite old copies; after that, affected historical roots are not a
 format-level retention guarantee.
 
 A commit is current only when the fixed header checksum is valid, the referenced
-commit root can be authenticated and decoded, and the referenced commit-auth
-object signs that commit root. Partially written pages, commit roots, commit-auth
+commit root can be authenticated and decoded, and, for owner-signed modes, the referenced commit-auth
+object verifies the established owner’s signatures for that root. Unsigned modes
+do not acquire owner authenticity from checksums or content-key authentication. Partially written pages, commit roots, commit-auth
 objects, or key-directory copies that are not selected by a valid fixed header
 do not define the current view.
 
@@ -337,24 +370,25 @@ not override the current view selected by a valid fixed header.
 
 ## Pages
 
-Every page has a variable physical size rounded to a 1 KiB quantum. Metadata
+Every padded page has a variable physical size rounded to a 1 KiB quantum;
+unpadded pages use their exact header-plus-stored-body extent. Metadata
 pages may grow up to 128 KiB. File-data pages may grow up to 8 MiB. The
-physical page size is the smallest page class that fits the encoded page body,
-so typical pages are at least 95% full unless the page is extremely small. Page
+physical page size is selected to fit the encoded body and applicable padding policy. Unpadded pages set flag `0x0002` and use exactly header plus stored-body length; padded pages use a 1 KiB multiple. Page
 headers expose the stored body length so an intact page can be authenticated
 without requiring trailing padding.
 
 ```text
 offset  size  field
 0       8     magic: "LBX1PAG\0"
-8       2     page header version: 1
+8       2     page header version: 2
 10      2     public flags
 12      4     header length as 32-bit unsigned little-endian integer
 16      8     page id
 24      8     commit sequence that wrote this page
 32      12    AEAD nonce, or zero for clear-text pages
 44      4     stored body length as 32-bit unsigned little-endian integer
-48      16    reserved header extension
+48      8     authenticated physical page length
+56      8     reserved, zero
 64      32    checksum over bytes 0..64
 H       m     stored body
 H+m     p     zero padding to the physical page size
@@ -389,6 +423,7 @@ Page AEAD associated data includes:
 - commit sequence
 - public flags
 - stored body length
+- physical page length
 
 ## Page Body
 
@@ -426,7 +461,7 @@ Valid page-body compression modes are:
 
 The production file-data layout is page-packed framed extents, not one file
 object per physical page. A file-data page is a variable-size physical
-container capped at 8 MiB. That 8 MiB cap limits the encrypted page body, not
+container capped at 8 MiB. That 8 MiB cap includes the entire physical page (96-byte header, stored body, tag and padding), not
 the decompressed size of any one compression frame. Its encrypted body may
 contain:
 
@@ -516,14 +551,14 @@ segment coverage, and a matching compression-frame digest. A slice record may
 store `0` for the total file length when the final length was not known when the
 compression frame was created; the TOC is authoritative when available.
 
-Paths remain private because both TOC entries and segment metadata are inside
+In encrypted modes, paths remain private because both TOC entries and segment metadata are inside
 encrypted page bodies. They are exposed only after the content key is available.
 
 ## Objects
 
 The object stream contains typed objects. Object headers are private on
 encrypted pages because they are part of the encrypted page body. Object headers
-are public on clear-text pages, so clear-text page classes must be limited to
+are public on clear-text pages. In encrypted modes, clear-text page classes are limited to
 public metadata.
 
 Object stream:
@@ -539,8 +574,8 @@ Each object entry is:
 ```text
 offset  size  field
 0       1     object kind
-1       1     object header version
-2       2     object flags
+1       1     object header version: 1
+2       2     object flags: zero
 4       8     object id
 12      8     object payload length as 64-bit unsigned little-endian integer
 20      n     object payload
@@ -552,7 +587,7 @@ packed into one compression frame, and that compression frame may be split acros
 multiple file-data objects.
 
 Symlinks are current TOC entries that reference symlink metadata objects. The current
-TOC stores the symlink node kind plus the metadata page offset, object length,
+TOC stores the symlink node kind plus the metadata page offset, physical page extent,
 and object id. It does not store the symlink target. The target is stored only
 inside the referenced symlink object, and many symlink objects may be packed into
 one metadata page.
@@ -585,44 +620,68 @@ Object kinds:
 15      form leaf node
 16      form internal node
 17      commit auth
+18      redaction manifest
 ```
 
 ## Commit Root
 
-The fixed header points to the latest commit-root page offset. The
-commit root is an encrypted object inside that page.
+The current default root object has payload version 3 and exactly 392 bytes.
+Earlier experimental v4 root versions lack authenticated access metadata and
+are rejected. Reserved bytes 1–7 must be zero.
 
-The commit root payload contains:
+| Offset | Bytes | Field |
+| --- | --- | --- |
+| 0 | 1 | Payload version, 3 |
+| 1 | 7 | Reserved, zero |
+| 8 | 8 | Commit sequence |
+| 16 | 8 | TOC root offset |
+| 24 | 8 | Variable root offset |
+| 32 | 8 | Form root offset |
+| 40 | 8 | Free-index root offset |
+| 48 | 8 | Primary key-directory offset |
+| 56 | 8 | Mirror key-directory offset |
+| 64 | 8 | Key-directory generation |
+| 72 | 8 | Previous root offset |
+| 80 | 8 | Post-cleanup free-index root offset |
+| 88 | 8 | Redaction-manifest offset |
+| 96 | 8 | Redaction range count |
+| 104 | 8 | Redaction total bytes |
+| 112 | 8 | Flags |
+| 120 | 32 | Key-directory digest |
+| 152 | 40 | Variable root page commitment |
+| 192 | 40 | Form root page commitment |
+| 232 | 40 | TOC root page commitment |
+| 272 | 40 | Free-index root page commitment |
+| 312 | 40 | Post-cleanup free-index page commitment |
+| 352 | 40 | Redaction-manifest page commitment |
+
+A page commitment is `u64_le(physical_len) || digest[32]`. Its digest is raw
+SHA-256 of this concatenation, not the public checksum or ciphertext digest:
 
 ```text
-offset  size  field
-0       1     commit-root payload version: 1
-1       7     reserved
-8       8     commit sequence
-16      8     TOC root object reference
-24      8     variable root object reference, or zero
-32      8     form root object reference, or zero
-40      8     free-space index root object reference
-48      8     primary key-directory offset, or zero
-56      8     key-directory mirror offset, or zero
-64      8     key-directory generation
-72      8     previous commit-root reference, or zero
-80      8     commit flags
+"revault-v4-canonical-page-v1\0"
+|| archive_uuid[16] || format_mode_u16 || physical_len_u64
+|| page_id_u64 || sequence_u64 || object_count_u64
+|| for each object in serialized order:
+     kind_u8 || object_id_u64 || payload_len_u64 || payload
 ```
 
-A valid current view is rooted at the commit-root page referenced by the fixed
-header. Commit sequence numbers order commit roots that are otherwise valid.
+Integers in this expression are little-endian. Physical length must be between
+the 96-byte page header and the 8 MiB data-page maximum. The expected physical
+length and canonical object contents must match before using a referenced page.
+The authenticated root transitively binds internal routing and leaf content;
+checking only page-local checksums is insufficient.
 
 ## Commit Authentication
 
-Commit authentication is an encrypted `commit auth` object referenced by the
-fixed header. Its payload starts with magic `LBX1AUTH`, version `1`, and signed
+Commit authentication is a `commit auth` object (encrypted in encrypted modes) referenced by the
+fixed header. Its payload starts with magic `LBX1AUTH`, version `3`, and signed
 fields:
 
 ```text
 offset  size  field
 0       8     magic: "LBX1AUTH"
-8       1     commit-auth version: 1
+8       1     commit-auth version: 3
 9       7     reserved
 16      16    lockbox UUID
 32      8     commit sequence
@@ -682,6 +741,43 @@ internal metadata within one file by choosing the highest authenticated
 generation; only an external anchor can detect replacement of the whole file
 with an older but internally valid lockbox.
 
+## Authenticated object references
+
+A TOC metadata record digest is raw SHA-256 of:
+
+```text
+"revault-v4-canonical-object-v1\0" || archive_uuid[16] || format_mode_u16
+|| object_kind_u8 || object_id_u64 || payload_len_u64 || payload
+```
+
+Integer fields are little-endian. An object reference also binds its expected
+physical page extent and must resolve to exactly one object with the requested
+id. The canonical payload digest must match before returning the object. Page
+authentication does not make an arbitrary object in that page the referenced one.
+
+## Authenticated tree children
+
+TOC, variable and form internal nodes have the two-byte version/kind prefix
+described in their sections. The bytes after that prefix are:
+
+```text
+u32 routing_byte_length
+routing_bytes:
+  u32 child_count
+  for each child:
+    u16 first_key_byte_length || UTF-8 first_key || u64 page_offset
+for each child in the same order:
+  u64 physical_page_length || canonical_page_digest[32]
+```
+
+Child count must be nonzero and bounded by available routing bytes. Keys must
+be valid for the relevant tree and strictly increasing; offsets must be at least
+384. The routing envelope must be consumed exactly. The remaining bytes must
+be exactly `child_count * 40`. A route is not trusted until its parent commitment
+is authenticated, and its child commitment must be checked before child contents
+or routing are used. These commitments replace the unauthenticated historical
+page-tree child encoding.
+
 ## Table Of Contents
 
 The TOC is a current-entry BTree. Tombstones are not stored in the current TOC.
@@ -696,7 +792,7 @@ offset  size  field
 1       1     node kind: 1 = leaf, 2 = internal
 ```
 
-TOC internal payloads store `page-tree children` from offset `2`. The child key
+TOC internal payloads store the authenticated tree-children envelope from offset `2`. The child key
 is the first logical path in the child subtree.
 
 TOC leaf payloads store this structure from offset `2`:
@@ -741,8 +837,9 @@ offset  size  field
 1       n     front-coded logical path
 ...     n     logical length as varint
 ...     n     metadata object page offset as varint, or 0
-...     n     metadata object length as varint, or 0
+...     n     metadata record physical page extent as varint, or 0
 ...     n     metadata object id as varint, or 0
+...     32    metadata record digest
 ...     n     permissions as varint, only when custom-permissions flag is set
 ...     n     chunk count as varint
 ...     n     chunk records
@@ -754,7 +851,13 @@ TOC entry flags:
 0x01  deleted
 0x02  symlink
 0x04  custom permissions
+0x08  directory
 ```
+
+The directory and symlink flags cannot both be set. Directory entries have
+zero logical length, metadata references and chunks. Default permissions are
+0600 for files, 0700 for directories and 0777 for symlinks; custom permissions
+must not contain bits outside 0777.
 
 Every 128th path is a restart path encoded as:
 
@@ -800,7 +903,7 @@ reachable from the latest valid commit root.
 
 ## Variables
 
-Variables are encrypted metadata, not files. They must not appear in
+Variables are structured metadata, encrypted when archive encryption is enabled, not files. They must not appear in
 file listings, file recovery listings, visualizations, or unauthenticated public
 metadata.
 
@@ -823,7 +926,7 @@ offset  size  field
 1       1     node kind: 1 = leaf, 2 = internal
 ```
 
-Variable internal payloads store `page-tree children` from offset `2`. The
+Variable internal payloads store the authenticated tree-children envelope from offset `2`. The
 child key is the first internal variable name in the child subtree.
 
 Variable leaf payloads store this structure from offset `2`:
@@ -856,7 +959,7 @@ entries are valid.
 
 ## Forms
 
-Forms are encrypted structured metadata, not files. They are stored under a
+Forms are structured metadata, encrypted when archive encryption is enabled, not files. They are stored under a
 commit-root referenced form root object, or zero when no forms exist.
 
 The form tree stores two classes of current entries:
@@ -872,7 +975,7 @@ offset  size  field
 1       1     node kind: 1 = leaf, 2 = internal
 ```
 
-Form internal payloads store `page-tree children` from offset `2`. The child key
+Form internal payloads store the authenticated tree-children envelope from offset `2`. The child key
 is the first form tree key in the child subtree.
 
 Form leaf payloads store this structure from offset `2`:
@@ -965,11 +1068,16 @@ n       m     captured field label as 16-bit unsigned little-endian length-prefi
 ```
 
 Normal value payloads are UTF-8 strings with a 16-bit unsigned little-endian
-byte length. Secret value payloads are byte strings with a 32-bit unsigned
+byte length, at most 65,535 bytes. The writer rejects larger strings before
+writing their length; it must not truncate the length. Secret value payloads are byte strings with a 32-bit unsigned
 little-endian byte length.
 
 The value tag must match the field kind sensitivity. Secret field values use tag
 `1`; non-secret field values use tag `0`.
+
+Form entry, definition-field and record-value collection counts are bounded by
+remaining bytes before allocation, using minimum fixed prefixes of 3, 6 and 8
+bytes respectively; complete parsing still validates values and exact consumption.
 
 Old form pages must not remain reachable after records or secret fields are
 replaced.
@@ -1001,12 +1109,34 @@ offset  size  field
 8       n     leaf ranges or internal children
 ```
 
-Leaf entries are `(free_offset, free_length)`. Internal entries are
-`(first_free_offset, child_page_offset)`. Children must be strictly sorted by
-`first_free_offset`. Free-index pages are append-only during commit so the
+Leaf entries are exactly 16 bytes: `(free_offset_u64, free_length_u64)`.
+Internal entries are exactly 56 bytes: `(first_free_offset_u64,
+child_page_offset_u64, physical_page_length_u64, canonical_page_digest[32])`.
+The encoded payload length must match the count exactly. Leaf ranges must be
+nonzero, non-overlapping and free of integer overflow. Internal nodes must be
+nonempty, child offsets nonzero, and `first_free_offset` strictly increasing. Free-index pages are append-only during commit so the
 published index never lists the page that stores the index itself.
 
 ## Key Directory
+
+The public key-directory page contains exactly one KeyDirectory object.
+The page id equals its physical file offset; object id and page sequence both
+equal the directory generation. Its key-directory payload-header flags and reserved fields are zero (the containing
+page has the cleartext flag),
+declared total length equals payload length, payload length is at most 1 MiB,
+and its archive UUID must match the expected archive.
+
+The authenticated logical directory digest is the public checksum of
+`"revault-v4-access-directory-v1\0" || encode_key_directory(copy_index=0)`.
+Successful slot unwrapping only provides a candidate content key. Admission
+also requires the latest authenticated root's exact UUID, generation and logical
+directory digest. A mirrored or externally retained directory is not authority
+to replace the established owner or roll back access control.
+
+The following table specifies canonical writer output. Low-level key-directory
+decoding does not by itself reject every duplicate slot id, copy index outside
+the two writer copies, or unused bytes within a slot; applications must not
+mistake successful low-level parsing for authenticated archive admission.
 
 The key directory is public open metadata referenced by the fixed header and
 mirrored in the commit root. It stores only slot ids, slot kinds,
@@ -1123,3 +1253,85 @@ Removing a password or contact is not just a metadata delete. Because old
 history may contain old key directories or data pages, current reachable content
 must be rewritten under the new key directory before the old key slot can be
 treated as gone for confidentiality purposes.
+
+## Preparation, cleanup and redaction encoding
+
+The default format has no separate experimental preparation-journal object.
+Its conservative reservation journal is the authenticated base free index plus
+the append range beginning at the authenticated `sealed_len`. Before any payload
+write into reusable storage, both header slots must durably advertise preparation.
+An unpublished interrupted transaction validates the base graph/reservations,
+erases reserved reusable ranges, and truncates to the sealed base. A published
+transaction rolls forward; it must not roll back to a previous logical view.
+Cleanup progress is authenticated in the header. Tail trimming is a separate
+authenticated transition using `trim_origin_len`; compaction verifies a fresh
+archive before atomic publication. See the maintained transaction protocol for
+the required sync order and interruption transitions.
+
+A redaction-manifest object uses payload version 1 and this 72-byte prefix:
+
+| Offset | Bytes | Field |
+| --- | --- | --- |
+| 0 | 1 | Version, 1 |
+| 1 | 3 | Reserved, zero |
+| 4 | 4 | This page’s range count |
+| 8 | 4 | Total manifest range count |
+| 12 | 8 | Transaction sequence |
+| 20 | 8 | Next manifest page offset |
+| 28 | 4 | Reserved, zero |
+| 32 | 8 | Next page physical length |
+| 40 | 32 | Next canonical page digest |
+| 72 | count × 16 | Each range: offset u64 then length u64 |
+
+The payload length is exact. Each page has 1–4,096 ranges; the total is at most
+65,536 and at least the local count. Each range has nonzero length, no end
+overflow, and does not overlap its predecessor. The chain is authenticated by
+the root and successive page commitments. Recovery also validates the complete
+chain, declared totals and live-allocation disjointness before destructive work;
+parsing the range table alone does not authorize erasure. Operational limits
+include at most 262,144 redaction object IDs and 2^50 total redaction bytes.
+
+## Writer canonicalization and reader admission
+
+All fixed-width numeric fields above are little-endian. Varints use seven data
+bits per byte and a continuation bit, at most ten bytes. Writers emit minimal
+encodings. The present low-level reader does not promise rejection of every
+nonminimal representation or excess high data bits in the tenth byte; callers
+still enforce decoded range, overflow, lengths and authenticated identity.
+Do not infer canonical-byte equality from a successful varint decode.
+
+String lengths count UTF-8 bytes, not characters. Logical paths, names, aliases,
+permissions and field values retain their domain validators. Counts and lengths
+must be admitted against available bytes and applicable limits before allocation.
+Optional absence, a zero reference, and an empty collection are distinct where
+the containing record gives them different meanings. No unknown mandatory flag,
+version or record may be ignored to obtain a readable but unauthenticated result.
+
+## Conformance and compatibility evidence
+
+The immutable [archive-v4 vector](../revault_migration/tests/retained/archive-v4/)
+contains native bytes, their SHA-256 manifest, logical expected records and an
+explicitly PUBLIC TEST-ONLY owner key. The
+[Vault structure-3/container-4 vector](../revault_migration/tests/retained/vault-v3-container-v4/)
+separately pins persisted Vault compatibility. Never use their credentials for
+real data or regenerate retained vectors in ordinary tests.
+
+Executable checks include header slot encoding/recovery in
+[header_v2.rs](src/file_format/header_v2.rs), independent complete-page encoding
+and AEAD checks in [page.rs](src/file_format/page.rs), canonical commitment
+context checks in [page_commitment.rs](src/file_format/page_commitment.rs),
+the explicit endian routing vector in [toc_btree.rs](src/toc/toc_btree.rs),
+and retained export/import/owner-refusal checks in
+[retained_fixtures.rs](../revault_migration/tests/retained_fixtures.rs).
+The [release readiness evidence](../../docs/evidence/release-readiness-2026-10-13/README.md)
+records actual test epochs and remaining gates; this index is not a claim that
+every platform or final release artifact has already passed.
+
+Signed historical archives require the established signing key to migrate to a
+new writable signed archive. A missing original key is not permission to replace
+the owner. Immutable historical vectors without that key qualify export and
+strict refusal; separate ordinary known-owner v2/v3 lifecycles qualify positive
+migration. Formats 1–3 and earlier experimental v4 artifacts are not claimed
+read/write-compatible with the stable 0.5 line merely because a version probe
+recognizes their number. Matching 0.5 CLI/binding releases must preserve both
+directions of archive and persisted Vault compatibility throughout that line.

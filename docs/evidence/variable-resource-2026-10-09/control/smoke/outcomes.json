@@ -1,0 +1,16 @@
+[
+  {
+    "mode": 0,
+    "producer_exit": 0,
+    "verifier_exit": 0,
+    "producer_log": "/tmp/revault-variable-resource-2026-10-09/control/smoke/mode-00-producer.log",
+    "verifier_log": "/tmp/revault-variable-resource-2026-10-09/control/smoke/mode-00-verify.log"
+  },
+  {
+    "mode": 15,
+    "producer_exit": 0,
+    "verifier_exit": 0,
+    "producer_log": "/tmp/revault-variable-resource-2026-10-09/control/smoke/mode-15-producer.log",
+    "verifier_log": "/tmp/revault-variable-resource-2026-10-09/control/smoke/mode-15-verify.log"
+  }
+]

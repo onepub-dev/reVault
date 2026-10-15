@@ -171,6 +171,14 @@ final class BindingOperations {
         }
     }
 
+    func lockboxOpenPasswordWithBudget(_ archive: Data, _ password: Data, _ maxDerivations: UInt32) throws -> UnsafeMutableRawPointer {
+        return try archive.withUnsafeBytes { archiveBytes in
+            return try password.withUnsafeBytes { passwordBytes in
+                guard let value = lockbox_open_password_with_budget(archiveBytes.bindMemory(to: UInt8.self).baseAddress, archive.count, passwordBytes.bindMemory(to: UInt8.self).baseAddress, password.count, maxDerivations) else { throw RevaultError.native(lastError()) }
+                return value
+            }
+        }
+    }
     func lockboxOpenPassword(_ archive: Data, _ password: Data) throws -> UnsafeMutableRawPointer {
         return try archive.withUnsafeBytes { archiveBytes in
             return try password.withUnsafeBytes { passwordBytes in
@@ -211,6 +219,14 @@ final class BindingOperations {
         }
     }
 
+    func lockboxExtractFileWithPolicy(_ handle: UnsafeMutableRawPointer, _ source: String, _ destination: String, _ maxFileBytes: UInt64, _ maxTotalBytes: UInt64, _ maxFiles: Int, _ restorePermissions: Bool, _ overwrite: Bool) throws -> Bool {
+        return try source.withCString { sourcePointer in
+            return try destination.withCString { destinationPointer in
+                guard lockbox_extract_file_with_policy(handle, sourcePointer, source.utf8.count, destinationPointer, destination.utf8.count, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite) else { throw RevaultError.native(lastError()) }
+                return true
+            }
+        }
+    }
     func lockboxExtractFile(_ handle: UnsafeMutableRawPointer, _ source: String, _ destination: String, _ replace: Bool) throws -> Bool {
         return try source.withCString { sourcePointer in
             return try destination.withCString { destinationPointer in
@@ -277,6 +293,13 @@ final class BindingOperations {
     func lockboxSetWorkloadProfile(_ handle: UnsafeMutableRawPointer, _ profile: String) throws -> Bool {
         return try profile.withCString { profilePointer in
             guard lockbox_set_workload_profile(handle, profilePointer, profile.utf8.count) else { throw RevaultError.native(lastError()) }
+            return true
+        }
+    }
+
+    func lockboxSetCacheLimit(_ handle: UnsafeMutableRawPointer, _ mode: String, _ bytes: UInt64) throws -> Bool {
+        return try mode.withCString { modePointer in
+            guard lockbox_set_cache_limit(handle, modePointer, mode.utf8.count, bytes) else { throw RevaultError.native(lastError()) }
             return true
         }
     }
@@ -1047,6 +1070,30 @@ final class BindingOperations {
         }
     }
 
+    func vaultDirectorySetLockboxAlias(_ handle: UnsafeMutableRawPointer, _ name: String, _ id: Data) throws -> Bool {
+        return try name.withCString { namePointer in return try id.withUnsafeBytes { idBytes in guard vault_directory_set_lockbox_alias(handle, namePointer, name.utf8.count, idBytes.bindMemory(to: UInt8.self).baseAddress, id.count) else { throw RevaultError.native(lastError()) }; return true } }
+    }
+
+    func vaultDirectoryListLockboxAliases(_ handle: UnsafeMutableRawPointer) throws -> [LockboxAlias] {
+        return DomainCodec.lockboxAliasList(try take(vault_directory_list_lockbox_aliases(handle)))
+    }
+
+    func vaultDirectoryRemoveLockboxAlias(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> Bool {
+        return try name.withCString { namePointer in guard vault_directory_remove_lockbox_alias(handle, namePointer, name.utf8.count) else { throw RevaultError.native(lastError()) }; return true }
+    }
+
+    func vaultDirectoryResolveLockboxAlias(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> KnownLockbox {
+        return try name.withCString { namePointer in return DomainCodec.knownLockbox(try take(vault_directory_resolve_lockbox_alias(handle, namePointer, name.utf8.count))) }
+    }
+
+    func vaultReadOnlyListLockboxAliases(_ handle: UnsafeMutableRawPointer) throws -> [LockboxAlias] {
+        return DomainCodec.lockboxAliasList(try take(vault_read_only_list_lockbox_aliases(handle)))
+    }
+
+    func vaultReadOnlyResolveLockboxAlias(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> KnownLockbox {
+        return try name.withCString { namePointer in return DomainCodec.knownLockbox(try take(vault_read_only_resolve_lockbox_alias(handle, namePointer, name.utf8.count))) }
+    }
+
     func vaultDirectoryListKnownLockboxes(_ handle: UnsafeMutableRawPointer) throws -> [KnownLockbox] {
         return DomainCodec.knownLockboxList(try take(vault_directory_list_known_lockboxes(handle)))
     }
@@ -1512,8 +1559,8 @@ public final class Revault {
     /// Opens a native file with a shared lock; supply signer for exclusive write access.
     /// Close readers before opening a writer. The caller retains its key and signer.
     /// Example: let box = try api.openLockboxFile(path, contentKey: key); defer { box.free() }; let payload = try box.getFile("/hello")
-    public func openLockboxFile(_ path: String, contentKey: Data, signer: ProfileSigningKeyPair? = nil) throws -> Lockbox {
-        return Lockbox(operations, try operations.lockboxFile(path, "open", "content-key", contentKey, nil, signer?.handle, "bytes", 64 << 20, "interactive", "auto", 0))
+    public func openLockboxFile(_ path: String, contentKey: Data, signer: ProfileSigningKeyPair? = nil, writable: Bool? = nil) throws -> Lockbox {
+        return Lockbox(operations, try operations.lockboxFile(path, writable.map { $0 ? "write" : "read" } ?? "open", "content-key", contentKey, nil, signer?.handle, "bytes", 64 << 20, "interactive", "auto", 0))
     }
 
     /// Creates an in-memory archive with a caller-owned content key.
@@ -1574,6 +1621,10 @@ public final class Revault {
     }
 
     /// Opens serialized Lockbox bytes with the supplied password.
+    public func lockboxOpenPasswordWithBudget(_ archive: Data, _ password: Data, _ maxDerivations: UInt32) throws -> Lockbox {
+        return Lockbox(operations, try operations.lockboxOpenPasswordWithBudget(archive, password, maxDerivations))
+    }
+    /// Opens with the default per-credential password work budget.
     public func lockboxOpenPassword(_ archive: Data, _ password: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxOpenPassword(archive, password))
     }
@@ -1822,6 +1873,10 @@ extension Lockbox {
 
     /// Writes one Lockbox file to the host filesystem.
     @discardableResult
+    public func extractFileWithPolicy(_ source: String, _ destination: String, _ maxFileBytes: UInt64, _ maxTotalBytes: UInt64, _ maxFiles: Int, _ restorePermissions: Bool, _ overwrite: Bool) throws -> Bool {
+        return try operations.lockboxExtractFileWithPolicy(handle!, source, destination, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite)
+    }
+    /// Extracts one file using the legacy permission policy.
     public func extractFile(_ source: String, _ destination: String, _ replace: Bool) throws -> Bool {
         return try operations.lockboxExtractFile(handle!, source, destination, replace)
     }
@@ -1883,6 +1938,12 @@ extension Lockbox {
     @discardableResult
     public func setWorkloadProfile(_ profile: WorkloadProfile) throws -> Bool {
         try setWorkloadProfile(profile.rawValue)
+    }
+
+    /// Sets a soft cache limit (auto, disabled, or bytes).
+    @discardableResult
+    public func setCacheLimit(_ mode: String, _ bytes: UInt64) throws -> Bool {
+        return try operations.lockboxSetCacheLimit(handle!, mode, bytes)
     }
 
     /// Sets worker policy.
@@ -2441,6 +2502,28 @@ extension Vault {
         return try operations.vaultDirectoryListKnownLockboxes(handle!)
     }
 
+    /// Resolve metadata; verify target identity before opening its path.
+    public func resolveLockboxAlias(_ name: String) throws -> KnownLockbox {
+        return try operations.vaultDirectoryResolveLockboxAlias(handle!, name)
+    }
+
+    /// Remove only the alias, preserving its target.
+    @discardableResult
+    public func removeLockboxAlias(_ name: String) throws -> Bool {
+        return try operations.vaultDirectoryRemoveLockboxAlias(handle!, name)
+    }
+
+    /// List aliases without opening target archives.
+    public func listLockboxAliases() throws -> [LockboxAlias] {
+        return try operations.vaultDirectoryListLockboxAliases(handle!)
+    }
+
+    /// Set or replace a normalized alias for a remembered identity.
+    @discardableResult
+    public func setLockboxAlias(_ name: String, _ id: Data) throws -> Bool {
+        return try operations.vaultDirectorySetLockboxAlias(handle!, name, id)
+    }
+
     /// Removes lockbox.
     @discardableResult
     public func forgetLockbox(_ path: String) throws -> Bool {
@@ -2533,6 +2616,16 @@ extension ReadOnlyVault {
     /// Lists known lockboxes.
     public func listKnownLockboxes() throws -> [KnownLockbox] {
         return try operations.vaultReadOnlyListKnownLockboxes(handle!)
+    }
+
+    /// Resolve metadata; verify target identity before opening its path.
+    public func resolveLockboxAlias(_ name: String) throws -> KnownLockbox {
+        return try operations.vaultReadOnlyResolveLockboxAlias(handle!, name)
+    }
+
+    /// List aliases without opening target archives.
+    public func listLockboxAliases() throws -> [LockboxAlias] {
+        return try operations.vaultReadOnlyListLockboxAliases(handle!)
     }
 
     /// Releases the native resources held by this object.

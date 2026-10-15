@@ -1,0 +1,7 @@
+WASM gate terminal success was reported by the lead before integration launch:
+the locked release build and generation completed, the password lifecycle passed,
+and the exact setter lifecycle passed. Source identity matched; only generated
+binary artifacts changed. This supersedes the pre-WASM hold statement in
+PROTOCOL.txt. The default API integration run may now proceed under the frozen
+5400-second plus 30-second-grace protocol. Native-block-layout remains
+conditional on complete default-suite success.

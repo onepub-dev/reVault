@@ -1,0 +1,5 @@
+error: unrecognized subcommand 'check'
+
+Usage: revault-tool bindings <COMMAND>
+
+For more information, try '--help'.

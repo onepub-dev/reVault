@@ -1,0 +1,682 @@
+
+running 11 tests
+test archive_migration_commands_and_options_execute_end_to_end ... CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2115443
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2115443 elapsed=3.227155457s status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2115572
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2115572 elapsed=1.199773784s status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2115605
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2115605 elapsed=554.063156ms status=exit status: 1
+
+thread 'archive_migration_commands_and_options_execute_end_to_end' panicked at revault_cli/tests/migration_cli.rs:805:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  file not found: /content.txt
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test archive_v1_contact_only_migration_uses_keys_from_the_current_vault ... CLI start: test=archive_v1_contact_only_migration_uses_keys_from_the_current_vault pid=2115629
+CLI end: test=archive_v1_contact_only_migration_uses_keys_from_the_current_vault pid=2115629 elapsed=3.724787569s status=exit status: 0
+error[E0514]: found crate `revault_lockbox_api_v1` compiled by an incompatible version of rustc
+ --> revault_migrate_archive_v1/src/archive_v1.rs:1:5
+  |
+1 | use revault_lockbox_api_v1::{
+  |     ^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the following crate versions were found:
+          crate `revault_lockbox_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_lockbox_api-228d53b03c6ed141.rmeta
+  = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_migration_format` compiled by an incompatible version of rustc
+ --> revault_migrate_archive_v1/src/archive_v1.rs:5:5
+  |
+5 | use revault_migration_format::{
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the following crate versions were found:
+          crate `revault_migration_format` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_migration_format-fb83a639c6d28cd2.rmeta
+  = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `sha2` compiled by an incompatible version of rustc
+  --> revault_migrate_archive_v1/src/archive_v1.rs:10:5
+   |
+10 | use sha2::{Digest, Sha256};
+   |     ^^^^
+   |
+   = note: the following crate versions were found:
+           crate `sha2` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/libsha2-d275ab44e131eba2.rmeta
+   = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_lockbox_api_v1` compiled by an incompatible version of rustc
+   --> revault_migrate_archive_v1/src/archive_v1.rs:215:25
+    |
+215 | fn secret_bytes(value: &revault_lockbox_api_v1::SecretVec) -> Result<Vec<u8>> {
+    |                         ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: the following crate versions were found:
+            crate `revault_lockbox_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_lockbox_api-228d53b03c6ed141.rmeta
+    = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+For more information about this error, try `rustc --explain E0514`.
+error: could not compile `revault_migrate_archive_v1` (lib) due to 4 previous errors
+
+thread 'archive_v1_contact_only_migration_uses_keys_from_the_current_vault' panicked at revault_cli/tests/migration_cli.rs:749:5:
+assertion failed: status.success()
+FAILED
+test archive_v1_migrates_end_to_end_with_the_historical_exporter ... CLI start: test=archive_v1_migrates_end_to_end_with_the_historical_exporter pid=2121669
+CLI end: test=archive_v1_migrates_end_to_end_with_the_historical_exporter pid=2121669 elapsed=3.036820267s status=exit status: 0
+error[E0514]: found crate `revault_lockbox_api_v1` compiled by an incompatible version of rustc
+ --> revault_migrate_archive_v1/src/archive_v1.rs:1:5
+  |
+1 | use revault_lockbox_api_v1::{
+  |     ^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the following crate versions were found:
+          crate `revault_lockbox_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_lockbox_api-228d53b03c6ed141.rmeta
+  = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_migration_format` compiled by an incompatible version of rustc
+ --> revault_migrate_archive_v1/src/archive_v1.rs:5:5
+  |
+5 | use revault_migration_format::{
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the following crate versions were found:
+          crate `revault_migration_format` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_migration_format-fb83a639c6d28cd2.rmeta
+  = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `sha2` compiled by an incompatible version of rustc
+  --> revault_migrate_archive_v1/src/archive_v1.rs:10:5
+   |
+10 | use sha2::{Digest, Sha256};
+   |     ^^^^
+   |
+   = note: the following crate versions were found:
+           crate `sha2` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/libsha2-d275ab44e131eba2.rmeta
+   = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_lockbox_api_v1` compiled by an incompatible version of rustc
+   --> revault_migrate_archive_v1/src/archive_v1.rs:215:25
+    |
+215 | fn secret_bytes(value: &revault_lockbox_api_v1::SecretVec) -> Result<Vec<u8>> {
+    |                         ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: the following crate versions were found:
+            crate `revault_lockbox_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_lockbox_api-228d53b03c6ed141.rmeta
+    = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+For more information about this error, try `rustc --explain E0514`.
+error: could not compile `revault_migrate_archive_v1` (lib) due to 4 previous errors
+
+thread 'archive_v1_migrates_end_to_end_with_the_historical_exporter' panicked at revault_cli/tests/migration_cli.rs:749:5:
+assertion failed: status.success()
+FAILED
+test automatic_historical_exporter_install_hides_cargo_output ... error[E0514]: found crate `revault_lockbox_api_v1` compiled by an incompatible version of rustc
+ --> revault_migrate_vault_v1/src/vault_v1.rs:1:5
+  |
+1 | use revault_lockbox_api_v1::{
+  |     ^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the following crate versions were found:
+          crate `revault_lockbox_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_lockbox_api-d445889a302e85af.rmeta
+  = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_migration_format` compiled by an incompatible version of rustc
+ --> revault_migrate_vault_v1/src/vault_v1.rs:6:5
+  |
+6 | use revault_migration_format::{
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the following crate versions were found:
+          crate `revault_migration_format` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_migration_format-3b4630e62120f04c.rmeta
+  = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `sha2` compiled by an incompatible version of rustc
+  --> revault_migrate_vault_v1/src/vault_v1.rs:11:5
+   |
+11 | use sha2::{Digest, Sha256};
+   |     ^^^^
+   |
+   = note: the following crate versions were found:
+           crate `sha2` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/libsha2-d275ab44e131eba2.rmeta
+   = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_vault_api_v1` compiled by an incompatible version of rustc
+  --> revault_migrate_vault_v1/src/vault_v1.rs:17:23
+   |
+17 | const _: () = assert!(revault_vault_api_v1::CURRENT_VAULT_STRUCTURE_VERSION == 1);
+   |                       ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: the following crate versions were found:
+           crate `revault_vault_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_vault_api-5e93017dd5907f74.rmeta
+   = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_lockbox_api_v1` compiled by an incompatible version of rustc
+   --> revault_migrate_vault_v1/src/vault_v1.rs:456:17
+    |
+456 | ) -> Result<Vec<revault_lockbox_api_v1::LockboxEntry>> {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: the following crate versions were found:
+            crate `revault_lockbox_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_lockbox_api-d445889a302e85af.rmeta
+    = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+  --> revault_migrate_vault_v1/src/vault_v1.rs:70:9
+   |
+70 |     for name in historical_profile_names(&lockbox)? {
+   |         ^^^^ doesn't have a size known at compile-time
+   |
+   = help: the trait `Sized` is not implemented for `str`
+   = note: all local variables must have a statically known size
+   = help: unsized locals are gated as an unstable feature
+
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+   --> revault_migrate_vault_v1/src/vault_v1.rs:70:5
+    |
+70  | /     for name in historical_profile_names(&lockbox)? {
+71  | |         let history_path =
+72  | |             LockboxPath::new(format!("/{history_directory}/{name}.lbih")).map_err(core_error)?;
+73  | |         let history = lockbox
+...   |
+160 | |         )))?;
+161 | |     }
+    | |_____^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `str`
+note: required by a bound in `None`
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:589:17
+    |
+589 | pub enum Option<T> {
+    |                 ^ required by this bound in `None`
+...
+593 |     None,
+    |     ---- required by a bound in this variant
+
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+   --> revault_migrate_vault_v1/src/vault_v1.rs:70:17
+    |
+70  |     for name in historical_profile_names(&lockbox)? {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `str`
+note: required by an implicit `Sized` bound in `Option`
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:589:17
+    |
+589 | pub enum Option<T> {
+    |                 ^ required by the implicit `Sized` requirement on this type parameter in `Option`
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+  --> revault_migrate_vault_v1/src/vault_v1.rs:76:19
+   |
+76 |             .map(|bytes| decode_history(&name, &bytes, history_magic, structure))
+   |                   ^^^^^ doesn't have a size known at compile-time
+   |
+   = help: the trait `Sized` is not implemented for `[u8]`
+   = note: all function arguments must have a statically known size
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+  --> revault_migrate_vault_v1/src/vault_v1.rs:83:19
+   |
+83 |             .map(|bytes| decode_email(&bytes, email_magic, structure))
+   |                   ^^^^^ doesn't have a size known at compile-time
+   |
+   = help: the trait `Sized` is not implemented for `[u8]`
+   = note: all function arguments must have a statically known size
+
+Some errors have detailed explanations: E0277, E0514.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `revault_migrate_vault_v1` (lib) due to 10 previous errors
+
+thread 'automatic_historical_exporter_install_hides_cargo_output' panicked at revault_cli/tests/migration_cli.rs:727:5:
+assertion failed: status.success()
+FAILED
+test lockbox_v1_with_description_migrates_and_default_error_names_its_path ... CLI start: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2123501
+CLI end: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2123501 elapsed=928.047262ms status=exit status: 0
+CLI start: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2123510
+CLI end: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2123510 elapsed=25.440292ms status=exit status: 0
+CLI start: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2123522
+CLI end: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2123522 elapsed=326.244722ms status=exit status: 14
+error[E0514]: found crate `revault_lockbox_api_v1` compiled by an incompatible version of rustc
+ --> revault_migrate_archive_v1/src/archive_v1.rs:1:5
+  |
+1 | use revault_lockbox_api_v1::{
+  |     ^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the following crate versions were found:
+          crate `revault_lockbox_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_lockbox_api-228d53b03c6ed141.rmeta
+  = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_migration_format` compiled by an incompatible version of rustc
+ --> revault_migrate_archive_v1/src/archive_v1.rs:5:5
+  |
+5 | use revault_migration_format::{
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the following crate versions were found:
+          crate `revault_migration_format` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_migration_format-fb83a639c6d28cd2.rmeta
+  = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `sha2` compiled by an incompatible version of rustc
+  --> revault_migrate_archive_v1/src/archive_v1.rs:10:5
+   |
+10 | use sha2::{Digest, Sha256};
+   |     ^^^^
+   |
+   = note: the following crate versions were found:
+           crate `sha2` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/libsha2-d275ab44e131eba2.rmeta
+   = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_lockbox_api_v1` compiled by an incompatible version of rustc
+   --> revault_migrate_archive_v1/src/archive_v1.rs:215:25
+    |
+215 | fn secret_bytes(value: &revault_lockbox_api_v1::SecretVec) -> Result<Vec<u8>> {
+    |                         ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: the following crate versions were found:
+            crate `revault_lockbox_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_lockbox_api-228d53b03c6ed141.rmeta
+    = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+For more information about this error, try `rustc --explain E0514`.
+error: could not compile `revault_migrate_archive_v1` (lib) due to 4 previous errors
+
+thread 'lockbox_v1_with_description_migrates_and_default_error_names_its_path' panicked at revault_cli/tests/migration_cli.rs:749:5:
+assertion failed: status.success()
+FAILED
+test migrated_mirror_preserves_configuration_and_update_lifecycle ... CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123549
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123549 elapsed=1.027984578s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123561
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123561 elapsed=601.976073ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123562
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123562 elapsed=802.594824ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123563
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123563 elapsed=1.805301371s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123565
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123565 elapsed=802.635274ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123585
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123585 elapsed=2.381853432s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123661
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123661 elapsed=802.644244ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123732
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123732 elapsed=1.303910662s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123800
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123800 elapsed=401.427274ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123821
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123821 elapsed=2.005997943s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123823
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123823 elapsed=401.357732ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123829
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123829 elapsed=401.417443ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123831
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123831 elapsed=401.356623ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123832
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123832 elapsed=401.426524ms status=exit status: 12
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123835
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123835 elapsed=1.304055794s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123856
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123856 elapsed=1.303934723s status=exit status: 1
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123860
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123860 elapsed=401.385793ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123861
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123861 elapsed=401.394853ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123862
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123862 elapsed=401.425203ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123866
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123866 elapsed=401.319602ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123867
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2123867 elapsed=401.385153ms status=exit status: 0
+ok
+test vault_migration_commands_and_options_execute_end_to_end ... CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2123869
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2123869 elapsed=727.229139ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2123889
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2123889 elapsed=2.707334784s status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2123969
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2123969 elapsed=426.509171ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2123977
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2123977 elapsed=501.669003ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2123978
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2123978 elapsed=501.690983ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2123979
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2123979 elapsed=501.682443ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2123980
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2123980 elapsed=100.652335ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2123981
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2123981 elapsed=25.414662ms status=exit status: 2
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2123982
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2123982 elapsed=526.65407ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2123983
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2123983 elapsed=501.644713ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2123984
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2123984 elapsed=601.971603ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2124004
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2124004 elapsed=501.656032ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2124005
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2124005 elapsed=1.203728643s status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2124006
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2124006 elapsed=426.486471ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2124013
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2124013 elapsed=501.635472ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2124014
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2124014 elapsed=501.713443ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2124029
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2124029 elapsed=501.713414ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2124030
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2124030 elapsed=100.631975ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2124032
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2124032 elapsed=476.623616ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2124033
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2124033 elapsed=426.499241ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2124062
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2124062 elapsed=501.696133ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2124063
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2124063 elapsed=501.715483ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2124064
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2124064 elapsed=501.725354ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2124065
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2124065 elapsed=100.698135ms status=exit status: 0
+ok
+test vault_structure_v2_in_container_v1_migrates_end_to_end ... error[E0514]: found crate `revault_lockbox_api_v1` compiled by an incompatible version of rustc
+ --> revault_migrate_vault_v1/src/vault_v1.rs:1:5
+  |
+1 | use revault_lockbox_api_v1::{
+  |     ^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the following crate versions were found:
+          crate `revault_lockbox_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_lockbox_api-d445889a302e85af.rmeta
+  = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_migration_format` compiled by an incompatible version of rustc
+ --> revault_migrate_vault_v1/src/vault_v1.rs:6:5
+  |
+6 | use revault_migration_format::{
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the following crate versions were found:
+          crate `revault_migration_format` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_migration_format-3b4630e62120f04c.rmeta
+  = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `sha2` compiled by an incompatible version of rustc
+  --> revault_migrate_vault_v1/src/vault_v1.rs:11:5
+   |
+11 | use sha2::{Digest, Sha256};
+   |     ^^^^
+   |
+   = note: the following crate versions were found:
+           crate `sha2` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/libsha2-d275ab44e131eba2.rmeta
+   = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_vault_api_v1` compiled by an incompatible version of rustc
+  --> revault_migrate_vault_v1/src/vault_v1.rs:17:23
+   |
+17 | const _: () = assert!(revault_vault_api_v1::CURRENT_VAULT_STRUCTURE_VERSION == 1);
+   |                       ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: the following crate versions were found:
+           crate `revault_vault_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_vault_api-5e93017dd5907f74.rmeta
+   = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_lockbox_api_v1` compiled by an incompatible version of rustc
+   --> revault_migrate_vault_v1/src/vault_v1.rs:456:17
+    |
+456 | ) -> Result<Vec<revault_lockbox_api_v1::LockboxEntry>> {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: the following crate versions were found:
+            crate `revault_lockbox_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_lockbox_api-d445889a302e85af.rmeta
+    = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+  --> revault_migrate_vault_v1/src/vault_v1.rs:70:9
+   |
+70 |     for name in historical_profile_names(&lockbox)? {
+   |         ^^^^ doesn't have a size known at compile-time
+   |
+   = help: the trait `Sized` is not implemented for `str`
+   = note: all local variables must have a statically known size
+   = help: unsized locals are gated as an unstable feature
+
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+   --> revault_migrate_vault_v1/src/vault_v1.rs:70:5
+    |
+70  | /     for name in historical_profile_names(&lockbox)? {
+71  | |         let history_path =
+72  | |             LockboxPath::new(format!("/{history_directory}/{name}.lbih")).map_err(core_error)?;
+73  | |         let history = lockbox
+...   |
+160 | |         )))?;
+161 | |     }
+    | |_____^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `str`
+note: required by a bound in `None`
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:589:17
+    |
+589 | pub enum Option<T> {
+    |                 ^ required by this bound in `None`
+...
+593 |     None,
+    |     ---- required by a bound in this variant
+
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+   --> revault_migrate_vault_v1/src/vault_v1.rs:70:17
+    |
+70  |     for name in historical_profile_names(&lockbox)? {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `str`
+note: required by an implicit `Sized` bound in `Option`
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:589:17
+    |
+589 | pub enum Option<T> {
+    |                 ^ required by the implicit `Sized` requirement on this type parameter in `Option`
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+  --> revault_migrate_vault_v1/src/vault_v1.rs:76:19
+   |
+76 |             .map(|bytes| decode_history(&name, &bytes, history_magic, structure))
+   |                   ^^^^^ doesn't have a size known at compile-time
+   |
+   = help: the trait `Sized` is not implemented for `[u8]`
+   = note: all function arguments must have a statically known size
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+  --> revault_migrate_vault_v1/src/vault_v1.rs:83:19
+   |
+83 |             .map(|bytes| decode_email(&bytes, email_magic, structure))
+   |                   ^^^^^ doesn't have a size known at compile-time
+   |
+   = help: the trait `Sized` is not implemented for `[u8]`
+   = note: all function arguments must have a statically known size
+
+Some errors have detailed explanations: E0277, E0514.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `revault_migrate_vault_v1` (lib) due to 10 previous errors
+
+thread 'vault_structure_v2_in_container_v1_migrates_end_to_end' panicked at revault_cli/tests/migration_cli.rs:727:5:
+assertion failed: status.success()
+FAILED
+test vault_v1_replace_uses_the_explicit_historical_exporter ... error[E0514]: found crate `revault_lockbox_api_v1` compiled by an incompatible version of rustc
+ --> revault_migrate_vault_v1/src/vault_v1.rs:1:5
+  |
+1 | use revault_lockbox_api_v1::{
+  |     ^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the following crate versions were found:
+          crate `revault_lockbox_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_lockbox_api-d445889a302e85af.rmeta
+  = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_migration_format` compiled by an incompatible version of rustc
+ --> revault_migrate_vault_v1/src/vault_v1.rs:6:5
+  |
+6 | use revault_migration_format::{
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the following crate versions were found:
+          crate `revault_migration_format` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_migration_format-3b4630e62120f04c.rmeta
+  = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `sha2` compiled by an incompatible version of rustc
+  --> revault_migrate_vault_v1/src/vault_v1.rs:11:5
+   |
+11 | use sha2::{Digest, Sha256};
+   |     ^^^^
+   |
+   = note: the following crate versions were found:
+           crate `sha2` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/libsha2-d275ab44e131eba2.rmeta
+   = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_vault_api_v1` compiled by an incompatible version of rustc
+  --> revault_migrate_vault_v1/src/vault_v1.rs:17:23
+   |
+17 | const _: () = assert!(revault_vault_api_v1::CURRENT_VAULT_STRUCTURE_VERSION == 1);
+   |                       ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: the following crate versions were found:
+           crate `revault_vault_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_vault_api-5e93017dd5907f74.rmeta
+   = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0514]: found crate `revault_lockbox_api_v1` compiled by an incompatible version of rustc
+   --> revault_migrate_vault_v1/src/vault_v1.rs:456:17
+    |
+456 | ) -> Result<Vec<revault_lockbox_api_v1::LockboxEntry>> {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: the following crate versions were found:
+            crate `revault_lockbox_api_v1` compiled by rustc 1.94.1 (e408947bf 2026-03-25): /tmp/rv-security-cli-isolated-20261013/target/debug/deps/librevault_lockbox_api-d445889a302e85af.rmeta
+    = help: please recompile that crate using this compiler (rustc 1.88.0 (6b00bc388 2025-06-23)) (consider running `cargo clean` first)
+
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+  --> revault_migrate_vault_v1/src/vault_v1.rs:70:9
+   |
+70 |     for name in historical_profile_names(&lockbox)? {
+   |         ^^^^ doesn't have a size known at compile-time
+   |
+   = help: the trait `Sized` is not implemented for `str`
+   = note: all local variables must have a statically known size
+   = help: unsized locals are gated as an unstable feature
+
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+   --> revault_migrate_vault_v1/src/vault_v1.rs:70:5
+    |
+70  | /     for name in historical_profile_names(&lockbox)? {
+71  | |         let history_path =
+72  | |             LockboxPath::new(format!("/{history_directory}/{name}.lbih")).map_err(core_error)?;
+73  | |         let history = lockbox
+...   |
+160 | |         )))?;
+161 | |     }
+    | |_____^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `str`
+note: required by a bound in `None`
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:589:17
+    |
+589 | pub enum Option<T> {
+    |                 ^ required by this bound in `None`
+...
+593 |     None,
+    |     ---- required by a bound in this variant
+
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+   --> revault_migrate_vault_v1/src/vault_v1.rs:70:17
+    |
+70  |     for name in historical_profile_names(&lockbox)? {
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `str`
+note: required by an implicit `Sized` bound in `Option`
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:589:17
+    |
+589 | pub enum Option<T> {
+    |                 ^ required by the implicit `Sized` requirement on this type parameter in `Option`
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+  --> revault_migrate_vault_v1/src/vault_v1.rs:76:19
+   |
+76 |             .map(|bytes| decode_history(&name, &bytes, history_magic, structure))
+   |                   ^^^^^ doesn't have a size known at compile-time
+   |
+   = help: the trait `Sized` is not implemented for `[u8]`
+   = note: all function arguments must have a statically known size
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+  --> revault_migrate_vault_v1/src/vault_v1.rs:83:19
+   |
+83 |             .map(|bytes| decode_email(&bytes, email_magic, structure))
+   |                   ^^^^^ doesn't have a size known at compile-time
+   |
+   = help: the trait `Sized` is not implemented for `[u8]`
+   = note: all function arguments must have a statically known size
+
+Some errors have detailed explanations: E0277, E0514.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `revault_migrate_vault_v1` (lib) due to 10 previous errors
+
+thread 'vault_v1_replace_uses_the_explicit_historical_exporter' panicked at revault_cli/tests/migration_cli.rs:727:5:
+assertion failed: status.success()
+FAILED
+test vault_v2_replace_preserves_profile_keys_and_supports_password_profiles ... 
+thread 'vault_v2_replace_preserves_profile_keys_and_supports_password_profiles' panicked at revault_cli/tests/migration_cli.rs:704:5:
+exporter build failed:    Compiling zstd-complete v0.1.0
+   Compiling revault_lockbox_api v0.0.9
+   Compiling revault_vault_api v0.0.10
+   Compiling revault_migrate_vault_v2 v0.0.31 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_vault_v2)
+error: could not compile `revault_migrate_vault_v2` (lib) due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...
+
+FAILED
+test vault_v3_container_upgrade_preserves_profiles_and_enables_compaction ... 
+thread 'vault_v3_container_upgrade_preserves_profiles_and_enables_compaction' panicked at revault_cli/tests/migration_cli.rs:704:5:
+exporter build failed:    Compiling hybrid-array v0.4.15
+   Compiling rustix v1.1.4
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling digest v0.11.3
+   Compiling inout v0.2.2
+   Compiling phc v0.6.1
+   Compiling cipher v0.5.2
+   Compiling signature v3.0.0
+   Compiling universal-hash v0.6.1
+   Compiling curve25519-dalek v5.0.0
+   Compiling polling v3.11.0
+   Compiling async-io v2.6.0
+   Compiling poly1305 v0.9.1
+   Compiling async-signal v0.2.14
+   Compiling chacha20 v0.10.2
+   Compiling password-hash v0.6.1
+   Compiling aead v0.6.1
+   Compiling sha2 v0.11.0
+   Compiling blake2 v0.11.0
+   Compiling module-lattice v0.2.3
+   Compiling shake v0.1.0
+   Compiling argon2 v0.6.0
+   Compiling chacha20poly1305 v0.11.0
+   Compiling async-process v2.5.0
+   Compiling ed25519 v3.0.0
+   Compiling sha3 v0.11.0
+   Compiling hmac v0.13.0
+   Compiling kem v0.3.0
+   Compiling revault_page_api v0.0.34 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_page_api)
+   Compiling zbus v5.19.0
+error: could not compile `revault_page_api` (lib) due to 27 previous errors
+warning: build failed, waiting for other jobs to finish...
+
+FAILED
+
+failures:
+
+failures:
+    archive_migration_commands_and_options_execute_end_to_end
+    archive_v1_contact_only_migration_uses_keys_from_the_current_vault
+    archive_v1_migrates_end_to_end_with_the_historical_exporter
+    automatic_historical_exporter_install_hides_cargo_output
+    lockbox_v1_with_description_migrates_and_default_error_names_its_path
+    vault_structure_v2_in_container_v1_migrates_end_to_end
+    vault_v1_replace_uses_the_explicit_historical_exporter
+    vault_v2_replace_preserves_profile_keys_and_supports_password_profiles
+    vault_v3_container_upgrade_preserves_profiles_and_enables_compaction
+
+test result: FAILED. 2 passed; 9 failed; 0 ignored; 0 measured; 0 filtered out; finished in 155.15s
+

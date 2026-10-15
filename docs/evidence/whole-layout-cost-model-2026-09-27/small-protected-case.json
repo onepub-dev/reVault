@@ -1,0 +1,8 @@
+{
+  "bytes": 4096,
+  "compressed": true,
+  "corpus": "mixed",
+  "files": 512,
+  "mode": "encrypted-signed",
+  "unpadded": false
+}

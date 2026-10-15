@@ -346,6 +346,17 @@ impl fmt::Debug for ExternalStorage {
     }
 }
 impl ExternalStorage {
+    pub(crate) fn ensure_current(&self) -> crate::Result<()> {
+        if let Some(error) = self.failure().map_err(source_io)? {
+            return Err(source_io(error));
+        }
+        self.source.validate().map_err(|error| self.latch(error))?;
+        if self.source.len() != self.length {
+            return Err(self.latch(SourceError::VersionChanged));
+        }
+        Ok(())
+    }
+
     fn failure(&self) -> Result<Option<SourceError>, SourceError> {
         Ok(self.failure.lock().map_err(|_| poisoned())?.clone())
     }
@@ -624,6 +635,527 @@ impl ReadAtSource for SparseSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "native-block-layout")]
+    #[test]
+    fn small_native_whole_reads_capture_once_and_preserve_source_failures() {
+        use crate::{
+            Compression, Encryption, LockboxCreateOptions, LockboxProtection, OwnerSigningKeyPair,
+            Signing, SizePadding,
+        };
+        use std::io::Read;
+        struct Probe {
+            bytes: Vec<u8>,
+            reads: Mutex<usize>,
+            cancel_on_read: bool,
+            cancelled: Mutex<bool>,
+        }
+        impl ReadAtSource for Probe {
+            fn len(&self) -> u64 {
+                self.bytes.len() as u64
+            }
+            fn validate(&self) -> Result<(), SourceError> {
+                if *self.cancelled.lock().unwrap() {
+                    Err(SourceError::Cancelled)
+                } else {
+                    Ok(())
+                }
+            }
+            fn read_at(&self, offset: u64, out: &mut [u8]) -> Result<usize, SourceError> {
+                *self.reads.lock().unwrap() += 1;
+                out.copy_from_slice(&self.bytes[offset as usize..offset as usize + out.len()]);
+                if self.cancel_on_read {
+                    *self.cancelled.lock().unwrap() = true;
+                }
+                Ok(out.len())
+            }
+        }
+        let signer = OwnerSigningKeyPair::generate().unwrap();
+        let input = (0..4096).map(|n| (n % 251) as u8).collect::<Vec<_>>();
+        let path = crate::LockboxPath::new("/small").unwrap();
+        for encrypted in [false, true] {
+            for signed in [false, true] {
+                for compression in [Compression::None, Compression::default()] {
+                    for size_padding in [SizePadding::Default, SizePadding::None] {
+                        let mut archive =
+                            crate::Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                                compression,
+                                size_padding,
+                                ..LockboxCreateOptions::new(
+                                    if encrypted {
+                                        Encryption::Encrypted(LockboxProtection::ContentKey(
+                                            crate::SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                        ))
+                                    } else {
+                                        Encryption::None
+                                    },
+                                    if signed {
+                                        Signing::Owner(&signer)
+                                    } else {
+                                        Signing::None
+                                    },
+                                )
+                            })
+                            .unwrap();
+                        archive.add_file(&path, &input, false).unwrap();
+                        archive.commit().unwrap();
+                        let bytes = archive.to_bytes();
+                        for case in 0..8 {
+                            let through_handle = case >= 4;
+                            let fault = case % 4;
+                            let mut source_bytes = bytes.clone();
+                            // Private source replacement supplies mid-read cancellation
+                            // and corrupted bytes that public mutation APIs cannot emit.
+                            if fault >= 2 {
+                                let offset = source_bytes.windows(crate::page::PAGE_HEADER_LEN).position(crate::file_format::indexed_frame::block_page::is_native_header).unwrap();
+                                if fault == 2 {
+                                    source_bytes[offset + crate::page::PAGE_HEADER_LEN + 4] ^= 1;
+                                } else {
+                                    let len = crate::page::physical_page_size_from_page_slice(
+                                        &source_bytes[offset..],
+                                    )
+                                    .unwrap();
+                                    source_bytes.truncate(offset + len - 1);
+                                }
+                            }
+                            let source = Arc::new(Probe {
+                                bytes: source_bytes,
+                                reads: Mutex::new(0),
+                                cancel_on_read: fault == 1,
+                                cancelled: Mutex::new(false),
+                            });
+                            let session = ExternalReader::new(
+                                source.clone(),
+                                ExternalReaderOptions::default(),
+                            )
+                            .unwrap();
+                            crate::lockbox::block_frame_tests::replace_storage(
+                                &mut archive,
+                                crate::storage::StorageBackend::External(session.storage.clone()),
+                            );
+                            let read = || -> crate::Result<Vec<u8>> {
+                                if !through_handle {
+                                    return archive.get_file(&path);
+                                }
+                                let mut handle = archive.open_file(&path)?;
+                                let mut bytes = Vec::new();
+                                handle
+                                    .read_to_end(&mut bytes)
+                                    .map_err(|e| crate::Error::Io(e.to_string()))?;
+                                Ok(bytes)
+                            };
+                            if fault == 0 {
+                                assert_eq!(read().unwrap(), input);
+                                assert_eq!(
+                                    *source.reads.lock().unwrap(),
+                                    1,
+                                    "one bounded source read per cold small frame"
+                                );
+                                assert_eq!(read().unwrap(), input);
+                                assert_eq!(
+                                    *source.reads.lock().unwrap(),
+                                    1,
+                                    "warm read reuses verified cache"
+                                );
+                            } else if fault == 1 {
+                                assert!(read().is_err());
+                                *source.cancelled.lock().unwrap() = false;
+                                assert!(
+                                    read().is_err(),
+                                    "terminal source failure must stay latched"
+                                );
+                                assert_eq!(*source.reads.lock().unwrap(), 1);
+                            } else {
+                                assert!(read().is_err());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn native_file_handle_retains_index_and_bounds_raw_reads_without_bypassing_failure_latch() {
+        use crate::{
+            Compression, Encryption, LockboxCreateOptions, LockboxProtection, OwnerSigningKeyPair,
+            Signing, SizePadding,
+        };
+        use std::io::{Read, Seek, SeekFrom};
+        struct Probe {
+            bytes: Vec<u8>,
+            cancelled: Mutex<bool>,
+            reads: Mutex<Vec<(u64, usize)>>,
+        }
+        impl ReadAtSource for Probe {
+            fn len(&self) -> u64 {
+                self.bytes.len() as u64
+            }
+            fn validate(&self) -> Result<(), SourceError> {
+                if *self.cancelled.lock().unwrap() {
+                    Err(SourceError::Cancelled)
+                } else {
+                    Ok(())
+                }
+            }
+            fn read_at(&self, offset: u64, out: &mut [u8]) -> Result<usize, SourceError> {
+                self.reads.lock().unwrap().push((offset, out.len()));
+                out.copy_from_slice(&self.bytes[offset as usize..offset as usize + out.len()]);
+                Ok(out.len())
+            }
+        }
+        let signer = OwnerSigningKeyPair::generate().unwrap();
+        let input = (0..2 * 1024 * 1024 + 13)
+            .map(|n| (n % 251) as u8)
+            .collect::<Vec<_>>();
+        for encrypted in [false, true] {
+            for signed in [false, true] {
+                for compression in [Compression::None, Compression::default()] {
+                    for size_padding in [SizePadding::Default, SizePadding::None] {
+                        let mut archive =
+                            Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                                compression,
+                                size_padding,
+                                ..LockboxCreateOptions::new(
+                                    if encrypted {
+                                        Encryption::Encrypted(LockboxProtection::ContentKey(
+                                            SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                        ))
+                                    } else {
+                                        Encryption::None
+                                    },
+                                    if signed {
+                                        Signing::Owner(&signer)
+                                    } else {
+                                        Signing::None
+                                    },
+                                )
+                            })
+                            .unwrap();
+                        archive.commit().unwrap();
+                        // Unit-level injection: there is not yet a public writer for
+                        // native block pages. Test the real public Read/Seek handle.
+                        let paths =
+                            crate::lockbox::block_frame_tests::install(&mut archive, &input);
+                        let expected = &input[input.len() / 2..];
+                        let source = Arc::new(Probe {
+                            bytes: archive.to_bytes(),
+                            cancelled: Mutex::new(false),
+                            reads: Mutex::new(Vec::new()),
+                        });
+                        let session =
+                            ExternalReader::new(source.clone(), ExternalReaderOptions::default())
+                                .unwrap();
+                        crate::lockbox::block_frame_tests::replace_storage(
+                            &mut archive,
+                            StorageBackend::External(session.storage.clone()),
+                        );
+                        archive.set_workload_profile(crate::WorkloadProfile::ExtractMany);
+                        let mut reader = archive.open_file(&paths[1]).unwrap();
+                        reader.seek(SeekFrom::Start(7)).unwrap();
+                        let mut small = [0; 13];
+                        reader.read_exact(&mut small).unwrap();
+                        assert_eq!(small, expected[7..20]);
+                        let initial = source.reads.lock().unwrap().clone();
+                        assert_eq!(initial.len(), 4, "header, metadata, index, data");
+                        if compression == Compression::None {
+                            assert_eq!(initial[3].1, 16384 + if encrypted { 16 } else { 0 });
+                        }
+                        // A repeated read within the window needs no metadata,
+                        // index, or data fetch, in either codec mode.
+                        reader.seek(SeekFrom::Start(7)).unwrap();
+                        reader.read_exact(&mut small).unwrap();
+                        assert_eq!(small, expected[7..20]);
+                        assert_eq!(*source.reads.lock().unwrap(), initial);
+                        // Independent handles share authenticated cached blocks.
+                        let mut second = archive.open_file(&paths[1]).unwrap();
+                        second.seek(SeekFrom::Start(7)).unwrap();
+                        second.read_exact(&mut small).unwrap();
+                        assert_eq!(small, expected[7..20]);
+                        assert_eq!(*source.reads.lock().unwrap(), initial);
+                        drop(second);
+                        reader.seek(SeekFrom::Start(32770)).unwrap();
+                        reader.read_exact(&mut small).unwrap();
+                        assert_eq!(small, expected[32770..32783]);
+                        assert_eq!(
+                            source.reads.lock().unwrap().len(),
+                            initial.len() + usize::from(compression == Compression::None)
+                        );
+                        // Sequential consumption reuses the index and preserves bytes
+                        // across windows and the unaligned packed-file boundary.
+                        reader.rewind().unwrap();
+                        let mut actual = Vec::new();
+                        let mut buffer = [0; 65536];
+                        loop {
+                            let count = reader.read(&mut buffer).unwrap();
+                            if count == 0 {
+                                break;
+                            }
+                            actual.extend_from_slice(&buffer[..count]);
+                        }
+                        assert_eq!(actual, expected);
+                        assert!(
+                            source.reads.lock().unwrap()[4..]
+                                .iter()
+                                .all(|(offset, _)| *offset >= initial[3].0),
+                            "sequential reads must not reload metadata or the index"
+                        );
+                        if compression != Compression::None {
+                            assert_eq!(
+                                source.reads.lock().unwrap().len(),
+                                4,
+                                "decode once per retained chunk"
+                            );
+                        }
+                        reader.seek(SeekFrom::End(-13)).unwrap();
+                        reader.read_exact(&mut small).unwrap();
+                        if compression == Compression::None {
+                            let before = source.reads.lock().unwrap().len();
+                            let mut neighbor = archive.open_file(&paths[0]).unwrap();
+                            let mut bytes = [0; 13];
+                            neighbor.read_exact(&mut bytes).unwrap();
+                            assert_eq!(bytes, input[..13]);
+                            let reads = source.reads.lock().unwrap();
+                            assert_eq!(
+                                reads.len(),
+                                before + 1,
+                                "new raw handles reuse metadata/index but verify requested data"
+                            );
+                            assert_eq!(reads[before].1, 16384 + if encrypted { 16 } else { 0 });
+                        }
+                        assert_eq!(
+                            archive.get_file(&paths[0]).unwrap(),
+                            input[..input.len() / 2]
+                        );
+                        assert_eq!(
+                            archive.decoded_compression_frame_cache_entries_for_tests(),
+                            1
+                        );
+                        let before_cached = source.reads.lock().unwrap().len();
+                        assert_eq!(
+                            archive.read_file_range(&paths[1], 7, 13).unwrap(),
+                            expected[7..20]
+                        );
+                        assert_eq!(source.reads.lock().unwrap().len(), before_cached,
+                            "verified decoded cache hit reuses metadata and index without source reads");
+                        if compression != Compression::None {
+                            let before = source.reads.lock().unwrap().len();
+                            let mut neighbor = archive.open_file(&paths[0]).unwrap();
+                            let mut bytes = Vec::new();
+                            neighbor.read_to_end(&mut bytes).unwrap();
+                            assert_eq!(bytes, input[..input.len() / 2]);
+                            assert_eq!(
+                                source.reads.lock().unwrap().len(),
+                                before,
+                                "new compressed handles reuse the verified shared frame"
+                            );
+                        }
+                        let count = source.reads.lock().unwrap().len();
+                        *source.cancelled.lock().unwrap() = true;
+                        reader.seek(SeekFrom::End(-13)).unwrap();
+                        assert!(reader.read_exact(&mut small).is_err());
+                        assert!(archive.get_file(&paths[0]).is_err());
+                        *source.cancelled.lock().unwrap() = false;
+                        assert!(archive.read_file_range(&paths[1], 7, 13).is_err());
+                        assert!(
+                            reader.read_exact(&mut small).is_err(),
+                            "cache cannot clear terminal failure"
+                        );
+                        assert_eq!(source.reads.lock().unwrap().len(), count);
+                        drop(reader);
+                        let session =
+                            ExternalReader::new(source.clone(), ExternalReaderOptions::default())
+                                .unwrap();
+                        crate::lockbox::block_frame_tests::replace_storage(
+                            &mut archive,
+                            StorageBackend::External(session.storage.clone()),
+                        );
+                        use crate::{
+                            ContentStreamOrder::{Logical, Physical},
+                            WorkloadProfile::{ExtractMany, Interactive},
+                        };
+                        for (profile, order, expected_reads) in [
+                            (Interactive, Logical, 1),
+                            (Interactive, Physical, 1),
+                            (ExtractMany, Logical, 1),
+                            (ExtractMany, Physical, 3),
+                        ] {
+                            archive.set_workload_profile(profile);
+                            if matches!(profile, Interactive) {
+                                let mut visited = 0;
+                                assert!(archive
+                                    .stream_content(
+                                        crate::ContentStreamOptions { order },
+                                        |_, _| {
+                                            visited += 1;
+                                            Err(crate::Error::Io("visitor stopped".into()))
+                                        }
+                                    )
+                                    .is_err());
+                                assert_eq!(visited, 1);
+                            }
+                            source.reads.lock().unwrap().clear();
+                            let mut actual = Vec::new();
+                            archive
+                                .stream_content(
+                                    crate::ContentStreamOptions { order },
+                                    |_, reader| {
+                                        reader.read_to_end(&mut actual).unwrap();
+                                        Ok(())
+                                    },
+                                )
+                                .unwrap();
+                            assert_eq!(actual, input);
+                            assert_eq!(source.reads.lock().unwrap().len(), expected_reads,
+                                "packed stream reuses retained index; decoded-cache replacement reloads only metadata/index");
+                        }
+                        let mut visited = 0;
+                        let result = archive.stream_content(Default::default(), |_, _| {
+                            visited += 1;
+                            *source.cancelled.lock().unwrap() = true;
+                            Ok(())
+                        });
+                        assert!(result.is_err());
+                        assert_eq!(
+                            visited, 1,
+                            "cancelled source cannot deliver its retained neighbor"
+                        );
+                        *source.cancelled.lock().unwrap() = false;
+                        assert!(archive
+                            .stream_content(Default::default(), |_, _| Ok(()))
+                            .is_err());
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn native_block_reader_preserves_external_failure_latching_in_every_mode() {
+        use crate::file_format::indexed_frame::{encode_block_frame, BlockFrameReader};
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        struct Probe {
+            bytes: Vec<u8>,
+            state: Mutex<u8>,
+            reads: Mutex<Vec<(u64, usize)>>,
+        }
+        impl ReadAtSource for Probe {
+            fn len(&self) -> u64 {
+                self.bytes.len() as u64 + u64::from(*self.state.lock().unwrap() == 5)
+            }
+            fn validate(&self) -> Result<(), SourceError> {
+                match *self.state.lock().unwrap() {
+                    1 => Err(SourceError::Cancelled),
+                    2 => Err(SourceError::VersionChanged),
+                    _ => Ok(()),
+                }
+            }
+            fn read_at(&self, offset: u64, out: &mut [u8]) -> Result<usize, SourceError> {
+                self.reads.lock().unwrap().push((offset, out.len()));
+                let state = *self.state.lock().unwrap();
+                if state == 4 {
+                    return Err(SourceError::MissingRange {
+                        offset,
+                        length: out.len(),
+                    });
+                }
+                out.copy_from_slice(&self.bytes[offset as usize..offset as usize + out.len()]);
+                Ok(out.len() - usize::from(state == 3 && !out.is_empty()))
+            }
+        }
+        let key = [29; 32];
+        for encrypted in [false, true] {
+            for signed in [false, true] {
+                for compressed in [false, true] {
+                    let mode = crate::creation_options::FormatMode::new(LockboxFormatOptions {
+                        encryption: if encrypted {
+                            EncryptionMode::ChaCha20Poly1305
+                        } else {
+                            EncryptionMode::None
+                        },
+                        signing: if signed {
+                            SigningMode::Owner
+                        } else {
+                            SigningMode::None
+                        },
+                        compression: if compressed {
+                            Compression::default()
+                        } else {
+                            Compression::None
+                        },
+                        size_padding: SizePadding::Default,
+                    });
+                    let (descriptor, packet) = encode_block_frame(
+                        crate::LockboxId::from_bytes([71; 16]),
+                        31,
+                        mode,
+                        &[43; 32768],
+                        &key,
+                    )
+                    .unwrap();
+                    for failure in 1..=5 {
+                        let source = Arc::new(Probe {
+                            bytes: packet.clone(),
+                            state: Mutex::new(0),
+                            reads: Mutex::new(Vec::new()),
+                        });
+                        let session =
+                            ExternalReader::new(source.clone(), ExternalReaderOptions::default())
+                                .unwrap();
+                        let backend = StorageBackend::External(session.storage.clone());
+                        let reader =
+                            BlockFrameReader::open(&descriptor, &backend, 0, packet.len(), &key)
+                                .unwrap();
+                        assert_eq!(
+                            source.reads.lock().unwrap().len(),
+                            1,
+                            "open must read only the committed index"
+                        );
+                        assert_eq!(reader.read(7..19).unwrap(), [43; 12]);
+                        assert_eq!(source.reads.lock().unwrap().len(), 2);
+                        if !compressed {
+                            assert_eq!(
+                                source.reads.lock().unwrap()[1].1,
+                                16384 + if encrypted { 16 } else { 0 }
+                            );
+                        }
+                        *source.state.lock().unwrap() = failure;
+                        if !encrypted && !compressed {
+                            let mut direct = vec![88; 32768];
+                            assert!(reader.read_aligned_raw_into(0..32768, &mut direct).is_err());
+                            assert_eq!(
+                                direct,
+                                vec![0; 32768],
+                                "direct I/O failures wipe the entire destination"
+                            );
+                        }
+                        assert!(reader.read(7..19).is_err());
+                        let latched = session.storage.failure().unwrap().unwrap();
+                        match failure {
+                            1 => assert_eq!(latched, SourceError::Cancelled),
+                            2 | 5 => assert_eq!(latched, SourceError::VersionChanged),
+                            3 => assert!(matches!(latched, SourceError::Unavailable(_))),
+                            4 => assert!(matches!(latched, SourceError::MissingRange { .. })),
+                            _ => unreachable!(),
+                        }
+                        *source.state.lock().unwrap() = 0;
+                        let reads_before_retry = source.reads.lock().unwrap().len();
+                        // Even empty reads after a cached index must reject the latch.
+                        assert!(reader.read(0..0).is_err());
+                        assert!(reader.read(7..19).is_err());
+                        assert_eq!(source.reads.lock().unwrap().len(), reads_before_retry);
+                        if failure == 4 {
+                            // Only the checked external operation may reset a retryable
+                            // MissingRange between attempts; the block reader cannot.
+                            session.storage.clear_failure().unwrap();
+                            assert_eq!(reader.read(7..19).unwrap(), [43; 12]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn backend_refuses_every_mutation_and_checks_limits_before_secure_allocation() {
         let source = Arc::new(SparseSource::new(4096, "v1".into(), 512, 512).unwrap());

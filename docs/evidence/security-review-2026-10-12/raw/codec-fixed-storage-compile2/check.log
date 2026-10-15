@@ -1,0 +1,1193 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+error[E0277]: the trait bound `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>` is not satisfied
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:347:22
+    |
+347 |     let mut writer = BitWriter::from(&mut *bytes);
+    |                      ^^^^^^^^^ the trait `AsMut<std::vec::Vec<u8>>` is not implemented for `impl crate::workspace::Growable<u8>`
+    |
+    = note: required for `&mut impl crate::workspace::Growable<u8>` to implement `AsMut<std::vec::Vec<u8>>`
+note: required by a bound in `bit_writer::BitWriter`
+   --> vendor/zstd-complete/src/bit_io/bit_writer.rs:7:32
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    |                                ^^^^^^^^^^^^^^ required by this bound in `BitWriter`
+help: consider restricting opaque type `impl crate::workspace::Growable<u8>` with trait `AsMut`
+    |
+339 | fn table_definition_size(mode: &FseTableMode<'_>, bytes: &mut impl crate::workspace::Growable<u8> + core::convert::AsMut<std::vec::Vec<u8>>) -> usize {
+    |                                                                                                   +++++++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>` is not satisfied
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:347:22
+    |
+347 |     let mut writer = BitWriter::from(&mut *bytes);
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `AsMut<std::vec::Vec<u8>>` is not implemented for `impl crate::workspace::Growable<u8>`
+    |
+    = note: required for `&mut impl crate::workspace::Growable<u8>` to implement `AsMut<std::vec::Vec<u8>>`
+note: required by a bound in `bit_writer::BitWriter`
+   --> vendor/zstd-complete/src/bit_io/bit_writer.rs:7:32
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    |                                ^^^^^^^^^^^^^^ required by this bound in `BitWriter`
+help: consider restricting opaque type `impl crate::workspace::Growable<u8>` with trait `AsMut`
+    |
+339 | fn table_definition_size(mode: &FseTableMode<'_>, bytes: &mut impl crate::workspace::Growable<u8> + core::convert::AsMut<std::vec::Vec<u8>>) -> usize {
+    |                                                                                                   +++++++++++++++++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:348:24
+    |
+339 | fn table_definition_size(mode: &FseTableMode<'_>, bytes: &mut impl crate::workspace::Growable<u8>) -> usize {
+    |                                                               ----------------------------------- found this type parameter
+...
+348 |     encode_table(mode, &mut writer);
+    |     ------------       ^^^^^^^^^^^ expected `&mut BitWriter<&mut Vec<u8>>`, found `&mut BitWriter<&mut ...>`
+    |     |
+    |     arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut bit_writer::BitWriter<&mut std::vec::Vec<u8>>`
+               found mutable reference `&mut bit_writer::BitWriter<&mut impl crate::workspace::Growable<u8>>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:82:15
+    |
+82  | pub(super) fn encode_table(mode: &FseTableMode<'_>, writer: &mut BitWriter<&mut Vec<u8>>) {
+    |               ^^^^^^^^^^^^                          ------------------------------------
+
+error[E0599]: the method `flush` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:349:12
+    |
+349 |     writer.flush();
+    |            ^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `flush` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+339 | fn table_definition_size(mode: &FseTableMode<'_>, bytes: &mut impl crate::workspace::Growable<u8>) -> usize where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |                                                                                                             +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: no method named `spare_capacity_mut` found for mutable reference `&mut impl crate::workspace::Growable<crate::blocks::sequence_section::Sequence>` in the current scope
+    --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_bitstream.rs:156:25
+     |
+156  |     let spare = encoded.spare_capacity_mut();
+     |                         ^^^^^^^^^^^^^^^^^^
+     |
+help: there is a method `split_at_mut` with a similar name, but with different arguments
+    --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/mod.rs:2013:5
+     |
+2013 |     pub const fn split_at_mut(&mut self, mid: usize) -> (&mut [T], &mut [T]) {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `set_len` found for mutable reference `&mut impl crate::workspace::Growable<crate::blocks::sequence_section::Sequence>` in the current scope
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_bitstream.rs:176:22
+    |
+176 |     unsafe { encoded.set_len(sequences.len()) };
+    |                      ^^^^^^^ method not found in `&mut impl crate::workspace::Growable<crate::blocks::sequence_section::Sequence>`
+
+error[E0599]: no method named `extend` found for mutable reference `&mut impl crate::workspace::Growable<crate::blocks::sequence_section::Sequence>` in the current scope
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_bitstream.rs:190:17
+    |
+190 |         encoded.extend(sequences.iter().map(|sequence| {
+    |         --------^^^^^^ method not found in `&mut impl crate::workspace::Growable<crate::blocks::sequence_section::Sequence>`
+    |
+    = help: items from traits can only be used if the type parameter is bounded by the trait
+help: the following trait defines an item `extend`, perhaps you need to restrict type parameter `impl crate::workspace::Growable<crate::blocks::sequence_section::Sequence>` with it:
+    |
+182 |     encoded: &mut (impl crate::workspace::Growable<crate::blocks::sequence_section::Sequence> + Extend</* A */>),
+    |                   +                                                                           ++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:146:13
+    |
+137 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+145 |         compress_c_stored_block_deferred_with_matcher_history(
+    |         ----------------------------------------------------- arguments to this function are incorrect
+146 |             output,
+    |             ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed.rs:688:15
+    |
+688 | pub(crate) fn compress_c_stored_block_deferred_with_matcher_history(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+689 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:160:13
+    |
+137 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+159 |         compress_c_stored_block_deferred_with_stats(
+    |         ------------------------------------------- arguments to this function are incorrect
+160 |             output,
+    |             ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed.rs:632:15
+    |
+632 | pub(crate) fn compress_c_stored_block_deferred_with_stats(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+633 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:228:13
+    |
+218 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+227 |         compress_c_stored_block_with_matcher_history(
+    |         -------------------------------------------- arguments to this function are incorrect
+228 |             output,
+    |             ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed.rs:660:15
+    |
+660 | pub(crate) fn compress_c_stored_block_with_matcher_history(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+661 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:241:13
+    |
+218 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+240 |         compress_c_stored_block_with_stats(
+    |         ---------------------------------- arguments to this function are incorrect
+241 |             output,
+    |             ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed.rs:605:15
+    |
+605 | pub(crate) fn compress_c_stored_block_with_stats(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+606 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:312:9
+    |
+306 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+311 |     let compression_result = compress_c_prepared_block_with_stats(
+    |                              ------------------------------------ arguments to this function are incorrect
+312 |         output,
+    |         ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed.rs:435:15
+    |
+435 | pub(crate) fn compress_c_prepared_block_with_stats(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+436 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:388:22
+    |
+382 | fn write_rle_block(last_block: bool, block_size: u32, rle_byte: u8, output: &mut impl crate::workspace::Growable<u8>) {
+    |                                                                                  ----------------------------------- found this type parameter
+...
+388 |     header.serialize(output);
+    |            --------- ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |            |
+    |            arguments to this method are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: method defined here
+   --> vendor/zstd-complete/src/encoding/block_header.rs:24:12
+    |
+24  |     pub fn serialize(self, output: &mut Vec<u8>) {
+    |            ^^^^^^^^^       --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:398:22
+    |
+392 | fn write_raw_block(last_block: bool, block_size: u32, data: &[u8], output: &mut impl crate::workspace::Growable<u8>) {
+    |                                                                                 ----------------------------------- found this type parameter
+...
+398 |     header.serialize(output);
+    |            --------- ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |            |
+    |            arguments to this method are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: method defined here
+   --> vendor/zstd-complete/src/encoding/block_header.rs:24:12
+    |
+24  |     pub fn serialize(self, output: &mut Vec<u8>) {
+    |            ^^^^^^^^^       --------------------
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs:66:32
+   |
+58 |     output: &mut impl crate::workspace::Growable<u8>,
+   |                  ----------------------------------- found this type parameter
+...
+66 |     write_frame_header_no_dict(output, src.len(), params);
+   |     -------------------------- ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+   |     |
+   |     arguments to this function are incorrect
+   |
+   = note: expected mutable reference `&mut std::vec::Vec<u8>`
+              found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+  --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:8:15
+   |
+8  | pub(super) fn write_frame_header_no_dict(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+9  |     output: &mut Vec<u8>,
+   |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs:83:13
+    |
+58  |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+69  |         append_block_double_fast_no_dict_with_policy(
+    |         -------------------------------------------- arguments to this function are incorrect
+...
+83  |             output,
+    |             ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:319:15
+    |
+319 | pub(crate) fn append_block_double_fast_no_dict_with_policy(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+327 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs:118:13
+    |
+58  |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+98  |         let encoded_block = append_block_double_fast_no_dict_with_state_and_policy_in_mode(
+    |                             -------------------------------------------------------------- arguments to this function are incorrect
+...
+118 |             output,
+    |             ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:23:15
+    |
+23  | pub(crate) fn append_block_double_fast_no_dict_with_state_and_policy_in_mode(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+33  |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs:62:32
+   |
+54 |     output: &mut impl crate::workspace::Growable<u8>,
+   |                  ----------------------------------- found this type parameter
+...
+62 |     write_frame_header_no_dict(output, src.len(), params);
+   |     -------------------------- ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+   |     |
+   |     arguments to this function are incorrect
+   |
+   = note: expected mutable reference `&mut std::vec::Vec<u8>`
+              found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+  --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:8:15
+   |
+8  | pub(super) fn write_frame_header_no_dict(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+9  |     output: &mut Vec<u8>,
+   |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs:79:13
+    |
+54  |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+65  |         append_block_fast_no_dict_with_policy(
+    |         ------------------------------------- arguments to this function are incorrect
+...
+79  |             output,
+    |             ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:313:15
+    |
+313 | pub(crate) fn append_block_fast_no_dict_with_policy(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+321 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs:114:13
+    |
+54  |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+94  |         let encoded_block = append_block_fast_no_dict_with_state_and_policy_in_mode(
+    |                             ------------------------------------------------------- arguments to this function are incorrect
+...
+114 |             output,
+    |             ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:21:15
+    |
+21  | pub(crate) fn append_block_fast_no_dict_with_state_and_policy_in_mode(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+31  |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:43:22
+   |
+37 | fn write_raw_block(last_block: bool, block_size: u32, data: &[u8], output: &mut impl crate::workspace::Growable<u8>) {
+   |                                                                                 ----------------------------------- found this type parameter
+...
+43 |     header.serialize(output);
+   |            --------- ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+   |            |
+   |            arguments to this method are incorrect
+   |
+   = note: expected mutable reference `&mut std::vec::Vec<u8>`
+              found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: method defined here
+  --> vendor/zstd-complete/src/encoding/block_header.rs:24:12
+   |
+24 |     pub fn serialize(self, output: &mut Vec<u8>) {
+   |            ^^^^^^^^^       --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs:166:32
+    |
+154 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+166 |     write_frame_header_no_dict(output, src.len(), params);
+    |     -------------------------- ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |     |
+    |     arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:8:15
+    |
+8   | pub(super) fn write_frame_header_no_dict(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+9   |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs:330:32
+    |
+319 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+330 |     write_frame_header_no_dict(output, src.len(), params);
+    |     -------------------------- ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |     |
+    |     arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:8:15
+    |
+8   | pub(super) fn write_frame_header_no_dict(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+9   |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0277]: the trait bound `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>` is not satisfied
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:155:22
+    |
+155 |     let mut writer = BitWriter::from(output);
+    |                      ^^^^^^^^^ the trait `AsMut<std::vec::Vec<u8>>` is not implemented for `impl crate::workspace::Growable<u8>`
+    |
+    = note: required for `&mut impl crate::workspace::Growable<u8>` to implement `AsMut<std::vec::Vec<u8>>`
+note: required by a bound in `bit_writer::BitWriter`
+   --> vendor/zstd-complete/src/bit_io/bit_writer.rs:7:32
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    |                                ^^^^^^^^^^^^^^ required by this bound in `BitWriter`
+help: consider restricting opaque type `impl crate::workspace::Growable<u8>` with trait `AsMut`
+    |
+152 |     output: &mut impl crate::workspace::Growable<u8> + core::convert::AsMut<std::vec::Vec<u8>>,
+    |                                                      +++++++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>` is not satisfied
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:155:22
+    |
+155 |     let mut writer = BitWriter::from(output);
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^ the trait `AsMut<std::vec::Vec<u8>>` is not implemented for `impl crate::workspace::Growable<u8>`
+    |
+    = note: required for `&mut impl crate::workspace::Growable<u8>` to implement `AsMut<std::vec::Vec<u8>>`
+note: required by a bound in `bit_writer::BitWriter`
+   --> vendor/zstd-complete/src/bit_io/bit_writer.rs:7:32
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    |                                ^^^^^^^^^^^^^^ required by this bound in `BitWriter`
+help: consider restricting opaque type `impl crate::workspace::Growable<u8>` with trait `AsMut`
+    |
+152 |     output: &mut impl crate::workspace::Growable<u8> + core::convert::AsMut<std::vec::Vec<u8>>,
+    |                                                      +++++++++++++++++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:157:65
+    |
+152 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+157 |         EntropyTableMode::Basic => write_raw_literals(literals, &mut writer),
+    |                                    ------------------           ^^^^^^^^^^^ expected `&mut BitWriter<&mut Vec<u8>>`, found `&mut BitWriter<&mut ...>`
+    |                                    |
+    |                                    arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut bit_writer::BitWriter<&mut std::vec::Vec<u8>>`
+               found mutable reference `&mut bit_writer::BitWriter<&mut impl crate::workspace::Growable<u8>>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:266:4
+    |
+266 | fn write_raw_literals(literals: &[u8], writer: &mut BitWriter<&mut Vec<u8>>) {
+    |    ^^^^^^^^^^^^^^^^^^                  ------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:160:46
+    |
+152 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+160 |                 write_raw_literals(literals, &mut writer);
+    |                 ------------------           ^^^^^^^^^^^ expected `&mut BitWriter<&mut Vec<u8>>`, found `&mut BitWriter<&mut ...>`
+    |                 |
+    |                 arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut bit_writer::BitWriter<&mut std::vec::Vec<u8>>`
+               found mutable reference `&mut bit_writer::BitWriter<&mut impl crate::workspace::Growable<u8>>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:266:4
+    |
+266 | fn write_raw_literals(literals: &[u8], writer: &mut BitWriter<&mut Vec<u8>>) {
+    |    ^^^^^^^^^^^^^^^^^^                  ------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:162:46
+    |
+152 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+162 |                 write_rle_literals(literals, &mut writer);
+    |                 ------------------           ^^^^^^^^^^^ expected `&mut BitWriter<&mut Vec<u8>>`, found `&mut BitWriter<&mut ...>`
+    |                 |
+    |                 arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut bit_writer::BitWriter<&mut std::vec::Vec<u8>>`
+               found mutable reference `&mut bit_writer::BitWriter<&mut impl crate::workspace::Growable<u8>>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:272:4
+    |
+272 | fn write_rle_literals(literals: &[u8], writer: &mut BitWriter<&mut Vec<u8>>) {
+    |    ^^^^^^^^^^^^^^^^^^                  ------------------------------------
+
+error[E0599]: the method `flush` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:167:12
+    |
+167 |     writer.flush();
+    |            ^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `flush` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+153 | ) -> Option<SubBlockLiteralEmission> where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |                                      +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `index` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:170:27
+    |
+170 |         byte_size: writer.index() / 8 - start,
+    |                           ^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `index` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+153 | ) -> Option<SubBlockLiteralEmission> where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |                                      +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:194:81
+    |
+182 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+194 |         append_sub_block_sequences(&[], sequence_modes, write_sequence_entropy, output)
+    |         -------------------------- arguments to this function are incorrect     ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:21:15
+    |
+21  | pub(super) fn append_sub_block_sequences(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+25  |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:244:9
+    |
+226 |     output: &mut impl crate::workspace::Growable<u8>,
+    |                  ----------------------------------- found this type parameter
+...
+238 |     let Some(sequence_emission) = append_supported_sub_block_sequences(
+    |                                   ------------------------------------ arguments to this function are incorrect
+...
+244 |         output,
+    |         ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:38:15
+    |
+38  | pub(super) fn append_supported_sub_block_sequences(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+44  |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/workspace.rs:247:16
+    |
+234 | fn encode_uncompressed(input: &[u8], output: &mut impl crate::workspace::Growable<u8>) {
+    |                                                   ----------------------------------- found this type parameter
+...
+247 |     .serialize(output);
+    |      --------- ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |      |
+    |      arguments to this method are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: method defined here
+   --> vendor/zstd-complete/src/encoding/frame_header.rs:33:12
+    |
+33  |     pub fn serialize(self, output: &mut Vec<u8>) {
+    |            ^^^^^^^^^       --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/workspace.rs:254:20
+    |
+234 | fn encode_uncompressed(input: &[u8], output: &mut impl crate::workspace::Growable<u8>) {
+    |                                                   ----------------------------------- found this type parameter
+...
+254 |         .serialize(output);
+    |          --------- ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |          |
+    |          arguments to this method are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: method defined here
+   --> vendor/zstd-complete/src/encoding/block_header.rs:24:12
+    |
+24  |     pub fn serialize(self, output: &mut Vec<u8>) {
+    |            ^^^^^^^^^       --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/workspace.rs:264:20
+    |
+234 | fn encode_uncompressed(input: &[u8], output: &mut impl crate::workspace::Growable<u8>) {
+    |                                                   ----------------------------------- found this type parameter
+...
+264 |         .serialize(output);
+    |          --------- ^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |          |
+    |          arguments to this method are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+note: method defined here
+   --> vendor/zstd-complete/src/encoding/block_header.rs:24:12
+    |
+24  |     pub fn serialize(self, output: &mut Vec<u8>) {
+    |            ^^^^^^^^^       --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/kernel/huff0/table.rs:134:35
+    |
+129 |     table_description: &mut impl crate::workspace::Growable<u8>,
+    |                             ----------------------------------- found this type parameter
+...
+134 |         describe_weights(weights, table_description)
+    |         ----------------          ^^^^^^^^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/kernel/huff0/table.rs:164:35
+    |
+158 |     table_description: &mut impl crate::workspace::Growable<u8>,
+    |                             ----------------------------------- found this type parameter
+...
+164 |         describe_weights(weights, table_description, context)
+    |         ----------------          ^^^^^^^^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut impl crate::workspace::Growable<u8>`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut impl crate::workspace::Growable<u8>`
+
+error[E0277]: `&mut impl crate::workspace::Growable<HuffmanCode>` is not an iterator
+   --> vendor/zstd-complete/src/kernel/huff0/table.rs:200:17
+    |
+200 |     for code in codes {
+    |                 ^^^^^ `&mut impl crate::workspace::Growable<HuffmanCode>` is not an iterator
+    |
+    = note: required for `&mut impl crate::workspace::Growable<HuffmanCode>` to implement `Iterator`
+    = note: required for `&mut impl crate::workspace::Growable<HuffmanCode>` to implement `IntoIterator`
+help: consider restricting opaque type `impl crate::workspace::Growable<HuffmanCode>` with trait `Iterator`
+    |
+173 |     codes: &mut impl crate::workspace::Growable<HuffmanCode> + core::iter::Iterator,
+    |                                                              ++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:527:53
+    |
+525 |         nodes: &mut impl crate::workspace::Growable<HuffmanNode>,
+    |                     -------------------------------------------- found this type parameter
+526 |     ) -> Option<Self> {
+527 |         let leaf_count = build_huffman_tree(counts, nodes)?;
+    |                          ------------------         ^^^^^ expected `&mut Vec<HuffmanNode>`, found `&mut ...`
+    |                          |
+    |                          arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<HuffmanNode>`
+               found mutable reference `&mut impl crate::workspace::Growable<HuffmanNode>`
+note: function defined here
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/tree.rs:92:15
+    |
+92  | pub(super) fn build_huffman_tree(counts: &[usize], nodes: &mut Vec<HuffmanNode>) -> Option<usize> {
+    |               ^^^^^^^^^^^^^^^^^^                   ----------------------------
+
+error[E0277]: the trait bound `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>` is not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:140:22
+    |
+140 |     let mut writer = BitWriter::from(output);
+    |                      ^^^^^^^^^ the trait `AsMut<std::vec::Vec<u8>>` is not implemented for `impl crate::workspace::Growable<u8>`
+    |
+    = note: required for `&mut impl crate::workspace::Growable<u8>` to implement `AsMut<std::vec::Vec<u8>>`
+note: required by a bound in `bit_writer::BitWriter`
+   --> vendor/zstd-complete/src/bit_io/bit_writer.rs:7:32
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    |                                ^^^^^^^^^^^^^^ required by this bound in `BitWriter`
+help: consider restricting opaque type `impl crate::workspace::Growable<u8>` with trait `AsMut`
+    |
+138 | fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut impl crate::workspace::Growable<u8> + core::convert::AsMut<std::vec::Vec<u8>>) {
+    |                                                                                                                         +++++++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>` is not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:140:22
+    |
+140 |     let mut writer = BitWriter::from(output);
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^ the trait `AsMut<std::vec::Vec<u8>>` is not implemented for `impl crate::workspace::Growable<u8>`
+    |
+    = note: required for `&mut impl crate::workspace::Growable<u8>` to implement `AsMut<std::vec::Vec<u8>>`
+note: required by a bound in `bit_writer::BitWriter`
+   --> vendor/zstd-complete/src/bit_io/bit_writer.rs:7:32
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    |                                ^^^^^^^^^^^^^^ required by this bound in `BitWriter`
+help: consider restricting opaque type `impl crate::workspace::Growable<u8>` with trait `AsMut`
+    |
+138 | fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut impl crate::workspace::Growable<u8> + core::convert::AsMut<std::vec::Vec<u8>>) {
+    |                                                                                                                         +++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `write_bits` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:141:12
+    |
+141 |     writer.write_bits(0u8, 8);
+    |            ^^^^^^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `write_bits` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+138 | fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut impl crate::workspace::Growable<u8>) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |                                                                                                                          +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `index` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:142:27
+    |
+142 |     let size_idx = writer.index() - 8;
+    |                           ^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `index` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+138 | fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut impl crate::workspace::Growable<u8>) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |                                                                                                                          +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `index` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:143:29
+    |
+143 |     let idx_before = writer.index();
+    |                             ^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `index` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+138 | fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut impl crate::workspace::Growable<u8>) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |                                                                                                                          +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>` is not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:151:23
+    |
+151 |     let mut encoder = FSEEncoder::new(table, &mut writer);
+    |                       ^^^^^^^^^^ the trait `AsMut<std::vec::Vec<u8>>` is not implemented for `impl crate::workspace::Growable<u8>`
+    |
+    = note: required for `&mut impl crate::workspace::Growable<u8>` to implement `AsMut<std::vec::Vec<u8>>`
+note: required by a bound in `FSEEncoder`
+   --> vendor/zstd-complete/src/fse/fse_encoder.rs:67:42
+    |
+67  | pub(crate) struct FSEEncoder<'output, V: AsMut<Vec<u8>>> {
+    |                                          ^^^^^^^^^^^^^^ required by this bound in `FSEEncoder`
+help: consider restricting opaque type `impl crate::workspace::Growable<u8>` with trait `AsMut`
+    |
+138 | fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut impl crate::workspace::Growable<u8> + core::convert::AsMut<std::vec::Vec<u8>>) {
+    |                                                                                                                         +++++++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>` is not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:151:23
+    |
+151 |     let mut encoder = FSEEncoder::new(table, &mut writer);
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `AsMut<std::vec::Vec<u8>>` is not implemented for `impl crate::workspace::Growable<u8>`
+    |
+    = note: required for `&mut impl crate::workspace::Growable<u8>` to implement `AsMut<std::vec::Vec<u8>>`
+note: required by a bound in `FSEEncoder`
+   --> vendor/zstd-complete/src/fse/fse_encoder.rs:67:42
+    |
+67  | pub(crate) struct FSEEncoder<'output, V: AsMut<Vec<u8>>> {
+    |                                          ^^^^^^^^^^^^^^ required by this bound in `FSEEncoder`
+help: consider restricting opaque type `impl crate::workspace::Growable<u8>` with trait `AsMut`
+    |
+138 | fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut impl crate::workspace::Growable<u8> + core::convert::AsMut<std::vec::Vec<u8>>) {
+    |                                                                                                                         +++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `encode_interleaved` exists for struct `FSEEncoder<'_, &mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:152:13
+    |
+152 |     encoder.encode_interleaved(weights);
+    |             ^^^^^^^^^^^^^^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/fse/fse_encoder.rs:67:1
+    |
+67  | pub(crate) struct FSEEncoder<'output, V: AsMut<Vec<u8>>> {
+    | -------------------------------------------------------- method `encode_interleaved` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+138 | fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut impl crate::workspace::Growable<u8>) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |                                                                                                                          +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `index` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:153:31
+    |
+153 |     let encoded_len = (writer.index() - idx_before) / 8;
+    |                               ^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `index` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+138 | fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut impl crate::workspace::Growable<u8>) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |                                                                                                                          +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `change_bits` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:155:12
+    |
+155 |     writer.change_bits(size_idx, encoded_len as u8, 8);
+    |            ^^^^^^^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `change_bits` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+138 | fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut impl crate::workspace::Growable<u8>) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |                                                                                                                          +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `flush` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:156:12
+    |
+156 |     writer.flush();
+    |            ^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `flush` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+138 | fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut impl crate::workspace::Growable<u8>) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |                                                                                                                          +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>` is not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:166:22
+    |
+166 |     let mut writer = BitWriter::from(output);
+    |                      ^^^^^^^^^ the trait `AsMut<std::vec::Vec<u8>>` is not implemented for `impl crate::workspace::Growable<u8>`
+    |
+    = note: required for `&mut impl crate::workspace::Growable<u8>` to implement `AsMut<std::vec::Vec<u8>>`
+note: required by a bound in `bit_writer::BitWriter`
+   --> vendor/zstd-complete/src/bit_io/bit_writer.rs:7:32
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    |                                ^^^^^^^^^^^^^^ required by this bound in `BitWriter`
+help: consider restricting opaque type `impl crate::workspace::Growable<u8>` with trait `AsMut`
+    |
+162 |     output: &mut impl crate::workspace::Growable<u8> + core::convert::AsMut<std::vec::Vec<u8>>,
+    |                                                      +++++++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>` is not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:166:22
+    |
+166 |     let mut writer = BitWriter::from(output);
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^ the trait `AsMut<std::vec::Vec<u8>>` is not implemented for `impl crate::workspace::Growable<u8>`
+    |
+    = note: required for `&mut impl crate::workspace::Growable<u8>` to implement `AsMut<std::vec::Vec<u8>>`
+note: required by a bound in `bit_writer::BitWriter`
+   --> vendor/zstd-complete/src/bit_io/bit_writer.rs:7:32
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    |                                ^^^^^^^^^^^^^^ required by this bound in `BitWriter`
+help: consider restricting opaque type `impl crate::workspace::Growable<u8>` with trait `AsMut`
+    |
+162 |     output: &mut impl crate::workspace::Growable<u8> + core::convert::AsMut<std::vec::Vec<u8>>,
+    |                                                      +++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `write_bits` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:167:12
+    |
+167 |     writer.write_bits(0u8, 8);
+    |            ^^^^^^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `write_bits` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+164 | ) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `index` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:168:27
+    |
+168 |     let size_idx = writer.index() - 8;
+    |                           ^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `index` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+164 | ) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `index` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:169:29
+    |
+169 |     let idx_before = writer.index();
+    |                             ^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `index` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+164 | ) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>` is not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:182:23
+    |
+182 |     let mut encoder = FSEEncoder::new(table, &mut writer);
+    |                       ^^^^^^^^^^ the trait `AsMut<std::vec::Vec<u8>>` is not implemented for `impl crate::workspace::Growable<u8>`
+    |
+    = note: required for `&mut impl crate::workspace::Growable<u8>` to implement `AsMut<std::vec::Vec<u8>>`
+note: required by a bound in `FSEEncoder`
+   --> vendor/zstd-complete/src/fse/fse_encoder.rs:67:42
+    |
+67  | pub(crate) struct FSEEncoder<'output, V: AsMut<Vec<u8>>> {
+    |                                          ^^^^^^^^^^^^^^ required by this bound in `FSEEncoder`
+help: consider restricting opaque type `impl crate::workspace::Growable<u8>` with trait `AsMut`
+    |
+162 |     output: &mut impl crate::workspace::Growable<u8> + core::convert::AsMut<std::vec::Vec<u8>>,
+    |                                                      +++++++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>` is not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:182:23
+    |
+182 |     let mut encoder = FSEEncoder::new(table, &mut writer);
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `AsMut<std::vec::Vec<u8>>` is not implemented for `impl crate::workspace::Growable<u8>`
+    |
+    = note: required for `&mut impl crate::workspace::Growable<u8>` to implement `AsMut<std::vec::Vec<u8>>`
+note: required by a bound in `FSEEncoder`
+   --> vendor/zstd-complete/src/fse/fse_encoder.rs:67:42
+    |
+67  | pub(crate) struct FSEEncoder<'output, V: AsMut<Vec<u8>>> {
+    |                                          ^^^^^^^^^^^^^^ required by this bound in `FSEEncoder`
+help: consider restricting opaque type `impl crate::workspace::Growable<u8>` with trait `AsMut`
+    |
+162 |     output: &mut impl crate::workspace::Growable<u8> + core::convert::AsMut<std::vec::Vec<u8>>,
+    |                                                      +++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `encode_interleaved` exists for struct `FSEEncoder<'_, &mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:183:13
+    |
+183 |     encoder.encode_interleaved(weights);
+    |             ^^^^^^^^^^^^^^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/fse/fse_encoder.rs:67:1
+    |
+67  | pub(crate) struct FSEEncoder<'output, V: AsMut<Vec<u8>>> {
+    | -------------------------------------------------------- method `encode_interleaved` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+164 | ) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `into_table` exists for struct `FSEEncoder<'_, &mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:184:25
+    |
+184 |     let table = encoder.into_table();
+    |                         ^^^^^^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/fse/fse_encoder.rs:67:1
+    |
+67  | pub(crate) struct FSEEncoder<'output, V: AsMut<Vec<u8>>> {
+    | -------------------------------------------------------- method `into_table` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+164 | ) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `index` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:186:31
+    |
+186 |     let encoded_len = (writer.index() - idx_before) / 8;
+    |                               ^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `index` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+164 | ) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `change_bits` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:188:12
+    |
+188 |     writer.change_bits(size_idx, encoded_len as u8, 8);
+    |            ^^^^^^^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `change_bits` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+164 | ) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0599]: the method `flush` exists for struct `BitWriter<&mut impl crate::workspace::Growable<u8>>`, but its trait bounds were not satisfied
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:189:12
+    |
+189 |     writer.flush();
+    |            ^^^^^ method cannot be called due to unsatisfied trait bounds
+    |
+   ::: vendor/zstd-complete/src/bit_io/bit_writer.rs:7:1
+    |
+7   | pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+    | ---------------------------------------------- method `flush` not found for this struct
+    |
+    = note: the following trait bounds were not satisfied:
+            `impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+            which is required by `&mut impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>>`
+help: consider restricting the type parameter to satisfy the trait bound
+    |
+164 | ) where impl crate::workspace::Growable<u8>: AsMut<std::vec::Vec<u8>> {
+    |   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Some errors have detailed explanations: E0277, E0308, E0599.
+For more information about an error, try `rustc --explain E0277`.
+warning: `zstd-complete` (lib) generated 6 warnings
+error: could not compile `zstd-complete` (lib) due to 62 previous errors; 6 warnings emitted

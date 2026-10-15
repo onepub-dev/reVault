@@ -1,0 +1,143 @@
+{
+  "case": "raw-random-1gib",
+  "pair_index": 15,
+  "warmup": false,
+  "order": [
+    "typed-tree",
+    "zip"
+  ],
+  "results": [
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "2",
+        "/usr/bin/time",
+        "-v",
+        "timeout",
+        "900",
+        "/tmp/revault-scale-20261010/evidence/bin/revault_lockbox_api_tests",
+        "--exact",
+        "file_format::candidate_files::resource_probe::candidate_file_resource_probe",
+        "--ignored",
+        "--nocapture"
+      ],
+      "environment": {
+        "REVAULT_CANDIDATE_ROOT": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib",
+        "REVAULT_CANDIDATE_PHASE": "tree-extract",
+        "REVAULT_CANDIDATE_UNIT": "65536",
+        "REVAULT_EXTRACT_OUTPUT": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/extract-output/sample-15-typed-tree"
+      },
+      "case": "raw-random-1gib",
+      "backend": "typed-tree",
+      "pair_index": 15,
+      "warmup": false,
+      "candidate_sha256_before": "c3d55a2c59453263e348f986414e784fe03396a8c025f20358742399d89df868",
+      "output_directory": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/extract-output/sample-15-typed-tree",
+      "exit_code": 0,
+      "verified": true,
+      "sample": {
+        "backend": "typed-tree",
+        "durability": "write/flush/close; no fsync; directory creation included",
+        "files": 1,
+        "kind": "filesystem_extraction",
+        "logical_bytes_written": 1073741824,
+        "mib_per_second": 693.8008948986778,
+        "open_seconds": 0.000470526,
+        "resources": {
+          "cpu": {
+            "cpu_seconds": 1.475709,
+            "major_faults": 0,
+            "system_seconds": 0.9349299999999999,
+            "user_seconds": 0.540779
+          },
+          "peak_rss_kib": 10436
+        },
+        "scope": "synthetic regular-file component; excludes CLI startup and permission restoration",
+        "total_seconds": 1.475927759,
+        "verified": true
+      },
+      "time_v": {
+        "user_seconds": 0.56,
+        "system_seconds": 1.16,
+        "elapsed_raw": "0:01.72",
+        "elapsed_seconds": 1.72,
+        "maximum_resident_set_kib": 10436,
+        "raw_stderr_retained_separately": true
+      },
+      "process_wall_seconds": 1.72,
+      "process_max_rss_kib": 10436,
+      "process_user_seconds": 0.56,
+      "process_system_seconds": 1.16,
+      "extracted_file_count": 1,
+      "extracted_total_bytes": 1073741824,
+      "source_verified_by_probe_after_timed_write": true,
+      "output_retained_on_failure": false,
+      "successful_output_removed_after_verification": true,
+      "apparent_logical_artifact_bytes_after_cleanup": 6953360216
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "2",
+        "/usr/bin/time",
+        "-v",
+        "timeout",
+        "900",
+        "/tmp/revault-scale-20261010/evidence/bin/archive_evaluation",
+        "extract-zip",
+        "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib",
+        "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/extract-output/sample-15-zip"
+      ],
+      "environment": {},
+      "case": "raw-random-1gib",
+      "backend": "zip",
+      "pair_index": 15,
+      "warmup": false,
+      "candidate_sha256_before": "637054a803b1d16c00e37adff59bbb2be801eaecc95cc8a6a9e971c77c2b6784",
+      "output_directory": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/extract-output/sample-15-zip",
+      "exit_code": 0,
+      "verified": true,
+      "sample": {
+        "backend": "zip",
+        "durability": "write/flush/close; no fsync; directory creation included",
+        "files": 1,
+        "kind": "filesystem_extraction",
+        "logical_bytes_written": 1073741824,
+        "mib_per_second": 1044.0179159999498,
+        "open_seconds": 0.0000466,
+        "resources": {
+          "cpu": {
+            "cpu_seconds": 0.980725,
+            "major_faults": 0,
+            "system_seconds": 0.911752,
+            "user_seconds": 0.068973
+          },
+          "peak_rss_kib": 4248
+        },
+        "scope": "synthetic regular-file component; excludes CLI startup and permission restoration",
+        "total_seconds": 0.98082608,
+        "verified": true
+      },
+      "time_v": {
+        "user_seconds": 0.09,
+        "system_seconds": 1.11,
+        "elapsed_raw": "0:01.20",
+        "elapsed_seconds": 1.2,
+        "maximum_resident_set_kib": 8224,
+        "raw_stderr_retained_separately": true
+      },
+      "process_wall_seconds": 1.2,
+      "process_max_rss_kib": 8224,
+      "process_user_seconds": 0.09,
+      "process_system_seconds": 1.11,
+      "extracted_file_count": 1,
+      "extracted_total_bytes": 1073741824,
+      "source_verified_by_probe_after_timed_write": true,
+      "output_retained_on_failure": false,
+      "successful_output_removed_after_verification": true,
+      "apparent_logical_artifact_bytes_after_cleanup": 6953360216
+    }
+  ]
+}

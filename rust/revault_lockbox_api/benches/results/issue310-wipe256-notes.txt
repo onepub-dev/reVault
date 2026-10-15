@@ -1,0 +1,62 @@
+Issue 310: reject wider zeroization stores for protected writes
+
+Production baseline ff9716c. Candidate fully reverted, including prototype-only
+boundary-test expansion. No production or dependency change retained.
+
+Context: the previously rejected smaller compression-output allocation reduced
+write time, but could introduce unwiped historical allocations during growth.
+That safety concern remains unresolved. This experiment instead changed only
+WipeBlock([u64;8]) to WipeBlock([u64;32]): 64 ->256 byte volatile stores through
+the existing zeroize DefaultIsZeroes implementation. Same full allocation range,
+initialized/spare partitions, volatile stores, compiler fences and alignment.
+No new production unsafe code. Array has no padding; all-zero Default preserved.
+
+Screening microbenchmark: CPU2, rustc -O with the workspace's release zeroize
+rlib. Eight rounds alternating widths64/128/256/512 and reverse. Four cases:
+4KiB full, 16KiB full, capacity2105344/length10600, and 2MiB full. Each batch
+repeatedly wipes already allocated warm memory (20k,10k,200,200 iterations).
+Every initialized and spare byte checked after the batch. Not an allocation,
+page-fault, cold-memory, codec or end-to-end write benchmark.
+Median nanoseconds per wipe, width64 ->width256:
+4096 full: 69.562 ->58.369
+16384 full: 266.179 ->185.202
+2105344 capacity/10600 length: 55900.890 ->42570.995
+2097152 full: 40856.298 ->35969.300
+Width512 helped the large spare case more but was less consistent elsewhere.
+This was a screening result only; all widths and runs are retained in the CSV.
+
+Correctness/lint before timing:
+- Three page_buffer tests passed with candidate width256. Prototype expanded
+  unaligned/initially-uninitialized region tests through512 bytes, preserving
+  neighbors, plus partial capacities around64/256/512 boundaries.
+- cargo clippy -p revault_lockbox_api --all-targets
+  --features native-block-layout,external-source -- -D warnings passed.
+- Full suites were not rerun for this rejected prototype. Restoration is exact
+  from ff9716c, whose complete suite results are recorded in shared-window notes.
+
+Fresh before/after native protection_gate builds, no instrumentation:
+Before target/issue310-wipe256-before SHA256
+7337d7ebb8deca0becc3d6398bcb725e1c11036222c518733d0a47b439646252
+After target/issue310-wipe256-after SHA256
+1d57c24eada4b38027260b4098855d87ba41aa2be5f0d0a283c90a6743a5a6d3
+Build cargo bench -p revault_lockbox_api --features native-block-layout
+--bench protection_gate --no-run; preserve executable before changing source.
+Rust cwd, TMPDIR=$PWD/target/issue310-sign-tmp, CPU2, warm OS cache. All owned
+builds/tests ended before timed writes. Unrelated host work uncontrolled.
+Fixed encrypted-only/compressed pattern focus chosen before measurement:
+15 ABBA/BAAB groups, six samples per child, first discarded. 8MiB payload,
+default padding, synthetic content key, no password KDF. 300 measured writes
+plus60 warmups; each independently reopened and persisted bytes verified
+outside the create/add/commit/drop timer. Runner exited successfully.
+
+Result: pooled medians 17.658488 ms before and17.544236 ms after. Whole-paired-
+group median change +0.495%, bootstrap95% [-9.608,+3.420], 15 pairs. Pooled
+medians and paired change are different estimators; do not substitute the pooled
+ratio for the paired result. Existing gate bootstrap uses5000 whole-group
+resamples. This does not establish an end-to-end benefit. Do not select a
+microbenchmark win as sufficient evidence for changing production.
+
+Decision: reject and fully restore. No broad matrix or layout parity claim.
+Record the prototype patch, raw timings, summary and reproducible runner sources.
+Native remains opt-in; protected-write performance gap and broader read/write,
+signed-recovery, migration/binding/release requirements remain open.

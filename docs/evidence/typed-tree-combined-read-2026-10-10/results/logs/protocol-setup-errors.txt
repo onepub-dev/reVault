@@ -1,0 +1,4 @@
+1. Invalid attempt: adapter_packed was compiled with REVAULT_CANDIDATE_FROZEN_DENSE=1; fixtures lack dense.lbox/public. All six cases failed before any matched pair. Retained at excluded-invalid-attempt/ and excluded from results.
+2. Corrected smoke attempt omitted REVAULT_CANDIDATE_UNIT and failed NotPresent.
+3. Retry reused a smoke evidence directory; runner rejected the existing directory.
+4. Fresh corrected smoke with unit=262144 passed: 9 warmups plus 3 measured samples spanning ZIP/default C, C candidate unit 262144, and typed tree. All 12 samples report 2,097,152 verified bytes. All smoke timings excluded from fixed comparison.

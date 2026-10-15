@@ -1,0 +1,67 @@
+{
+  "source_revision": "f6f4417323d4ed19c9591f01b94a26ed3ab26482",
+  "source_epoch_files": [
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/lockbox.rs",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/lockbox/files.rs",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/storage/cache_options.rs",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/storage/page_cache.rs"
+  ],
+  "toolchain": "Rust 1.88.0, --locked --offline --release",
+  "commands_from_rust_directory": {
+    "A-default": "CARGO_TARGET_DIR=\"$PWD/target\" TMPDIR=/home/bsutton/.cache/rv4-security-20261011 cargo +1.88.0 build --locked --offline --release -p revault_cli --bin lockbox",
+    "B-native": "CARGO_TARGET_DIR=\"$PWD/target\" TMPDIR=/home/bsutton/.cache/rv4-security-20261011 cargo +1.88.0 build --locked --offline --release -p revault_cli --bin lockbox --features revault_lockbox_api/native-block-layout",
+    "B-unqualified-failed-attempt": "CARGO_TARGET_DIR=\"$PWD/target\" TMPDIR=/home/bsutton/.cache/rv4-security-20261011 cargo +1.88.0 build --locked --offline --release -p revault_cli --bin lockbox --features native-block-layout"
+  },
+  "build_results": {
+    "A-default": "success",
+    "B-native": "success",
+    "B-unqualified-failed-attempt": "exit 101; missing CLI feature alias; preserved separately"
+  },
+  "artifacts": {
+    "A-default-log": {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/native-extract-cache-budget-2026-10-11/raw/build/build-A-default.log",
+      "bytes": 1509,
+      "sha256": "bfdfbd3ef0f5c77654e536635b77fa195bd5fec5465542973f14d83dfbe66f78"
+    },
+    "B-native-log": {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/native-extract-cache-budget-2026-10-11/raw/build/build-B-native-qualified.log",
+      "bytes": 616,
+      "sha256": "63caf4c2b212ec2bd0bac7cf0b8506c5a0cbb76576092cd7424e44b50bcceffd"
+    },
+    "B-unqualified-failure-log": {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/native-extract-cache-budget-2026-10-11/raw/build/build-B-native.log",
+      "bytes": 144,
+      "sha256": "d14d71e7677fb6f29ff98aa8c7e9b6ee0de787b2bb856b4dbb06cc9fc1b3fda7"
+    },
+    "A-trial": {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-A-trial",
+      "bytes": 20282200,
+      "sha256": "14e4bc70f4fd9aba0caf4a945f7c1dca7e1990b3a3fc65fe5e0103a5493d9d92"
+    },
+    "B-trial": {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-B-native-trial",
+      "bytes": 20528336,
+      "sha256": "0eade5d185cf996c08a3ddc7a17dda242e26c055360dc0045da9c58e8965b6d4"
+    },
+    "source-lockbox-rs": {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/lockbox.rs",
+      "bytes": 91683,
+      "sha256": "52ecacb67160a094a2bd78d8d7ea4c2d151f4a89d62e787d8611d7cba687cea1"
+    },
+    "source-files-rs": {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/lockbox/files.rs",
+      "bytes": 114866,
+      "sha256": "cb64f5a065938318392795705fd7a3798b1a70ce72f9da0dc23d4606e744a5d9"
+    },
+    "source-cache-options-rs": {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/storage/cache_options.rs",
+      "bytes": 6668,
+      "sha256": "39874f2eb215b25356f9712d266f5a395a29f68a09ec63614a1eb4cb7992ce16"
+    },
+    "source-page-cache-rs": {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/storage/page_cache.rs",
+      "bytes": 82095,
+      "sha256": "79e96581dbfbc33f1c84a360b19360e9cdfad2ddb4469a0d6b2b150184be5061"
+    }
+  }
+}

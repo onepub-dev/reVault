@@ -1,0 +1,28 @@
+{
+  "command": [
+    "taskset",
+    "-c",
+    "2",
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "900",
+    "/tmp/revault-scale-20261010/evidence/bin/revault_lockbox_api_tests",
+    "--exact",
+    "file_format::candidate_files::resource_probe::candidate_file_resource_probe",
+    "--ignored",
+    "--nocapture"
+  ],
+  "environment": {
+    "REVAULT_CANDIDATE_ROOT": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib",
+    "REVAULT_CANDIDATE_PHASE": "tree-extract",
+    "REVAULT_CANDIDATE_UNIT": "65536",
+    "REVAULT_EXTRACT_OUTPUT": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/extract-output/sample-16-typed-tree"
+  },
+  "case": "raw-random-1gib",
+  "backend": "typed-tree",
+  "pair_index": 16,
+  "warmup": false,
+  "candidate_sha256_before": "c3d55a2c59453263e348f986414e784fe03396a8c025f20358742399d89df868",
+  "output_directory": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/extract-output/sample-16-typed-tree"
+}

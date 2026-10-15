@@ -1,0 +1,52 @@
+Issue #310 bounded small-frame snapshots, 2026-09-22
+Before: 94f5cec production code (pre-format binary), SHA256
+  aea437bd597bd38e6c1f906b8d9f48bdf611fc46cc4cec10fb8c7195ab29776c
+After: accompanying snapshot change (pre-format binary), SHA256
+  c447af1d0680ddc90116b2257f4098cca98cb8fe5f638597f7c44d7de54e0fff
+
+On a decoded-cache miss, a complete native frame whose logical and physical
+lengths are each at most 16 KiB can be fetched in one bounded source read. The
+same Reader validates header, protected metadata, committed descriptor, index,
+manifest slice and data against a scoped memory snapshot. This is restricted to
+file/external storage; an in-memory archive keeps its direct path. Partial-frame
+ranges and larger frames retain their existing bounded readers.
+
+Live source identity/extent and write revision are checked around the snapshot.
+An external failure after the source read still prevents returning decoded bytes.
+Both the snapshot and decoded error buffers are wiped. The scoped snapshot guard
+also wipes on unwind. Cache insertion retains the original source revision and
+verified frame reference, not the temporary memory source's revision.
+No persistent format or public API changes. Native activation is unchanged.
+
+Raw measurements: issue310-native-small-snapshot-paired.csv, 96 rows, identical
+bench source in both binaries. Use the same interleaved three-run, five-sample
+protocol documented in issue310-native-whole-cache-notes.txt: CASE=small,
+MODE=plain, ACCESS=whole; both creation profiles, both corpora, both compression
+settings and both read profiles. Each phase checks 480 MiB/122880 returned files
+per implementation, with fresh archive handles and warm OS caches.
+
+Medians of the three per-run medians:
+- Interactive creation: 15.808-17.791 ms before, 7.661-9.583 ms after;
+  individual speedups 1.84-2.06x. After/ZIP ratios 1.196-1.371.
+- BulkImport controls: individual speedups 0.97-1.02x; after/ZIP 0.796-0.967.
+  Small mixed control changes are not a formal non-regression result.
+- Interactive whole-file reads still miss ZIP parity. These results do not
+  establish read-handle, range, large-file, protected-mode, write, or cold-OS-cache
+  performance. Those gates and the remaining recovery work are still required.
+
+Validation before commit-time formatting:
+- Full default library: 338 passed, five ignored.
+- Full native + external-source library: 343 passed, two existing recovery
+  failures, five ignored. No new failures.
+- After explicitly excluding in-memory storage: native-focused suite 28 passed,
+  with the same signed-neighbor recovery test failing; strict Clippy passed.
+- New external-source test covers all sixteen protection/compression/padding
+  combinations: cold get_file makes one source read and compares exact bytes;
+  repeated get_file makes no additional source reads; metadata corruption fails;
+  cancellation during the source read fails and remains terminal on retry.
+- Final release benchmark build and all final paired measurement rows completed.
+
+Two unresolved native recovery failures remain: truncation removes part of the
+latest owner-signature record, and one damaged plaintext-signed file prevents a
+global signed-content digest from authorizing intact neighbors. This change does
+not bypass authentication to make those tests pass.

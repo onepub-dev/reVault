@@ -689,6 +689,42 @@ final class Vault extends Owned {
   void rememberLockbox(Uint8List id, String path) =>
       runtime.operations.vaultDirectoryRememberLockbox(handle, id, path);
 
+  /// Sets or replaces a normalized alias for a remembered identity.
+  ///
+  /// Example:
+  /// ```dart
+  /// vault.setLockboxAlias('team', lockbox.id);
+  /// ```
+  void setLockboxAlias(String name, Uint8List id) =>
+      runtime.operations.vaultDirectorySetLockboxAlias(handle, name, id);
+
+  /// Lists aliases without opening their target archives.
+  ///
+  /// Example:
+  /// ```dart
+  /// final aliases = vault.listLockboxAliases();
+  /// ```
+  List<LockboxAlias> listLockboxAliases() =>
+      runtime.operations.vaultDirectoryListLockboxAliases(handle);
+
+  /// Removes only the alias, preserving its target and remembered path.
+  ///
+  /// Example:
+  /// ```dart
+  /// vault.removeLockboxAlias('team');
+  /// ```
+  void removeLockboxAlias(String name) =>
+      runtime.operations.vaultDirectoryRemoveLockboxAlias(handle, name);
+
+  /// Resolves metadata; verify target identity before opening its path.
+  ///
+  /// Example:
+  /// ```dart
+  /// final target = vault.resolveLockboxAlias('team');
+  /// ```
+  KnownLockbox resolveLockboxAlias(String name) =>
+      runtime.operations.vaultDirectoryResolveLockboxAlias(handle, name);
+
   /// Lists remembered Lockbox identifiers and host paths.
   ///
   /// Example:

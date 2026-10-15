@@ -1,0 +1,8 @@
+    Finished `release` profile [optimized] target(s) in 0.09s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 1 test
+test file_format::candidate_files::tree_image::forms::lifecycle::form_salvage_only_marks_stored_corruption_unavailable ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 606 filtered out; finished in 0.00s
+

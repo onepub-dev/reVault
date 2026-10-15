@@ -1,0 +1,16 @@
+{
+  "pid": 1847315,
+  "exit_code": -15,
+  "status": "failed",
+  "stop_cause": "",
+  "detected_failure_line": null,
+  "capture_failure": null,
+  "elapsed_seconds": 1448.419,
+  "sample_count": 290,
+  "inventory": 729,
+  "terminal_results": 288,
+  "passed_results": 288,
+  "failed_results": 0,
+  "ignored_results": 0,
+  "complete_suite_pass": false
+}

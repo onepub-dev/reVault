@@ -1,0 +1,27 @@
+{
+  "pid": 2089305,
+  "exit_code": 0,
+  "status": "passed",
+  "stop_cause": "",
+  "detected_failure_line": null,
+  "capture_failure": null,
+  "elapsed_seconds": 3780.056,
+  "sample_count": 757,
+  "inventory": 736,
+  "terminal_results": 736,
+  "passed_results": 718,
+  "failed_results": 0,
+  "ignored_results": 18,
+  "complete_suite_pass": true,
+  "duplicate_results": false,
+  "missing_names": [],
+  "unexpected_names": [],
+  "libtest_summary": [
+    718,
+    0,
+    18,
+    0,
+    0
+  ],
+  "summary_matches_result_lines": true
+}

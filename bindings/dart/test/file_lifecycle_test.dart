@@ -9,6 +9,48 @@ void main() {
     runtime = await Revault.load();
   });
 
+  test('password default supports explicit writes and read intent', () {
+    final root = Directory.systemTemp.createTempSync('revault-dart-password-');
+    final path = '${root.path}/archive.lbox';
+    final password = SecretString.fromString('unsigned password fixture');
+    final passphrase = SecretString.fromString('vault fixture');
+    final signer = runtime.generateProfileSigningKeyPair();
+    final vault = Vault.openOrCreate(pathTo: '${root.path}/vault', passphrase: passphrase);
+    try {
+      var box = Lockbox.create(path, password: password);
+      try {
+        box.addFile('/hello', Uint8List.fromList([1, 2, 3]));
+        box.commit();
+        vault.rememberPassword(box.id, password);
+      } finally { box.close(); }
+      box = Lockbox.open(path, password: password, signingKey: signer, writable: false);
+      try {
+        expect(box.getFile('/hello'), [1, 2, 3]);
+        expect(() => box.commit(), throwsA(isA<RevaultException>()));
+      } finally { box.close(); }
+      for (final throughVault in [false, true]) {
+        box = throughVault
+            ? Lockbox.open(path, vault: vault, writable: true)
+            : Lockbox.open(path, password: password, writable: true);
+        try {
+          box.addFile('/hello', Uint8List.fromList([4, 5]), replace: true);
+          box.commit();
+        } finally { box.close(); }
+        box = Lockbox.open(path, password: password);
+        try {
+          expect(box.getFile('/hello'), [4, 5]);
+          expect(() => box.commit(), throwsA(isA<RevaultException>()));
+        } finally { box.close(); }
+      }
+    } finally {
+      vault.close();
+      signer.dispose();
+      password.close();
+      passphrase.close();
+      root.deleteSync(recursive: true);
+    }
+  });
+
   test('native file persistence, reader locks and atomic replacement', () {
     final root = Directory.systemTemp.createTempSync('revault-dart-');
     final path = '${root.path}/résumé.lbox';

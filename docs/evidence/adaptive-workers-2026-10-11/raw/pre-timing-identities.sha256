@@ -1,0 +1,12 @@
+0f6248ae6301e83cd71660a94243f92feca298826d091eaaaae5f6ae426df94a  docs/evidence/adaptive-workers-2026-10-11/raw/protocol-before-measurements.md
+1f466552c31859dae2d7cfd20a8d2849978807ea0323942dba402c82566d11c6  tools/adaptive-workers.dart
+6b7e929496f498c04db984c953c496ba2819a692243d242c3d6ed452a1a342c6  rust/target/release/deps/revault_lockbox_api-e3bcc2539127e239
+4c24d006a1939e59366be4bdf1da50f8893579b86e1613a9c3d584541bc1a1b5  docs/evidence/adaptive-workers-2026-10-11/raw/source-diff-1a7242a3.patch
+5cada563c12f229fdf52b652e41cdb0e65b85be656e710cc6e37034360730424  docs/evidence/adaptive-workers-2026-10-11/raw/source-hashes-before-measurements.txt
+56745d9f6c5c3ca0d6861cc081276efc207ae75f723e0b1f3dbe6d7b8ad24ada  docs/evidence/adaptive-workers-2026-10-11/raw/cases.json
+5875ffad8bab27ffa2a3f872d2296187006425a79bcfa7b7aca094ee2567e50c  docs/evidence/adaptive-workers-2026-10-11/raw/source-corpus-identity.json
+49b0216efc78d50d73ed232db3a3b269efc4b3189640be1d3767b79615510b5b  docs/evidence/adaptive-workers-2026-10-11/raw/physical-read-calibration.json
+4410c03fd7410267dffcaacfaf2bb9177559e37dc7031de4a941ec7b154d48ea  docs/evidence/adaptive-workers-2026-10-11/raw/fixture-census.tsv
+d58e5c13d66c58fc2a5e9965be798265bf1b411c7f34a2b4243bf82fa7802a4d  docs/evidence/adaptive-workers-2026-10-11/raw/external-source-release-build.log
+9c12268034d4b5cbd3e0d5f117d37a9f6787324987d16457e0176cce700df951  docs/evidence/adaptive-workers-2026-10-11/raw/parallel-selected-reads-tests.log
+f84345cb58237f106500dbf9d9344c872a8b3ab654af3ff6e226309288c3fc4b  docs/evidence/adaptive-workers-2026-10-11/raw/automatic-workers-tests.log

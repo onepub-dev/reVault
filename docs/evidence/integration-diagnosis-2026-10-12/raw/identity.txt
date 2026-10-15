@@ -1,0 +1,6 @@
+Command: timeout --kill-after=30s 1200s cargo +1.88.0 test --locked --offline --release -p revault_lockbox_api@0.0.41 --lib file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_upgrade_guarded_atomic_recovery_faults -- --exact --nocapture --test-threads=1
+Working directory: rust
+574ebafc6687278f6ecdfef9c2abc7c1fe8ef8a9
+dcd1386912d03d4ee3206f5c85032868bee553f9f7ae13fa79a22355ea4bc515  rust/revault_lockbox_api/src/lib.rs
+9a3d4ce3a5445b5a393a09528ba360d60a263e25975e08830e32c5b5bbd2de20  rust/revault_lockbox_api/src/file_format/candidate_files.rs
+b8eb04dbca20e946e4a55a14806bf8df7271880d7c82fdafdc8573012d6b64ba  rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/fields.rs

@@ -1,0 +1,172 @@
+diff --git a/rust/revault_lockbox_api/src/lockbox/extraction.rs b/rust/revault_lockbox_api/src/lockbox/extraction.rs
+index 33a92f76..86d8dec1 100644
+--- a/rust/revault_lockbox_api/src/lockbox/extraction.rs
++++ b/rust/revault_lockbox_api/src/lockbox/extraction.rs
+@@ -269,11 +269,16 @@ impl<State: Send> Lockbox<State> {
+             .clamp(1, 4)
+             .min(file_entries.len().max(1));
+         let worker_jobs = group_parallel_extraction_jobs(file_entries, workers);
++        let actual_workers = worker_jobs.len();
+ 
+         let parallel_result = std::thread::scope(|scope| {
+             let mut handles = Vec::new();
+             for job in worker_jobs {
+                 let worker = self.try_clone()?;
++                if matches!(self.workload_profile, crate::WorkloadProfile::ExtractMany) {
++                    worker.page_manager.borrow_mut()
++                        .limit_automatic_extraction_worker(actual_workers);
++                }
+                 handles.push(scope.spawn(move || {
+                     for (path_id, entry) in job {
+                         let out_path = checked_destination(destination, &entry.path)?;
+@@ -759,6 +764,50 @@ fn create_symlink(_target: &str, _path: &Path, _overwrite: bool) -> Result<()> {
+ mod tests {
+     use super::*;
+ 
++    #[cfg(not(target_arch = "wasm32"))]
++    #[test]
++    fn automatic_worker_caches_preserve_parent_and_frame_reads() {
++        use crate::{CacheLimit, LockboxOptions, LockboxPath, WorkloadProfile};
++        for count in [1usize, 3, 4] {
++            let mut source = Lockbox::create_with_options("worker-test", LockboxOptions {
++                workload_profile: WorkloadProfile::BulkImport,
++                ..LockboxOptions::default()
++            });
++            for index in 0..count {
++                source.add_file(&LockboxPath::new(format!("/file-{index}")).unwrap(),
++                    &vec![index as u8; 2 * 1024 * 1024], false).unwrap();
++            }
++            source.commit().unwrap();
++            let parent = Lockbox::open_bytes_with_key_options(source.to_bytes(), "worker-test",
++                LockboxOptions { workload_profile: WorkloadProfile::ExtractMany, ..LockboxOptions::default() }).unwrap();
++            let entries = parent.validate_extract_plan(&ExtractPolicy::default()).unwrap();
++            let files = entries.into_iter().filter(|entry| entry.node_kind == NodeKind::File)
++                .enumerate().collect();
++            let jobs = group_parallel_extraction_jobs(files, 4);
++            assert_eq!(jobs.len(), count, "nonempty jobs, not requested pool capacity");
++            let parent_before = parent.inspector().cache_stats();
++            for job in jobs.iter() {
++                let mut worker = parent.try_clone().unwrap();
++                worker.page_manager.borrow_mut().limit_automatic_extraction_worker(jobs.len());
++                assert_eq!(worker.inspector().cache_stats().limit_bytes, 8 * 1024 * 1024 / count as u64);
++                for (_, entry) in job {
++                    let first = worker.get_file(&entry.path).unwrap();
++                    assert_eq!(first.len(), 2 * 1024 * 1024);
++                    let expected: u8 = entry.path.as_str().strip_prefix("/file-").unwrap().parse().unwrap();
++                    assert!(first.iter().all(|byte| *byte == expected));
++                    assert_eq!(worker.get_file(&entry.path).unwrap(), first);
++                }
++                assert!(matches!(worker.page_manager.borrow().configured_limit(), CacheLimit::Auto));
++                worker.set_workload_profile(WorkloadProfile::ReadMostly);
++                assert_eq!(worker.inspector().cache_stats().limit_bytes, 128 * 1024 * 1024);
++                worker.set_workload_profile(WorkloadProfile::ExtractMany);
++                assert_eq!(worker.inspector().cache_stats().limit_bytes, 32 * 1024 * 1024);
++            }
++            assert_eq!(parent.inspector().cache_stats(), parent_before);
++        }
++    }
++
++
+     fn unique_test_root(label: &str) -> PathBuf {
+         let suffix = std::time::SystemTime::now()
+             .duration_since(std::time::UNIX_EPOCH)
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index 4141a575..1fa53927 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -1907,9 +1907,10 @@ impl<State> Lockbox<State> {
+                         crate::CacheLimit::Auto
+                     ) =>
+             {
+-                // Four ordinary 2 MiB frames retain adjacent packed-file reuse.
+-                // Native frames share the page cache and its separate 32 MiB target.
+-                8 * 1024 * 1024
++                // Ordinary handles retain four 2 MiB frames. Parallel worker
++                // clones share another 8 MiB target across their actual jobs,
++                // retaining at least one ordinary frame each (at most 4 jobs).
++                (8 * 1024 * 1024).min(self.page_manager.borrow().stats().limit_bytes as usize)
+             }
+             WorkloadProfile::ReadMostly | WorkloadProfile::ExtractMany => {
+                 DECODED_COMPRESSION_FRAME_CACHE_BYTES
+diff --git a/rust/revault_lockbox_api/src/storage/page_cache.rs b/rust/revault_lockbox_api/src/storage/page_cache.rs
+index c40ddf50..2a303a25 100644
+--- a/rust/revault_lockbox_api/src/storage/page_cache.rs
++++ b/rust/revault_lockbox_api/src/storage/page_cache.rs
+@@ -257,6 +257,17 @@ impl PageCache {
+         }
+     }
+ 
++    pub(crate) fn limit_automatic_extraction_worker(&mut self, workers: usize) {
++        if cfg!(target_arch = "wasm32") || !matches!(self.limit, CacheLimit::Auto) {
++            return;
++        }
++        debug_assert!((1..=4).contains(&workers));
++        // The parent keeps its own target. Worker clones together retain at most
++        // another 8 MiB of clean pages; keep dirty pages and active Arc owners.
++        self.limit_bytes = 8 * 1024 * 1024 / workers.clamp(1, 4) as u64;
++        self.trim_to_limit();
++    }
++
+     pub(crate) fn set_format(&mut self, mode: FormatMode) {
+         self.format_mode = mode;
+     }
+@@ -1480,6 +1491,34 @@ mod tests {
+         );
+     }
+ 
++    #[cfg(not(target_arch = "wasm32"))]
++    #[test]
++    fn automatic_worker_trim_preserves_active_native_owner() {
++        let mut parent = PageCache::with_profile(CacheLimit::Auto,
++            Default::default(), crate::WorkloadProfile::ExtractMany);
++        let frame = CachedCompressionFrame {
++            native_reference: None, compression: 1,
++            compression_frame_len: 4 * 1024 * 1024, compressed_len: 64,
++            compression_frame_digest: [3; 32], slices: Vec::new(),
++            data: vec![7; 4 * 1024 * 1024],
++        };
++        let _ = parent.insert_native_decoded_page(192, 1024, frame, 0);
++        let retained = parent.native_decoded_page(192, 0).unwrap();
++        let weak = Arc::downgrade(&retained);
++        let before = parent.stats();
++        let mut worker = parent.clone();
++        worker.limit_automatic_extraction_worker(4);
++        assert_eq!(worker.native_decoded_entries(), 0);
++        assert_eq!(parent.stats(), before);
++        assert!(retained.data.iter().all(|byte| *byte == 7));
++        drop(worker);
++        drop(parent);
++        assert!(weak.upgrade().is_some());
++        assert_eq!(retained.data.len(), 4 * 1024 * 1024);
++        drop(retained);
++        assert!(weak.upgrade().is_none());
++    }
++
+     #[test]
+     fn native_decoded_cache_tracks_physical_extents_and_shared_ownership() {
+         let frame = || CachedCompressionFrame {
+@@ -2183,6 +2222,16 @@ mod tests {
+                 .collect::<Vec<_>>()
+         };
+         let before_payloads = payloads(&cache);
++        let parent_stats = cache.stats();
++        for workers in [1, 3, 4] {
++            let mut worker = cache.clone();
++            worker.limit_automatic_extraction_worker(workers);
++            assert_eq!(worker.dirty_offsets, dirty);
++            assert_eq!(payloads(&worker), before_payloads);
++            assert_eq!(worker.stats().used_bytes, parent_stats.used_bytes);
++            assert!(matches!(worker.configured_limit(), CacheLimit::Auto));
++            assert_eq!(cache.stats(), parent_stats);
++        }
+         let used = cache.stats().used_bytes;
+         assert!(used > 32 * 1024 * 1024);
+         cache.set_workload_profile(crate::WorkloadProfile::ExtractMany);
+@@ -2207,6 +2256,7 @@ mod tests {
+                 crate::WorkloadProfile::Interactive,
+             ] {
+                 explicit.set_workload_profile(profile);
++                explicit.limit_automatic_extraction_worker(4);
+                 assert_eq!(explicit.stats(), before);
+                 assert!(explicit.dirty_offsets.contains(&0));
+             }

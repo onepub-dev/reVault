@@ -1,0 +1,45 @@
+Secure arena reclamation: full API integration checkpoint
+
+This is a source-only preparation artifact. It does not authorize a build or
+suite execution. The WASM build and portable lifecycle smokes must finish
+successfully first; the lead will provide that terminal notice.
+
+After that notice, build the current API library test executable in release
+mode using the pinned Rust 1.88 toolchain, locked/offline dependencies, and a
+900 second build limit. Save the original Cargo JSON output and command/status
+records. Extract the exact executable path from Cargo's JSON output. Run that
+binary with --list and preserve the exact list. Pin HEAD, executable SHA-256,
+inventory count/list bytes, and a manifest of tracked Rust sources, Cargo.toml
+files, and Cargo.lock before execution. The prior inventory was 713 tests;
+recompute and require the current list rather than assuming that count.
+
+Run the full default API --lib inventory directly, with no filters, no
+additional ignored tests, and --test-threads=2. The fixed runtime cap is 5,400
+seconds followed by SIGTERM and a 30-second grace period before SIGKILL, always
+targeting only the owned test PID. This cap reflects the prior 396/713 result
+at 56.6 minutes. No automatic extension or retry is allowed.
+
+Capture stdout and stderr through independent listeners and sinks. Preserve
+raw bytes, timestamped lines, PID, exact argv, preflight and postterminal
+identities, and five-second /proc samples for only the owned PID: VmLck, VmRSS,
+and the Max locked memory limit. Never treat panic text alone as a failure
+trigger; expected caught panics occur in this suite. Stop early only when a
+complete libtest result line identifies an individual test as FAILED. Save
+the triggering line and immediate resource snapshot, send SIGTERM to the
+owned PID, and use only the fixed 30-second grace before SIGKILL. Such an
+interrupted run is incomplete, not a terminal suite summary. A natural test
+failure, process error, capture error, or runtime deadline stops the sequence.
+
+Require stable HEAD, executable hash, tracked-source manifest, and exact test
+inventory before and after. A zero exit is a suite pass only if all output
+streams drained successfully, all 713/current listed tests have terminal
+results, no test failed, and ignored-test declarations were left unchanged.
+Preserve the terminal output and classify timeout/failure honestly. Run the
+native-block-layout configuration only if the default suite completes
+successfully; use the same build, inventory, capture, and stop-on-failure
+protocol. Do not run either configuration before the WASM terminal success.
+
+The prepared runner is full-api-capture-runner.dart. It consumes
+integration-pins.json, which is created only after the bounded build and
+inventory preflight. It does not compile Rust or launch a suite during
+analysis.

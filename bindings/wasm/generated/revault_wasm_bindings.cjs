@@ -478,7 +478,7 @@ class WasmLockbox {
         }
         let v1;
         if (ret[0] !== 0) {
-            v1 = getStringFromWasm0(ret[0], ret[1]).slice();
+            v1 = getStringFromWasm0(ret[0], ret[1]);
             wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
         }
         return v1;
@@ -552,7 +552,7 @@ class WasmLockbox {
         }
         let v2;
         if (ret[0] !== 0) {
-            v2 = getStringFromWasm0(ret[0], ret[1]).slice();
+            v2 = getStringFromWasm0(ret[0], ret[1]);
             wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
         }
         return v2;
@@ -680,6 +680,24 @@ class WasmLockbox {
         return WasmLockbox.__wrap(ret[0]);
     }
     /**
+     * Opens using an explicit per-credential KDF budget for a trusted archive.
+     * @param {Uint8Array} bytes
+     * @param {string} password
+     * @param {number} max_derivations
+     * @returns {WasmLockbox}
+     */
+    static open_with_password_budget(bytes, password, max_derivations) {
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(password, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmlockbox_open_with_password_budget(ptr0, len0, ptr1, len1, max_derivations);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return WasmLockbox.__wrap(ret[0]);
+    }
+    /**
      * Returns stored Unix permission bits, or `undefined` if absent.
      * @param {string} path
      * @returns {number | undefined}
@@ -735,6 +753,20 @@ class WasmLockbox {
         const ptr1 = passStringToWasm0(to, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
         const ret = wasm.wasmlockbox_rename(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * Sets a soft page/native-frame cache target: `auto`, `disabled`, or `bytes`.
+     * Pending writes and active shared owners remain valid; this is not a total-memory limit.
+     * @param {string} mode
+     * @param {bigint} bytes
+     */
+    set_cache_limit(mode, bytes) {
+        const ptr0 = passStringToWasm0(mode, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmlockbox_set_cache_limit(this.__wbg_ptr, ptr0, len0, bytes);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
@@ -865,7 +897,7 @@ class WasmLockbox {
         }
         let v2;
         if (ret[0] !== 0) {
-            v2 = getStringFromWasm0(ret[0], ret[1]).slice();
+            v2 = getStringFromWasm0(ret[0], ret[1]);
             wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
         }
         return v2;
@@ -1039,33 +1071,33 @@ exports.weakened_allocation_allowed = weakened_allocation_allowed;
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbg___wbindgen_throw_9c31b086c2b26051: function(arg0, arg1) {
+        __wbg___wbindgen_throw_5d9e815e6fdf150f: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
-        __wbg_call_dfde26266607c996: function() { return handleError(function (arg0, arg1, arg2) {
+        __wbg_call_6bcf8d3e20937e46: function() { return handleError(function (arg0, arg1, arg2) {
             const ret = arg0.call(arg1, arg2);
             return ret;
         }, arguments); },
-        __wbg_getRandomValues_cc7f052a444bb2ce: function() { return handleError(function (arg0, arg1) {
+        __wbg_getRandomValues_436a51d0629d84e1: function() { return handleError(function (arg0, arg1) {
             globalThis.crypto.getRandomValues(getArrayU8FromWasm0(arg0, arg1));
         }, arguments); },
-        __wbg_length_56fcd3e2b7e0299d: function(arg0) {
+        __wbg_length_31bdaf014f5fbde2: function(arg0) {
             const ret = arg0.length;
             return ret;
         },
-        __wbg_new_310879b66b6e95e1: function() {
+        __wbg_new_ffa92086ea89f79c: function() {
             const ret = new Array();
             return ret;
         },
-        __wbg_new_from_slice_269e35316ed2d061: function(arg0, arg1) {
+        __wbg_new_from_slice_4ee02165f9de919e: function(arg0, arg1) {
             const ret = new Uint8Array(getArrayU8FromWasm0(arg0, arg1));
             return ret;
         },
-        __wbg_push_b77c476b01548d0a: function(arg0, arg1) {
+        __wbg_push_bfdf956ba476f65b: function(arg0, arg1) {
             const ret = arg0.push(arg1);
             return ret;
         },
-        __wbg_set_index_6216eb6926d2fbc6: function(arg0, arg1, arg2) {
+        __wbg_set_index_bc485a48c4864d05: function(arg0, arg1, arg2) {
             arg0[arg1 >>> 0] = arg2;
         },
         __wbg_wasmentry_new: function(arg0) {
@@ -1080,7 +1112,7 @@ function __wbg_get_imports() {
             const ret = WasmVariable.__wrap(arg0);
             return ret;
         },
-        __wbindgen_cast_0000000000000001: function(arg0, arg1) {
+        __wbindgen_generic_0000000000000001: function(arg0, arg1) {
             // Cast intrinsic for `Ref(String) -> Externref`.
             const ret = getStringFromWasm0(arg0, arg1);
             return ret;

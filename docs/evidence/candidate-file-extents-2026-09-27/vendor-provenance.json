@@ -1,0 +1,10 @@
+{
+  "crate_sha256": "1fbd3540d270b086caa6f53b83aa9d7e12f5ba870029da73b6950fd530610feb",
+  "files_checked": 241,
+  "changed": [
+    "src/huff0/huff0_encoder/weights.rs"
+  ],
+  "omitted_generated_metadata": [
+    ".cargo_vcs_info.json"
+  ]
+}

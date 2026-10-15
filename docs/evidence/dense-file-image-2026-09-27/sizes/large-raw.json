@@ -1,0 +1,10 @@
+{
+  "archive_bytes": 8519680,
+  "archive_sha256": "49180b43c567880a3574f216632f0c7d0757d69d3712d18162ead4cd62297d9f",
+  "binary_sha256": "3fe7508a072ceee4443571956c9b3e7afe21f934504e908442417a63b09da9e8",
+  "bytes_per_file": 8388608,
+  "files": 1,
+  "kind": "dense_file_image_size",
+  "scope": "fresh file-only image; no mutation/public API/migration or performance qualification",
+  "verified": true
+}

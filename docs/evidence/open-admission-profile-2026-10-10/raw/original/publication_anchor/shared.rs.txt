@@ -1,0 +1,499 @@
+//! Shared-control placement/authority component. No public writer uses this
+//! profile. Inline metadata and public key slots have distinct permitted ranges;
+//! they cannot alias publication or preparation. Overflow and allocation/retirement
+//! integration remain separate requirements before activating a whole archive.
+use super::*;
+
+const PRIVATE_START: u64 = 16384;
+const PRIVATE_BYTES: usize = 49152;
+const KEYS_START: u64 = 12288;
+
+pub(crate) fn commitment(anchor: &Anchor) -> Result<[u8; 32]> {
+    Ok(strong_checksum(&message(
+        &anchor.prefix_in(Layout::Shared)?,
+    )))
+}
+pub(super) fn read_root(
+    storage: &impl Storage,
+    anchor: &Anchor,
+    role: RootRole,
+) -> Result<Vec<u8>> {
+    anchor.validate_in(Layout::Shared)?;
+    let root = match role {
+        RootRole::Private => anchor.index,
+        RootRole::Allocation => anchor.allocation,
+        RootRole::PublicKeys => anchor.keys,
+    };
+    Layout::Shared.ranges(root, anchor.sealed_len, role)?;
+    if root.absent() {
+        return Err(Error::CorruptRecord);
+    }
+    for offset in [root.primary, root.mirror] {
+        if offset.checked_add(root.len).ok_or(Error::CorruptRecord)? > storage.len()? {
+            continue;
+        }
+        let bytes = storage.read_at(offset, root.len as usize)?;
+        if strong_checksum(&bytes) == root.digest {
+            return Ok(bytes);
+        }
+    }
+    Err(Error::CorruptRecord)
+}
+
+#[cfg(test)]
+pub(crate) mod tests;
+
+mod catalogue;
+pub(crate) mod ownership;
+pub(crate) mod tree;
+
+/// Publish a freshly staged comparison image. The file-image builder validates
+/// all payload membership/bytes first and owns cleanup of the empty destination.
+/// This function does not perform updates, install a path, or authorize retirement.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn initialize(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    body: &[u8],
+    slots: &[crate::key_slot::KeySlot],
+) -> Result<Anchor> {
+    let public = if slots.is_empty() {
+        None
+    } else {
+        Some(super::bootstrap::directory(archive, 1, slots)?)
+    };
+    initialize_at(
+        storage,
+        archive,
+        mode,
+        authority,
+        signer,
+        key,
+        body,
+        public.as_deref(),
+        1,
+        [0; 32],
+        || Ok(()),
+    )
+}
+
+/// Decode bounded wrappers from an already authenticated selected publication.
+/// Fresh exports re-encode the directory generation while retaining every slot.
+pub(crate) fn public_slots(
+    storage: &impl Storage,
+    anchor: &Anchor,
+) -> Result<Vec<crate::key_slot::KeySlot>> {
+    if anchor.keys.absent() {
+        return Ok(Vec::new());
+    }
+    if anchor.mode.plaintext() {
+        return Err(Error::CorruptHeader);
+    }
+    super::bootstrap::read_directory_in(storage, anchor, Layout::Shared)
+}
+
+/// Validate existing bounded bootstrap bytes before retaining them unchanged.
+/// Caller must already have selected this anchor with the required authority.
+/// The older directory generation remains valid under a newer publication.
+pub(crate) fn retained_public_directory(
+    storage: &impl Storage,
+    anchor: &Anchor,
+) -> Result<Option<Vec<u8>>> {
+    if anchor.keys.absent() {
+        return Ok(None);
+    }
+    if anchor.mode.plaintext() {
+        return Err(Error::CorruptHeader);
+    }
+    super::bootstrap::read_directory_in(storage, anchor, Layout::Shared)?;
+    read_root(storage, anchor, RootRole::PublicKeys).map(Some)
+}
+
+/// Relocate a stable authenticated selected image without resetting its lineage.
+/// The typed caller validates full membership/content and owns destination cleanup.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn initialize_successor(
+    source: &impl Storage,
+    predecessor: &Anchor,
+    storage: &mut impl Storage,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    body: &[u8],
+) -> Result<Anchor> {
+    predecessor.validate_in(Layout::Shared)?;
+    let public = retained_public_directory(source, predecessor)?;
+    let generation = predecessor
+        .generation
+        .checked_add(1)
+        .ok_or_else(|| Error::SecurityLimitExceeded("publication generation exhausted".into()))?;
+    let previous = commitment(predecessor)?;
+    let unchanged = || {
+        let selected = select_in(
+            source,
+            predecessor.archive,
+            predecessor.mode,
+            authority,
+            Layout::Shared,
+        )?;
+        if selected.anchor != *predecessor || selected.commitment != previous {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(())
+    };
+    unchanged()?;
+    initialize_at(
+        storage,
+        predecessor.archive,
+        predecessor.mode,
+        authority,
+        signer,
+        key,
+        body,
+        public.as_deref(),
+        generation,
+        previous,
+        unchanged,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn initialize_at(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    body: &[u8],
+    public: Option<&[u8]>,
+    generation: u64,
+    previous: [u8; 32],
+    unchanged: impl Fn() -> Result<()>,
+) -> Result<Anchor> {
+    if storage.len()? < REGION_LEN as u64
+        || storage
+            .read_at(0, REGION_LEN)?
+            .iter()
+            .any(|byte| *byte != 0)
+    {
+        return Err(Error::InvalidInput(
+            "shared image requires an empty control prefix".into(),
+        ));
+    }
+    if let Authority::Symmetric(authority_key) = authority {
+        if key != Some(*authority_key) {
+            return Err(Error::InvalidKey);
+        }
+    }
+    if mode.plaintext() && public.is_some() {
+        return Err(Error::InvalidInput(
+            "plaintext image cannot contain decryption slots".into(),
+        ));
+    }
+    let private = catalogue::Codec::new(archive, mode, key)?.encode(body)?;
+    let index = RootRef {
+        primary: PRIVATE_START,
+        mirror: FAILURE_REGION + PRIVATE_START,
+        len: private.len() as u64,
+        digest: strong_checksum(&private),
+    };
+    let keys = public.as_ref().map_or(RootRef::default(), |bytes| RootRef {
+        primary: KEYS_START,
+        mirror: FAILURE_REGION + KEYS_START,
+        len: bytes.len() as u64,
+        digest: strong_checksum(bytes),
+    });
+    let anchor = Anchor {
+        archive,
+        generation,
+        mode,
+        sealed_len: storage.len()?,
+        object_root: index.digest,
+        previous,
+        index,
+        allocation: RootRef::default(),
+        keys,
+    };
+    anchor.validate_in(Layout::Shared)?;
+    let base = commitment(&anchor)?;
+    let stub =
+        crate::file_format::preparation_journal::compact::initial_stub(archive, mode, key, base)?;
+    let encoded = encode_in(&anchor, authority, signer, Layout::Shared)?;
+    for bank in [0, FAILURE_REGION] {
+        storage.write_at(bank + PRIVATE_START, &private)?;
+        if let Some(public) = &public {
+            storage.write_at(bank + KEYS_START, public)?;
+        }
+        storage.write_at(bank + 8192, &stub)?;
+    }
+    // Read back both dependencies before exposing either publication copy.
+    for root in [index, keys] {
+        if root.absent() {
+            continue;
+        }
+        for offset in [root.primary, root.mirror] {
+            if strong_checksum(&storage.read_at(offset, root.len as usize)?) != root.digest {
+                return Err(Error::CorruptRecord);
+            }
+        }
+    }
+    crate::file_format::preparation_journal::compact::validate_initial_idle(
+        storage, archive, mode, key, base,
+    )?;
+    storage.sync()?;
+    unchanged()?;
+    storage.write_at(0, &encoded)?;
+    storage.sync()?;
+    storage.write_at(FAILURE_REGION, &encoded)?;
+    storage.sync()?;
+    Ok(anchor)
+}
+pub(crate) fn open_private(
+    storage: &impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    key: Option<&[u8]>,
+) -> Result<(Anchor, crate::page_buffer::ZeroizingBytes)> {
+    private_in(storage, archive, mode, authority, key, true)
+}
+/// Explicit read-only recovery trusts selected publication/private membership,
+/// not unrelated preparation, public wrappers, payload availability or padding.
+pub(crate) fn salvage_private(
+    storage: &impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    key: Option<&[u8]>,
+) -> Result<(Anchor, crate::page_buffer::ZeroizingBytes)> {
+    private_in(storage, archive, mode, authority, key, false)
+}
+fn private_in(
+    storage: &impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    key: Option<&[u8]>,
+    strict: bool,
+) -> Result<(Anchor, crate::page_buffer::ZeroizingBytes)> {
+    let (anchor, body) = snapshot(storage, archive, mode, authority, key)?;
+    if strict {
+        if storage.len()? != anchor.sealed_len {
+            return Err(Error::CorruptRecord);
+        }
+        if !anchor.keys.absent() {
+            super::bootstrap::read_directory_in(storage, &anchor, Layout::Shared)?;
+        }
+        crate::file_format::preparation_journal::compact::session::InlineSession::open(
+            storage, archive, mode, key,
+        )?
+        .require_idle(commitment(&anchor)?)?;
+    }
+    Ok((anchor, body))
+}
+
+pub(crate) fn credential_open(
+    storage: &impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    owner: Option<&OwnerSigningPublicKey>,
+    credential: super::bootstrap::Credential<'_>,
+    slot: Option<u64>,
+) -> Result<super::bootstrap::Opened> {
+    super::bootstrap::open_in(
+        storage,
+        archive,
+        mode,
+        owner,
+        credential,
+        slot,
+        Layout::Shared,
+    )
+}
+
+/// The fresh file catalogue partitions every byte after the control prefix as
+/// payload. External metadata/key roots would alias that graph; general shared
+/// root placement alone is not sufficient ownership validation for this adapter.
+fn validate_fresh_shape(anchor: &Anchor) -> Result<()> {
+    anchor.validate_in(Layout::Shared)?;
+    if anchor.generation != 1
+        || anchor.index.len != PRIVATE_BYTES as u64
+        || anchor.object_root != anchor.index.digest
+        || !anchor.allocation.absent()
+        || anchor.index.primary >= REGION_LEN as u64
+        || anchor.index.mirror >= REGION_LEN as u64
+        || (!anchor.keys.absent()
+            && (anchor.keys.primary >= REGION_LEN as u64
+                || anchor.keys.mirror >= REGION_LEN as u64))
+    {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(())
+}
+
+/// Selected private bytes only. Caller must parse the typed catalogue, validate
+/// its complete graph and independently check journal/padding for normal open.
+pub(crate) fn snapshot(
+    storage: &impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    key: Option<&[u8]>,
+) -> Result<(Anchor, crate::page_buffer::ZeroizingBytes)> {
+    let anchor = select_in(storage, archive, mode, authority, Layout::Shared)?.anchor;
+    if anchor.index.len != PRIVATE_BYTES as u64
+        || anchor.object_root != anchor.index.digest
+        || !anchor.allocation.absent()
+        || (!anchor.keys.absent() && anchor.keys.len != 4096)
+    {
+        return Err(Error::CorruptRecord);
+    }
+    let stored =
+        crate::page_buffer::ZeroizingBytes::new(read_root(storage, &anchor, RootRole::Private)?);
+    let body = catalogue::Codec::new(archive, mode, key)?.decode(&stored)?;
+    Ok((anchor, body))
+}
+pub(crate) fn encode_private(
+    archive: LockboxId,
+    mode: FormatMode,
+    key: Option<&[u8]>,
+    body: &[u8],
+) -> Result<crate::page_buffer::ZeroizingBytes> {
+    catalogue::Codec::new(archive, mode, key)?.encode(body)
+}
+pub(crate) fn ensure_mirrored(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    expected: [u8; 32],
+) -> Result<Anchor> {
+    let selected = select_in(storage, archive, mode, authority, Layout::Shared)?;
+    if selected.commitment != expected {
+        return Err(Error::CorruptRecord);
+    }
+    for role in [RootRole::Private, RootRole::PublicKeys] {
+        if matches!(role, RootRole::PublicKeys) && selected.anchor.keys.absent() {
+            continue;
+        }
+        let bytes =
+            crate::page_buffer::ZeroizingBytes::new(read_root(storage, &selected.anchor, role)?);
+        let root = match role {
+            RootRole::Private => selected.anchor.index,
+            RootRole::PublicKeys => selected.anchor.keys,
+            RootRole::Allocation => unreachable!(),
+        };
+        for offset in [root.primary, root.mirror] {
+            let existing = crate::page_buffer::ZeroizingBytes::new(
+                storage.read_at(offset, root.len as usize)?,
+            );
+            if existing.len() != root.len as usize || strong_checksum(&existing) != root.digest {
+                storage.write_at(offset, &bytes)?;
+            }
+        }
+    }
+    storage.sync()?;
+    if selected.copies != 3 {
+        storage.write_at(
+            (1 - selected.slot) as u64 * FAILURE_REGION,
+            &selected.encoded,
+        )?;
+        storage.sync()?;
+    }
+    Ok(selected.anchor)
+}
+/// The typed transaction validates both complete graphs before calling this.
+/// Dependencies are checked in BOTH copies before exposing the new publication.
+pub(crate) struct Prepared {
+    anchor: Anchor,
+    encoded: Vec<u8>,
+}
+pub(crate) fn prepare(
+    next: &Anchor,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+) -> Result<Prepared> {
+    Ok(Prepared {
+        anchor: next.clone(),
+        encoded: encode_in(next, authority, signer, Layout::Shared)?,
+    })
+}
+pub(crate) fn publish(
+    storage: &mut impl Storage,
+    prepared: &Prepared,
+    authority: &Authority<'_>,
+    expected: [u8; 32],
+) -> Result<()> {
+    publish_inner(storage, prepared, authority, expected, false)
+}
+/// Caller must supply a successful metadata-only graph transition before this
+/// narrow publication. The old suffix stays intact until both shorter anchors
+/// are durable; active preparation recovery wipes it before truncation.
+pub(crate) fn publish_metadata_tail(
+    storage: &mut impl Storage,
+    prepared: &Prepared,
+    authority: &Authority<'_>,
+    expected: [u8; 32],
+) -> Result<()> {
+    publish_inner(storage, prepared, authority, expected, true)
+}
+fn publish_inner(
+    storage: &mut impl Storage,
+    prepared: &Prepared,
+    authority: &Authority<'_>,
+    expected: [u8; 32],
+    shrinking: bool,
+) -> Result<()> {
+    let next = &prepared.anchor;
+    next.validate_in(Layout::Shared)?;
+    let current = select_in(storage, next.archive, next.mode, authority, Layout::Shared)?;
+    let physical = if shrinking {
+        if next.sealed_len >= current.anchor.sealed_len
+            || next.index.primary != PRIVATE_START
+            || next.index.mirror != FAILURE_REGION + PRIVATE_START
+            || current.anchor.index.primary < next.sealed_len
+            || current.anchor.index.mirror < next.sealed_len
+            || next.keys != current.anchor.keys
+        {
+            return Err(Error::CorruptRecord);
+        }
+        current.anchor.sealed_len
+    } else {
+        next.sealed_len
+    };
+    if !next.allocation.absent() || storage.len()? != physical {
+        return Err(Error::CorruptRecord);
+    }
+    if current.commitment != expected
+        || next.previous != expected
+        || current.anchor.generation.checked_add(1) != Some(next.generation)
+    {
+        return Err(Error::CorruptRecord);
+    }
+    for root in [next.index, next.keys] {
+        if root.absent() {
+            continue;
+        }
+        for offset in [root.primary, root.mirror] {
+            let bytes = crate::page_buffer::ZeroizingBytes::new(
+                storage.read_at(offset, root.len as usize)?,
+            );
+            if bytes.len() != root.len as usize || strong_checksum(&bytes) != root.digest {
+                return Err(Error::CorruptRecord);
+            }
+        }
+    }
+    ensure_mirrored(storage, next.archive, next.mode, authority, expected)?;
+    storage.sync()?;
+    let first = 1 - current.slot;
+    storage.write_at(first as u64 * FAILURE_REGION, &prepared.encoded)?;
+    storage.sync()?;
+    storage.write_at(current.slot as u64 * FAILURE_REGION, &prepared.encoded)?;
+    storage.sync()?;
+    Ok(())
+}

@@ -1,0 +1,62 @@
+{
+  "scope": "Exact allowlisted evidence artifacts only; no runtime/build input, fixture, log content or frozen manifest rewritten",
+  "artifacts": [
+    {
+      "original_path": "docs/evidence/security-review-2026-10-12/raw/fixed-storage-invariants/fixed-storage-invariants-test",
+      "preserved_path": "/tmp/rv-security-checkpoint-preserved-binaries-20261013/0-fixed-storage-invariants-test",
+      "sha256": "13c0d5a96bdc84644452b592982c36a4c806d1e74a5f81cdf3aa34b788ca0be6",
+      "bytes": 6044496,
+      "disposition": "Exact binary preserved outside Git; commands, source and raw result logs retained. Frozen original hash files unchanged."
+    },
+    {
+      "original_path": "docs/evidence/security-review-2026-10-12/raw/fixed-storage-invariants-final/fixed-storage-invariants-test",
+      "preserved_path": "/tmp/rv-security-checkpoint-preserved-binaries-20261013/1-fixed-storage-invariants-test",
+      "sha256": "e0003348d745c56a69a854157abcd3e1e7d280b3fcd310e1f21b9334e1b65148",
+      "bytes": 6044496,
+      "disposition": "Exact binary preserved outside Git; commands, source and raw result logs retained. Frozen original hash files unchanged."
+    },
+    {
+      "original_path": "docs/evidence/security-review-2026-10-13/raw/current-wasm/generated/revault_wasm_bindings.wasm",
+      "preserved_path": "/tmp/rv-security-checkpoint-preserved-binaries-20261013/2-revault_wasm_bindings.wasm",
+      "sha256": "90c8d332239ea02190864e46316eee14c6e3a0eaec42dbe10dc1b86e12a9b444",
+      "bytes": 5809180,
+      "disposition": "Exact binary preserved outside Git; commands, source and raw result logs retained. Frozen original hash files unchanged."
+    },
+    {
+      "original_path": "rust/docs/evidence/security-review-2026-10-12/raw/password-budget-initial/api-check-command.txt",
+      "retained_path": "docs/evidence/security-review-2026-10-12/raw/password-budget-initial/api-check-command.txt",
+      "sha256": "ba59b0394889bb5fad945480e53e4fc431026be795665a7945e9504aa9462e91",
+      "disposition": "Misplaced exact duplicate removed; original failure evidence retained at canonical documentation path."
+    },
+    {
+      "original_path": "rust/docs/evidence/security-review-2026-10-12/raw/password-budget-initial/api-check.exit",
+      "retained_path": "docs/evidence/security-review-2026-10-12/raw/password-budget-initial/api-check.exit",
+      "sha256": "39b8dc3fc8b44765c8e6f1adee04c5b465e555ab791cc42d0d9e810d5b64297c",
+      "disposition": "Misplaced exact duplicate removed; original failure evidence retained at canonical documentation path."
+    },
+    {
+      "original_path": "rust/docs/evidence/security-review-2026-10-12/raw/password-budget-initial/api-check.log",
+      "retained_path": "docs/evidence/security-review-2026-10-12/raw/password-budget-initial/api-check.log",
+      "sha256": "044bdb71a9da0b7e4042e946529af7f86a33658f0e90c66546c5c6be751178a9",
+      "disposition": "Misplaced exact duplicate removed; original failure evidence retained at canonical documentation path."
+    },
+    {
+      "original_path": "rust/docs/evidence/security-review-2026-10-12/raw/password-budget-initial/head.pre.txt",
+      "retained_path": "docs/evidence/security-review-2026-10-12/raw/password-budget-initial/head.pre.txt",
+      "sha256": "02bde30e982354ed16f3a53e3081c84442665d7ecb884baaa9a779ebe5f0c42c",
+      "disposition": "Misplaced exact duplicate removed; original failure evidence retained at canonical documentation path."
+    },
+    {
+      "original_path": "rust/docs/evidence/security-review-2026-10-12/raw/password-budget-initial/rust-inputs.pre.sha256",
+      "retained_path": "docs/evidence/security-review-2026-10-12/raw/password-budget-initial/rust-inputs.pre.sha256",
+      "sha256": "abcfa6a9d4df344d1781bc2560b5e4cdcae08b39ed303063535e7e1e926a304a",
+      "disposition": "Misplaced exact duplicate removed; original failure evidence retained at canonical documentation path."
+    },
+    {
+      "original_path": "rust/docs/evidence/security-review-2026-10-12/raw/password-budget-initial/status.pre.txt",
+      "retained_path": "docs/evidence/security-review-2026-10-12/raw/password-budget-initial/status.pre.txt",
+      "sha256": "9ddd19511991bac7070bb88457f5cae3f99237d091cb30fab16cadfea7bcbb53",
+      "disposition": "Misplaced exact duplicate removed; original failure evidence retained at canonical documentation path."
+    }
+  ]
+}

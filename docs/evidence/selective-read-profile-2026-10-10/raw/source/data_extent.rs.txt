@@ -1,0 +1,377 @@
+//! Candidate C's bounded data codec. Descriptors must come from the selected
+//! authenticated index; a stored-byte digest alone does not prove membership.
+use super::allocation_map::Extent;
+use crate::compression::{encode_with_compression, COMPRESSION_NONE, COMPRESSION_ZSTD};
+use crate::creation_options::FormatMode;
+use crate::crypto::{open_with_nonce, seal_with_random_nonce, strong_checksum};
+use crate::page_buffer::ZeroizingBytes;
+use crate::storage::Storage;
+use crate::{Compression, Error, LockboxId, Result};
+use sha2::Sha256;
+use zeroize::Zeroizing;
+use zstd_complete::decoding::StaticDecoderWorkspace;
+
+pub(crate) const MAX_LOGICAL: usize = 256 * 1024;
+const PAD_UNIT: usize = 64 * 1024;
+const MAX_ALLOCATION: usize = MAX_LOGICAL + PAD_UNIT;
+const MAGIC: &[u8; 8] = b"RV4DAT01";
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Descriptor {
+    pub object: [u8; 16],
+    pub ordinal: u64,
+    pub offset: u64,
+    pub logical_len: u32,
+    codec: u8,
+    encoded_len: u32,
+    allocation_len: u32,
+}
+impl Descriptor {
+    pub(crate) fn encode(&self) -> [u8; 64] {
+        let mut bytes = [0; 64];
+        bytes[..8].copy_from_slice(MAGIC);
+        bytes[8..24].copy_from_slice(&self.object);
+        bytes[24..32].copy_from_slice(&self.ordinal.to_le_bytes());
+        bytes[32..40].copy_from_slice(&self.offset.to_le_bytes());
+        bytes[40..44].copy_from_slice(&self.logical_len.to_le_bytes());
+        bytes[44..48].copy_from_slice(&self.encoded_len.to_le_bytes());
+        bytes[48..52].copy_from_slice(&self.allocation_len.to_le_bytes());
+        bytes[52] = self.codec;
+        bytes
+    }
+    pub(crate) fn decode(bytes: &[u8]) -> Result<Self> {
+        if bytes.len() != 64 || &bytes[..8] != MAGIC || bytes[53..].iter().any(|b| *b != 0) {
+            return Err(Error::CorruptRecord);
+        }
+        let descriptor = Self {
+            object: bytes[8..24].try_into().unwrap(),
+            ordinal: u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
+            offset: u64::from_le_bytes(bytes[32..40].try_into().unwrap()),
+            logical_len: u32::from_le_bytes(bytes[40..44].try_into().unwrap()),
+            encoded_len: u32::from_le_bytes(bytes[44..48].try_into().unwrap()),
+            allocation_len: u32::from_le_bytes(bytes[48..52].try_into().unwrap()),
+            codec: bytes[52],
+        };
+        descriptor.validate()?;
+        Ok(descriptor)
+    }
+    pub(crate) fn stored_len(&self) -> usize {
+        self.allocation_len as usize
+    }
+    fn validate(&self) -> Result<()> {
+        if self.object == [0; 16]
+            || self.logical_len == 0
+            || self.logical_len as usize > MAX_LOGICAL
+            || self.encoded_len == 0
+            || self.encoded_len > self.logical_len
+            || self.allocation_len < self.encoded_len
+            || self.allocation_len as usize > MAX_ALLOCATION
+            || (self.codec == COMPRESSION_NONE && self.encoded_len != self.logical_len)
+            || !matches!(self.codec, COMPRESSION_NONE | COMPRESSION_ZSTD)
+            || self.offset.checked_add(self.logical_len as u64).is_none()
+        {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(())
+    }
+}
+
+pub(crate) struct Codec {
+    archive: LockboxId,
+    mode: FormatMode,
+    key: Option<Zeroizing<[u8; 32]>>,
+    scratch: ZeroizingBytes,
+    packed: bool,
+    data_start: u64,
+}
+impl Codec {
+    pub(crate) fn new(archive: LockboxId, mode: FormatMode, key: Option<&[u8]>) -> Result<Self> {
+        Self::with_packing(archive, mode, key, false)
+    }
+    /// Physical packs apply padding collectively; each member retains its own
+    /// codec, nonce/tag, context and owner-authenticated stored-byte commitment.
+    pub(crate) fn packed(archive: LockboxId, mode: FormatMode, key: Option<&[u8]>) -> Result<Self> {
+        Self::with_packing(archive, mode, key, true)
+    }
+    /// Shared-control experiment: only its authenticated catalogue may supply
+    /// extents above the smaller protected prefix. Other callers retain the
+    /// original candidate floor and cannot read inline/control bytes as payload.
+    pub(crate) fn shared_packed(
+        archive: LockboxId,
+        mode: FormatMode,
+        key: Option<&[u8]>,
+    ) -> Result<Self> {
+        let mut codec = Self::with_packing(archive, mode, key, true)?;
+        codec.data_start = super::publication_anchor::REGION_LEN as u64;
+        Ok(codec)
+    }
+    fn with_packing(
+        archive: LockboxId,
+        mode: FormatMode,
+        key: Option<&[u8]>,
+        packed: bool,
+    ) -> Result<Self> {
+        FormatMode::parse(mode.0)?;
+        if mode.0 == 0 || (!mode.plaintext() && key.is_none_or(|k| k.len() != 32)) {
+            return Err(Error::InvalidKey);
+        }
+        let key = if mode.plaintext() {
+            None
+        } else {
+            let mut derived = Zeroizing::new([0; 32]);
+            hkdf::Hkdf::<Sha256>::new(Some(archive.as_bytes()), key.unwrap())
+                .expand(
+                    if packed {
+                        b"revault-candidate-packed-data-key-v1\0"
+                    } else {
+                        b"revault-candidate-data-key-v1\0"
+                    },
+                    &mut *derived,
+                )
+                .map_err(|_| Error::InvalidKey)?;
+            Some(derived)
+        };
+        Ok(Self {
+            archive,
+            mode,
+            key,
+            scratch: ZeroizingBytes::new(Vec::new()),
+            packed,
+            data_start: super::preparation_journal::DATA_START,
+        })
+    }
+    /// Raw data stays inside a 64 KiB stored allocation, including nonce/tag.
+    /// Logical boundaries stay 4 KiB-aligned, so aligned small ranges do not
+    /// accidentally fetch two allocations because of encryption overhead.
+    /// Compressed profiles compare independent 64/256 KiB logical access units.
+    pub(crate) fn logical_unit(&self, compressed_unit: usize) -> Result<usize> {
+        if ![PAD_UNIT, MAX_LOGICAL].contains(&compressed_unit) {
+            return Err(Error::InvalidInput(
+                "candidate extent unit must be 64 or 256 KiB".into(),
+            ));
+        }
+        Ok(if self.mode.options().compression == Compression::None {
+            (PAD_UNIT - self.overhead()) / 4096 * 4096
+        } else {
+            compressed_unit
+        })
+    }
+    fn overhead(&self) -> usize {
+        if self.mode.plaintext() {
+            0
+        } else {
+            28
+        }
+    }
+    fn allocation_len(&self, encoded_len: usize) -> usize {
+        let size = encoded_len + self.overhead();
+        if self.packed || self.mode.unpadded() {
+            size
+        } else {
+            size.div_ceil(PAD_UNIT) * PAD_UNIT
+        }
+    }
+    pub(crate) fn pack_padded_len(&self, used: usize) -> Result<usize> {
+        if !self.packed || used == 0 || used > MAX_ALLOCATION {
+            return Err(Error::CorruptRecord);
+        }
+        if self.mode.unpadded() {
+            return Ok(used);
+        }
+        let mut total = used.div_ceil(PAD_UNIT) * PAD_UNIT;
+        if self.key.is_some() && total != used && total - used < 28 {
+            total += PAD_UNIT;
+        }
+        if total > MAX_ALLOCATION {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(total)
+    }
+    fn padding_aad(&self) -> Vec<u8> {
+        let mut aad = b"revault-candidate-pack-padding-v1\0".to_vec();
+        aad.extend_from_slice(self.archive.as_bytes());
+        aad.extend_from_slice(&self.mode.0.to_le_bytes());
+        aad
+    }
+    pub(crate) fn pack_padding(&self, len: usize) -> Result<ZeroizingBytes> {
+        if !self.packed || len > PAD_UNIT + 27 {
+            return Err(Error::CorruptRecord);
+        }
+        if len == 0 {
+            return Ok(ZeroizingBytes::new(Vec::new()));
+        }
+        if let Some(key) = &self.key {
+            if len < 28 {
+                return Err(Error::CorruptRecord);
+            }
+            let zeros = ZeroizingBytes::new(vec![0; len - 28]);
+            let (nonce, body) =
+                seal_with_random_nonce(&zeros, key.as_slice(), &self.padding_aad())?;
+            let mut padding = ZeroizingBytes::new(Vec::with_capacity(len));
+            padding.extend_from_slice(&nonce);
+            padding.extend_from_slice(&body);
+            Ok(padding)
+        } else {
+            Ok(ZeroizingBytes::new(vec![0; len]))
+        }
+    }
+    pub(crate) fn verify_pack_padding(&self, bytes: &[u8]) -> Result<()> {
+        if !self.packed || bytes.len() > PAD_UNIT + 27 {
+            return Err(Error::CorruptRecord);
+        }
+        if bytes.is_empty() {
+            return Ok(());
+        }
+        let zeros = if let Some(key) = &self.key {
+            if bytes.len() < 28 {
+                return Err(Error::CorruptRecord);
+            }
+            ZeroizingBytes::new(open_with_nonce(
+                &bytes[12..],
+                key.as_slice(),
+                &bytes[..12],
+                &self.padding_aad(),
+            )?)
+        } else {
+            ZeroizingBytes::new(bytes.to_vec())
+        };
+        if zeros.iter().any(|b| *b != 0) {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(())
+    }
+    fn aad(&self, descriptor: &Descriptor) -> Vec<u8> {
+        let mut bytes = if self.packed {
+            b"revault-candidate-packed-data-v1\0".as_slice()
+        } else {
+            b"revault-candidate-data-v1\0".as_slice()
+        }
+        .to_vec();
+        bytes.extend_from_slice(self.archive.as_bytes());
+        bytes.extend_from_slice(&self.mode.0.to_le_bytes());
+        bytes.extend_from_slice(&descriptor.encode());
+        bytes
+    }
+    pub(crate) fn encode(
+        &self,
+        object: [u8; 16],
+        ordinal: u64,
+        offset: u64,
+        plain: &[u8],
+    ) -> Result<(Descriptor, ZeroizingBytes)> {
+        if plain.is_empty() || plain.len() > self.logical_unit(MAX_LOGICAL)? {
+            return Err(Error::SecurityLimitExceeded(
+                "candidate extent logical limit".into(),
+            ));
+        }
+        let (codec, encoded) = encode_with_compression(plain, self.mode.options().compression);
+        let mut encoded = ZeroizingBytes::new(encoded);
+        let descriptor = Descriptor {
+            object,
+            ordinal,
+            offset,
+            logical_len: plain.len() as u32,
+            codec,
+            encoded_len: encoded.len() as u32,
+            allocation_len: self.allocation_len(encoded.len()) as u32,
+        };
+        descriptor.validate()?;
+        let padded_len = descriptor.allocation_len as usize - self.overhead();
+        if encoded.capacity() < padded_len {
+            // Reallocation must not release an unwiped private input allocation.
+            let mut padded = ZeroizingBytes::new(Vec::with_capacity(padded_len));
+            padded.extend_from_slice(&encoded);
+            encoded = padded;
+        }
+        encoded.resize(padded_len, 0);
+        let stored = if let Some(key) = &self.key {
+            let (nonce, ciphertext) =
+                seal_with_random_nonce(&encoded, key.as_slice(), &self.aad(&descriptor))?;
+            let mut stored =
+                ZeroizingBytes::new(Vec::with_capacity(descriptor.allocation_len as usize));
+            stored.extend_from_slice(&nonce);
+            stored.extend_from_slice(&ciphertext);
+            stored
+        } else {
+            encoded
+        };
+        Ok((descriptor, stored))
+    }
+    pub(crate) fn validate_extent(
+        &self,
+        extent: Extent,
+        sealed: u64,
+        descriptor: &Descriptor,
+    ) -> Result<()> {
+        descriptor.validate()?;
+        if descriptor.logical_len as usize > self.logical_unit(MAX_LOGICAL)?
+            || descriptor.allocation_len as usize
+                != self.allocation_len(descriptor.encoded_len as usize)
+            || extent.len != descriptor.allocation_len as u64
+            || extent.start < self.data_start
+            || extent
+                .start
+                .checked_add(extent.len)
+                .is_none_or(|end| end > sealed)
+            || (descriptor.codec == COMPRESSION_ZSTD
+                && self.mode.options().compression == Compression::None)
+        {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(())
+    }
+    /// Validates lengths before any read; verifies the owner's stored-byte
+    /// commitment before decrypting or decompressing. Caller validates membership.
+    pub(crate) fn load(
+        &mut self,
+        storage: &impl Storage,
+        extent: Extent,
+        sealed: u64,
+        descriptor: &Descriptor,
+    ) -> Result<ZeroizingBytes> {
+        self.validate_extent(extent, sealed, descriptor)?;
+        let stored = ZeroizingBytes::new(storage.read_at(extent.start, extent.len as usize)?);
+        if stored.len() != extent.len as usize || crate::file_format::diagnostic_timing::measure(3, || Ok(strong_checksum(&stored)))? != extent.digest {
+            return Err(Error::CorruptRecord);
+        }
+        let decoded = if let Some(key) = &self.key {
+            ZeroizingBytes::new(open_with_nonce(
+                &stored[12..],
+                key.as_slice(),
+                &stored[..12],
+                &self.aad(descriptor),
+            )?)
+        } else {
+            stored
+        };
+        let encoded_len = descriptor.encoded_len as usize;
+        if decoded.len() < encoded_len || decoded[encoded_len..].iter().any(|b| *b != 0) {
+            return Err(Error::CorruptRecord);
+        }
+        if descriptor.codec == COMPRESSION_NONE {
+            let mut decoded = decoded;
+            decoded.truncate(encoded_len);
+            return Ok(decoded);
+        }
+        // Fixed workspace and fixed destination bound even malicious Zstd windows
+        // and concatenated streams. There is no allocating fallback decoder.
+        let required = StaticDecoderWorkspace::required_size(MAX_LOGICAL, 0)
+            .map_err(|_| Error::CorruptRecord)?;
+        if self.scratch.len() != required {
+            self.scratch = ZeroizingBytes::new(vec![0; required]);
+        }
+        let mut output = ZeroizingBytes::new(vec![0; descriptor.logical_len as usize]);
+        let mut decoder = StaticDecoderWorkspace::new(&mut self.scratch, MAX_LOGICAL, 0)
+            .map_err(|_| Error::CorruptRecord)?;
+        let len = decoder
+            .decode_into(&decoded[..encoded_len], &mut output)
+            .map_err(|_| Error::CorruptRecord)?;
+        if len != output.len() {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(output)
+    }
+}
+
+#[cfg(test)]
+mod tests;

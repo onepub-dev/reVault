@@ -1,0 +1,65 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const root = '/tmp/revault-tree-read-20261010';
+const bench = '$root/bin/archive_evaluation';
+const packed = '$root/bin/adapter_packed';
+const tree = '$root/bin/adapter_tree';
+
+String runLogged(String label, List<String> args, int unit) {
+  final path = '$root/$label.log';
+  final result = Process.runSync(
+    bench,
+    args,
+    environment: {
+      ...Platform.environment,
+      'REVAULT_CANDIDATE_UNIT': '$unit',
+    },
+  );
+  final output = '${result.stdout}${result.stderr}';
+  File(path).writeAsStringSync(output, flush: true);
+  if (result.exitCode != 0) {
+    throw StateError('$label failed (${result.exitCode}); log=$path\n$output');
+  }
+  print('SMOKE_OK $label log=$path');
+  return output;
+}
+
+void main() {
+  final smokes = Directory('$root/smokes');
+  if (smokes.existsSync()) throw StateError('Refusing existing smoke directory ${smokes.path}');
+  smokes.createSync();
+  final modes = ['plain', 'encrypted', 'signed', 'encrypted-signed'];
+  final codecs = ['raw', 'compressed'];
+  final paddings = ['default', 'none'];
+  for (final mode in modes) {
+    for (final codec in codecs) {
+      for (final padding in paddings) {
+        final label = '${mode}_${codec}_$padding';
+        final fixture = '$root/smokes/$label';
+        final unit = codec == 'raw' ? 65536 : 262144;
+        runLogged(
+          'smokes/$label',
+          ['run', fixture, '2', '4096', 'mixed', codec, mode, '1', 'stream', '1', padding, tree, packed],
+          unit,
+        );
+      }
+    }
+  }
+
+  final large = '$root/smokes/large64m';
+  runLogged(
+    'smokes/large64m-run-stream',
+    ['run', large, '1', '67108864', 'random', 'raw', 'plain', '1', 'stream', '1', 'default', tree, packed],
+    65536,
+  );
+  for (final access in ['stream', 'range']) {
+    runLogged(
+      'smokes/large64m-compare-$access',
+      ['compare-existing', '$root/smokes/large64m-compare-$access', large, packed, large, tree, '$large/other', access, '1', '1'],
+      65536,
+    );
+  }
+  print('SMOKES_COMPLETE protection_codec_padding=16 large64m_access=stream,range');
+}

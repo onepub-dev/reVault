@@ -1,0 +1,9 @@
+Command: cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib file_format::candidate_files::tests::tree_tests::variables -- --test-threads=1
+Run result captured from actual command session; full 5-test success. Resource probe ignored.
+Tests passed:
+- typed_tree_variable_max_revision_can_be_deleted_but_not_replaced
+- typed_tree_variables_guarded_transaction_and_recovery_faults
+- typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes
+- typed_tree_variables_maximum_empty_and_one_over_all_modes
+- typed_tree_variables_selected_ownership_corruption_and_salvage_all_modes
+Result: 5 passed; 0 failed; 1 ignored; 0 measured; 585 filtered out; finished in 272.96s.

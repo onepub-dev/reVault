@@ -1,0 +1,251 @@
+{
+  "completed_attempts": 6,
+  "interrupted_attempts": [
+    6
+  ],
+  "verified_outputs": 0,
+  "outcomes": [
+    {
+      "mode": 0,
+      "run_status": "failed",
+      "phase_metrics": [
+        {
+          "after": {
+            "vm_hwm_kib": 77412,
+            "vm_lck_kib": 4752,
+            "vm_rss_kib": 19204
+          },
+          "before": {
+            "vm_hwm_kib": 77412,
+            "vm_lck_kib": 1352,
+            "vm_rss_kib": 15292
+          },
+          "cpu_seconds": 0.067706,
+          "phase": "create",
+          "process_peak_rss_kib": 77412,
+          "result": {
+            "changed": true
+          },
+          "system_seconds": 0.057793,
+          "user_seconds": 0.009913000000000005,
+          "wall_seconds": 0.067719564
+        }
+      ],
+      "error": "LockUnavailable(\"timed out locking archive /tmp/revault-variable-resource-2026-10-09/pilot/mode-00.archive\")",
+      "exit_status": 101,
+      "image_bytes": 1703936,
+      "image_sha256": "383899bb725bcec438275a57343d9da100c159320a75f881eca7e381c00c1f3b",
+      "public_bytes": 2000,
+      "public_sha256": "414928b3b02cf84389c02b3504f60b2545fbd7187dca6acff7bbe0f7ae5d1154"
+    },
+    {
+      "mode": 1,
+      "run_status": "failed",
+      "phase_metrics": [
+        {
+          "after": {
+            "vm_hwm_kib": 77564,
+            "vm_lck_kib": 3992,
+            "vm_rss_kib": 18704
+          },
+          "before": {
+            "vm_hwm_kib": 77564,
+            "vm_lck_kib": 1352,
+            "vm_rss_kib": 15488
+          },
+          "cpu_seconds": 0.07830700000000002,
+          "phase": "create",
+          "process_peak_rss_kib": 77564,
+          "result": {
+            "changed": true
+          },
+          "system_seconds": 0.066058,
+          "user_seconds": 0.01224900000000001,
+          "wall_seconds": 0.078314853
+        }
+      ],
+      "error": "LockUnavailable(\"timed out locking archive /tmp/revault-variable-resource-2026-10-09/pilot/mode-01.archive\")",
+      "exit_status": 101,
+      "image_bytes": 1703936,
+      "image_sha256": "adb0908367081b3aceb800779fe6935e4bcee7533559f5fa2d18f9a531e70868",
+      "public_bytes": 2000,
+      "public_sha256": "d9b18c33f12e02eb245533531e2ff367c2b3988902d16c720ac6aaed5ea53269"
+    },
+    {
+      "mode": 2,
+      "run_status": "failed",
+      "phase_metrics": [
+        {
+          "after": {
+            "vm_hwm_kib": 77296,
+            "vm_lck_kib": 4752,
+            "vm_rss_kib": 19464
+          },
+          "before": {
+            "vm_hwm_kib": 77296,
+            "vm_lck_kib": 1352,
+            "vm_rss_kib": 15488
+          },
+          "cpu_seconds": 0.07650699999999999,
+          "phase": "create",
+          "process_peak_rss_kib": 77296,
+          "result": {
+            "changed": true
+          },
+          "system_seconds": 0.052895,
+          "user_seconds": 0.023611999999999994,
+          "wall_seconds": 0.0765051
+        }
+      ],
+      "error": "LockUnavailable(\"timed out locking archive /tmp/revault-variable-resource-2026-10-09/pilot/mode-02.archive\")",
+      "exit_status": 101,
+      "image_bytes": 1703936,
+      "image_sha256": "75f7dcb3f1806b593ab20d75308ecb08d4ce327bc5eec33507d61f5b42dfe86f",
+      "public_bytes": 2000,
+      "public_sha256": "3ca2ab4ea870dfd8588348e749f16b1b1d82547ac09e9a844fd4dadca4649432"
+    },
+    {
+      "mode": 3,
+      "run_status": "failed",
+      "phase_metrics": [
+        {
+          "after": {
+            "vm_hwm_kib": 77756,
+            "vm_lck_kib": 3992,
+            "vm_rss_kib": 18724
+          },
+          "before": {
+            "vm_hwm_kib": 77756,
+            "vm_lck_kib": 1352,
+            "vm_rss_kib": 15508
+          },
+          "cpu_seconds": 0.08907900000000002,
+          "phase": "create",
+          "process_peak_rss_kib": 77756,
+          "result": {
+            "changed": true
+          },
+          "system_seconds": 0.069054,
+          "user_seconds": 0.020025,
+          "wall_seconds": 0.089091675
+        }
+      ],
+      "error": "LockUnavailable(\"timed out locking archive /tmp/revault-variable-resource-2026-10-09/pilot/mode-03.archive\")",
+      "exit_status": 101,
+      "image_bytes": 1703936,
+      "image_sha256": "8c33f85174c6b8d38ebccad9a94817b4b1954ebbd6807c5f4575f7e0d1c8feaf",
+      "public_bytes": 2000,
+      "public_sha256": "64f825b61b6ef7d601ce07997c1d188e1197bc7c516a629f190841ce831e3359"
+    },
+    {
+      "mode": 4,
+      "run_status": "failed",
+      "phase_metrics": [
+        {
+          "after": {
+            "vm_hwm_kib": 77948,
+            "vm_lck_kib": 4752,
+            "vm_rss_kib": 21072
+          },
+          "before": {
+            "vm_hwm_kib": 77948,
+            "vm_lck_kib": 1352,
+            "vm_rss_kib": 17096
+          },
+          "cpu_seconds": 0.067478,
+          "phase": "create",
+          "process_peak_rss_kib": 77948,
+          "result": {
+            "changed": true
+          },
+          "system_seconds": 0.058861,
+          "user_seconds": 0.008617,
+          "wall_seconds": 0.067495371
+        }
+      ],
+      "error": "LockUnavailable(\"timed out locking archive /tmp/revault-variable-resource-2026-10-09/pilot/mode-04.archive\")",
+      "exit_status": 101,
+      "image_bytes": 1703936,
+      "image_sha256": "c24d94c131ef4388ce7fcfd2005c46aa457d22c68a2f57d0be34371749529420",
+      "public_bytes": 2000,
+      "public_sha256": "3bfb328eada80be3e5ca5d1d056b536efc46c7d1c54c6b6d58f41492fd241e57"
+    },
+    {
+      "mode": 5,
+      "run_status": "failed",
+      "phase_metrics": [
+        {
+          "after": {
+            "vm_hwm_kib": 78328,
+            "vm_lck_kib": 3992,
+            "vm_rss_kib": 20372
+          },
+          "before": {
+            "vm_hwm_kib": 78328,
+            "vm_lck_kib": 1352,
+            "vm_rss_kib": 17156
+          },
+          "cpu_seconds": 0.07904400000000002,
+          "phase": "create",
+          "process_peak_rss_kib": 78328,
+          "result": {
+            "changed": true
+          },
+          "system_seconds": 0.067057,
+          "user_seconds": 0.011986999999999998,
+          "wall_seconds": 0.079044443
+        }
+      ],
+      "error": "LockUnavailable(\"timed out locking archive /tmp/revault-variable-resource-2026-10-09/pilot/mode-05.archive\")",
+      "exit_status": 101,
+      "image_bytes": 1703936,
+      "image_sha256": "a0d170f877dc947d8c810e8834fe016bbe651c81e2ce61c413cec7278a4ee307",
+      "public_bytes": 2000,
+      "public_sha256": "3831a538aa0fd3d7660336e40154c21ad058687809a37bfcadd6d8f1d9d0e3b3"
+    },
+    {
+      "mode": 6,
+      "run_status": "interrupted_before_log",
+      "image_bytes": 1703936,
+      "image_sha256": "68343bca31fd15a387d0cdb3bfc82680929ce6795001c42e9c1139038b519a63",
+      "public_bytes": 2000,
+      "public_sha256": "e7beafa6c8f300765f4caba3a387f2c92429f0cc3e76b1155cc9ca84ababa16e"
+    },
+    {
+      "mode": 7,
+      "run_status": "interrupted_before_log"
+    },
+    {
+      "mode": 8,
+      "run_status": "interrupted_before_log"
+    },
+    {
+      "mode": 9,
+      "run_status": "interrupted_before_log"
+    },
+    {
+      "mode": 10,
+      "run_status": "interrupted_before_log"
+    },
+    {
+      "mode": 11,
+      "run_status": "interrupted_before_log"
+    },
+    {
+      "mode": 12,
+      "run_status": "interrupted_before_log"
+    },
+    {
+      "mode": 13,
+      "run_status": "interrupted_before_log"
+    },
+    {
+      "mode": 14,
+      "run_status": "interrupted_before_log"
+    },
+    {
+      "mode": 15,
+      "run_status": "interrupted_before_log"
+    }
+  ]
+}

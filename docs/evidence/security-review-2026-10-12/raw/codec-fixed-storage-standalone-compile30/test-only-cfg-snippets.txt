@@ -1,0 +1,151 @@
+--- encoding/levels/c_port/mod.rs:115-150 ---
+   115	#[cfg(test)]
+   116	mod dfast_ext_tests;
+   117	#[cfg(test)]
+   118	mod dfast_tests;
+   119	#[cfg(test)]
+   120	mod fast_ext_tests;
+   121	#[cfg(test)]
+   122	mod fast_tests;
+   123	#[cfg(test)]
+   124	mod greedy_ext_tests;
+   125	#[cfg(test)]
+   126	mod greedy_frame_tests;
+   127	#[cfg(test)]
+   128	mod greedy_tests;
+   129	#[cfg(test)]
+   130	mod ldm_tests;
+   131	#[cfg(test)]
+   132	mod ldm_window_tests;
+   133	#[cfg(test)]
+   134	mod opt_frame_tests;
+   135	#[cfg(test)]
+   136	mod opt_match_tests;
+   137	#[cfg(test)]
+   138	mod opt_parser_tests;
+   139	#[cfg(test)]
+   140	mod opt_price_tests;
+   141	#[cfg(test)]
+   142	mod params_tests;
+   143	#[cfg(test)]
+   144	mod sequence_store_tests;
+   145	#[cfg(test)]
+   146	mod strategy_frame_tests;
+   147	#[cfg(test)]
+   148	mod target_block_fixtures;
+   149	#[cfg(test)]
+   150	mod target_block_tests;
+--- encoding/blocks/compressed.rs:67-68 ---
+    67	#[cfg(test)]
+    68	mod tests;
+--- huff0/huff0_encoder.rs:15-16 ---
+    15	#[cfg(test)]
+    16	mod tests;
+--- encoding/levels/c_port/post_split.rs:456-563 ---
+   456	#[cfg(test)]
+   457	fn sequence_prefixes(prepared: &PreparedBlock) -> Vec<SequencePrefix> {
+   458	    let mut prefixes = ReusableVec::new();
+   459	    sequence_prefixes_into(prepared, &mut prefixes);
+   460	    prefixes.into_owned_vec()
+   461	}
+   462	
+   463	#[cfg(test)]
+   464	fn derive_block_splits(
+   465	    block: &[u8],
+   466	    prepared: &PreparedBlock,
+   467	    prefixes: &[SequencePrefix],
+   468	    context: EstimateContext<'_>,
+   469	    estimate_scratch: &mut EstimateScratch,
+   470	) -> Vec<usize> {
+   471	    let mut splits = ReusableVec::new();
+   472	    derive_block_splits_into(
+   473	        block,
+   474	        prepared,
+   475	        prefixes,
+   476	        context,
+   477	        estimate_scratch,
+   478	        &mut splits,
+   479	    );
+   480	    splits.into_owned_vec()
+   481	}
+   482	
+   483	#[cfg(test)]
+   484	fn resolved_partition_sequences(
+   485	    sequences: &[PreparedSequence],
+   486	    decompression_repeat_offsets: &mut RepeatOffsets,
+   487	    compression_repeat_offsets: &mut RepeatOffsets,
+   488	) -> Vec<StoredSequence> {
+   489	    let mut resolved = ReusableVec::new();
+   490	    resolved_partition_sequences_into(
+   491	        sequences,
+   492	        decompression_repeat_offsets,
+   493	        compression_repeat_offsets,
+   494	        &mut resolved,
+   495	    );
+   496	    resolved.into_owned_vec()
+   497	}
+   498	
+   499	#[cfg(test)]
+   500	struct PartitionEncodeContext<'a> {
+   501	    policy: BlockEncodingPolicy,
+   502	    strategy: Strategy,
+   503	    config: BlockCompressionConfig,
+   504	    fse_tables: &'a mut FseTables,
+   505	    offset_history: &'a mut OffsetHistory,
+   506	    previous_huff_table: Option<&'a HuffmanTable>,
+   507	}
+   508	
+   509	#[cfg(test)]
+   510	fn encode_partition(
+   511	    block: &[u8],
+   512	    last_block: bool,
+   513	    repeat_offsets: RepeatOffsets,
+   514	    prepared: PreparedBlockRef<'_>,
+   515	    context: PartitionEncodeContext<'_>,
+   516	) -> GreedyEncodedBlock {
+   517	    let mut decompression_offsets = repeat_offsets;
+   518	    let mut compression_offsets = repeat_offsets;
+   519	    let mut resolved = ReusableVec::new();
+   520	    resolved_partition_sequences_into(
+   521	        prepared.sequences,
+   522	        &mut decompression_offsets,
+   523	        &mut compression_offsets,
+   524	        &mut resolved,
+   525	    );
+   526	    let mut bytes = Vec::new();
+   527	    let mut huffman_scratch = HuffmanBuildScratch::new();
+   528	    let mut fse_scratch = FSETableBuildScratch::new();
+   529	    let emission = append_stored_block_or_raw(
+   530	        block,
+   531	        last_block,
+   532	        context.strategy,
+   533	        context.policy,
+   534	        context.config,
+   535	        StoredBlockRef {
+   536	            literals: prepared.literals,
+   537	            sequences: &resolved,
+   538	        },
+   539	        decompression_offsets,
+   540	        context.previous_huff_table,
+   541	        Some(&mut huffman_scratch),
+   542	        Some(&mut fse_scratch),
+   543	        context.fse_tables,
+   544	        context.offset_history,
+   545	        &mut bytes,
+   546	    ).expect("test storage admission");
+   547	    match emission {
+   548	        PreparedBlockEmission::Compressed { new_huffman_table } => GreedyEncodedBlock {
+   549	            bytes: crate::workspace::ReusableVec::from_owned(bytes),
+   550	            repeat_offsets: decompression_offsets,
+   551	            new_huffman_table,
+   552	        },
+   553	        PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+   554	            bytes: crate::workspace::ReusableVec::from_owned(bytes),
+   555	            repeat_offsets,
+   556	            new_huffman_table: None,
+   557	        },
+   558	    }
+   559	}
+   560	
+   561	#[cfg(test)]
+   562	mod tests;

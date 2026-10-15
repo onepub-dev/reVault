@@ -1,0 +1,7 @@
+ M ../docs/archive_v4_plan.md
+ M revault_lockbox_api/src/file_format/authenticated_index/cache.rs
+ M revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+ M revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
+ M revault_lockbox_api/src/file_format/mod.rs
+ M revault_lockbox_api/src/file_format/publication_anchor/shared.rs
+?? revault_lockbox_api/src/file_format/diagnostic_timing.rs

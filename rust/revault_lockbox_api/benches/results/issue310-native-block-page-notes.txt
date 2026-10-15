@@ -1,0 +1,55 @@
+Native block-page wrapping, 2026-09-13
+====================================
+The staged common block codec now has a physical page wrapper with recovery
+metadata. The module remains cfg(test), is not dispatched by the archive writer
+or scanner, and does not create/rewrite user archives. Native archive version
+remains 4. The staged page discriminator is version 3; existing whole-page
+version-2 decoding explicitly rejects it instead of misinterpreting its body.
+
+The existing 96-byte page-header envelope is reused. Header bytes 44..48 retain
+the total stored body length, bytes 48..56 the allocated physical length, and
+bytes 56..64 now identify the bounded stored metadata section length. This
+permits the existing physical-size helper to validate total extents and padding.
+Header fields and checksum are validated before allocating metadata buffers.
+
+The body contains two separately protected sections:
+1. Metadata: canonical native descriptor plus the existing bounded file-slice
+   manifest, retaining paths, permissions, total lengths and file/frame offsets.
+   In a version-3 page, the manifest digest field denotes the block-index
+   commitment, NOT the old whole-frame hash. Metadata is compressed at most once
+   according to the creation choice, independently of file-content compression.
+   It uses AEAD in encrypted mode; otherwise a SHA-256 digest binds both metadata
+   and the page identity/length context. Encryption hides recovery paths.
+2. The indexed data packet from the preceding checkpoint. It remains independently
+   block-readable; no second whole-page encryption layer forces full-frame reads.
+
+Default allocation retains the existing 1 KiB rounding for data pages. None
+padding uses exactly header + protected metadata + data packet. This does not
+alter the archive's default control/tree allocations or its creation policy.
+Normal reader opening requires the descriptor and page extent expected by the
+TOC. Metadata inspection alone is insufficient for recovery: the index, data,
+decompression and applicable commit signatures must still be verified.
+
+BlockFrameReader now owns its small descriptor while borrowing StorageBackend,
+allowing a page reader to retain its index without self-referential metadata.
+The page reader checks the complete physical allocation even on empty reads;
+loss of optional tail padding is not mistaken for an intact page.
+
+Validation passed:
+- 48 page roundtrips: all 16 encryption/signing/compression/padding combinations
+  with empty, 128-byte and 65,539-byte frames containing two file slices.
+- Exact manifest recovery, permission/offset preservation, full and slice reads,
+  nonzero file extents, neighboring bytes, zero padding and physical-size checks.
+- Bad version/flags/coordinates/lengths/nonces/metadata rejected even when the
+  public header checksum is recomputed. Wrong keys and swapped signing policy
+  fail; decrypted recovery paths do not appear in encrypted page bytes.
+- Invalid manifests and huge rechecksummed metadata expansion lengths rejected.
+- Real file-backed cached readers reject truncation in the padding region.
+- Intact recovery metadata with damaged data still fails full frame validation.
+- All seven native block tests and strict feature-enabled library/tests Clippy.
+
+Still required: TOC version/discriminator and trusted descriptor persistence;
+writer/reader/page-cache/scanner dispatch; mutation/relocation, allocator and
+crash recovery ownership; migrations and CLI lifecycle tests; production ZIP
+parity plus paired write/load gates. These correctness tests make no fresh
+performance claim and do not satisfy those remaining requirements.

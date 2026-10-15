@@ -1,0 +1,90 @@
+Issue #310: reject whole-frame reservation for lazy verified raw blocks
+Base 3d0cc5d; production remains f4b1d91. The attached candidate patch is fully
+reverted. Only benchmark FILES configurability and evidence are retained.
+
+Prototype: packed raw frames optionally shared authenticated blocks through the
+cached native index. Only single-block ranges used this cache; crossing/large
+reads retained contiguous I/O. Misses verified exactly the block already touched
+by an ordinary partial read. Hits copied into a zeroizing result and rechecked
+live source identity, full physical extent, revision and terminal source state
+before returning data. No content key was retained. Allocation/reference/manifest
+checks stayed in place. Metadata-only caching remained available for small budgets.
+The cache reserved each frame's maximum eventual block footprint up front, though
+blocks were filled lazily. This reservation policy is the rejected design.
+
+Correctness before rejection:
+Default + external-source suite: 348 unit tests passed, 5 ignored; all executed
+integration/doc tests passed. Native + external-source: 353 passed, 5 ignored,
+and the same two known failures:
+api_tests::recovery_skips_truncated_tail_and_keeps_prior_intact_files
+lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes
+New unit coverage: metadata-only admission under a small limit; bounded reservation;
+first-block-only population; shared cache binding; eviction releases zeroizing
+owners; corrupted blocks are not admitted; file revision and physical truncation
+invalidate cached reads, including empty reads. The external-source test additionally
+verified that another public file handle reuses authenticated data without another
+source fetch, while retaining its failure-latching assertions. Clippy all targets
+native+external passed for the candidate and again for restored production plus
+the FILES benchmark option. No new CLI E2E or power-loss claim is made.
+
+Initial read matrix binaries (native layout), SHA256:
+Before 7c3bff7dcd46ba6698385470f3a6015705028c965f4312195531ac7ecef01cf9
+After  3d60b22da96a519d9ed09a0fbc2721a01259f53bb6052b314e356a8da04f7c4a
+Preserved at target/issue310-raw-block-cache-read-{before,after}.
+Both freshly built, with no earlier rejected write experiments or diagnostics.
+
+Protocol: CPU 2, warm OS caches, plain mode, random named-file access, exact byte
+comparison on every pass. No owned builds/tests overlapped timing; unrelated host
+work uncontrolled. Small matrix: 512 x 4096 bytes, Interactive/BulkImport creation,
+Interactive/ReadMostly reads, pattern/random, raw/compressed, 1/2 passes, 8 alternating
+before/after rounds and 9 samples per case (512 CSV rows). Large controls: 4 x 8 MiB,
+Interactive creation, both read profiles/corpora/codecs, 1 pass, 3 rounds and 5 samples
+(48 rows). Fresh archive handle per sample, reused for the requested passes.
+Medians are descriptive; these read summaries do not provide confidence intervals.
+
+Packed raw target: first-pass speedup 1.761-1.929x, with native/ZIP medians
+0.875-0.908; two-pass speedup 2.255-2.342x, native/ZIP 1.004-1.020. Compressed
+high-entropy inputs also benefit because they are stored raw. This is a clear
+lead for caching verified blocks, not a general ZIP-parity or retention result.
+Separate-file controls were mixed, including an initial 0.865x group. A fixed
+follow-up repeated only separate-file controls (8 rounds, 256 rows) and expanded
+large controls to 8 rounds (128 rows), using the same preserved binaries. Follow-up
+speedups span 0.932-1.080x small and 0.994-1.045x large. Keep both observations;
+do not pool them or claim universal non-regression.
+
+The reservation policy raised a distinct concern for archives larger than cache.
+Added REVAULT_ZIP_READ_FILES for the small case, default 512, validated 1..1,000,000.
+The existing CSV file-count column records the selected value; every file still
+uses the public read path and byte comparison. No product API changed.
+Fresh stress builds with identical FILES-enabled harness, SHA256:
+Before 707e802bffa413129f88c68feb6dd8970e92ea2d96d15479bf728ba15f6f1335
+After  590e5848c159cbffca7e8feee4c248f47c5187e01bfb37af9af964b4efdb135f
+Preserved at target/issue310-raw-block-cache-stress-{before,after}.
+
+Stress: 65,536 x 4096-byte files (256 MiB payload), BulkImport creation, plain/raw,
+pattern corpus, Interactive reads, random order, 1 pass, default native 128 MiB
+cache. Four alternating before/after rounds, 3 samples per child, 8 CSV rows.
+REVAULT_ZIP_READ_CASE=small REVAULT_ZIP_READ_FILES=65536
+REVAULT_ZIP_READ_CREATE_PROFILE=BulkImport REVAULT_ZIP_READ_CORPUS=pattern
+REVAULT_ZIP_READ_MODE=plain REVAULT_ZIP_READ_ACCESS=random
+REVAULT_ZIP_READ_COMPRESSION=false REVAULT_ZIP_READ_PROFILE=Interactive
+REVAULT_ZIP_READ_PASSES=1 REVAULT_ZIP_READ_SAMPLES=3 taskset -c 2 BIN
+Use TMPDIR=$PWD/target/issue310-sign-tmp from rust. All samples verified all bytes.
+
+Stress pooled medians: production 2341.249 ms, prototype 8660.913 ms, 3.699x slower.
+Median of four paired slowdown ratios is 3.677x. Native/ZIP medians rise from 1.474
+to 5.562. All four pairs show a large regression. The experiment establishes the
+workload regression; attribution specifically to metadata eviction is consistent
+with the reservation design but was not separately profiled by cache counters.
+Reject the prototype despite the small-archive gain. Production sources and
+candidate tests are restored; the new benchmark setting remains for future gates.
+
+Next candidate should account for actually cached blocks within the shared cache
+and evict individual blocks, preserving hot metadata. Existing PageCache LRU and
+weight accounting may support separate verified-block entries. Such a design
+still needs exact descriptor/ordinal/revision and physical-extent guards, bounded
+admission, zeroization, lifecycle tests and the same over-capacity stress gate.
+It is not implemented by this checkpoint. Read parity, cold I/O, protected write
+gates, signed recovery and migration/release requirements remain open. Native
+stays opt-in. Current normal release zip_read path contains the rejected prototype;
+rebuild before production timing. No push or publication.

@@ -1,0 +1,76 @@
+Issue #310: borrow standalone input during import preparation
+Production baseline: ce28080 (production identical to 50cccad).
+Before native protection_gate SHA256:
+d84c44a486e61863780fe222b52fa3b2f778ef0b56f8adfbf46639bf306eee3e
+After native protection_gate SHA256, before commit formatting:
+e5bf211cda71c25729579024032d3ac3547fbcd4d836426afcb57ab11c3680e7
+Same release benchmark source and native-block-layout feature in both binaries.
+
+The prior default/native gate still failed on compressed protected writes. A
+paired stage diagnostic on that baseline used ten ABBA/BAAB groups, six samples
+per child and a discarded warmup, for encrypted-signed compressed 8 MiB pattern
+writes. All 240 writes independently reopened and verified bytes. Native frame
+preparation itself was +27.691% [20.112%,35.612%], while commit was -17.648%
+[-24.205%,-10.509%]. This ruled out per-frame flushes as the complete explanation.
+Stage counters overlap and default flush work is deferred into commit; stage
+percentages must not be added or used as a whole-write regression gate.
+
+Raw diagnostic lines and their summary are retained as stage-baseline.txt and
+stage-baseline-summary.csv. Raw prefix: pair,position,reader; reader main is
+current default, branch native. Following columns are the benchmark stderr
+write-profile fields. Summary excludes sample 0, expands each named stage into
+a synthetic write row with that stage's microseconds as total_us and other timing
+fields zero, then uses protection_gate summarize. Those rows measure stages,
+not standalone operations. Both layouts used identical dependency fingerprints
+and requested numeric compression settings.
+
+Implementation: FileImportPipeline::prepare uses Cow::Borrowed for exactly one
+input frame, so encoding reads the caller's already-borrowed bytes directly.
+It avoids constructing, copying and wiping a temporary concatenation buffer.
+Multi-input packed frames still concatenate into an owned buffer. Parallel jobs
+retain their transferred owned buffers, wiping them after encoding. Empty input
+batches remain valid. Prepared stored bytes still use ZeroizingBytes, and original
+caller bytes remain untouched. Slice metadata, codec choice, integrity and format
+bytes are unchanged. No transaction flush or preparation protocol was altered.
+The same shared pipeline change applies to default and native layouts; performance
+results below compare native before/after, not native versus default.
+
+Benchmark: pattern/random broad matrices each contain 320 measured rows, five
+ABBA/BAAB groups, three child samples with the first discarded, 8 MiB data, all
+four protection modes, raw/compressed, default padding, synthetic content keys.
+Focused matrix: encrypted-signed/compressed/pattern, fifteen paired groups, six
+samples per child with the first discarded, 300 measured rows.
+REVAULT_GATE_CHILD_SAMPLES=3 taskset -c 2 AFTER compare-write BEFORE AFTER ROOT
+8388608 pattern|random 5 all
+Focused: CHILD_SAMPLES=6; final arguments
+8388608 pattern 15 encrypted-signed/true/write
+Every timed create/add/commit/drop independently reopens and byte-checks the
+persisted result outside the timer. Signer generation excluded. CPU 2, warm OS
+caches, no agent builds or tests during timing; unrelated host work remained
+active. Confidence intervals resample whole paired groups. These are not ZIP or
+fsync/power-loss durability measurements.
+
+Validation before commit-time formatting:
+- Default API: 340 unit tests passed, 5 ignored; all executed integration/doc
+  suites passed.
+- Native + external-source library: 347 passed, 2 known recovery failures,
+  5 ignored. Existing serial/parallel and all-mode import output tests pass.
+- Native + external-source all-targets Clippy, -D warnings: passed.
+- Native release benchmark build: passed.
+No new implementation-mirroring tests. Existing full suites exercise standalone
+imports, packed frames, serial/parallel output and persisted readback.
+
+Known native failures remain recovery_skips_truncated_tail_and_keeps_prior_intact_files
+and native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+The prior native/default write gate must be repeated with both updated writers;
+a native-only before/after improvement cannot close that gate. ZIP-like many-file
+reads, cold/large reads, write lifecycles and release gates remain incomplete.
+
+Results: all 16 broad central estimates improve, by 1.8-11.4%. Many five-group
+confidence intervals cross zero; those cases do not individually prove a gain.
+The prespecified focused case improves 4.538%, with a 95% interval of
+[2.836%,5.917%] lower write time. Pooled medians are 25.075 ms before and
+23.923 ms after. Retain the copy elimination based on this confirmed target
+improvement, unchanged output and passing correctness checks. No small-many,
+other-size, cold-I/O or default-layout performance claim is made here.
+All 940 measured rows plus warmups independently verified persisted bytes.

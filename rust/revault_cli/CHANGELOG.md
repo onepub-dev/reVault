@@ -29,6 +29,30 @@
 - Migrate an older Vault container even when its internal structure is already
   current, preserving aliases, credentials, profile history, and the original
   backup. Migration status messages identify both versions.
+These changes target the format-4, 0.5.x development line and remain subject
+to release qualification. They are not a 0.4.x patch release.
+
+- Restore stored extraction permissions by default; retain
+  `--restore-permissions` and offer `--no-restore-permissions`. Stage content
+  privately, anchor destination operations, and preserve replacement modes.
+- Bound password opening to 32 derivation attempts per supplied credential
+  across candidate directories. `--password-slot-budget` supplies an explicit
+  larger allowance for trusted archives, including password Profiles.
+- Guard encrypted-origin/destination plaintext and key working memory across
+  normal error paths; retain plaintext-only behavior and archive formats.
+- Bound Session Agent transport operations and move suspend handling to ready
+  local secret-activity watchers. Requested unavailable protection now fails
+  explicitly. Deliberate headless operation requires disabling both terminate
+  on suspend and prevent sleep, then restarting the agent. Status reports
+  active cache-clearing capability separately from compiled platform support.
+- Retain measured v4 transaction, import and extraction improvements. Final
+  candidate verification remains required; no universal ZIP speed or 100 MB
+  memory guarantee is implied.
+
+- On the format-4 development line, accept NFC-normalized Unicode Lockbox
+  aliases through one shared naming policy. Derive safe aliases from filenames,
+  preserve existing mappings on create collisions, and normalize completion
+  prefixes. Keep existing ASCII aliases accessible.
 - Restrict E2E coverage recording and its file locking to debug builds so
   release CLI builds do not include test-only coverage support.
 

@@ -1,0 +1,24 @@
+    Finished `release` profile [optimized] target(s) in 0.11s
+     Running tests/size_padding.rs (target/release/deps/size_padding-fb1c612642679d5f)
+
+running 1 test
+encrypted=false signed=false compression=None padding=Default: 532864 bytes
+encrypted=false signed=false compression=None padding=None: 3770 bytes
+encrypted=false signed=false compression=Zstd { level: ZstdLevel(3) } padding=Default: 532864 bytes
+encrypted=false signed=false compression=Zstd { level: ZstdLevel(3) } padding=None: 3473 bytes
+encrypted=false signed=true compression=None padding=Default: 547200 bytes
+encrypted=false signed=true compression=None padding=None: 18580 bytes
+encrypted=false signed=true compression=Zstd { level: ZstdLevel(3) } padding=Default: 543104 bytes
+encrypted=false signed=true compression=Zstd { level: ZstdLevel(3) } padding=None: 14295 bytes
+encrypted=true signed=false compression=None padding=Default: 532864 bytes
+encrypted=true signed=false compression=None padding=None: 3612 bytes
+encrypted=true signed=false compression=Zstd { level: ZstdLevel(3) } padding=Default: 532864 bytes
+encrypted=true signed=false compression=Zstd { level: ZstdLevel(3) } padding=None: 3315 bytes
+encrypted=true signed=true compression=None padding=Default: 547200 bytes
+encrypted=true signed=true compression=None padding=None: 18358 bytes
+encrypted=true signed=true compression=Zstd { level: ZstdLevel(3) } padding=Default: 543104 bytes
+encrypted=true signed=true compression=Zstd { level: ZstdLevel(3) } padding=None: 14068 bytes
+test creation_padding_is_persistent_and_lifecycles_preserve_all_modes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.46s
+

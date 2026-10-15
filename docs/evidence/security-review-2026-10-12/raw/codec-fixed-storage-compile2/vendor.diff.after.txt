@@ -1,0 +1,2028 @@
+diff --git a/rust/vendor/zstd-complete/Cargo.toml b/rust/vendor/zstd-complete/Cargo.toml
+index 3c23c4d1..973cf4f1 100644
+--- a/rust/vendor/zstd-complete/Cargo.toml
++++ b/rust/vendor/zstd-complete/Cargo.toml
+@@ -16,8 +16,6 @@ name = "zstd-complete"
+ version = "0.2.0"
+ build = false
+ exclude = [
+-    "decodecorpus_files/*",
+-    "dict_tests/*",
+     "fuzz_decodecorpus/*",
+ ]
+ autolib = false
+diff --git a/rust/vendor/zstd-complete/Cargo.toml.orig b/rust/vendor/zstd-complete/Cargo.toml.orig
+index ddcaa43b..8bdb0db4 100644
+--- a/rust/vendor/zstd-complete/Cargo.toml.orig
++++ b/rust/vendor/zstd-complete/Cargo.toml.orig
+@@ -8,7 +8,7 @@ homepage = "https://github.com/bsutton/zstd-rs"
+ repository = "https://github.com/bsutton/zstd-rs"
+ documentation = "https://docs.rs/zstd-complete"
+ description = "A pure Rust Zstandard compressor and decompressor with bounded streaming I/O"
+-exclude = ["decodecorpus_files/*", "dict_tests/*", "fuzz_decodecorpus/*"]
++exclude = ["fuzz_decodecorpus/*"]
+ readme = "Readme.md"
+ keywords = ["zstd", "zstandard", "compression", "decompression"]
+ categories = ["compression"]
+diff --git a/rust/vendor/zstd-complete/src/decoding/sequence_section_decoder.rs b/rust/vendor/zstd-complete/src/decoding/sequence_section_decoder.rs
+index 0fe28d67..7b264ff5 100644
+--- a/rust/vendor/zstd-complete/src/decoding/sequence_section_decoder.rs
++++ b/rust/vendor/zstd-complete/src/decoding/sequence_section_decoder.rs
+@@ -15,7 +15,7 @@ pub fn decode_sequences(
+     section: &SequencesHeader,
+     source: &[u8],
+     scratch: &mut FSEScratch,
+-    target: &mut Vec<Sequence>,
++    target: &mut impl crate::workspace::Growable<Sequence>,
+ ) -> Result<(), DecodeSequenceError> {
+     let bytes_read = maybe_update_fse_tables(section, source, scratch)?;
+ 
+@@ -50,7 +50,7 @@ fn decode_sequences_with_rle(
+     section: &SequencesHeader,
+     br: &mut BitReaderReversed<'_>,
+     scratch: &FSEScratch,
+-    target: &mut Vec<Sequence>,
++    target: &mut impl crate::workspace::Growable<Sequence>,
+ ) -> Result<(), DecodeSequenceError> {
+     let mut ll_dec = FSEDecoder::new(&scratch.literal_lengths);
+     let mut ml_dec = FSEDecoder::new(&scratch.match_lengths);
+@@ -155,7 +155,7 @@ fn decode_sequences_without_rle(
+     section: &SequencesHeader,
+     br: &mut BitReaderReversed<'_>,
+     scratch: &FSEScratch,
+-    target: &mut Vec<Sequence>,
++    target: &mut impl crate::workspace::Growable<Sequence>,
+ ) -> Result<(), DecodeSequenceError> {
+     let mut ll_dec = FSEDecoder::new(&scratch.literal_lengths);
+     let mut ml_dec = FSEDecoder::new(&scratch.match_lengths);
+diff --git a/rust/vendor/zstd-complete/src/encoding/blocks/compressed.rs b/rust/vendor/zstd-complete/src/encoding/blocks/compressed.rs
+index 840be964..ae5e4f12 100644
+--- a/rust/vendor/zstd-complete/src/encoding/blocks/compressed.rs
++++ b/rust/vendor/zstd-complete/src/encoding/blocks/compressed.rs
+@@ -86,8 +86,8 @@ const EXACT_SEQUENCE_TABLE_MIN_LOG: u8 = 7;
+ 
+ #[derive(Clone, Debug)]
+ pub(crate) struct PreparedBlock {
+-    pub(crate) literals: Vec<u8>,
+-    pub(crate) sequences: Vec<PreparedSequence>,
++    pub(crate) literals: crate::workspace::ReusableVec<u8>,
++    pub(crate) sequences: crate::workspace::ReusableVec<PreparedSequence>,
+ }
+ 
+ pub(crate) struct CompressedBlockResult {
+@@ -253,8 +253,8 @@ pub(crate) fn prepare_block<M: Matcher>(state: &mut CompressState<M>) -> Prepare
+     });
+ 
+     PreparedBlock {
+-        literals: literals_vec,
+-        sequences,
++        literals: crate::workspace::ReusableVec::from_owned(literals_vec),
++        sequences: crate::workspace::ReusableVec::from_owned(sequences),
+     }
+ }
+ 
+diff --git a/rust/vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs b/rust/vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs
+index e9575277..fa4fd0ee 100644
+--- a/rust/vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs
++++ b/rust/vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs
+@@ -261,7 +261,7 @@ fn estimate_sequence_section_size(
+     literal_len: usize,
+     config: BlockCompressionConfig,
+     fse_tables: &FseTables,
+-    table_bytes: &mut Vec<u8>,
++    table_bytes: &mut impl crate::workspace::Growable<u8>,
+     fse_scratch: &mut FSETableBuildScratch,
+ ) -> usize {
+     if sequences.is_empty() {
+@@ -336,7 +336,7 @@ fn sequence_header_size(seqnum: usize) -> usize {
+     }
+ }
+ 
+-fn table_definition_size(mode: &FseTableMode<'_>, bytes: &mut Vec<u8>) -> usize {
++fn table_definition_size(mode: &FseTableMode<'_>, bytes: &mut impl crate::workspace::Growable<u8>) -> usize {
+     match mode {
+         FseTableMode::Predefined(_) | FseTableMode::RepeatLast(_) => return 0,
+         FseTableMode::Rle(_) => return 1,
+diff --git a/rust/vendor/zstd-complete/src/encoding/blocks/compressed/sequence_bitstream.rs b/rust/vendor/zstd-complete/src/encoding/blocks/compressed/sequence_bitstream.rs
+index 77c90e21..2a54cea6 100644
+--- a/rust/vendor/zstd-complete/src/encoding/blocks/compressed/sequence_bitstream.rs
++++ b/rust/vendor/zstd-complete/src/encoding/blocks/compressed/sequence_bitstream.rs
+@@ -149,7 +149,7 @@ pub(super) fn encode_sequences_for_history(
+ pub(super) fn encode_sequences_for_history_into(
+     sequences: &[PreparedSequence],
+     offset_history: &mut OffsetHistory,
+-    encoded: &mut Vec<crate::blocks::sequence_section::Sequence>,
++    encoded: &mut impl crate::workspace::Growable<crate::blocks::sequence_section::Sequence>,
+ ) {
+     encoded.clear();
+     encoded.reserve(sequences.len());
+@@ -179,7 +179,7 @@ pub(super) fn encode_sequences_for_history_into(
+ pub(super) fn encode_sequences_for_estimate_into(
+     sequences: &[PreparedSequence],
+     offset_history: OffsetHistory,
+-    encoded: &mut Vec<crate::blocks::sequence_section::Sequence>,
++    encoded: &mut impl crate::workspace::Growable<crate::blocks::sequence_section::Sequence>,
+ ) {
+     encoded.clear();
+ 
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs
+index f1a9f27a..9c5feaf0 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs
+@@ -74,7 +74,7 @@ pub(super) fn append_stored_block_or_raw(
+     fse_build_scratch: Option<&mut FSETableBuildScratch>,
+     fse_tables: &mut FseTables,
+     offset_history: &mut OffsetHistory,
+-    output: &mut Vec<u8>,
++    output: &mut impl crate::workspace::Growable<u8>,
+ ) -> PreparedBlockEmission {
+     if (config.is_allocation_free_workspace() || defers_stored_entropy_commit())
+         || fse_build_scratch
+@@ -134,7 +134,7 @@ fn append_stored_block_or_raw_deferred(
+     mut fse_build_scratch: Option<&mut FSETableBuildScratch>,
+     fse_tables: &mut FseTables,
+     offset_history: &mut OffsetHistory,
+-    output: &mut Vec<u8>,
++    output: &mut impl crate::workspace::Growable<u8>,
+ ) -> PreparedBlockEmission {
+     let block_start = output.len();
+     output.extend_from_slice(&[0; 3]);
+@@ -215,7 +215,7 @@ fn append_stored_block_or_raw_eager(
+     fse_build_scratch: Option<&mut FSETableBuildScratch>,
+     fse_tables: &mut FseTables,
+     offset_history: &mut OffsetHistory,
+-    output: &mut Vec<u8>,
++    output: &mut impl crate::workspace::Growable<u8>,
+ ) -> PreparedBlockEmission {
+     let previous_fse = fse_tables.snapshot_previous();
+     let previous_offsets = *offset_history;
+@@ -303,7 +303,7 @@ pub(super) fn append_prepared_block_or_raw(
+     previous_huff_table: Option<&HuffmanTable>,
+     fse_tables: &mut FseTables,
+     offset_history: &mut OffsetHistory,
+-    output: &mut Vec<u8>,
++    output: &mut impl crate::workspace::Growable<u8>,
+ ) -> PreparedBlockEmission {
+     let block_start = output.len();
+     output.extend_from_slice(&[0; 3]);
+@@ -347,7 +347,7 @@ pub(super) fn append_prepared_block_or_raw(
+     }
+ }
+ 
+-pub(super) fn append_special_block(block: &[u8], last_block: bool, output: &mut Vec<u8>) -> bool {
++pub(super) fn append_special_block(block: &[u8], last_block: bool, output: &mut impl crate::workspace::Growable<u8>) -> bool {
+     if block.is_empty() {
+         write_raw_block(last_block, 0, block, output);
+         return true;
+@@ -361,11 +361,11 @@ pub(super) fn append_special_block(block: &[u8], last_block: bool, output: &mut
+     false
+ }
+ 
+-pub(super) fn append_raw_block(block: &[u8], last_block: bool, output: &mut Vec<u8>) {
++pub(super) fn append_raw_block(block: &[u8], last_block: bool, output: &mut impl crate::workspace::Growable<u8>) {
+     write_raw_block(last_block, block.len() as u32, block, output);
+ }
+ 
+-pub(super) fn append_rle_block(block: &[u8], last_block: bool, output: &mut Vec<u8>) -> bool {
++pub(super) fn append_rle_block(block: &[u8], last_block: bool, output: &mut impl crate::workspace::Growable<u8>) -> bool {
+     let Some(byte) = rle_byte(block) else {
+         return false;
+     };
+@@ -379,7 +379,7 @@ fn rle_byte(data: &[u8]) -> Option<u8> {
+     data.iter().all(|byte| *byte == first).then_some(first)
+ }
+ 
+-fn write_rle_block(last_block: bool, block_size: u32, rle_byte: u8, output: &mut Vec<u8>) {
++fn write_rle_block(last_block: bool, block_size: u32, rle_byte: u8, output: &mut impl crate::workspace::Growable<u8>) {
+     let header = BlockHeader {
+         last_block,
+         block_type: crate::blocks::block::BlockType::RLE,
+@@ -389,7 +389,7 @@ fn write_rle_block(last_block: bool, block_size: u32, rle_byte: u8, output: &mut
+     output.push(rle_byte);
+ }
+ 
+-fn write_raw_block(last_block: bool, block_size: u32, data: &[u8], output: &mut Vec<u8>) {
++fn write_raw_block(last_block: bool, block_size: u32, data: &[u8], output: &mut impl crate::workspace::Growable<u8>) {
+     let header = BlockHeader {
+         last_block,
+         block_type: crate::blocks::block::BlockType::Raw,
+@@ -417,8 +417,8 @@ mod tests {
+     fn rle_is_emitted_after_prepared_compression_without_confirming_state() {
+         let block = alloc::vec![b'a'; 4096];
+         let prepared = PreparedBlock {
+-            literals: block.clone(),
+-            sequences: Vec::new(),
++            literals: crate::workspace::ReusableVec::from_owned(block.clone()),
++            sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
+         };
+         let mut fse_tables = FseTables::new();
+         let previous_fse = fse_tables.snapshot_previous();
+@@ -480,8 +480,8 @@ mod tests {
+         }
+         let previous_huff_table = HuffmanTable::build_from_counts(&literal_counts(&block));
+         let prepared = PreparedBlock {
+-            literals: block.clone(),
+-            sequences: Vec::new(),
++            literals: crate::workspace::ReusableVec::from_owned(block.clone()),
++            sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
+         };
+         let mut fse_tables = FseTables::new();
+         let previous_fse = fse_tables.snapshot_previous();
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs
+index bba80c4a..e79137c0 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs
+@@ -41,7 +41,7 @@ pub(super) fn append_target_block(
+             fse_tables: context.fse_tables,
+             offset_history: context.offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::new(),
+     );
+     output.extend_from_slice(&encoded.bytes);
+     DFastBlockEncoding {
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs
+index 3e40696a..cc38282a 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs
+@@ -55,7 +55,7 @@ pub(crate) fn encode_frame_double_fast_no_dict_with_cctx_in(
+     cctx: CctxParameters,
+     frame_state: &mut FrameBlockState,
+     match_state: &mut DFastMatchState,
+-    output: &mut Vec<u8>,
++    output: &mut impl crate::workspace::Growable<u8>,
+ ) {
+     cctx.assert_resolved();
+     let block_encode_mode = BlockEncodeMode::from_cctx(cctx);
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs
+index 2d6cc65b..e09c4479 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs
+@@ -41,7 +41,7 @@ pub(super) fn append_target_block(
+             fse_tables: context.fse_tables,
+             offset_history: context.offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::new(),
+     );
+     output.extend_from_slice(&encoded.bytes);
+     FastBlockEncoding {
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs
+index 4cacb073..da906179 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs
+@@ -51,7 +51,7 @@ pub(crate) fn encode_frame_fast_no_dict_with_cctx_in(
+     cctx: CctxParameters,
+     frame_state: &mut FrameBlockState,
+     match_state: &mut FastMatchState,
+-    output: &mut Vec<u8>,
++    output: &mut impl crate::workspace::Growable<u8>,
+ ) {
+     cctx.assert_resolved();
+     let block_encode_mode = BlockEncodeMode::from_cctx(cctx);
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs
+index aa47ee2f..5f57b516 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs
+@@ -1,6 +1,5 @@
+ //! Adapters from C greedy sequences to the existing Rust block encoder.
+ 
+-use alloc::vec::Vec;
+ use core::ops::Range;
+ 
+ use super::block_emit::{
+@@ -38,7 +37,7 @@ pub(crate) struct GreedyPreparedBlock {
+ }
+ 
+ pub(crate) struct GreedyEncodedBlock {
+-    pub(crate) bytes: Vec<u8>,
++    pub(crate) bytes: crate::workspace::ReusableVec<u8>,
+     pub(crate) repeat_offsets: RepeatOffsets,
+     pub(crate) new_huffman_table: Option<HuffmanTable>,
+ }
+@@ -335,7 +334,7 @@ pub(crate) fn encode_block_hash_chain_no_dict_with_state_and_policy_in_mode(
+         depth,
+         policy,
+         block_encode_mode,
+-        Vec::new(),
++        crate::workspace::ReusableVec::new(),
+     )
+ }
+ 
+@@ -351,7 +350,7 @@ pub(crate) fn encode_block_hash_chain_no_dict_with_state_and_policy_in_mode_into
+     depth: LazyBlockStrategy,
+     policy: BlockEncodingPolicy,
+     block_encode_mode: BlockEncodeMode,
+-    mut bytes: Vec<u8>,
++    mut bytes: crate::workspace::ReusableVec<u8>,
+ ) -> GreedyEncodedBlock {
+     let block = &source.src[source.block_range.clone()];
+     bytes.clear();
+@@ -446,7 +445,7 @@ pub(super) fn encode_stored_block(
+     policy: BlockEncodingPolicy,
+     context: GreedyBlockEncodeContext<'_, '_>,
+     match_state: &mut GreedyMatchState,
+-    mut bytes: Vec<u8>,
++    mut bytes: crate::workspace::ReusableVec<u8>,
+ ) -> GreedyEncodedBlock {
+     let compressed_repeat_offsets = stored.repeat_offsets;
+     let literal_store = prepare_stored_literal_words_in(
+@@ -502,7 +501,7 @@ pub(super) fn encode_prepared_block(
+     previous_fse: FseTableSnapshot,
+     previous_offsets: OffsetHistory,
+     context: GreedyBlockEncodeContext<'_, '_>,
+-    mut bytes: Vec<u8>,
++    mut bytes: crate::workspace::ReusableVec<u8>,
+ ) -> GreedyEncodedBlock {
+     let compressed_repeat_offsets = prepared.repeat_offsets;
+     match append_prepared_block_or_raw(
+@@ -542,8 +541,8 @@ pub(super) fn prepare_from_greedy_output(
+         initial_repeat_offsets,
+         output,
+         PreparedBlock {
+-            literals: Vec::new(),
+-            sequences: Vec::new(),
++            literals: crate::workspace::ReusableVec::new(),
++            sequences: crate::workspace::ReusableVec::new(),
+         },
+     )
+ }
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs
+index 919d0ca2..cd2c9c13 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs
+@@ -11,7 +11,7 @@ pub(in crate::encoding::levels::c_port) fn encode_special_block(
+     block: &[u8],
+     last_block: bool,
+     repeat_offsets: RepeatOffsets,
+-    bytes: &mut Vec<u8>,
++    bytes: &mut crate::workspace::ReusableVec<u8>,
+ ) -> Option<GreedyEncodedBlock> {
+     if block.is_empty() {
+         write_raw_block(last_block, 0, block, bytes);
+@@ -34,7 +34,7 @@ pub(in crate::encoding::levels::c_port) fn encode_special_block(
+     None
+ }
+ 
+-fn write_raw_block(last_block: bool, block_size: u32, data: &[u8], output: &mut Vec<u8>) {
++fn write_raw_block(last_block: bool, block_size: u32, data: &[u8], output: &mut impl crate::workspace::Growable<u8>) {
+     let header = BlockHeader {
+         last_block,
+         block_type: crate::blocks::block::BlockType::Raw,
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs
+index e3a644be..2bb1027c 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs
+@@ -1,6 +1,5 @@
+ //! External-dictionary adapters for the C greedy/lazy block compressors.
+ 
+-use alloc::vec::Vec;
+ use core::ops::Range;
+ 
+ use super::{
+@@ -254,7 +253,7 @@ pub(crate) fn encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode(
+         depth,
+         policy,
+         block_encode_mode,
+-        Vec::new(),
++        crate::workspace::ReusableVec::new(),
+     )
+ }
+ 
+@@ -270,7 +269,7 @@ pub(crate) fn encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode_int
+     depth: LazyBlockStrategy,
+     policy: BlockEncodingPolicy,
+     block_encode_mode: BlockEncodeMode,
+-    mut bytes: Vec<u8>,
++    mut bytes: crate::workspace::ReusableVec<u8>,
+ ) -> GreedyEncodedBlock {
+     let block = &source.src[source.block_range.clone()];
+     bytes.clear();
+@@ -365,7 +364,7 @@ pub(crate) fn encode_block_attached_dict_with_state_and_policy_in_mode(
+     block_encode_mode: BlockEncodeMode,
+ ) -> GreedyEncodedBlock {
+     let block = &source.src[source.block_range.clone()];
+-    let mut bytes = Vec::new();
++    let mut bytes = crate::workspace::ReusableVec::new();
+ 
+     if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
+         return encoded;
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs
+index b17ce823..498a6df5 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs
+@@ -151,7 +151,7 @@ pub(crate) fn encode_frame_hash_chain_no_dict_with_cctx_in(
+     depth: LazyBlockStrategy,
+     frame_state: &mut FrameBlockState,
+     match_state: &mut GreedyMatchState,
+-    output: &mut Vec<u8>,
++    output: &mut impl crate::workspace::Growable<u8>,
+ ) {
+     cctx.assert_resolved();
+     let block_encode_mode = BlockEncodeMode::from_cctx(cctx);
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_tests.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_tests.rs
+index 452e1340..8cc7d54b 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_tests.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_tests.rs
+@@ -521,8 +521,8 @@ fn target_block_uses_literal_only_superblock_for_rle_literals() {
+     let mut offset_history = OffsetHistory::new();
+     let prepared = GreedyPreparedBlock {
+         prepared: PreparedBlock {
+-            literals: data.to_vec(),
+-            sequences: Vec::new(),
++            literals: crate::workspace::ReusableVec::from_owned(data.to_vec()),
++            sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
+         },
+         repeat_offsets: RepeatOffsets::new(),
+     };
+@@ -542,7 +542,7 @@ fn target_block_uses_literal_only_superblock_for_rle_literals() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
+ 
+@@ -562,8 +562,8 @@ fn target_block_keeps_raw_fallback_for_literal_only_non_rle_literals() {
+     let mut offset_history = OffsetHistory::new();
+     let prepared = GreedyPreparedBlock {
+         prepared: PreparedBlock {
+-            literals: data.clone(),
+-            sequences: Vec::new(),
++            literals: crate::workspace::ReusableVec::from_owned(data.clone()),
++            sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
+         },
+         repeat_offsets: RepeatOffsets::new(),
+     };
+@@ -583,7 +583,7 @@ fn target_block_keeps_raw_fallback_for_literal_only_non_rle_literals() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
+ 
+@@ -600,8 +600,8 @@ fn target_block_uses_huffman_literal_only_superblock_for_small_text() {
+     let mut offset_history = OffsetHistory::new();
+     let prepared = GreedyPreparedBlock {
+         prepared: PreparedBlock {
+-            literals: data.to_vec(),
+-            sequences: Vec::new(),
++            literals: crate::workspace::ReusableVec::from_owned(data.to_vec()),
++            sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
+         },
+         repeat_offsets: RepeatOffsets::new(),
+     };
+@@ -621,7 +621,7 @@ fn target_block_uses_huffman_literal_only_superblock_for_small_text() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
+ 
+@@ -656,8 +656,8 @@ fn target_block_uses_sequence_metadata_for_sequence_block() {
+     }
+     let prepared = GreedyPreparedBlock {
+         prepared: PreparedBlock {
+-            literals: b"abc".to_vec(),
+-            sequences,
++            literals: crate::workspace::ReusableVec::from_owned(b"abc".to_vec()),
++            sequences: crate::workspace::ReusableVec::from_owned(sequences),
+         },
+         repeat_offsets: RepeatOffsets::new(),
+     };
+@@ -679,7 +679,7 @@ fn target_block_uses_sequence_metadata_for_sequence_block() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
+ 
+@@ -695,13 +695,13 @@ fn target_block_prefers_basic_sequence_modes_for_single_uniform_sequence() {
+     let data = Vec::from([0x07; 1271]);
+     let prepared = GreedyPreparedBlock {
+         prepared: PreparedBlock {
+-            literals: Vec::from([0x07]),
+-            sequences: Vec::from([PreparedSequence {
++            literals: crate::workspace::ReusableVec::from_owned(Vec::from([0x07])),
++            sequences: crate::workspace::ReusableVec::from_owned(Vec::from([PreparedSequence {
+                 ll: 1,
+                 ml: 1270,
+                 raw_offset: 1,
+                 encoded_offset_value: 1,
+-            }]),
++            }])),
+         },
+         repeat_offsets: RepeatOffsets::new(),
+     };
+@@ -723,7 +723,7 @@ fn target_block_prefers_basic_sequence_modes_for_single_uniform_sequence() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
+ 
+@@ -757,8 +757,8 @@ fn target_block_accepts_uniform_sequence_code_superblock() {
+     }
+     let prepared = GreedyPreparedBlock {
+         prepared: PreparedBlock {
+-            literals,
+-            sequences,
++            literals: crate::workspace::ReusableVec::from_owned(literals),
++            sequences: crate::workspace::ReusableVec::from_owned(sequences),
+         },
+         repeat_offsets: RepeatOffsets::new(),
+     };
+@@ -780,7 +780,7 @@ fn target_block_accepts_uniform_sequence_code_superblock() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
+ 
+@@ -814,8 +814,8 @@ fn target_block_preserves_previous_fse_tables_for_repeat_sequence_metadata() {
+     }
+     let prepared = GreedyPreparedBlock {
+         prepared: PreparedBlock {
+-            literals: b"abc".to_vec(),
+-            sequences,
++            literals: crate::workspace::ReusableVec::from_owned(b"abc".to_vec()),
++            sequences: crate::workspace::ReusableVec::from_owned(sequences),
+         },
+         repeat_offsets: RepeatOffsets::new(),
+     };
+@@ -840,7 +840,7 @@ fn target_block_preserves_previous_fse_tables_for_repeat_sequence_metadata() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
+ 
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs
+index 98c5f52a..efb43da6 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs
+@@ -538,7 +538,7 @@ pub(super) fn encode_stored_opt_block(
+     policy: BlockEncodingPolicy,
+     context: GreedyBlockEncodeContext<'_, '_>,
+     opt_state: &mut OptBlockState,
+-    mut bytes: alloc::vec::Vec<u8>,
++    mut bytes: crate::workspace::ReusableVec<u8>,
+ ) -> GreedyEncodedBlock {
+     let compressed_repeat_offsets = stored.repeat_offsets;
+     let literal_store = prepare_stored_literal_words_in(
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/target_preference.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/target_preference.rs
+index 2307791d..1ce4a5d9 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/target_preference.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/target_preference.rs
+@@ -107,13 +107,13 @@ mod tests {
+     fn full_match_prepared() -> GreedyPreparedBlock {
+         GreedyPreparedBlock {
+             prepared: PreparedBlock {
+-                literals: Vec::new(),
+-                sequences: vec![PreparedSequence {
++                literals: crate::workspace::ReusableVec::from_owned(Vec::new()),
++                sequences: crate::workspace::ReusableVec::from_owned(vec![PreparedSequence {
+                     ll: 0,
+                     ml: 5,
+                     raw_offset: 9,
+                     encoded_offset_value: 12,
+-                }],
++                }]),
+             },
+             repeat_offsets: RepeatOffsets::from_offsets(9, 4, 8),
+         }
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs
+index ce5b88a8..038cb4d8 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs
+@@ -316,7 +316,7 @@ pub(crate) fn encode_frame_opt_no_dict_with_cctx_in(
+     frame_state: &mut FrameBlockState,
+     opt_state: &mut OptBlockState,
+     mut ldm_workspace: Option<&mut LdmWorkspace>,
+-    output: &mut Vec<u8>,
++    output: &mut impl crate::workspace::Growable<u8>,
+ ) {
+     let params = cctx.compression;
+     let block_encode_mode = BlockEncodeMode::from_cctx(cctx);
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs
+index 12493516..38ad696b 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs
+@@ -12,7 +12,7 @@ pub(super) fn select_path(
+     last_stretch: Option<Optimal>,
+     rep: &mut [u32; 3],
+     state: &OptBlockState,
+-    path: &mut Vec<Optimal>,
++    path: &mut impl crate::workspace::Growable<Optimal>,
+ ) {
+     path.clear();
+     let stretch = last_stretch.unwrap_or_else(|| state.opt[last_pos]);
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_state.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_state.rs
+index 4e452e00..a4b91c77 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_state.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_state.rs
+@@ -1,6 +1,5 @@
+ //! Optimal-parser state shared by the no-dictionary C optimal strategies.
+ 
+-use alloc::vec::Vec;
+ 
+ use super::{
+     greedy::GreedyMatchState,
+@@ -204,7 +203,7 @@ impl OptBlockState {
+         self.prepared_store = prepared;
+     }
+ 
+-    pub(crate) fn take_block_bytes(&mut self, min_capacity: usize) -> Vec<u8> {
++    pub(crate) fn take_block_bytes(&mut self, min_capacity: usize) -> ReusableVec<u8> {
+         let mut bytes = core::mem::take(&mut self.block_bytes);
+         bytes.clear();
+         let capacity = bytes.capacity();
+@@ -217,7 +216,7 @@ impl OptBlockState {
+         bytes
+     }
+ 
+-    pub(crate) fn recycle_block_bytes(&mut self, bytes: Vec<u8>) {
++    pub(crate) fn recycle_block_bytes(&mut self, bytes: ReusableVec<u8>) {
+         let lease = self
+             .block_bytes_lease
+             .take()
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs
+index f005dde1..c5ab3ebf 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs
+@@ -83,8 +83,8 @@ pub(super) fn encode_split_block(
+     scratch: &mut PostSplitScratch,
+     huffman_scratch: &mut HuffmanBuildScratch,
+     fse_scratch: &mut FSETableBuildScratch,
+-    mut bytes: Vec<u8>,
+-) -> Result<GreedyEncodedBlock, Vec<u8>> {
++    mut bytes: crate::workspace::ReusableVec<u8>,
++) -> Result<GreedyEncodedBlock, crate::workspace::ReusableVec<u8>> {
+     sequence_prefixes_into(&prepared.prepared, &mut scratch.prefixes);
+     derive_block_splits_into(
+         block,
+@@ -199,7 +199,7 @@ fn derive_block_splits_into(
+ 
+ #[allow(clippy::too_many_arguments)]
+ fn derive_block_splits_helper(
+-    splits: &mut Vec<usize>,
++    splits: &mut impl crate::workspace::Growable<usize>,
+     start_idx: usize,
+     end_idx: usize,
+     block: &[u8],
+@@ -542,12 +542,12 @@ fn encode_partition(
+     );
+     match emission {
+         PreparedBlockEmission::Compressed { new_huffman_table } => GreedyEncodedBlock {
+-            bytes,
++            bytes: crate::workspace::ReusableVec::from_owned(bytes),
+             repeat_offsets: decompression_offsets,
+             new_huffman_table,
+         },
+         PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+-            bytes,
++            bytes: crate::workspace::ReusableVec::from_owned(bytes),
+             repeat_offsets,
+             new_huffman_table: None,
+         },
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/post_split/tests.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/post_split/tests.rs
+index 786a02b7..788d93d0 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/post_split/tests.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/post_split/tests.rs
+@@ -6,8 +6,8 @@ use crate::blocks::block::BlockType;
+ #[test]
+ fn prepared_chunk_splits_literals_and_source_span() {
+     let prepared = PreparedBlock {
+-        literals: b"aabbtail".to_vec(),
+-        sequences: vec![
++        literals: crate::workspace::ReusableVec::from_owned(b"aabbtail".to_vec()),
++        sequences: crate::workspace::ReusableVec::from_owned(vec![
+             PreparedSequence {
+                 ll: 2,
+                 ml: 3,
+@@ -20,7 +20,7 @@ fn prepared_chunk_splits_literals_and_source_span() {
+                 raw_offset: 7,
+                 encoded_offset_value: 0,
+             },
+-        ],
++        ]),
+     };
+     let block = b"aa123bb45678tail";
+     let prefixes = sequence_prefixes(&prepared);
+@@ -39,22 +39,22 @@ fn prepared_chunk_splits_literals_and_source_span() {
+ #[test]
+ fn partition_offcode_resolution_rewrites_repcodes_after_raw_partition_like_c() {
+     let first_partition = PreparedBlock {
+-        literals: b"a".to_vec(),
+-        sequences: vec![PreparedSequence {
++        literals: crate::workspace::ReusableVec::from_owned(b"a".to_vec()),
++        sequences: crate::workspace::ReusableVec::from_owned(vec![PreparedSequence {
+             ll: 1,
+             ml: 3,
+             raw_offset: 4,
+             encoded_offset_value: OffBase::offset_to_c_value(4),
+-        }],
++        }]),
+     };
+     let second_partition = PreparedBlock {
+-        literals: b"b".to_vec(),
+-        sequences: vec![PreparedSequence {
++        literals: crate::workspace::ReusableVec::from_owned(b"b".to_vec()),
++        sequences: crate::workspace::ReusableVec::from_owned(vec![PreparedSequence {
+             ll: 1,
+             ml: 3,
+             raw_offset: 4,
+             encoded_offset_value: 1,
+-        }],
++        }]),
+     };
+     let initial_repeats = RepeatOffsets::new();
+     let mut compression_repeats = initial_repeats;
+@@ -85,13 +85,13 @@ fn partition_offcode_resolution_rewrites_repcodes_after_raw_partition_like_c() {
+ #[test]
+ fn partition_offcode_resolution_borrows_when_no_rewrite_is_needed() {
+     let partition = PreparedBlock {
+-        literals: b"a".to_vec(),
+-        sequences: vec![PreparedSequence {
++        literals: crate::workspace::ReusableVec::from_owned(b"a".to_vec()),
++        sequences: crate::workspace::ReusableVec::from_owned(vec![PreparedSequence {
+             ll: 1,
+             ml: 3,
+             raw_offset: 4,
+             encoded_offset_value: OffBase::offset_to_c_value(4),
+-        }],
++        }]),
+     };
+     let mut compression_repeats = RepeatOffsets::new();
+     let mut decompression_repeats = RepeatOffsets::new();
+@@ -110,8 +110,8 @@ fn partition_offcode_resolution_borrows_when_no_rewrite_is_needed() {
+ #[test]
+ fn derive_block_splits_refuses_tiny_sequence_counts() {
+     let prepared = PreparedBlock {
+-        literals: vec![b'a'; 8],
+-        sequences: vec![
++        literals: crate::workspace::ReusableVec::from_owned(vec![b'a'; 8]),
++        sequences: crate::workspace::ReusableVec::from_owned(vec![
+             PreparedSequence {
+                 ll: 1,
+                 ml: 3,
+@@ -119,7 +119,7 @@ fn derive_block_splits_refuses_tiny_sequence_counts() {
+                 encoded_offset_value: 0,
+             };
+             4
+-        ],
++        ]),
+     };
+     let block = [b'a'; 20];
+     let prefixes = sequence_prefixes(&prepared);
+@@ -166,8 +166,8 @@ fn derive_block_splits_finds_cheaper_halves() {
+         });
+     }
+     let prepared = PreparedBlock {
+-        literals,
+-        sequences,
++        literals: crate::workspace::ReusableVec::from_owned(literals),
++        sequences: crate::workspace::ReusableVec::from_owned(sequences),
+     };
+     let prefixes = sequence_prefixes(&prepared);
+     let mut estimate_scratch = EstimateScratch::new();
+@@ -194,8 +194,8 @@ fn derive_block_splits_finds_cheaper_halves() {
+ fn estimate_partition_size_does_not_use_rle_emission_cost_like_c() {
+     let block = [0x44; 64];
+     let prepared = PreparedBlock {
+-        literals: block.to_vec(),
+-        sequences: Vec::new(),
++        literals: crate::workspace::ReusableVec::from_owned(block.to_vec()),
++        sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
+     };
+     let prefixes = sequence_prefixes(&prepared);
+ 
+@@ -221,8 +221,8 @@ fn estimate_partition_size_does_not_use_rle_emission_cost_like_c() {
+ fn estimate_partition_size_keeps_tiny_literals_raw_like_c_entropy_stats() {
+     let block = [0x44; 63];
+     let prepared = PreparedBlock {
+-        literals: block.to_vec(),
+-        sequences: Vec::new(),
++        literals: crate::workspace::ReusableVec::from_owned(block.to_vec()),
++        sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
+     };
+     let prefixes = sequence_prefixes(&prepared);
+ 
+@@ -255,8 +255,8 @@ fn estimate_partition_size_does_not_cap_to_raw_block_size_like_c() {
+         block.push(state as u8);
+     }
+     let prepared = PreparedBlock {
+-        literals: block.clone(),
+-        sequences: Vec::new(),
++        literals: crate::workspace::ReusableVec::from_owned(block.clone()),
++        sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
+     };
+     let prefixes = sequence_prefixes(&prepared);
+ 
+@@ -298,8 +298,8 @@ fn partition_can_emit_rle_after_first_block_like_c() {
+ fn encode_rle_candidate_partition(policy: BlockEncodingPolicy) -> GreedyEncodedBlock {
+     let block = [0x44; 32];
+     let prepared = PreparedBlock {
+-        literals: block.to_vec(),
+-        sequences: Vec::new(),
++        literals: crate::workspace::ReusableVec::from_owned(block.to_vec()),
++        sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
+     };
+     let mut fse_tables = FseTables::new();
+     let mut offset_history = OffsetHistory::new();
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/sequence_store.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/sequence_store.rs
+index 19b3eef3..04061cab 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/sequence_store.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/sequence_store.rs
+@@ -2,7 +2,7 @@
+ //! `ZSTD_updateRep()`.
+ 
+ use alloc::vec::Vec;
+-use core::{mem::ManuallyDrop, slice};
++use core::slice;
+ 
+ use crate::encoding::blocks::{PreparedBlock, PreparedBlockRef, PreparedSequence};
+ 
+@@ -291,11 +291,11 @@ pub(crate) fn prepared_words_as_ref(prepared: &PreparedStoreWords) -> PreparedBl
+ 
+ pub(crate) fn prepared_words_into_block(prepared: PreparedStoreWords) -> PreparedBlock {
+     PreparedBlock {
+-        literals: prepared.literals.into_owned_vec(),
++        literals: prepared.literals,
+         // SAFETY: the compile-time layout assertions prove the returned word
+         // arrays and local prepared records have identical size and alignment,
+         // and every returned element is initialized.
+-        sequences: unsafe { prepared_words_into_sequences(prepared.sequences.into_owned_vec()) },
++        sequences: unsafe { prepared_words_into_sequences(prepared.sequences) },
+     }
+ }
+ 
+@@ -331,44 +331,26 @@ pub(crate) fn recover_prepared_words(
+ 
+ pub(crate) fn prepared_block_into_words(prepared: PreparedBlock) -> PreparedStoreWords {
+     PreparedStoreWords {
+-        literals: crate::workspace::ReusableVec::from_owned(prepared.literals),
++        literals: prepared.literals,
+         // SAFETY: the compile-time layout assertions prove that the local
+         // prepared records and primitive word arrays have identical layout.
+         // Ownership moves into the returned vector without duplication.
+-        sequences: crate::workspace::ReusableVec::from_owned(unsafe {
+-            prepared_sequences_into_words(prepared.sequences)
+-        }),
++        sequences: unsafe { prepared_sequences_into_words(prepared.sequences) },
+     }
+ }
+ 
+ unsafe fn prepared_words_into_sequences(
+-    sequences: Vec<crate::kernel::seqstore::PreparedSequenceWords>,
+-) -> Vec<PreparedSequence> {
+-    let mut sequences = ManuallyDrop::new(sequences);
+-    // SAFETY: the caller establishes identical element layout, and ownership
+-    // of the allocation transfers to the returned vector without duplication.
+-    unsafe {
+-        Vec::from_raw_parts(
+-            sequences.as_mut_ptr().cast::<PreparedSequence>(),
+-            sequences.len(),
+-            sequences.capacity(),
+-        )
+-    }
++    sequences: crate::workspace::ReusableVec<crate::kernel::seqstore::PreparedSequenceWords>,
++) -> crate::workspace::ReusableVec<PreparedSequence> {
++    // SAFETY: caller establishes the compile-time checked identical layouts.
++    unsafe { sequences.cast() }
+ }
+ 
+ unsafe fn prepared_sequences_into_words(
+-    sequences: Vec<PreparedSequence>,
+-) -> Vec<crate::kernel::seqstore::PreparedSequenceWords> {
+-    let mut sequences = ManuallyDrop::new(sequences);
+-    // SAFETY: the caller establishes identical element layout, and ownership
+-    // of the allocation transfers to the returned vector without duplication.
+-    unsafe {
+-        Vec::from_raw_parts(
+-            sequences.as_mut_ptr().cast(),
+-            sequences.len(),
+-            sequences.capacity(),
+-        )
+-    }
++    sequences: crate::workspace::ReusableVec<PreparedSequence>,
++) -> crate::workspace::ReusableVec<crate::kernel::seqstore::PreparedSequenceWords> {
++    // SAFETY: caller establishes the compile-time checked identical layouts.
++    unsafe { sequences.cast() }
+ }
+ 
+ /// Safe short-literal analogue of C's `ZSTD_storeSeq()` wild copy.
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/sequence_store_tests.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/sequence_store_tests.rs
+index 37235e45..6abbb96d 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/sequence_store_tests.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/sequence_store_tests.rs
+@@ -39,13 +39,13 @@ fn stored_sequence_preserves_c_fields() {
+ #[test]
+ fn prepared_block_word_round_trip_preserves_ownership_and_records() {
+     let prepared = PreparedBlock {
+-        literals: vec![1, 2, 3, 4],
+-        sequences: vec![PreparedSequence {
++        literals: crate::workspace::ReusableVec::from_owned(vec![1, 2, 3, 4]),
++        sequences: crate::workspace::ReusableVec::from_owned(vec![PreparedSequence {
+             ll: 4,
+             ml: 7,
+             raw_offset: 11,
+             encoded_offset_value: 14,
+-        }],
++        }]),
+     };
+     let literal_allocation = prepared.literals.as_ptr();
+     let sequence_allocation = prepared.sequences.as_ptr();
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs
+index cf7942a8..987ef756 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs
+@@ -149,7 +149,7 @@ pub(super) fn append_sub_block_literals(
+     literals: &[u8],
+     mode: EntropyTableMode,
+     _write_entropy: bool,
+-    output: &mut Vec<u8>,
++    output: &mut impl crate::workspace::Growable<u8>,
+ ) -> Option<SubBlockLiteralEmission> {
+     let start = output.len();
+     let mut writer = BitWriter::from(output);
+@@ -179,7 +179,7 @@ pub(super) fn append_literal_only_sub_block(
+     sequence_modes: SequenceEntropyModes,
+     write_literal_entropy: bool,
+     write_sequence_entropy: bool,
+-    output: &mut Vec<u8>,
++    output: &mut impl crate::workspace::Growable<u8>,
+ ) -> Option<SubBlockEmission> {
+     let block_start = output.len();
+     output.extend_from_slice(&[0; BLOCK_HEADER_SIZE]);
+@@ -223,7 +223,7 @@ pub(super) fn append_sequence_sub_block(
+     write_sequence_entropy: bool,
+     fse_tables: &mut FseTables,
+     offset_history: &mut OffsetHistory,
+-    output: &mut Vec<u8>,
++    output: &mut impl crate::workspace::Growable<u8>,
+ ) -> Option<SubBlockEmission> {
+     let previous_offsets = *offset_history;
+     let block_start = output.len();
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_acceptance.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_acceptance.rs
+index 4881419a..0c4cfce4 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_acceptance.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_acceptance.rs
+@@ -1,7 +1,6 @@
+ //! Final target-block acceptance gate ported from
+ //! `ZSTD_compressBlock_targetCBlockSize_body()`.
+ 
+-use alloc::vec::Vec;
+ 
+ use super::{
+     block_emit::append_raw_block, greedy_block::GreedyEncodedBlock, params::Strategy,
+@@ -39,7 +38,7 @@ pub(super) fn accept_target_or_raw_fallback(
+         context.block,
+         context.last_block,
+         context.repeat_offsets,
+-        context.initial_bytes.to_vec(),
++        crate::workspace::ReusableVec::from_owned(context.initial_bytes.to_vec()),
+     )
+ }
+ 
+@@ -47,7 +46,7 @@ pub(super) fn encode_target_block_raw_fallback(
+     block: &[u8],
+     last_block: bool,
+     repeat_offsets: RepeatOffsets,
+-    mut bytes: Vec<u8>,
++    mut bytes: crate::workspace::ReusableVec<u8>,
+ ) -> GreedyEncodedBlock {
+     append_raw_block(block, last_block, &mut bytes);
+     GreedyEncodedBlock {
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs
+index bf0b4bd3..bd8bed98 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs
+@@ -1,6 +1,5 @@
+ //! Target-compressed-block-size block adapter.
+ 
+-use alloc::vec::Vec;
+ 
+ use super::{
+     block_emit::append_rle_block,
+@@ -46,7 +45,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
+     options: TargetBlockOptions,
+     prepared: &GreedyPreparedBlock,
+     context: GreedyBlockEncodeContext<'_, '_>,
+-    bytes: Vec<u8>,
++    bytes: crate::workspace::ReusableVec<u8>,
+ ) -> GreedyEncodedBlock {
+     let repeat_offsets = options.repeat_offsets;
+     let previous_fse = context.fse_tables.snapshot_previous();
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_block_fixtures.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_block_fixtures.rs
+index 582cd572..f70a06f4 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_block_fixtures.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_block_fixtures.rs
+@@ -38,8 +38,8 @@ pub(super) fn huffman_friendly_sequence_block() -> (Vec<u8>, GreedyPreparedBlock
+         data,
+         GreedyPreparedBlock {
+             prepared: PreparedBlock {
+-                literals,
+-                sequences,
++                literals: crate::workspace::ReusableVec::from_owned(literals),
++                sequences: crate::workspace::ReusableVec::from_owned(sequences),
+             },
+             repeat_offsets: RepeatOffsets::new(),
+         },
+@@ -71,8 +71,8 @@ pub(super) fn split_friendly_sequence_block() -> (Vec<u8>, GreedyPreparedBlock)
+         data,
+         GreedyPreparedBlock {
+             prepared: PreparedBlock {
+-                literals,
+-                sequences,
++                literals: crate::workspace::ReusableVec::from_owned(literals),
++                sequences: crate::workspace::ReusableVec::from_owned(sequences),
+             },
+             repeat_offsets: RepeatOffsets::new(),
+         },
+@@ -108,8 +108,8 @@ pub(super) fn high_entropy_literal_sequence_block() -> (Vec<u8>, GreedyPreparedB
+         data,
+         GreedyPreparedBlock {
+             prepared: PreparedBlock {
+-                literals,
+-                sequences,
++                literals: crate::workspace::ReusableVec::from_owned(literals),
++                sequences: crate::workspace::ReusableVec::from_owned(sequences),
+             },
+             repeat_offsets: RepeatOffsets::new(),
+         },
+@@ -149,8 +149,8 @@ pub(super) fn zero_literal_tail_sequence_block() -> (Vec<u8>, GreedyPreparedBloc
+         data,
+         GreedyPreparedBlock {
+             prepared: PreparedBlock {
+-                literals: base.to_vec(),
+-                sequences,
++                literals: crate::workspace::ReusableVec::from_owned(base.to_vec()),
++                sequences: crate::workspace::ReusableVec::from_owned(sequences),
+             },
+             repeat_offsets: RepeatOffsets::new(),
+         },
+@@ -192,8 +192,8 @@ pub(super) fn raw_tail_sequence_block() -> (Vec<u8>, GreedyPreparedBlock) {
+         data,
+         GreedyPreparedBlock {
+             prepared: PreparedBlock {
+-                literals,
+-                sequences,
++                literals: crate::workspace::ReusableVec::from_owned(literals),
++                sequences: crate::workspace::ReusableVec::from_owned(sequences),
+             },
+             repeat_offsets: RepeatOffsets::new(),
+         },
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_block_tests.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_block_tests.rs
+index 7e4b2b02..4107f18b 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_block_tests.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_block_tests.rs
+@@ -47,7 +47,7 @@ fn target_block_uses_huffman_literals_for_sequence_block() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
+ 
+@@ -81,7 +81,7 @@ fn fastish_target_block_prefers_valid_previous_huffman_table() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let (_, block_type, block_size) = parse_block_header(&encoded.bytes);
+     assert_eq!(block_type, BlockType::Compressed);
+@@ -116,7 +116,7 @@ fn target_block_splits_huffman_literal_sequence_block_by_target_size() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let headers = parse_block_headers(&encoded.bytes);
+ 
+@@ -158,7 +158,7 @@ fn target_block_emits_zero_literal_raw_sections_inside_huffman_superblock() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let headers = parse_block_headers(&encoded.bytes);
+ 
+@@ -197,7 +197,7 @@ fn target_block_splits_basic_literal_sequence_block_by_target_size() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let headers = parse_block_headers(&encoded.bytes);
+ 
+@@ -261,7 +261,7 @@ fn target_block_emits_raw_tail_when_final_subblock_is_not_worthwhile() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let headers = parse_block_headers(&encoded.bytes);
+ 
+@@ -279,13 +279,13 @@ fn target_block_uses_rle_shortcut_when_policy_allows_it() {
+     let data = [0x5A; 64];
+     let prepared = GreedyPreparedBlock {
+         prepared: PreparedBlock {
+-            literals: vec![0x5A],
+-            sequences: vec![PreparedSequence {
++            literals: crate::workspace::ReusableVec::from_owned(vec![0x5A]),
++            sequences: crate::workspace::ReusableVec::from_owned(vec![PreparedSequence {
+                 ll: 1,
+                 ml: 63,
+                 raw_offset: 1,
+                 encoded_offset_value: 0,
+-            }],
++            }]),
+         },
+         repeat_offsets: RepeatOffsets::new(),
+     };
+@@ -307,7 +307,7 @@ fn target_block_uses_rle_shortcut_when_policy_allows_it() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
+ 
+@@ -324,8 +324,8 @@ fn target_block_rle_shortcut_requires_c_maybe_rle_shape() {
+     let data = [0x5A; 64];
+     let prepared = GreedyPreparedBlock {
+         prepared: PreparedBlock {
+-            literals: data.to_vec(),
+-            sequences: Vec::new(),
++            literals: crate::workspace::ReusableVec::from_owned(data.to_vec()),
++            sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
+         },
+         repeat_offsets: RepeatOffsets::new(),
+     };
+@@ -347,7 +347,7 @@ fn target_block_rle_shortcut_requires_c_maybe_rle_shape() {
+             fse_tables: &mut fse_tables,
+             offset_history: &mut offset_history,
+         },
+-        Vec::new(),
++        crate::workspace::ReusableVec::from_owned(Vec::new()),
+     );
+     let (_, block_type, _) = parse_block_header(&encoded.bytes);
+ 
+@@ -366,7 +366,7 @@ fn target_acceptance_rejects_candidate_without_c_minimum_gain() {
+     let mut offset_history = OffsetHistory::new();
+     let previous_offsets = offset_history;
+     let encoded = GreedyEncodedBlock {
+-        bytes: vec![0; data.len()],
++        bytes: crate::workspace::ReusableVec::from_owned(vec![0; data.len()]),
+         repeat_offsets: RepeatOffsets::new(),
+         new_huffman_table: None,
+     };
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs
+index b49b5b08..2aff306d 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs
+@@ -246,7 +246,7 @@ pub(super) fn try_huffman_literal_multi_sub_blocks(
+             fse_tables,
+         )?;
+         return Some(GreedyEncodedBlock {
+-            bytes: candidate,
++            bytes: crate::workspace::ReusableVec::from_owned(candidate),
+             repeat_offsets: repeat_offsets_after_sequences(
+                 target.initial_repeat_offsets,
+                 &prepared.prepared.sequences[..start_sequence],
+@@ -270,7 +270,7 @@ pub(super) fn try_huffman_literal_multi_sub_blocks(
+             fse_tables,
+         )?;
+         return Some(GreedyEncodedBlock {
+-            bytes: candidate,
++            bytes: crate::workspace::ReusableVec::from_owned(candidate),
+             repeat_offsets: repeat_offsets_after_sequences(
+                 target.initial_repeat_offsets,
+                 &prepared.prepared.sequences[..start_sequence],
+@@ -289,7 +289,7 @@ pub(super) fn try_huffman_literal_multi_sub_blocks(
+         fse_tables,
+     )?;
+     Some(GreedyEncodedBlock {
+-        bytes: candidate,
++        bytes: crate::workspace::ReusableVec::from_owned(candidate),
+         repeat_offsets: prepared.repeat_offsets,
+         new_huffman_table: literal_entropy_written.then_some(huffman_table),
+     })
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs
+index 162d65e2..fbd979ae 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs
+@@ -204,7 +204,7 @@ pub(super) fn try_basic_literal_multi_sub_blocks(
+             fse_tables,
+         )?;
+         return Some(GreedyEncodedBlock {
+-            bytes: candidate,
++            bytes: crate::workspace::ReusableVec::from_owned(candidate),
+             repeat_offsets: repeat_offsets_after_sequences(
+                 target.initial_repeat_offsets,
+                 &prepared.prepared.sequences[..start_sequence],
+@@ -228,7 +228,7 @@ pub(super) fn try_basic_literal_multi_sub_blocks(
+             fse_tables,
+         )?;
+         return Some(GreedyEncodedBlock {
+-            bytes: candidate,
++            bytes: crate::workspace::ReusableVec::from_owned(candidate),
+             repeat_offsets: repeat_offsets_after_sequences(
+                 target.initial_repeat_offsets,
+                 &prepared.prepared.sequences[..start_sequence],
+@@ -244,7 +244,7 @@ pub(super) fn try_basic_literal_multi_sub_blocks(
+         fse_tables,
+     )?;
+     Some(GreedyEncodedBlock {
+-        bytes: candidate,
++        bytes: crate::workspace::ReusableVec::from_owned(candidate),
+         repeat_offsets: prepared.repeat_offsets,
+         new_huffman_table: None,
+     })
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_single.rs b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_single.rs
+index e0a9320c..e58cc4d9 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_single.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/c_port/target_single.rs
+@@ -80,7 +80,7 @@ pub(super) fn try_huffman_literal_only_sub_block(
+     }
+ 
+     Some(GreedyEncodedBlock {
+-        bytes: candidate,
++        bytes: crate::workspace::ReusableVec::from_owned(candidate),
+         repeat_offsets,
+         new_huffman_table: literal_emission.new_huffman_table,
+     })
+@@ -146,7 +146,7 @@ pub(super) fn try_huffman_sequence_sub_block(
+             fse_tables.reset();
+         }
+         Some(GreedyEncodedBlock {
+-            bytes: candidate,
++            bytes: crate::workspace::ReusableVec::from_owned(candidate),
+             repeat_offsets: prepared.repeat_offsets,
+             new_huffman_table: literal_emission.new_huffman_table,
+         })
+@@ -190,7 +190,7 @@ pub(super) fn try_sequence_sub_block(
+             fse_tables.reset();
+         }
+         Some(GreedyEncodedBlock {
+-            bytes: candidate,
++            bytes: crate::workspace::ReusableVec::from_owned(candidate),
+             repeat_offsets: prepared.repeat_offsets,
+             new_huffman_table: None,
+         })
+diff --git a/rust/vendor/zstd-complete/src/encoding/levels/fastest/tests.rs b/rust/vendor/zstd-complete/src/encoding/levels/fastest/tests.rs
+index 498c801f..42669180 100644
+--- a/rust/vendor/zstd-complete/src/encoding/levels/fastest/tests.rs
++++ b/rust/vendor/zstd-complete/src/encoding/levels/fastest/tests.rs
+@@ -8,8 +8,8 @@ use alloc::{vec, vec::Vec};
+ #[test]
+ fn best_split_mid_biases_toward_balanced_decompressed_bytes() {
+     let prepared = PreparedBlock {
+-        literals: vec![0; 103],
+-        sequences: vec![
++        literals: crate::workspace::ReusableVec::from_owned(vec![0; 103]),
++        sequences: crate::workspace::ReusableVec::from_owned(vec![
+             PreparedSequence {
+                 ll: 100,
+                 ml: 100,
+@@ -34,7 +34,7 @@ fn best_split_mid_biases_toward_balanced_decompressed_bytes() {
+                 raw_offset: 4,
+                 encoded_offset_value: 0,
+             },
+-        ],
++        ]),
+     };
+ 
+     assert_eq!(best_split_mid_by_decompressed_bytes(prepared.as_ref()), 1);
+@@ -43,8 +43,8 @@ fn best_split_mid_biases_toward_balanced_decompressed_bytes() {
+ #[test]
+ fn best_split_mid_keeps_even_sequences_centered() {
+     let prepared = PreparedBlock {
+-        literals: vec![0; 8],
+-        sequences: vec![
++        literals: crate::workspace::ReusableVec::from_owned(vec![0; 8]),
++        sequences: crate::workspace::ReusableVec::from_owned(vec![
+             PreparedSequence {
+                 ll: 2,
+                 ml: 2,
+@@ -69,7 +69,7 @@ fn best_split_mid_keeps_even_sequences_centered() {
+                 raw_offset: 4,
+                 encoded_offset_value: 0,
+             },
+-        ],
++        ]),
+     };
+ 
+     assert_eq!(best_split_mid_by_decompressed_bytes(prepared.as_ref()), 2);
+@@ -94,8 +94,8 @@ fn derive_best_partitions_respects_partition_budget() {
+         sequence_count
+     ];
+     let prepared = PreparedBlock {
+-        literals,
+-        sequences,
++        literals: crate::workspace::ReusableVec::from_owned(literals),
++        sequences: crate::workspace::ReusableVec::from_owned(sequences),
+     };
+     let data = vec![0u8; sequence_count * 4];
+     let whole_range = PreparedRange {
+diff --git a/rust/vendor/zstd-complete/src/encoding/workspace.rs b/rust/vendor/zstd-complete/src/encoding/workspace.rs
+index 9873ea20..0823e416 100644
+--- a/rust/vendor/zstd-complete/src/encoding/workspace.rs
++++ b/rust/vendor/zstd-complete/src/encoding/workspace.rs
+@@ -193,8 +193,8 @@ impl EncoderCore {
+             self.base_cctx.compression,
+             input.len() as u64,
+         );
+-        // SAFETY: the temporary vector is recovered before this function
+-        // returns and the capacity check above prevents growth.
++        // SAFETY: the guarded facade never owns caller storage, including on
++        // early exit. The checked output bound above prevents growth.
+         let reusable = unsafe { ReusableVec::from_static_parts(output.as_mut_ptr(), output.len()) };
+         let (mut output_vec, lease) = reusable.lease_vec();
+         let ldm = &mut self.ldm;
+@@ -231,7 +231,7 @@ impl EncoderCore {
+     }
+ }
+ 
+-fn encode_uncompressed(input: &[u8], output: &mut Vec<u8>) {
++fn encode_uncompressed(input: &[u8], output: &mut impl crate::workspace::Growable<u8>) {
+     use crate::{
+         blocks::block::BlockType,
+         encoding::{block_header::BlockHeader, frame_header::FrameHeader},
+diff --git a/rust/vendor/zstd-complete/src/huff0/huff0_encoder/table.rs b/rust/vendor/zstd-complete/src/huff0/huff0_encoder/table.rs
+index 781084b0..e7c3e627 100644
+--- a/rust/vendor/zstd-complete/src/huff0/huff0_encoder/table.rs
++++ b/rust/vendor/zstd-complete/src/huff0/huff0_encoder/table.rs
+@@ -522,7 +522,7 @@ impl HuffmanTable {
+     pub(super) fn build_c_table_with_nodes(
+         counts: &[usize],
+         max_bits: usize,
+-        nodes: &mut Vec<HuffmanNode>,
++        nodes: &mut impl crate::workspace::Growable<HuffmanNode>,
+     ) -> Option<Self> {
+         let leaf_count = build_huffman_tree(counts, nodes)?;
+         let max_num_bits = limit_huffman_tree_height(nodes, leaf_count, max_bits)?;
+diff --git a/rust/vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs b/rust/vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs
+index c73f63a2..af1e7072 100644
+--- a/rust/vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs
++++ b/rust/vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs
+@@ -53,7 +53,7 @@ pub(super) fn table_description_bytes_from_weights(weights: &[u8]) -> Vec<u8> {
+     }
+ }
+ 
+-pub(super) fn table_description_bytes_from_weights_reusing(weights: &[u8], output: &mut Vec<u8>) {
++pub(super) fn table_description_bytes_from_weights_reusing(weights: &[u8], output: &mut impl crate::workspace::Growable<u8>) {
+     let weights = &weights[..weights.len() - 1];
+     if weights.len() <= 16 {
+         output.clear();
+@@ -87,7 +87,7 @@ pub(super) fn table_description_bytes_from_weights_reusing(weights: &[u8], outpu
+ 
+ pub(super) fn table_description_bytes_from_weights_reusing_with_fse_scratch(
+     weights: &[u8],
+-    output: &mut Vec<u8>,
++    output: &mut impl crate::workspace::Growable<u8>,
+     fse_scratch: &mut FSETableBuildScratch,
+ ) {
+     let weights = &weights[..weights.len() - 1];
+@@ -121,7 +121,7 @@ pub(super) fn table_description_bytes_from_weights_reusing_with_fse_scratch(
+     }
+ }
+ 
+-fn write_raw_weight_table(weights: &[u8], output: &mut Vec<u8>) {
++fn write_raw_weight_table(weights: &[u8], output: &mut impl crate::workspace::Growable<u8>) {
+     output.clear();
+     output.reserve(1 + weights.len().div_ceil(2));
+     output.push(weights.len() as u8 + 127);
+@@ -135,7 +135,7 @@ fn write_raw_weight_table(weights: &[u8], output: &mut Vec<u8>) {
+     }
+ }
+ 
+-fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut Vec<u8>) {
++fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut impl crate::workspace::Growable<u8>) {
+     output.clear();
+     let mut writer = BitWriter::from(output);
+     writer.write_bits(0u8, 8);
+@@ -159,7 +159,7 @@ fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &
+ fn encode_weight_table_fse_reusing_with_scratch(
+     weights: &[u8],
+     fse_unusable: bool,
+-    output: &mut Vec<u8>,
++    output: &mut impl crate::workspace::Growable<u8>,
+     scratch: &mut FSETableBuildScratch,
+ ) {
+     output.clear();
+diff --git a/rust/vendor/zstd-complete/src/kernel/huff0/table.rs b/rust/vendor/zstd-complete/src/kernel/huff0/table.rs
+index 0f5c784a..61ab9515 100644
+--- a/rust/vendor/zstd-complete/src/kernel/huff0/table.rs
++++ b/rust/vendor/zstd-complete/src/kernel/huff0/table.rs
+@@ -125,8 +125,8 @@ pub fn build_described_huffman_table_reusing(
+     counts: &[usize],
+     max_bits: usize,
+     scratch: &mut HuffmanBuildScratch,
+-    codes: &mut Vec<HuffmanCode>,
+-    table_description: &mut Vec<u8>,
++    codes: &mut impl crate::workspace::Growable<HuffmanCode>,
++    table_description: &mut impl crate::workspace::Growable<u8>,
+     describe_weights: fn(&[u8], &mut Vec<u8>),
+ ) -> Option<u8> {
+     let max_num_bits = build_codes_reusing(counts, max_bits, scratch, codes)?;
+@@ -154,8 +154,8 @@ pub fn build_described_huffman_table_reusing_with_context<Context>(
+     counts: &[usize],
+     max_bits: usize,
+     scratch: &mut HuffmanBuildScratch,
+-    codes: &mut Vec<HuffmanCode>,
+-    table_description: &mut Vec<u8>,
++    codes: &mut impl crate::workspace::Growable<HuffmanCode>,
++    table_description: &mut impl crate::workspace::Growable<u8>,
+     context: &mut Context,
+     describe_weights: fn(&[u8], &mut Vec<u8>, &mut Context),
+ ) -> Option<u8> {
+@@ -170,7 +170,7 @@ fn build_codes_reusing(
+     counts: &[usize],
+     max_bits: usize,
+     scratch: &mut HuffmanBuildScratch,
+-    codes: &mut Vec<HuffmanCode>,
++    codes: &mut impl crate::workspace::Growable<HuffmanCode>,
+ ) -> Option<u8> {
+     if counts.len() > 256 {
+         return None;
+@@ -263,7 +263,7 @@ fn with_weights<R>(codes: &[HuffmanCode], max_num_bits: u8, consume: impl FnOnce
+     consume(&weights[..codes.len()])
+ }
+ 
+-fn build_tree(counts: &[usize], nodes: &mut Vec<Node>) -> Option<usize> {
++fn build_tree(counts: &[usize], nodes: &mut impl crate::workspace::Growable<Node>) -> Option<usize> {
+     sort_leaves(counts, nodes)?;
+     let leaf_count = nodes.len().saturating_sub(1);
+     if leaf_count <= 1 {
+@@ -392,7 +392,7 @@ fn limit_height(nodes: &mut [Node], leaf_count: usize, target_bits: usize) -> Op
+     Some(target_bits)
+ }
+ 
+-fn sort_leaves(counts: &[usize], nodes: &mut Vec<Node>) -> Option<()> {
++fn sort_leaves(counts: &[usize], nodes: &mut impl crate::workspace::Growable<Node>) -> Option<()> {
+     const TABLE_SIZE: usize = 192;
+     const MAX_COUNT_LOG: usize = 32;
+     const LOG_BUCKETS_BEGIN: usize = (TABLE_SIZE - 1) - MAX_COUNT_LOG - 1;
+diff --git a/rust/vendor/zstd-complete/src/lib.rs b/rust/vendor/zstd-complete/src/lib.rs
+index 16856c03..0672b19f 100644
+--- a/rust/vendor/zstd-complete/src/lib.rs
++++ b/rust/vendor/zstd-complete/src/lib.rs
+@@ -14,6 +14,7 @@
+ #![no_std]
+ #![cfg_attr(docsrs, feature(doc_cfg))]
+ #![deny(trivial_casts, trivial_numeric_casts, rust_2018_idioms)]
++#![deny(unused_must_use)]
+ 
+ #[cfg(feature = "std")]
+ extern crate std;
+@@ -35,6 +36,7 @@ macro_rules! vprintln {
+ 
+ mod bit_io;
+ mod common;
++mod fixed_storage;
+ mod cpu;
+ pub mod decoding;
+ #[cfg(feature = "dict_builder")]
+diff --git a/rust/vendor/zstd-complete/src/tests/fuzz_regressions.rs b/rust/vendor/zstd-complete/src/tests/fuzz_regressions.rs
+index a9fa5c95..26bcf471 100644
+--- a/rust/vendor/zstd-complete/src/tests/fuzz_regressions.rs
++++ b/rust/vendor/zstd-complete/src/tests/fuzz_regressions.rs
+@@ -1,4 +1,9 @@
++// Optional external-data test, not part of ordinary packaged qualification.
++// Requires a separately managed fuzz/artifacts/decode corpus. No such corpus
++// is distributed or obtained by the release build. Maintainers with that data
++// can explicitly select this ignored test from the crate root.
+ #[test]
++#[ignore = "requires separately managed external fuzz/artifacts/decode corpus"]
+ fn test_all_artifacts() {
+     extern crate std;
+     use crate::decoding::BlockDecodingStrategy;
+diff --git a/rust/vendor/zstd-complete/src/workspace.rs b/rust/vendor/zstd-complete/src/workspace.rs
+index ba4ce1c5..39443fdc 100644
+--- a/rust/vendor/zstd-complete/src/workspace.rs
++++ b/rust/vendor/zstd-complete/src/workspace.rs
+@@ -165,13 +165,10 @@ impl<T> ArenaVec<'_, T> {
+ 
+     pub(crate) fn clear(&mut self) {
+         // SAFETY: exactly `0..len` is initialized by the type invariant.
+-        unsafe {
+-            core::ptr::drop_in_place(core::ptr::slice_from_raw_parts_mut(
+-                self.ptr.as_ptr(),
+-                self.len,
+-            ))
+-        };
+-        self.len = 0;
++        while self.len != 0 {
++            self.len -= 1;
++            unsafe { self.ptr.as_ptr().add(self.len).drop_in_place() };
++        }
+     }
+ 
+     pub(crate) fn push(&mut self, value: T) -> Result<(), ArenaError> {
+@@ -244,26 +241,6 @@ impl<T> ArenaVec<'_, T> {
+         }
+     }
+ 
+-    /// Runs existing `Vec`-based code against this fixed arena allocation.
+-    ///
+-    /// The closure must not require more than `capacity()` elements. Workspace
+-    /// layout calculations establish that bound before entering codec code.
+-    pub(crate) fn with_vec<R>(
+-        &mut self,
+-        operation: impl FnOnce(&mut alloc::vec::Vec<T>) -> R,
+-    ) -> R {
+-        // SAFETY: the arena allocation has `capacity` properly aligned slots,
+-        // and `0..len` is initialized. `ManuallyDrop` prevents `Vec` from
+-        // attempting to release caller-owned storage.
+-        let mut view = ManuallyDrop::new(unsafe {
+-            alloc::vec::Vec::from_raw_parts(self.ptr.as_ptr(), self.len, self.capacity)
+-        });
+-        let result = operation(&mut view);
+-        self.len = view.len();
+-        debug_assert_eq!(view.capacity(), self.capacity);
+-        result
+-    }
+-
+     /// # Safety
+     /// Every item in the newly exposed `old_len..new_len` range must already
+     /// be initialized, and `new_len` must not exceed capacity.
+@@ -295,172 +272,163 @@ impl<T> Drop for ArenaVec<'_, T> {
+     }
+ }
+ 
+-/// A `Vec`-compatible allocation which may be owned or leased from a static
+-/// arena. Borrowed instances must never grow beyond their established capacity.
+-/// Vector storage that can either own a heap allocation or borrow a fixed
+-/// region from a codec workspace.
+-///
+-/// This type is public only because legacy decoder table fields expose their
+-/// backing vectors. Codec users should construct typed workspaces instead.
+-#[doc(hidden)]
+-pub struct ReusableVec<T> {
+-    inner: ManuallyDrop<Vec<T>>,
+-    owned: bool,
++enum VectorStorage<T> {
++    Owned(Vec<T>),
++    Borrowed(crate::fixed_storage::FixedStorage<T>),
+ }
+ 
++/// Owned dynamic or caller-backed fixed storage. Mutable access is a slice;
++/// fallible growth never reallocates caller-backed storage.
++#[doc(hidden)]
++pub struct ReusableVec<T> { storage: VectorStorage<T> }
++
++pub use crate::fixed_storage::CapacityError;
++
+ #[derive(Debug)]
+-pub(crate) struct VecLease<T> {
+-    owned: bool,
+-    ptr: *mut T,
+-    capacity: usize,
+-}
++pub(crate) struct VecLease<T> { owned: bool, ptr: *mut T, capacity: usize }
+ 
+ impl<T> ReusableVec<T> {
+-    pub(crate) const fn new() -> Self {
+-        Self {
+-            inner: ManuallyDrop::new(Vec::new()),
+-            owned: true,
++    pub(crate) const fn new() -> Self { Self { storage: VectorStorage::Owned(Vec::new()) } }
++    pub(crate) fn with_capacity(capacity: usize) -> Self { Self::from_owned(Vec::with_capacity(capacity)) }
++    pub(crate) fn from_owned(value: Vec<T>) -> Self { Self { storage: VectorStorage::Owned(value) } }
++    #[cfg(test)]
++    pub(crate) fn into_owned_vec(self) -> Vec<T> {
++        match self.storage {
++            VectorStorage::Owned(value) => value,
++            VectorStorage::Borrowed(_) => panic!("caller-owned workspace storage cannot escape"),
+         }
+     }
+-
+-    pub(crate) fn with_capacity(capacity: usize) -> Self {
+-        Self {
+-            inner: ManuallyDrop::new(Vec::with_capacity(capacity)),
+-            owned: true,
++    pub(crate) const fn is_owned(&self) -> bool { matches!(self.storage, VectorStorage::Owned(_)) }
++    /// Caller retains exclusive, aligned backing through destruction. No slot
++    /// is initialized. The enclosing workspace carries the backing lifetime.
++    pub(crate) unsafe fn from_static_parts(ptr: *mut T, capacity: usize) -> Self {
++        Self { storage: VectorStorage::Borrowed(unsafe {
++            crate::fixed_storage::FixedStorage::new(NonNull::new(ptr).expect("non-null workspace"), capacity)
++        }) }
++    }
++    pub fn capacity(&self) -> usize {
++        match &self.storage { VectorStorage::Owned(v) => v.capacity(), VectorStorage::Borrowed(v) => v.capacity() }
++    }
++    pub fn as_slice(&self) -> &[T] {
++        match &self.storage { VectorStorage::Owned(v) => v.as_slice(), VectorStorage::Borrowed(v) => v.as_slice() }
++    }
++    pub fn as_mut_slice(&mut self) -> &mut [T] {
++        match &mut self.storage { VectorStorage::Owned(v) => v.as_mut_slice(), VectorStorage::Borrowed(v) => v.as_mut_slice() }
++    }
++    pub fn reserve(&mut self, additional: usize) -> Result<(), CapacityError> {
++        self.len().checked_add(additional).ok_or(CapacityError::Overflow)?;
++        match &mut self.storage {
++            VectorStorage::Owned(v) => { v.try_reserve(additional).map_err(|_| CapacityError::AllocationFailed) },
++            VectorStorage::Borrowed(v) => v.reserve(additional),
+         }
+     }
+-
+-    pub(crate) fn from_owned(value: Vec<T>) -> Self {
+-        Self {
+-            inner: ManuallyDrop::new(value),
+-            owned: true,
++    pub fn reserve_exact(&mut self, additional: usize) -> Result<(), CapacityError> {
++        self.len().checked_add(additional).ok_or(CapacityError::Overflow)?;
++        match &mut self.storage {
++            VectorStorage::Owned(v) => { v.try_reserve_exact(additional).map_err(|_| CapacityError::AllocationFailed) },
++            VectorStorage::Borrowed(v) => v.reserve(additional),
+         }
+     }
+-
+-    /// Returns the underlying allocation when this vector owns it.
+-    pub(crate) fn into_owned_vec(self) -> Vec<T> {
+-        assert!(self.owned, "caller-owned workspace storage cannot escape");
+-        let (ptr, len, capacity, owned) = self.into_raw_parts();
+-        debug_assert!(owned);
+-        // SAFETY: the owned reusable vector was originally constructed from
+-        // these exact `Vec` parts and ownership transfers to the result.
+-        unsafe { Vec::from_raw_parts(ptr, len, capacity) }
++    pub fn push(&mut self, value: T) -> Result<(), CapacityError> {
++        match &mut self.storage {
++            VectorStorage::Owned(v) => { v.try_reserve(1).map_err(|_| CapacityError::AllocationFailed)?; v.push(value); Ok(()) },
++            VectorStorage::Borrowed(v) => v.push(value),
++        }
+     }
+-
+-    pub(crate) const fn is_owned(&self) -> bool {
+-        self.owned
++    pub fn pop(&mut self) -> Option<T> {
++        match &mut self.storage { VectorStorage::Owned(v) => v.pop(), VectorStorage::Borrowed(v) => v.pop() }
+     }
+-
+-    /// # Safety
+-    /// The region must remain exclusively borrowed for this value's lifetime,
+-    /// contain `capacity` aligned `T` slots, and the vector must never grow.
+-    pub(crate) unsafe fn from_static_parts(ptr: *mut T, capacity: usize) -> Self {
+-        Self {
+-            // SAFETY: guaranteed by the caller's workspace partition.
+-            inner: ManuallyDrop::new(unsafe { Vec::from_raw_parts(ptr, 0, capacity) }),
+-            owned: false,
++    pub fn swap_remove(&mut self, index: usize) -> T {
++        assert!(index < self.len(), "swap_remove index out of bounds");
++        let last = self.pop().expect("checked nonempty storage");
++        if index == self.len() { last } else { core::mem::replace(&mut self[index], last) }
++    }
++    pub fn truncate(&mut self, length: usize) {
++        match &mut self.storage { VectorStorage::Owned(v) => v.truncate(length), VectorStorage::Borrowed(v) => v.truncate(length) }
++    }
++    pub fn clear(&mut self) { self.truncate(0); }
++    pub fn resize(&mut self, length: usize, value: T) -> Result<(), CapacityError> where T: Clone {
++        match &mut self.storage {
++            VectorStorage::Owned(v) => { v.try_reserve(length.saturating_sub(v.len())).map_err(|_| CapacityError::AllocationFailed)?; v.resize(length, value); Ok(()) },
++            VectorStorage::Borrowed(v) => v.resize(length, value),
+         }
+     }
+-
+-    /// Temporarily transfers the Vec facade to code whose ownership-shaped
+-    /// API predates reusable workspaces. The returned lease must be used to
+-    /// recover the vector before it can be dropped.
+-    pub(crate) fn lease_vec(self) -> (Vec<T>, VecLease<T>) {
+-        let (ptr, len, capacity, owned) = self.into_raw_parts();
+-        // SAFETY: these are the exact parts extracted from the vector above.
+-        let value = unsafe { Vec::from_raw_parts(ptr, len, capacity) };
+-        (
+-            value,
+-            VecLease {
+-                owned,
+-                ptr,
+-                capacity,
+-            },
+-        )
+-    }
+-
+-    /// Recovers a vector transferred by [`Self::lease_vec`].
+-    pub(crate) fn recover_vec(value: Vec<T>, lease: VecLease<T>) -> Self {
+-        if !lease.owned {
+-            assert_eq!(value.as_ptr(), lease.ptr, "static workspace vector moved");
+-            assert_eq!(
+-                value.capacity(),
+-                lease.capacity,
+-                "static workspace vector grew"
+-            );
++    pub fn resize_with(&mut self, length: usize, mut create: impl FnMut() -> T) -> Result<(), CapacityError> {
++        if length <= self.len() { self.truncate(length); return Ok(()); }
++        self.reserve(length - self.len())?;
++        while self.len() < length { self.push(create())?; }
++        Ok(())
++    }
++    pub fn extend_from_slice(&mut self, values: &[T]) -> Result<(), CapacityError> where T: Clone {
++        match &mut self.storage {
++            VectorStorage::Owned(v) => { v.try_reserve(values.len()).map_err(|_| CapacityError::AllocationFailed)?; v.extend_from_slice(values); Ok(()) },
++            VectorStorage::Borrowed(v) => v.extend_from_slice(values),
+         }
+-        Self {
+-            inner: ManuallyDrop::new(value),
+-            owned: lease.owned,
++    }
++    pub fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<T>] {
++        match &mut self.storage { VectorStorage::Owned(v) => v.spare_capacity_mut(), VectorStorage::Borrowed(v) => v.spare_capacity_mut() }
++    }
++    /// Newly exposed elements must already be initialized. Shrinking transfers
++    /// responsibility for removed elements to the caller, as with Vec::set_len.
++    pub unsafe fn set_len(&mut self, length: usize) -> Result<(), CapacityError> {
++        if length > self.capacity() { return Err(CapacityError::Exhausted { required: length, capacity: self.capacity() }); }
++        match &mut self.storage {
++            VectorStorage::Owned(v) => { unsafe { v.set_len(length) }; Ok(()) },
++            VectorStorage::Borrowed(v) => unsafe { v.set_len(length) },
+         }
+     }
+-
+-    pub(crate) fn into_uninit(self) -> ReusableVec<MaybeUninit<T>> {
+-        let (ptr, len, capacity, owned) = self.into_raw_parts();
+-        ReusableVec {
+-            // SAFETY: `MaybeUninit<T>` has the same layout as `T`; all old
+-            // initialized elements remain valid initialized MaybeUninit values.
+-            inner: ManuallyDrop::new(unsafe {
+-                Vec::from_raw_parts(ptr.cast::<MaybeUninit<T>>(), len, capacity)
+-            }),
+-            owned,
++    pub(crate) fn lease_vec(self) -> (Self, VecLease<T>) {
++        let lease=VecLease { owned:self.is_owned(), ptr:self.as_ptr() as *mut T, capacity:self.capacity() };
++        (self,lease)
++    }
++    pub(crate) fn recover_vec(value:Self, lease:VecLease<T>) -> Self {
++        assert_eq!(value.is_owned(),lease.owned,"workspace ownership changed");
++        if !lease.owned { assert_eq!(value.as_ptr(),lease.ptr); assert_eq!(value.capacity(),lease.capacity); }
++        value
++    }
++    /// T/U have equal layout and compatible validity/destruction semantics.
++    pub(crate) unsafe fn cast<U>(self) -> ReusableVec<U> {
++        assert_eq!(size_of::<T>(),size_of::<U>());
++        assert_eq!(align_of::<T>(),align_of::<U>());
++        match self.storage {
++            VectorStorage::Owned(value) => {
++                let mut value=ManuallyDrop::new(value);
++                ReusableVec::from_owned(unsafe { Vec::from_raw_parts(value.as_mut_ptr().cast(),value.len(),value.capacity()) })
++            }
++            VectorStorage::Borrowed(value) => {
++                let (ptr,len,capacity)=value.into_parts();
++                let ptr=ptr.cast::<U>().as_ptr();
++                let mut result=unsafe { ReusableVec::from_static_parts(ptr,capacity) };
++                // Equal layout preserves capacity, initialized prefix and ownership.
++                unsafe { result.set_len(len) }.expect("layout-preserving length");
++                result
++            }
+         }
+     }
+-
+-    fn into_raw_parts(mut self) -> (*mut T, usize, usize, bool) {
+-        let parts = (
+-            self.inner.as_mut_ptr(),
+-            self.inner.len(),
+-            self.inner.capacity(),
+-            self.owned,
+-        );
+-        self.owned = false;
+-        core::mem::forget(self);
+-        parts
++    pub(crate) fn into_uninit(self) -> ReusableVec<MaybeUninit<T>> {
++        unsafe { self.cast() }
+     }
+ }
+ 
+ impl<T> ReusableVec<MaybeUninit<T>> {
+-    /// # Safety
+-    /// Every element in `0..len()` must contain an initialized `T`.
+-    pub(crate) unsafe fn assume_init(self) -> ReusableVec<T> {
+-        let (ptr, len, capacity, owned) = self.into_raw_parts();
+-        ReusableVec {
+-            // SAFETY: guaranteed by the caller; MaybeUninit preserves layout.
+-            inner: ManuallyDrop::new(unsafe {
+-                Vec::from_raw_parts(ptr.cast::<T>(), len, capacity)
+-            }),
+-            owned,
+-        }
+-    }
+-}
+-
+-impl<T> Default for ReusableVec<T> {
+-    fn default() -> Self {
+-        Self::new()
+-    }
++    /// Every live element must contain an initialized T.
++    pub(crate) unsafe fn assume_init(self) -> ReusableVec<T> { unsafe { self.cast() } }
+ }
+ 
++impl<T> Default for ReusableVec<T> { fn default() -> Self { Self::new() } }
+ impl<T> Deref for ReusableVec<T> {
+-    type Target = Vec<T>;
+-
+-    fn deref(&self) -> &Self::Target {
+-        &self.inner
+-    }
++    type Target=[T];
++    fn deref(&self)->&Self::Target { self.as_slice() }
+ }
+-
+ impl<T> DerefMut for ReusableVec<T> {
+-    fn deref_mut(&mut self) -> &mut Self::Target {
+-        &mut self.inner
+-    }
++    fn deref_mut(&mut self)->&mut Self::Target { self.as_mut_slice() }
+ }
+-
+-impl<T: Clone> Clone for ReusableVec<T> {
+-    fn clone(&self) -> Self {
+-        Self {
+-            inner: ManuallyDrop::new((**self).clone()),
+-            owned: true,
+-        }
++impl<T:Clone> Clone for ReusableVec<T> {
++    fn clone(&self)->Self {
++        // Borrowed copies need an explicit caller-backed destination; silently
++        // allocating an owned copy would break sensitive scratch containment.
++        assert!(self.is_owned(),"borrowed workspace cloning requires explicit storage");
++        Self::from_owned(self.as_slice().to_vec())
+     }
+ }
+ 
+@@ -505,17 +473,6 @@ where
+ 
+ impl<T: Eq> Eq for ReusableVec<T> {}
+ 
+-impl<T> Drop for ReusableVec<T> {
+-    fn drop(&mut self) {
+-        if self.owned {
+-            // SAFETY: only owned instances contain a globally allocated Vec.
+-            unsafe { ManuallyDrop::drop(&mut self.inner) };
+-        } else {
+-            self.inner.clear();
+-        }
+-    }
+-}
+-
+ impl<'a, T> IntoIterator for &'a ReusableVec<T> {
+     type Item = &'a T;
+     type IntoIter = slice::Iter<'a, T>;
+@@ -596,4 +553,105 @@ mod tests {
+         assert!(reusable.is_owned());
+         assert_eq!(reusable.into_owned_vec(), [2, 3, 5]);
+     }
++    #[test]
++    fn transferred_workspace_facade_preserves_borrowed_identity_on_early_return() {
++        fn visit(values: ReusableVec<u32>) -> Result<(), ()> {
++            let pointer = values.as_ptr();
++            let capacity = values.capacity();
++            let (facade, _normal_return_identity) = values.lease_vec();
++            assert!(!facade.is_owned());
++            assert_eq!(facade.as_ptr(), pointer);
++            assert_eq!(facade.capacity(), capacity);
++            assert_eq!(facade.as_slice(), &[11, 17]);
++            Err(())
++        }
++        let mut storage = [MaybeUninit::uninit(); 128];
++        {
++            let mut arena = Arena::new(&mut storage);
++            let mut values = arena.allocate_reusable_vec::<u32>(4).unwrap();
++            values.extend_from_slice(&[11, 17]);
++            assert_eq!(visit(values), Err(()));
++        }
++        // Caller storage remains available after the scoped visitor releases it.
++        let mut arena = Arena::new(&mut storage);
++        let mut values = arena.allocate_reusable_vec::<u32>(4).unwrap();
++        values.extend_from_slice(&[19, 23]);
++        assert_eq!(values.as_slice(), &[19, 23]);
++    }
++
++    #[test]
++    fn scalar_layout_transfer_preserves_storage_ownership_and_contents() {
++        let mut storage = [MaybeUninit::uninit(); 128];
++        let mut arena = Arena::new(&mut storage);
++        let mut values = arena.allocate_reusable_vec::<[u32; 4]>(2).unwrap();
++        values.push([1, 3, 5, 7]);
++        let pointer = values.as_ptr();
++        // SAFETY: identical scalar layout and drop behavior in both directions.
++        let moved = unsafe { values.cast::<[u32; 4]>() };
++        assert!(!moved.is_owned());
++        assert_eq!(moved.as_ptr(), pointer);
++        assert_eq!(moved.as_slice(), &[[1, 3, 5, 7]]);
++        let owned = ReusableVec::from_owned(alloc::vec![[2_u32, 4, 6, 8]]);
++        let pointer = owned.as_ptr();
++        // SAFETY: identical scalar layout and drop behavior.
++        let moved = unsafe { owned.cast::<[u32; 4]>() };
++        assert!(moved.is_owned());
++        assert_eq!(moved.as_ptr(), pointer);
++        assert_eq!(moved.into_owned_vec(), [[2, 4, 6, 8]]);
++    }
++
++}
++
++/// Fallible vector operations shared by owned and fixed-capacity storage.
++/// Mutating access remains a slice; no implementation exposes a borrowed Vec.
++#[doc(hidden)]
++pub trait Growable<T>: core::ops::DerefMut<Target = [T]> {
++    fn capacity(&self) -> usize;
++    fn reserve(&mut self, additional: usize) -> Result<(), CapacityError>;
++    fn reserve_exact(&mut self, additional: usize) -> Result<(), CapacityError>;
++    fn push(&mut self, value: T) -> Result<(), CapacityError>;
++    fn pop(&mut self) -> Option<T>;
++    fn truncate(&mut self, length: usize);
++    fn clear(&mut self) { self.truncate(0); }
++    fn resize(&mut self, length: usize, value: T) -> Result<(), CapacityError> where T: Clone;
++    fn resize_with(&mut self, length: usize, create: impl FnMut() -> T) -> Result<(), CapacityError>;
++    fn extend_from_slice(&mut self, values: &[T]) -> Result<(), CapacityError> where T: Clone;
++}
++
++impl<T> Growable<T> for Vec<T> {
++    fn capacity(&self)->usize { Vec::capacity(self) }
++    fn reserve(&mut self,n:usize)->Result<(),CapacityError> {
++        self.len().checked_add(n).ok_or(CapacityError::Overflow)?;
++        self.try_reserve(n).map_err(|_|CapacityError::AllocationFailed)
++    }
++    fn reserve_exact(&mut self,n:usize)->Result<(),CapacityError> {
++        self.len().checked_add(n).ok_or(CapacityError::Overflow)?;
++        self.try_reserve_exact(n).map_err(|_|CapacityError::AllocationFailed)
++    }
++    fn push(&mut self,v:T)->Result<(),CapacityError> {
++        Growable::reserve(self,1)?; Vec::push(self,v); Ok(())
++    }
++    fn pop(&mut self)->Option<T> { Vec::pop(self) }
++    fn truncate(&mut self,n:usize) { Vec::truncate(self,n); }
++    fn resize(&mut self,n:usize,v:T)->Result<(),CapacityError> where T:Clone {
++        Growable::reserve(self,n.saturating_sub(self.len()))?; Vec::resize(self,n,v); Ok(())
++    }
++    fn resize_with(&mut self,n:usize,f:impl FnMut()->T)->Result<(),CapacityError> {
++        Growable::reserve(self,n.saturating_sub(self.len()))?; Vec::resize_with(self,n,f); Ok(())
++    }
++    fn extend_from_slice(&mut self,v:&[T])->Result<(),CapacityError> where T:Clone {
++        Growable::reserve(self,v.len())?; Vec::extend_from_slice(self,v); Ok(())
++    }
++}
++
++impl<T> Growable<T> for ReusableVec<T> {
++    fn capacity(&self)->usize { ReusableVec::capacity(self) }
++    fn reserve(&mut self,n:usize)->Result<(),CapacityError> { ReusableVec::reserve(self,n) }
++    fn reserve_exact(&mut self,n:usize)->Result<(),CapacityError> { ReusableVec::reserve_exact(self,n) }
++    fn push(&mut self,v:T)->Result<(),CapacityError> { ReusableVec::push(self,v) }
++    fn pop(&mut self)->Option<T> { ReusableVec::pop(self) }
++    fn truncate(&mut self,n:usize) { ReusableVec::truncate(self,n); }
++    fn resize(&mut self,n:usize,v:T)->Result<(),CapacityError> where T:Clone { ReusableVec::resize(self,n,v) }
++    fn resize_with(&mut self,n:usize,f:impl FnMut()->T)->Result<(),CapacityError> { ReusableVec::resize_with(self,n,f) }
++    fn extend_from_slice(&mut self,v:&[T])->Result<(),CapacityError> where T:Clone { ReusableVec::extend_from_slice(self,v) }
+ }
+diff --git a/rust/vendor/zstd-complete/tests/workspaces.rs b/rust/vendor/zstd-complete/tests/workspaces.rs
+index 9b29867d..b8f9af75 100644
+--- a/rust/vendor/zstd-complete/tests/workspaces.rs
++++ b/rust/vendor/zstd-complete/tests/workspaces.rs
+@@ -775,3 +775,28 @@ fn huffman_literal_overproduction_returns_error_without_static_growth() {
+         .chain(&storage[required + 16..])
+         .all(|byte| *byte == 0x6d));
+ }
++
++#[test]
++fn bounded_sensitive_workspace_construction_and_encoding_stay_in_caller_storage() {
++    for size in [0usize, 1, 1024, 65_536, 131_073, 2 * 1024 * 1024] {
++        let input = alternate_input(size, 0x59e3_29a1);
++        for numeric in 1..=22 {
++            let level = CompressionLevel::new(numeric).unwrap();
++            let required = EncoderWorkspace::required_size(level, size).unwrap();
++            let output_size = EncoderWorkspace::required_output_size(size).unwrap();
++            if required.checked_add(output_size).unwrap() > 64 * 1024 * 1024 {
++                continue; // The application deliberately uses a raw frame here.
++            }
++            let mut scratch = vec![0; required];
++            let mut output = vec![0; output_size];
++            let mut written = 0;
++            let allocations = allocation_count(|| {
++                let mut workspace = StaticEncoderWorkspace::new(&mut scratch, level, size).unwrap();
++                written = workspace.encode_into(&input, &mut output).unwrap().len();
++                drop(workspace);
++            });
++            assert_eq!(allocations, 0, "size={size} level={numeric} allocations={:?}", recorded_allocation_sizes());
++            assert_eq!(zstd::bulk::decompress(&output[..written], size).unwrap(), input);
++        }
++    }
++}

@@ -1,0 +1,5 @@
+Analyzing public-add.dart...
+
+warning - public-add.dart:5:8 - Unused import: 'package:dcli/dcli.dart'. Try removing the import directive. - unused_import
+
+1 issue found.

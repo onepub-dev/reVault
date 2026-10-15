@@ -1,0 +1,16 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/page.rs b/rust/revault_lockbox_api/src/file_format/page.rs
+index 3a8e6dda..605ee383 100644
+--- a/rust/revault_lockbox_api/src/file_format/page.rs
++++ b/rust/revault_lockbox_api/src/file_format/page.rs
+@@ -1361,9 +1361,9 @@ fn page_object_kind_name(kind: PageObjectKind) -> &'static str {
+ 
+ fn encode_page_body_plaintext(object_stream: &[u8], compress: bool) -> Vec<u8> {
+     let stored = if compress {
+-        encode_page_body(object_stream)
++        Cow::Owned(encode_page_body(object_stream))
+     } else {
+-        object_stream.to_vec()
++        Cow::Borrowed(object_stream)
+     };
+     let mut body = Vec::with_capacity(16 + stored.len());
+     body.push(PAGE_BODY_VERSION);

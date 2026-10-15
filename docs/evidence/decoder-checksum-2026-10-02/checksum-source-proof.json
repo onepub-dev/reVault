@@ -1,0 +1,493 @@
+{
+  "baseline_archive": "final-pinned88-transition-source.tar",
+  "core_file_format_files": [
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/allocation_map/compaction.rs",
+      "before_sha256": "d5120e93e7c1237c068e9428c661c421c0112d28e28a9a79a92a04a76b157708",
+      "current_sha256": "d5120e93e7c1237c068e9428c661c421c0112d28e28a9a79a92a04a76b157708",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/allocation_map.rs",
+      "before_sha256": "9a3f173d50b36979e84a665a7ddcabccb60bece9b83d3af1092a2f960cd2c930",
+      "current_sha256": "9a3f173d50b36979e84a665a7ddcabccb60bece9b83d3af1092a2f960cd2c930",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/allocation_map_tests.rs",
+      "before_sha256": "147203a24ce74298f4d2cced120078b322d80ba2f6fb30b85ef3443a66284506",
+      "current_sha256": "147203a24ce74298f4d2cced120078b322d80ba2f6fb30b85ef3443a66284506",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/authenticated_index.rs",
+      "before_sha256": "0d2f3dfa60e4ebc7b596fa55253f96a88b70f2e5c9fe9bdecacdbe5f7d7dc21a",
+      "current_sha256": "0d2f3dfa60e4ebc7b596fa55253f96a88b70f2e5c9fe9bdecacdbe5f7d7dc21a",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/authenticated_index_tests.rs",
+      "before_sha256": "d1398df729f052891ae15c595a026538f9f4a0b24d33f2968bf72d5f89578bec",
+      "current_sha256": "d1398df729f052891ae15c595a026538f9f4a0b24d33f2968bf72d5f89578bec",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/block_page.rs",
+      "before_sha256": "c2b923da9ee48f38691e375f8596970126f9d0c1dd26110267330587286c8329",
+      "current_sha256": "c2b923da9ee48f38691e375f8596970126f9d0c1dd26110267330587286c8329",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/compaction.rs",
+      "before_sha256": "ca6dcb504afd4337d6d9768d59b03d41e08ca802f1e0fc7d759d08744ab69950",
+      "current_sha256": "ca6dcb504afd4337d6d9768d59b03d41e08ca802f1e0fc7d759d08744ab69950",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/cost_model.rs",
+      "before_sha256": "ea825c7da01c6bc77b6b3c85109d1a9dfe6f7e30441514018d6c7fbf90a2d144",
+      "current_sha256": "ea825c7da01c6bc77b6b3c85109d1a9dfe6f7e30441514018d6c7fbf90a2d144",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/nodes.rs",
+      "before_sha256": "c3a88d6bd2a287bf3abf963f383b554883ff9ca135dd1bffa110cba691852bff",
+      "current_sha256": "c3a88d6bd2a287bf3abf963f383b554883ff9ca135dd1bffa110cba691852bff",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs",
+      "before_sha256": "62ad4005ce903f2e24bf90980aca28ab38d0fbe5ff96a8f09f7650771b0981d2",
+      "current_sha256": "62ad4005ce903f2e24bf90980aca28ab38d0fbe5ff96a8f09f7650771b0981d2",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs",
+      "before_sha256": "3c377354cfa52f1147e8577500d9a69c6ac86520e7be045e7b4104355d68cd7a",
+      "current_sha256": "3c377354cfa52f1147e8577500d9a69c6ac86520e7be045e7b4104355d68cd7a",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/dense_image.rs",
+      "before_sha256": "0ac57b96ed0b6cb1fa8f82d8d6f486e7be79f01de3bc49ca9ba3bddfbe4bb05f",
+      "current_sha256": "0ac57b96ed0b6cb1fa8f82d8d6f486e7be79f01de3bc49ca9ba3bddfbe4bb05f",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/dense_update.rs",
+      "before_sha256": "84f0b1f3bc0980bf3158189cff0335db8787fecd4ed07fcf9b40cc98dcdd1f28",
+      "current_sha256": "84f0b1f3bc0980bf3158189cff0335db8787fecd4ed07fcf9b40cc98dcdd1f28",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/mutation.rs",
+      "before_sha256": "f6313575a89f634800cd3cceaafb9d088b94806f6ed36eabc063fba65dba91cf",
+      "current_sha256": "f6313575a89f634800cd3cceaafb9d088b94806f6ed36eabc063fba65dba91cf",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/packing.rs",
+      "before_sha256": "a94836d7f7c83af7455e7158d230906551f96d31a9c36e371468cf1478b1e3a8",
+      "current_sha256": "a94836d7f7c83af7455e7158d230906551f96d31a9c36e371468cf1478b1e3a8",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/paged_cost.rs",
+      "before_sha256": "a55214d2d93db8f70a2be27ebc2a70c1bf121ee321f623c84dd9b30b2d0d093f",
+      "current_sha256": "a55214d2d93db8f70a2be27ebc2a70c1bf121ee321f623c84dd9b30b2d0d093f",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/recovery.rs",
+      "before_sha256": "e6e818d7a9f533755be7e0afed7ccabbfd8bc9b1a16a8aa795dbb1c940a94e4c",
+      "current_sha256": "e6e818d7a9f533755be7e0afed7ccabbfd8bc9b1a16a8aa795dbb1c940a94e4c",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs",
+      "before_sha256": "ea0f2365adef96636a4ec4656e7ba5854c20a387ecdef30c0d77f894339cffc3",
+      "current_sha256": "ea0f2365adef96636a4ec4656e7ba5854c20a387ecdef30c0d77f894339cffc3",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe.rs",
+      "before_sha256": "2d860194f477648b46e19e5cca9aaa8cb75e2357cead1e4e9e30b240af5bed84",
+      "current_sha256": "2d860194f477648b46e19e5cca9aaa8cb75e2357cead1e4e9e30b240af5bed84",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/tests/aging.rs",
+      "before_sha256": "0a97fb9981cbca3ec294a2bd1143f04f1b0bb2f7f52ab9ff674a2a71af9cd9c6",
+      "current_sha256": "0a97fb9981cbca3ec294a2bd1143f04f1b0bb2f7f52ab9ff674a2a71af9cd9c6",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/tests/compaction_tests.rs",
+      "before_sha256": "fe1446110acfa01e0af6a7139eed9c3eaf19a5671e7a42bb00ada0e0a7b4a2e5",
+      "current_sha256": "fe1446110acfa01e0af6a7139eed9c3eaf19a5671e7a42bb00ada0e0a7b4a2e5",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/mutation/dense.rs",
+      "before_sha256": "735a87a85774c8f8bf308633ecf0f50efad3989b54728544cd82ced3a0227f04",
+      "current_sha256": "735a87a85774c8f8bf308633ecf0f50efad3989b54728544cd82ced3a0227f04",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/mutation.rs",
+      "before_sha256": "92950b748ccb82cc43d27530b7effc056f3ea28b3600ffc72f8fae3e0d6f6ce3",
+      "current_sha256": "92950b748ccb82cc43d27530b7effc056f3ea28b3600ffc72f8fae3e0d6f6ce3",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/open_reads.rs",
+      "before_sha256": "2ef6cb704b2c7076225b5fd6481aff4eca8b1a99a00c16332665444134aa79fd",
+      "current_sha256": "2ef6cb704b2c7076225b5fd6481aff4eca8b1a99a00c16332665444134aa79fd",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests.rs",
+      "before_sha256": "c80666e23295278c8afe0a6cca454b524f79f0bcca2d3c8e94e7560c35daa967",
+      "current_sha256": "c80666e23295278c8afe0a6cca454b524f79f0bcca2d3c8e94e7560c35daa967",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/tests.rs",
+      "before_sha256": "6cfd5c179f4c6f4867c2995bd3ba0a4b9221898e12984c2402417fbbd9ce21ee",
+      "current_sha256": "6cfd5c179f4c6f4867c2995bd3ba0a4b9221898e12984c2402417fbbd9ce21ee",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/mutation.rs",
+      "before_sha256": "c36709f39154c773db6ec02955f4d1328c56f849aacdfe51b3aa03ae8d97b77f",
+      "current_sha256": "c36709f39154c773db6ec02955f4d1328c56f849aacdfe51b3aa03ae8d97b77f",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs",
+      "before_sha256": "a3994bd40dd392a68969fc00bf002493fa8bb26f79aecef3c61364647ba1096a",
+      "current_sha256": "a3994bd40dd392a68969fc00bf002493fa8bb26f79aecef3c61364647ba1096a",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files.rs",
+      "before_sha256": "759c75ddc7ab6304c5e4016868136952883da9291fab1410d00d4d3636ea4b08",
+      "current_sha256": "759c75ddc7ab6304c5e4016868136952883da9291fab1410d00d4d3636ea4b08",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/commit_auth.rs",
+      "before_sha256": "8b6ab23f7c0e3f53146e9b0682119c74828001a711ff0747d147c1c67dcd84b6",
+      "current_sha256": "8b6ab23f7c0e3f53146e9b0682119c74828001a711ff0747d147c1c67dcd84b6",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/commit_root.rs",
+      "before_sha256": "c756996c35055db19744421aeb7c1066dd780a3ddbe28aac54ba457690685d73",
+      "current_sha256": "c756996c35055db19744421aeb7c1066dd780a3ddbe28aac54ba457690685d73",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/current_header.rs",
+      "before_sha256": "dc73f5a3ccf9b2b21b712de1c5edaafe61fa36b4f68343d70da49c7934f201bc",
+      "current_sha256": "dc73f5a3ccf9b2b21b712de1c5edaafe61fa36b4f68343d70da49c7934f201bc",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/data_extent/tests.rs",
+      "before_sha256": "3615bfc0f8936d37cdd939f240b1a1a9eb1420d3cb9786f06ff57f8ffb2876e5",
+      "current_sha256": "3615bfc0f8936d37cdd939f240b1a1a9eb1420d3cb9786f06ff57f8ffb2876e5",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/data_extent.rs",
+      "before_sha256": "62e7c6190d5f7a50a35e0679818b312710b162151fa96b76fb52513e26a3fb74",
+      "current_sha256": "62e7c6190d5f7a50a35e0679818b312710b162151fa96b76fb52513e26a3fb74",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/header_v2.rs",
+      "before_sha256": "cd49964203c2b32842eb9595e32a9b927d19c4081f3f04b8138f95bb4ca5e6c3",
+      "current_sha256": "cd49964203c2b32842eb9595e32a9b927d19c4081f3f04b8138f95bb4ca5e6c3",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/indexed_frame.rs",
+      "before_sha256": "1320222ba6eaeb187ad50821a87f5255acdf241214f8d36be92f43ffe39abc54",
+      "current_sha256": "1320222ba6eaeb187ad50821a87f5255acdf241214f8d36be92f43ffe39abc54",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/key_directory.rs",
+      "before_sha256": "aafebd154a048a72013d752db14f2f5c8a276fcae03e67c99cc0212bb2ced9f2",
+      "current_sha256": "aafebd154a048a72013d752db14f2f5c8a276fcae03e67c99cc0212bb2ced9f2",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/mod.rs",
+      "before_sha256": "be364c7a6f3542e72afbaa4bca53d00beb553b579529ff12c62058df3fb86a56",
+      "current_sha256": "be364c7a6f3542e72afbaa4bca53d00beb553b579529ff12c62058df3fb86a56",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/page.rs",
+      "before_sha256": "ad38adf3e7762ebc8959252ddb869faea239aea12aea97767f7f3b0dd7489e85",
+      "current_sha256": "ad38adf3e7762ebc8959252ddb869faea239aea12aea97767f7f3b0dd7489e85",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/page_buffer.rs",
+      "before_sha256": "1b1466ba4a84fcb78a33bdab2eb1ed8d57cbd973719a92b29244670702d13b16",
+      "current_sha256": "1b1466ba4a84fcb78a33bdab2eb1ed8d57cbd973719a92b29244670702d13b16",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/page_inspection.rs",
+      "before_sha256": "a336b1e8e85e153c418409a58eac50ec9a71ac922775a584eb6c406190f4854b",
+      "current_sha256": "a336b1e8e85e153c418409a58eac50ec9a71ac922775a584eb6c406190f4854b",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/page_scanner.rs",
+      "before_sha256": "3f7b95747e23a9bbc863b5fc29f540641a9daa9660c571c250c948a6f9a1c412",
+      "current_sha256": "3f7b95747e23a9bbc863b5fc29f540641a9daa9660c571c250c948a6f9a1c412",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/payload.rs",
+      "before_sha256": "66c946004d66cddf1aded04038968ced26871f2c3ae7b4b2336ff246b5502ab9",
+      "current_sha256": "66c946004d66cddf1aded04038968ced26871f2c3ae7b4b2336ff246b5502ab9",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/preparation_journal/compact/session.rs",
+      "before_sha256": "9e4842ab4f9aa9e23585fa027c50a72e397d415b5d97b54ea83ae11256892392",
+      "current_sha256": "9e4842ab4f9aa9e23585fa027c50a72e397d415b5d97b54ea83ae11256892392",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/preparation_journal/compact/tests.rs",
+      "before_sha256": "141598b5df5df8d61b1fd54da24827274bf33a46d9fc9f7266f290d0b5def699",
+      "current_sha256": "141598b5df5df8d61b1fd54da24827274bf33a46d9fc9f7266f290d0b5def699",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/preparation_journal/compact.rs",
+      "before_sha256": "c8dcf1c3cd204233f32c793b94fbe545d9c005d22d4f9cc7b8a8954b59288dc2",
+      "current_sha256": "c8dcf1c3cd204233f32c793b94fbe545d9c005d22d4f9cc7b8a8954b59288dc2",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/preparation_journal.rs",
+      "before_sha256": "29e9a0df2776713467cb3159de7ab0407a342de2cda2b02b1e19f469fb617aa5",
+      "current_sha256": "29e9a0df2776713467cb3159de7ab0407a342de2cda2b02b1e19f469fb617aa5",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/preparation_journal_tests.rs",
+      "before_sha256": "f2bd8d50746b385ed8433f8d1a6483799f57d201c9e284626a90cfd1d7745dec",
+      "current_sha256": "f2bd8d50746b385ed8433f8d1a6483799f57d201c9e284626a90cfd1d7745dec",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/bootstrap/tests.rs",
+      "before_sha256": "f3d612ef40f4166b82689f8a3e70451b389ace2411a4b12c91b779ba0d94d823",
+      "current_sha256": "f3d612ef40f4166b82689f8a3e70451b389ace2411a4b12c91b779ba0d94d823",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/bootstrap.rs",
+      "before_sha256": "09f0b30bc08631eb51e07384c58b712c6187c99309450740cfecdfc738135f02",
+      "current_sha256": "09f0b30bc08631eb51e07384c58b712c6187c99309450740cfecdfc738135f02",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/shared/catalogue.rs",
+      "before_sha256": "d9eed49285c2cd9e8c3e8affdfffc4ad2650ab9abfc11a155177a2fce9f9e751",
+      "current_sha256": "d9eed49285c2cd9e8c3e8affdfffc4ad2650ab9abfc11a155177a2fce9f9e751",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership/tests.rs",
+      "before_sha256": "84d599321f76b4a51590734f60100bdeb22cd0ba8e2252f4429c30e019b61d41",
+      "current_sha256": "84d599321f76b4a51590734f60100bdeb22cd0ba8e2252f4429c30e019b61d41",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs",
+      "before_sha256": "786e9e19619efa832b1cc15595347c50c6036f5b0f864c3854c833d571fb50cf",
+      "current_sha256": "786e9e19619efa832b1cc15595347c50c6036f5b0f864c3854c833d571fb50cf",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tests.rs",
+      "before_sha256": "11a06f347adedbb6a6049d11a61a5715b031af462275c9003fe6809251592d9e",
+      "current_sha256": "11a06f347adedbb6a6049d11a61a5715b031af462275c9003fe6809251592d9e",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/abort.rs",
+      "before_sha256": "6591224a26369b9eec4b9219e1b0f565e23f557cc6727e6a01602b13d8c8b668",
+      "current_sha256": "6591224a26369b9eec4b9219e1b0f565e23f557cc6727e6a01602b13d8c8b668",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/commit.rs",
+      "before_sha256": "65f95f3e0e54a9fb9ed3038559c128d626fbe0db1d10468f5a9dafa1f48eebcc",
+      "current_sha256": "65f95f3e0e54a9fb9ed3038559c128d626fbe0db1d10468f5a9dafa1f48eebcc",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/tests/abort/commit.rs",
+      "before_sha256": "e99172d1825b43d974d097c64cd37dab0e784afa3265631dc4205f5f9b729370",
+      "current_sha256": "e99172d1825b43d974d097c64cd37dab0e784afa3265631dc4205f5f9b729370",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/tests/abort/update.rs",
+      "before_sha256": "ba9cf68c053dd04f8becc0c4ebc41e6add1a7dbd592da784ebffd88254d248e0",
+      "current_sha256": "ba9cf68c053dd04f8becc0c4ebc41e6add1a7dbd592da784ebffd88254d248e0",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/tests/abort.rs",
+      "before_sha256": "b4e7a935882a3422eb46e248fb6f550831956b9cde3f601560e2f7883480e5d5",
+      "current_sha256": "b4e7a935882a3422eb46e248fb6f550831956b9cde3f601560e2f7883480e5d5",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/tests.rs",
+      "before_sha256": "842fa2ad41ebc5aacb371a1beb938ccc10805b9c015e2ed5bacc4688a4528fe4",
+      "current_sha256": "842fa2ad41ebc5aacb371a1beb938ccc10805b9c015e2ed5bacc4688a4528fe4",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update.rs",
+      "before_sha256": "284a2b4df942b8949629e99c85f65fb2e3144e7f2a17524fa407f4a1a9305926",
+      "current_sha256": "284a2b4df942b8949629e99c85f65fb2e3144e7f2a17524fa407f4a1a9305926",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs",
+      "before_sha256": "a272c83d56b9f9c6b750b3dbdb179782c1a45882af6ffb1997b4bd107f0bec2c",
+      "current_sha256": "a272c83d56b9f9c6b750b3dbdb179782c1a45882af6ffb1997b4bd107f0bec2c",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/shared.rs",
+      "before_sha256": "cbc67523810c98385f54aa531572c9d191c5f4e9a8539de375bae703f3853fb7",
+      "current_sha256": "cbc67523810c98385f54aa531572c9d191c5f4e9a8539de375bae703f3853fb7",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor.rs",
+      "before_sha256": "27a5843a04c04393f1bf319b1f46a8124c2ae90aefcac0b32f450314dde544a6",
+      "current_sha256": "27a5843a04c04393f1bf319b1f46a8124c2ae90aefcac0b32f450314dde544a6",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor_tests.rs",
+      "before_sha256": "cc09d9331f5d88f0263acf677feb92056aafe1e46a62c7b7e2e8b64e8512d052",
+      "current_sha256": "cc09d9331f5d88f0263acf677feb92056aafe1e46a62c7b7e2e8b64e8512d052",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/recovery_commitment.rs",
+      "before_sha256": "3f8785765bebe8e902ddbfcbd594ce1f6f13cee855ba392086c4302259055ef3",
+      "current_sha256": "3f8785765bebe8e902ddbfcbd594ce1f6f13cee855ba392086c4302259055ef3",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/redaction_manifest.rs",
+      "before_sha256": "fc4598d5091111aeed2013d697843600cda58c74cb0c995fa487be9b06f3684e",
+      "current_sha256": "fc4598d5091111aeed2013d697843600cda58c74cb0c995fa487be9b06f3684e",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/shared_control_model.rs",
+      "before_sha256": "c85c7cdf4a61cf681f296a68f635a2fad7eb0ce6db1575b2b6ff934ca3ed98ed",
+      "current_sha256": "c85c7cdf4a61cf681f296a68f635a2fad7eb0ce6db1575b2b6ff934ca3ed98ed",
+      "matches": true
+    }
+  ],
+  "core_file_format_all_match": true,
+  "unchanged_harness": [
+    {
+      "path": "rust/revault_lockbox_api/benches/evaluation/candidate_driver.rs",
+      "baseline_sha256": "7bdcd496f8688504dadcda5a6a9395ff5ad6574bf25e1935e9d9fa998a0ac5a7",
+      "current_sha256": "7bdcd496f8688504dadcda5a6a9395ff5ad6574bf25e1935e9d9fa998a0ac5a7",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe.rs",
+      "baseline_sha256": "2d860194f477648b46e19e5cca9aaa8cb75e2357cead1e4e9e30b240af5bed84",
+      "current_sha256": "2d860194f477648b46e19e5cca9aaa8cb75e2357cead1e4e9e30b240af5bed84",
+      "matches": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs",
+      "baseline_sha256": "ea0f2365adef96636a4ec4656e7ba5854c20a387ecdef30c0d77f894339cffc3",
+      "current_sha256": "ea0f2365adef96636a4ec4656e7ba5854c20a387ecdef30c0d77f894339cffc3",
+      "matches": true
+    }
+  ],
+  "changed_source_files": [
+    {
+      "path": "rust/vendor/zstd-complete/src/decoding/frame_decoder.rs",
+      "baseline_sha256": "e2c689b9dfd3a87a7ac6413c9b4d9fd2f498ee0c7e2c0ad05fd44b53c8451d31",
+      "current_sha256": "b6066d490aa739c28db741a545cbb57c667ef34c06c76d5d33928acce153ed5a",
+      "changed": true
+    },
+    {
+      "path": "rust/vendor/zstd-complete/src/decoding/errors.rs",
+      "baseline_sha256": "cc343b8bb8aa0a3f261f9e4e4be61b38c5d8a64611d8f44d6805756c5930ec6d",
+      "current_sha256": "61216c7cc408d616240be0307caeb4de29d9309a0348431da2414a7f5d09e660",
+      "changed": true
+    },
+    {
+      "path": "rust/vendor/zstd-complete/tests/workspaces.rs",
+      "baseline_sha256": "5f29aa51fe03ec4144298f9bf84a4b7a97c4f3a694c630a9a1c3341122faf409",
+      "current_sha256": "c53236613430a69c14dd129c7fd053ce7debc4687b0831f9996c17504ab46943",
+      "changed": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/compression.rs",
+      "baseline_sha256": "eeddfe101bec7d536939c36b4adb493bcfa48cb33247405e6831dd96d4311e48",
+      "current_sha256": "f72e8ab94d5f2b0cb6b120a42ff6425fa2f76a7d9cf080583df0264708215df8",
+      "changed": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/compression/decode_workspace.rs",
+      "baseline_sha256": "a8f4bd1123f78042d423c051fff2cb811d8b9d2deb2ec3757855d4a1847326a6",
+      "current_sha256": "41ac3b0b265090a88611ae482236cdb72a78e5e77830c27d1d610b96a94eeaa8",
+      "changed": true
+    }
+  ],
+  "lockfiles_toolchain": [
+    {
+      "path": "rust/Cargo.lock",
+      "baseline_sha256": "05c39385e697a0775480fc010e1ba050a93395118753c1bcaed2392701540380",
+      "current_sha256": "05c39385e697a0775480fc010e1ba050a93395118753c1bcaed2392701540380",
+      "matches": true
+    },
+    {
+      "path": "rust/vendor/zstd-complete/Cargo.lock",
+      "baseline_sha256": "391649361a375354853a817c648f92e6f7c087cd58f0a5eb7ce9af7b62224375",
+      "current_sha256": "391649361a375354853a817c648f92e6f7c087cd58f0a5eb7ce9af7b62224375",
+      "matches": true
+    },
+    {
+      "path": "rust-toolchain.toml",
+      "baseline_sha256": "c4a68189605799334589c648f0c0fcb1c89ceac990a8ccfe314ea668982a0b83",
+      "current_sha256": "c4a68189605799334589c648f0c0fcb1c89ceac990a8ccfe314ea668982a0b83",
+      "matches": true
+    }
+  ],
+  "lockfiles_toolchain_all_match": true,
+  "binaries": {
+    "tree-resource-transition88": "c62e7e8fe82fb846c27e7a9cc2aac9d33533a496b05ca39e52e72c9921d77af7",
+    "tree-driver-transition88": "f1a629e2c587eeda865f746a8a2f15c595d2c8af9abf68168aeeb220d5442f59",
+    "tree-resource-checksum88": "97a00b9b16077beb4d9752c5777264c3dea6b7f6a39b3c37e87428b4c6610a50",
+    "tree-driver-checksum88": "8ddff225db21c74fdb2e9bbdca1b7700636aedf9077a6930b6225d43049a6809"
+  }
+}

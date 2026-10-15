@@ -1,0 +1,7 @@
+Parent froze the shared release test executable after the f57a12ca post-format validation and before any raw-buffer rebuild.
+Control: /tmp/revault-raw-buffer-20261010/bin/before
+SHA256: 3b1caba961df69bf5e0a0601e81ae8c41be581f43bbcc26fcca99d75bd1772aa
+Candidate: /tmp/revault-raw-buffer-20261010/bin/after
+SHA256: 389c4d29f7ba62ecfd0fa1be6302d5f13b66602a3b807c250b0189c7d70737de
+Parent independently checked baseline, candidate, adapter and runner hashes before timing approval; rg on adapter bytes verified the embedded before/after paths. cmp verified all three source snapshots match the measured worktree. Exact source patch SHA256 d18d26ebd03d8c18275972f3b161b3ca0a8d4738b217e761d7895f5c5fcebe17.
+No archive hash-algorithm, worker-count or integrity-policy change. Raw-buffer source includes the reserve_exact bound fix; preliminary compile failures are preserved separately.

@@ -1,0 +1,32 @@
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... CANDIDATE_SAMPLE {"archive_bytes":1083703296,"archive_sha256":"04c7af72eebefd1b97e5ec16b196c7f303f6cd2512c7073d257c2bae22ad5255","kind":"typed_tree_fixture","layout":"shared-control-typed-tree","scope":"fresh direct typed export; construction is not a write-performance sample","verified":true}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 674 filtered out; finished in 11.95s
+
+
+--- STDERR ---
+	Command being timed: "timeout 900 /tmp/revault-scale-20261010/evidence/bin/revault_lockbox_api_tests --exact file_format::candidate_files::resource_probe::candidate_file_resource_probe --ignored --nocapture"
+	User time (seconds): 7.71
+	System time (seconds): 4.08
+	Percent of CPU this job got: 98%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:11.95
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 25076
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 5651
+	Voluntary context switches: 5208
+	Involuntary context switches: 198
+	Swaps: 0
+	File system inputs: 1628136
+	File system outputs: 4250664
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -1,0 +1,11 @@
+Generate or inspect language bindings
+
+Usage: revault-tool bindings <COMMAND>
+
+Commands:
+  status    Show generation currency, API coverage, release and publication status
+  generate  Update stale generated binding models; leave current files untouched
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help

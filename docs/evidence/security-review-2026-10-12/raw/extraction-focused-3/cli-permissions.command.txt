@@ -1,0 +1,1 @@
+/usr/bin/timeout --kill-after=30s 900s cargo +1.88.0 test --locked --offline --release -p revault_cli --test mirror_cli extraction_restores_stored_permissions_by_default_with_opt_out -- --test-threads=1

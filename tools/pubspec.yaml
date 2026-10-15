@@ -1,0 +1,6 @@
+name: revault_unicode_shell_tools
+publish_to: none
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+dependencies:
+  dcli: 10.3.0

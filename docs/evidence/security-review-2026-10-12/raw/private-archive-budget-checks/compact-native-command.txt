@@ -1,0 +1,1 @@
+cargo +1.88.0 test --locked --offline --release -p revault_lockbox_api --lib --features native-block-layout path_backed_compact_logically_rewrites_live_state -- --test-threads=1

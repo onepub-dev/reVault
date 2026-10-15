@@ -37,6 +37,7 @@
 
 ## Maintain and recover
 
+* [Archive format and limits](maintain-and-recover/archive-limits.md)
 * [Recover a damaged Lockbox](maintain-and-recover/recovery.md)
 * [Migrating between versions](maintain-and-recover/migrating-between-versions.md)
 * [Diagnostics](maintain-and-recover/diagnostics.md)

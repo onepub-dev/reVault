@@ -1,0 +1,125 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/page.rs b/rust/revault_lockbox_api/src/file_format/page.rs
+index 3a8e6dda..a2c49164 100644
+--- a/rust/revault_lockbox_api/src/file_format/page.rs
++++ b/rust/revault_lockbox_api/src/file_format/page.rs
+@@ -597,7 +597,6 @@ pub(crate) fn encode_page_with_format(
+     if page_size < PAGE_HEADER_LEN {
+         return Err(Error::CorruptRecord);
+     }
+-    let mut body = encode_objects_body(objects, mode)?;
+     let clear_text = mode.plaintext() || page_objects_are_clear_text(objects)?;
+     let flags = if clear_text { PAGE_FLAG_CLEAR_TEXT } else { 0 }
+         | if mode.unpadded() {
+@@ -605,6 +604,13 @@ pub(crate) fn encode_page_with_format(
+         } else {
+             0
+         };
++    if clear_text
++        && (!objects_allow_body_compression(objects, mode)
++            || (mode.0 != 0 && mode.options().compression == crate::Compression::None))
++    {
++        return encode_clear_raw_page(page_size, page_id, sequence, flags, objects);
++    }
++    let mut body = encode_objects_body(objects, mode)?;
+     let (nonce, mut stored_body) = if clear_text {
+         let mut stored = Vec::with_capacity(32 + body.len());
+         stored.extend_from_slice(&strong_checksum(&body));
+@@ -640,20 +646,72 @@ pub(crate) fn encode_page_with_format(
+     }
+ 
+     let mut page = vec![0; page_size];
++    write_page_header(&mut page, page_id, sequence, flags, &nonce, stored_body_len);
++    page[PAGE_HEADER_LEN..PAGE_HEADER_LEN + stored_body.len()].copy_from_slice(&stored_body);
++    stored_body.zeroize();
++    Ok(page)
++}
++
++fn write_page_header(
++    page: &mut [u8],
++    page_id: u64,
++    sequence: u64,
++    flags: u16,
++    nonce: &[u8; 12],
++    stored_body_len: u32,
++) {
+     page[0..8].copy_from_slice(PAGE_MAGIC);
+     page[8..10].copy_from_slice(&PAGE_VERSION.to_le_bytes());
+     page[10..12].copy_from_slice(&flags.to_le_bytes());
+     page[12..16].copy_from_slice(&(PAGE_HEADER_LEN as u32).to_le_bytes());
+     page[16..24].copy_from_slice(&page_id.to_le_bytes());
+     page[24..32].copy_from_slice(&sequence.to_le_bytes());
+-    page[32..44].copy_from_slice(&nonce);
++    page[32..44].copy_from_slice(nonce);
+     page[44..48].copy_from_slice(&stored_body_len.to_le_bytes());
+-    page[48..56].copy_from_slice(&(page_size as u64).to_le_bytes());
++    let physical_len = page.len() as u64;
++    page[48..56].copy_from_slice(&physical_len.to_le_bytes());
+     let header_digest = strong_checksum(&page[0..PAGE_CHECKSUM_START]);
+     page[PAGE_CHECKSUM_START..PAGE_HEADER_LEN].copy_from_slice(&header_digest);
+-    page[PAGE_HEADER_LEN..PAGE_HEADER_LEN + stored_body.len()].copy_from_slice(&stored_body);
+-    stored_body.zeroize();
+-    Ok(page)
++}
++
++fn encode_clear_raw_page(
++    page_size: usize,
++    page_id: u64,
++    sequence: u64,
++    flags: u16,
++    objects: &[PageObject],
++) -> Result<Vec<u8>> {
++    let stream_len = encoded_object_stream_len(objects)?;
++    let stored_len = stream_len.checked_add(32 + 16).ok_or_else(|| {
++        Error::SecurityLimitExceeded("page body is too large".to_string())
++    })?;
++    let stored_body_len = u32::try_from(stored_len)
++        .map_err(|_| Error::SecurityLimitExceeded("page body is too large".to_string()))?;
++    let used = PAGE_HEADER_LEN.checked_add(stored_len).ok_or_else(|| {
++        Error::SecurityLimitExceeded("page body exceeds physical page size".to_string())
++    })?;
++    if used > page_size {
++        return Err(Error::SecurityLimitExceeded(
++            "page body exceeds physical page size".to_string(),
++        ));
++    }
++    if flags & PAGE_FLAG_UNPADDED != 0 && used != page_size {
++        return Err(Error::CorruptRecord);
++    }
++    let mut page = ZeroizingBytes::new(Vec::with_capacity(page_size));
++    page.resize(PAGE_HEADER_LEN + 32, 0);
++    page.extend_from_slice(&[PAGE_BODY_VERSION, COMPRESSION_NONE, 0, 0]);
++    page.extend_from_slice(&(stream_len as u64).to_le_bytes());
++    page.extend_from_slice(&0u32.to_le_bytes());
++    append_object_stream(&mut page, objects)?;
++    if page.len() != used {
++        return Err(Error::CorruptRecord);
++    }
++    let body_digest = strong_checksum(&page[PAGE_HEADER_LEN + 32..]);
++    page[PAGE_HEADER_LEN..PAGE_HEADER_LEN + 32].copy_from_slice(&body_digest);
++    page.resize(page_size, 0);
++    write_page_header(&mut page, page_id, sequence, flags, &[0; 12], stored_body_len);
++    Ok(std::mem::take(&mut *page))
+ }
+ 
+ pub(crate) fn decode_page(page: &[u8], lockbox_id: LockboxId, key: &[u8]) -> Result<DecodedPage> {
+@@ -1401,6 +1459,11 @@ fn decode_page_body_plaintext(body: &[u8]) -> Result<Cow<'_, [u8]>> {
+ 
+ fn encode_object_stream(objects: &[PageObject]) -> Result<Vec<u8>> {
+     let mut out = Vec::new();
++    append_object_stream(&mut out, objects)?;
++    Ok(out)
++}
++
++fn append_object_stream(out: &mut Vec<u8>, objects: &[PageObject]) -> Result<()> {
+     out.extend_from_slice(&(objects.len() as u32).to_le_bytes());
+     for object in objects {
+         out.push(object.kind as u8);
+@@ -1410,7 +1473,7 @@ fn encode_object_stream(objects: &[PageObject]) -> Result<Vec<u8>> {
+         out.extend_from_slice(&(object.payload_len() as u64).to_le_bytes());
+         object.with_payload(|payload| out.extend_from_slice(payload))?;
+     }
+-    Ok(out)
++    Ok(())
+ }
+ 
+ fn decode_object_stream(bytes: &[u8]) -> Result<Vec<PageObject>> {

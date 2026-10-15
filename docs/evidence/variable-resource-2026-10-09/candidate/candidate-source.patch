@@ -1,0 +1,361 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/resource.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/resource.rs
+index b5f3b039..2f1be6ad 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/resource.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/resource.rs
+@@ -6,8 +6,8 @@ use std::time::Instant;
+ 
+ fn cpu() -> (f64, f64, i64) {
+     let mut value = std::mem::MaybeUninit::<libc::rusage>::uninit();
+-    // SAFETY: successful getrusage initializes the valid output pointer.
+     assert_eq!(
++        // SAFETY: successful getrusage initializes the valid output pointer.
+         unsafe { libc::getrusage(libc::RUSAGE_SELF, value.as_mut_ptr()) },
+         0
+     );
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs
+index ebcb55b5..45790876 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs
+@@ -76,6 +76,7 @@ pub(in crate::file_format::candidate_files) fn set_variable(
+     value: &str,
+ ) -> Result<bool> {
+     crate::security::validate_variable_value_ref(value)?;
++    let bytes = SecureVec::try_from_slice(value.as_bytes())?;
+     change(
+         storage,
+         archive,
+@@ -86,7 +87,8 @@ pub(in crate::file_format::candidate_files) fn set_variable(
+         name,
+         Some((
+             VariableSensitivity::Normal,
+-            SecureVec::try_from_slice(value.as_bytes())?,
++            secure_segments::Source::Bytes(&bytes),
++            value.len(),
+         )),
+     )
+ }
+@@ -101,9 +103,10 @@ pub(in crate::file_format::candidate_files) fn set_secret_variable(
+     name: &VariableName,
+     value: &SecretString,
+ ) -> Result<bool> {
+-    value.with_str(crate::security::validate_variable_value_ref)??;
+-    let mut bytes = SecureVec::new();
+-    value.append_to_secure_vec(&mut bytes)?;
++    let length = value.with_str(|text| -> Result<usize> {
++        crate::security::validate_variable_value_ref(text)?;
++        Ok(text.len())
++    })??;
+     change(
+         storage,
+         archive,
+@@ -112,7 +115,11 @@ pub(in crate::file_format::candidate_files) fn set_secret_variable(
+         signer,
+         key,
+         name,
+-        Some((VariableSensitivity::Secret, bytes)),
++        Some((
++            VariableSensitivity::Secret,
++            secure_segments::Source::Secret(value),
++            length,
++        )),
+     )
+ }
+ #[allow(clippy::too_many_arguments)]
+@@ -137,7 +144,7 @@ fn change(
+     signer: Option<&OwnerSigningKeyPair>,
+     key: Option<&[u8]>,
+     name: &VariableName,
+-    value: Option<(VariableSensitivity, SecureVec)>,
++    value: Option<(VariableSensitivity, secure_segments::Source<'_>, usize)>,
+ ) -> Result<bool> {
+     let mut opened = TreeImage::open(
+         allocation::compaction::View(&*storage),
+@@ -159,7 +166,7 @@ fn change(
+     let mut retired = Vec::new();
+     let (id, revision) = if let Some(index) = old {
+         let existing = &opened.image.catalogue.variables[index];
+-        if let Some((sensitivity, bytes)) = &value {
++        if let Some((sensitivity, bytes, length)) = &value {
+             if existing.layout.sensitivity == VariableSensitivity::Secret
+                 && *sensitivity == VariableSensitivity::Normal
+             {
+@@ -167,8 +174,7 @@ fn change(
+                     "variable is secret; delete and recreate to change sensitivity".into(),
+                 ));
+             }
+-            if existing.layout.sensitivity == *sensitivity && existing.layout.length == bytes.len()
+-            {
++            if existing.layout.sensitivity == *sensitivity && existing.layout.length == *length {
+                 let prior = opened.read_variable(existing)?;
+                 if prior.with_bytes(|prior| bytes.with_bytes(|bytes| prior == bytes))?? {
+                     return Ok(false);
+@@ -208,13 +214,13 @@ fn change(
+         }
+     }
+     let mut pages = Vec::new();
+-    let encoded = if let Some((sensitivity, bytes)) = value {
++    let encoded = if let Some((sensitivity, bytes, _)) = value {
+         let content_key = match opened.image.value_key.take() {
+             Some(content_key) => content_key,
+             None => super::super::dense_image::value_key(mode, key)?,
+         };
+-        let encoded = secure_segments::encode(
+-            &bytes,
++        let encoded = secure_segments::encode_source(
++            bytes,
+             archive,
+             mode,
+             &content_key,
+diff --git a/rust/revault_lockbox_api/src/file_format/secure_segments.rs b/rust/revault_lockbox_api/src/file_format/secure_segments.rs
+index 8424abe9..a591bcf3 100644
+--- a/rust/revault_lockbox_api/src/file_format/secure_segments.rs
++++ b/rust/revault_lockbox_api/src/file_format/secure_segments.rs
+@@ -11,7 +11,7 @@ use crate::creation_options::FormatMode;
+ use crate::crypto::strong_checksum;
+ use crate::secret_vec::SecureVec;
+ use crate::storage::Storage;
+-use crate::{Error, LockboxId, Result, VariableSensitivity};
++use crate::{Error, LockboxId, Result, SecretString, VariableSensitivity};
+ 
+ pub(crate) const SEGMENT_BYTES: usize = 64 * 1024;
+ const MAX_VALUE: usize = crate::constants::MAX_VARIABLE_VALUE_BYTES;
+@@ -223,6 +223,29 @@ impl Layout {
+     }
+ }
+ 
++/// Borrowed guarded input. Neither variant exposes plaintext beyond its scoped
++/// reader or requires an owned full-value copy before segment construction.
++#[derive(Clone, Copy)]
++pub(crate) enum Source<'a> {
++    Bytes(&'a SecureVec),
++    Secret(&'a SecretString),
++}
++impl Source<'_> {
++    pub(crate) fn with_bytes<R>(&self, f: impl FnOnce(&[u8]) -> R) -> Result<R> {
++        match self {
++            Self::Bytes(value) => Ok(value.with_bytes(f)?),
++            Self::Secret(value) => Ok(value.with_bytes(f)?),
++        }
++    }
++    fn append_range(&self, target: &mut SecureVec, offset: usize, len: usize) -> Result<()> {
++        match self {
++            Self::Bytes(value) => target.try_extend_secure_range(value, offset, len)?,
++            Self::Secret(value) => value.append_range_to_secure_vec(target, offset, len)?,
++        }
++        Ok(())
++    }
++}
++
+ pub(crate) fn encode(
+     value: &SecureVec,
+     archive: LockboxId,
+@@ -231,37 +254,57 @@ pub(crate) fn encode(
+     id: [u8; 16],
+     revision: u64,
+     sensitivity: VariableSensitivity,
++) -> Result<Encoded> {
++    encode_source(
++        Source::Bytes(value),
++        archive,
++        mode,
++        content_key,
++        id,
++        revision,
++        sensitivity,
++    )
++}
++pub(crate) fn encode_source(
++    value: Source<'_>,
++    archive: LockboxId,
++    mode: FormatMode,
++    content_key: &[u8; 32],
++    id: [u8; 16],
++    revision: u64,
++    sensitivity: VariableSensitivity,
+ ) -> Result<Encoded> {
+     FormatMode::parse(mode.0)?;
+     if mode.0 == 0 {
+         return Err(Error::CorruptRecord);
+     }
+-    if value.len() > MAX_VALUE {
+-        return Err(Error::SecurityLimitExceeded(
+-            "variable value exceeds 1 MiB".into(),
+-        ));
+-    }
+-    if id == [0; 16] || revision == 0 {
+-        return Err(Error::CorruptRecord);
+-    }
+-    value.with_bytes(|bytes| {
++    let length = value.with_bytes(|bytes| -> Result<usize> {
++        if bytes.len() > MAX_VALUE {
++            return Err(Error::SecurityLimitExceeded(
++                "variable value exceeds 1 MiB".into(),
++            ));
++        }
++        if id == [0; 16] || revision == 0 {
++            return Err(Error::CorruptRecord);
++        }
+         let text = std::str::from_utf8(bytes)
+             .map_err(|_| Error::InvalidInput("variable value must be UTF-8".into()))?;
+-        crate::security::validate_variable_value_ref(text)
++        crate::security::validate_variable_value_ref(text)?;
++        Ok(bytes.len())
+     })??;
+     let mut layout = Layout {
+         id,
+         revision,
+         sensitivity,
+         mode,
+-        length: value.len(),
++        length,
+         extents: Vec::new(),
+     };
+     let mut pages = Vec::new();
+     for ordinal in 0..layout.count() {
+         let mut payload = SecureVec::try_from_slice(&layout.prefix(archive, ordinal))?;
+-        payload.try_extend_secure_range(
+-            value,
++        value.append_range(
++            &mut payload,
+             ordinal * SEGMENT_BYTES,
+             layout.part_len(ordinal)?,
+         )?;
+diff --git a/rust/revault_lockbox_api/src/file_format/secure_segments/tests.rs b/rust/revault_lockbox_api/src/file_format/secure_segments/tests.rs
+index 13056ef5..582c80a5 100644
+--- a/rust/revault_lockbox_api/src/file_format/secure_segments/tests.rs
++++ b/rust/revault_lockbox_api/src/file_format/secure_segments/tests.rs
+@@ -250,3 +250,57 @@ fn secure_segments_same_size_permutation_and_cross_value_substitution() {
+             .is_err());
+     }
+ }
++
++#[test]
++fn secure_segments_borrowed_secret_preserves_plaintext_wire_and_validation() {
++    let mut boundary = vec![b'x'; SEGMENT_BYTES - 1];
++    boundary.extend_from_slice("🦀".as_bytes());
++    for bits in (0usize..16).filter(|bits| *bits & 1 == 0) {
++        let mode = mode(bits);
++        for bytes in [b"".as_slice(), b"x".as_slice(), boundary.as_slice()] {
++            let owned = SecureVec::try_from_slice(bytes).unwrap();
++            let secret = crate::SecretString::try_from_slice(bytes).unwrap();
++            let expected = encode(
++                &owned,
++                archive(),
++                mode,
++                &KEY,
++                [41; 16],
++                3,
++                VariableSensitivity::Secret,
++            )
++            .unwrap();
++            let actual = encode_source(
++                Source::Secret(&secret),
++                archive(),
++                mode,
++                &KEY,
++                [41; 16],
++                3,
++                VariableSensitivity::Secret,
++            )
++            .unwrap();
++            assert_eq!(actual.layout, expected.layout);
++            for (actual, expected) in actual.pages.iter().zip(&expected.pages) {
++                actual
++                    .with_bytes(|actual| {
++                        expected
++                            .with_bytes(|expected| assert_eq!(actual, expected))
++                            .unwrap()
++                    })
++                    .unwrap();
++            }
++        }
++    }
++    let invalid = crate::SecretString::try_from_slice(&[0xff]).unwrap();
++    assert!(encode_source(
++        Source::Secret(&invalid),
++        archive(),
++        mode(0),
++        &KEY,
++        [41; 16],
++        3,
++        VariableSensitivity::Secret
++    )
++    .is_err());
++}
+diff --git a/rust/revault_page_api/src/secure_string.rs b/rust/revault_page_api/src/secure_string.rs
+index 77ec0567..ca401600 100644
+--- a/rust/revault_page_api/src/secure_string.rs
++++ b/rust/revault_page_api/src/secure_string.rs
+@@ -106,6 +106,19 @@ impl SecureString {
+         target.try_extend_from_secure(&self.bytes)
+     }
+ 
++    /// Appends a checked byte range to guarded storage without a normal-memory
++    /// intermediate. Ranges may split UTF-8 code points; the target stores bytes.
++    /// Invalid ranges leave the target unchanged. Nonempty copies retain the
++    /// existing prohibition on mutation during an active secure read scope.
++    pub fn append_range_to_secure_vec(
++        &self,
++        target: &mut SecureVec,
++        offset: usize,
++        len: usize,
++    ) -> Result<()> {
++        target.try_extend_secure_range(&self.bytes, offset, len)
++    }
++
+     /// Appends one byte to the secure string.
+     ///
+     /// This low-level operation does not validate that the resulting value is
+diff --git a/rust/revault_page_api/src/tests.rs b/rust/revault_page_api/src/tests.rs
+index 75824136..23c41543 100644
+--- a/rust/revault_page_api/src/tests.rs
++++ b/rust/revault_page_api/src/tests.rs
+@@ -356,3 +356,48 @@ fn secure_empty_range_copy_validates_bounds_without_requiring_allocation() {
+         .with_bytes(|bytes| assert_eq!(bytes, b"preserved"))
+         .unwrap();
+ }
++
++#[test]
++fn secure_string_range_append_keeps_bounds_utf8_bytes_and_read_scope_policy() {
++    let empty = SecureString::new();
++    let source = SecureString::try_from_slice("A🦀Z".as_bytes()).unwrap();
++    let mut target = SecureVec::new();
++    empty.append_range_to_secure_vec(&mut target, 0, 0).unwrap();
++    assert_eq!(target.capacity_for_test(), 0);
++    source
++        .append_range_to_secure_vec(&mut target, 1, 2)
++        .unwrap();
++    target
++        .with_bytes(|v| assert_eq!(v, &"🦀".as_bytes()[..2]))
++        .unwrap();
++    source
++        .append_range_to_secure_vec(&mut target, 3, 2)
++        .unwrap();
++    target
++        .with_bytes(|v| assert_eq!(v, "🦀".as_bytes()))
++        .unwrap();
++    let capacity = target.capacity_for_test();
++    source
++        .append_range_to_secure_vec(&mut target, 6, 0)
++        .unwrap();
++    empty.append_range_to_secure_vec(&mut target, 0, 0).unwrap();
++    for (offset, len) in [(7, 0), (6, 1), (usize::MAX, 1), (1, usize::MAX)] {
++        assert_eq!(
++            source.append_range_to_secure_vec(&mut target, offset, len),
++            Err(Error::CapacityOverflow)
++        );
++    }
++    assert_eq!(
++        empty.append_range_to_secure_vec(&mut target, 1, 0),
++        Err(Error::CapacityOverflow)
++    );
++    let error = source
++        .with_str(|_| source.append_range_to_secure_vec(&mut target, 0, 1))
++        .unwrap()
++        .unwrap_err();
++    assert_eq!(error, Error::ReadAccessActive);
++    assert_eq!(target.capacity_for_test(), capacity);
++    target
++        .with_bytes(|v| assert_eq!(v, "🦀".as_bytes()))
++        .unwrap();
++}

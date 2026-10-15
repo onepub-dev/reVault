@@ -454,6 +454,18 @@ final class Revault {
     return Lockbox.internal(this, handle);
   });
 
+  /// Opens with an explicit per-credential KDF allowance for a trusted archive.
+  Lockbox openLockboxWithPasswordBudget(
+    Uint8List archive,
+    SecretString password,
+    int maxDerivations,
+  ) => password.withBytes(
+    (bytes) => Lockbox.internal(
+      this,
+      operations.lockboxOpenPasswordWithBudget(archive, bytes, maxDerivations),
+    ),
+  );
+
   /// Opens [archive] using a password access slot.
   /// @nodoc
   Lockbox openLockboxWithPasswordInternal(

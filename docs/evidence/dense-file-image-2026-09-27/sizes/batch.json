@@ -1,0 +1,12 @@
+{
+  "revision": "9fc6c20c",
+  "unit": 262144,
+  "cases": {
+    "small-plain": "/tmp/revault-dense-file-image-20260927/small-plain",
+    "small-protected": "/tmp/revault-dense-file-image-20260927/small-protected",
+    "large-raw": "/tmp/revault-dense-file-image-20260927/large-raw",
+    "large-compressed": "/tmp/revault-dense-file-image-20260927/large-compressed",
+    "large-protected": "/tmp/revault-dense-file-image-20260927/large-protected"
+  },
+  "scope": "size and fresh-handle byte verification only; five retained corpora; no performance or full format qualification"
+}

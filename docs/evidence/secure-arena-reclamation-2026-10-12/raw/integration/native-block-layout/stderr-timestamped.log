@@ -1,0 +1,358 @@
+2026-10-12T04:08:58.888385Z [stderr] 
+2026-10-12T04:08:58.888405Z [stderr] thread 'compression::decode_workspace::tests::scoped_scratch_reuses_allocation_and_cleans_up_nested_and_panicking_calls' panicked at revault_lockbox_api/src/compression/decode_workspace.rs:282:13:
+2026-10-12T04:08:58.888416Z [stderr] visitor failure
+2026-10-12T04:08:58.888425Z [stderr] note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+2026-10-12T04:08:58.903465Z [stderr] 
+2026-10-12T04:08:58.903503Z [stderr] thread 'compression::encode_workspace::tests::pooled_buffers_are_wiped_and_reused_after_success_error_and_unwind' panicked at revault_lockbox_api/src/compression/encode_workspace.rs:172:34:
+2026-10-12T04:08:58.903526Z [stderr] injected callback failure
+2026-10-12T04:09:01.340687Z [stderr] allocator atomic failure cases: 262
+2026-10-12T04:09:03.181395Z [stderr] allocator power-loss cases: 1548
+2026-10-12T04:09:03.568322Z [stderr] single aligned-region damage cases: 148
+2026-10-12T04:09:05.069202Z [stderr] 
+2026-10-12T04:09:05.069241Z [stderr] thread 'file_format::candidate_files::resource_probe::extraction::tests::extraction_refuses_existing_destination_before_opening_archive' panicked at revault_lockbox_api/src/file_format/candidate_files/../../benchmark_extraction.rs:121:5:
+2026-10-12T04:09:05.069263Z [stderr] extraction requires a fresh destination
+2026-10-12T04:09:05.069666Z [stderr] 
+2026-10-12T04:09:05.069705Z [stderr] thread 'file_format::candidate_files::resource_probe::extraction::tests::extraction_rejects_wrong_output_even_with_correct_reported_count' panicked at revault_lockbox_api/src/file_format/candidate_files/../../benchmark_extraction.rs:180:13:
+2026-10-12T04:09:05.069726Z [stderr] assertion `left == right` failed: file-000000.bin: output bytes differ
+2026-10-12T04:09:05.069739Z [stderr]   left: [99, 111, 114, 114, 101, 99, 116]
+2026-10-12T04:09:05.069754Z [stderr]  right: [99, 111, 114, 114, 117, 112, 116]
+2026-10-12T04:09:22.603375Z [stderr] metadata repair atomic failure cases: 223; power-loss cases: 1784
+2026-10-12T04:52:26.833204Z [stderr] 
+2026-10-12T04:52:26.833258Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::automatic_workers_qualify_each_request_and_reuse_pool_after_errors' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:151:29:
+2026-10-12T04:52:26.833283Z [stderr] synthetic auto sink unwind
+2026-10-12T04:52:29.118709Z [stderr] 
+2026-10-12T04:52:29.118765Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::automatic_workers_qualify_each_request_and_reuse_pool_after_errors' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:151:29:
+2026-10-12T04:52:29.118780Z [stderr] synthetic auto sink unwind
+2026-10-12T04:52:31.320329Z [stderr] 
+2026-10-12T04:52:31.320373Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.320394Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.323666Z [stderr] 
+2026-10-12T04:52:31.323699Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.323717Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.325408Z [stderr] 
+2026-10-12T04:52:31.325451Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.325469Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.328818Z [stderr] 
+2026-10-12T04:52:31.328850Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.328863Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.345810Z [stderr] 
+2026-10-12T04:52:31.345856Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.345870Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.350014Z [stderr] 
+2026-10-12T04:52:31.350033Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.350043Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.354367Z [stderr] 
+2026-10-12T04:52:31.354391Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.354401Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.358653Z [stderr] 
+2026-10-12T04:52:31.358700Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.358715Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.384155Z [stderr] 
+2026-10-12T04:52:31.384222Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.384236Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.388294Z [stderr] 
+2026-10-12T04:52:31.388324Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.388337Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.392985Z [stderr] 
+2026-10-12T04:52:31.393009Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.393021Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.397611Z [stderr] 
+2026-10-12T04:52:31.397635Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.397647Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.425961Z [stderr] 
+2026-10-12T04:52:31.425989Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.426002Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.430607Z [stderr] 
+2026-10-12T04:52:31.430630Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.430643Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.435591Z [stderr] 
+2026-10-12T04:52:31.435619Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.435632Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.440217Z [stderr] 
+2026-10-12T04:52:31.440239Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.440251Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.454887Z [stderr] 
+2026-10-12T04:52:31.454941Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.454956Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.458516Z [stderr] 
+2026-10-12T04:52:31.458544Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.458557Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.463943Z [stderr] 
+2026-10-12T04:52:31.463970Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.463980Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.469273Z [stderr] 
+2026-10-12T04:52:31.469316Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.469328Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.486714Z [stderr] 
+2026-10-12T04:52:31.486759Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.486772Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.491499Z [stderr] 
+2026-10-12T04:52:31.491520Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.491530Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.496642Z [stderr] 
+2026-10-12T04:52:31.496662Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.496672Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.502388Z [stderr] 
+2026-10-12T04:52:31.502420Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.502431Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.536375Z [stderr] 
+2026-10-12T04:52:31.536424Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.536436Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.542147Z [stderr] 
+2026-10-12T04:52:31.542169Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.542179Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.550475Z [stderr] 
+2026-10-12T04:52:31.550497Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.550507Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.557098Z [stderr] 
+2026-10-12T04:52:31.557133Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.557143Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.591915Z [stderr] 
+2026-10-12T04:52:31.591959Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.591971Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.596876Z [stderr] 
+2026-10-12T04:52:31.596897Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.596906Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.604702Z [stderr] 
+2026-10-12T04:52:31.604722Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.604732Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.612711Z [stderr] 
+2026-10-12T04:52:31.612742Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.612753Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.626048Z [stderr] 
+2026-10-12T04:52:31.626089Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.626103Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.628066Z [stderr] 
+2026-10-12T04:52:31.628086Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.628095Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.631342Z [stderr] 
+2026-10-12T04:52:31.631362Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.631371Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.633415Z [stderr] 
+2026-10-12T04:52:31.633432Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.633442Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.648619Z [stderr] 
+2026-10-12T04:52:31.648638Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.648648Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.651118Z [stderr] 
+2026-10-12T04:52:31.651147Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.651158Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.654375Z [stderr] 
+2026-10-12T04:52:31.654399Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.654410Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.658144Z [stderr] 
+2026-10-12T04:52:31.658172Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.658181Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.686352Z [stderr] 
+2026-10-12T04:52:31.686388Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.686404Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.689954Z [stderr] 
+2026-10-12T04:52:31.689985Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.690002Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.694534Z [stderr] 
+2026-10-12T04:52:31.694565Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.694582Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.698422Z [stderr] 
+2026-10-12T04:52:31.698453Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.698470Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.729377Z [stderr] 
+2026-10-12T04:52:31.729436Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.729455Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.733597Z [stderr] 
+2026-10-12T04:52:31.733632Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.733650Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.738079Z [stderr] 
+2026-10-12T04:52:31.738111Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.738128Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.742616Z [stderr] 
+2026-10-12T04:52:31.742654Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.742673Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.759186Z [stderr] 
+2026-10-12T04:52:31.759227Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.759245Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.763574Z [stderr] 
+2026-10-12T04:52:31.763612Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.763630Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.768261Z [stderr] 
+2026-10-12T04:52:31.768296Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.768327Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.773434Z [stderr] 
+2026-10-12T04:52:31.773476Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.773493Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.793816Z [stderr] 
+2026-10-12T04:52:31.793873Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.793891Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.799650Z [stderr] 
+2026-10-12T04:52:31.799688Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.799704Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.804609Z [stderr] 
+2026-10-12T04:52:31.804644Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.804660Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.809982Z [stderr] 
+2026-10-12T04:52:31.810024Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.810042Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.844654Z [stderr] 
+2026-10-12T04:52:31.844707Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.844726Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.850276Z [stderr] 
+2026-10-12T04:52:31.850322Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.850340Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.856981Z [stderr] 
+2026-10-12T04:52:31.857022Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.857039Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.864395Z [stderr] 
+2026-10-12T04:52:31.864439Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.864458Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.902273Z [stderr] 
+2026-10-12T04:52:31.902361Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.902379Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.908537Z [stderr] 
+2026-10-12T04:52:31.908569Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.908584Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.915227Z [stderr] 
+2026-10-12T04:52:31.915261Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.915278Z [stderr] synthetic sink unwind
+2026-10-12T04:52:31.921270Z [stderr] 
+2026-10-12T04:52:31.921326Z [stderr] thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+2026-10-12T04:52:31.921346Z [stderr] synthetic sink unwind
+2026-10-12T05:05:19.652984Z [stderr] 
+2026-10-12T05:05:19.653023Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.653042Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.653079Z [stderr] 
+2026-10-12T05:05:19.653092Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.653105Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.653116Z [stderr] 
+2026-10-12T05:05:19.653125Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.653137Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.653462Z [stderr] 
+2026-10-12T05:05:19.653483Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.653497Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.653938Z [stderr] 
+2026-10-12T05:05:19.653969Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.653986Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.654061Z [stderr] 
+2026-10-12T05:05:19.654077Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.654090Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.654101Z [stderr] 
+2026-10-12T05:05:19.654111Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.654122Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.654461Z [stderr] 
+2026-10-12T05:05:19.654482Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.654496Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.654911Z [stderr] 
+2026-10-12T05:05:19.654941Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.654957Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.655021Z [stderr] 
+2026-10-12T05:05:19.655037Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.655050Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.655060Z [stderr] 
+2026-10-12T05:05:19.655070Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.655082Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.655372Z [stderr] 
+2026-10-12T05:05:19.655392Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.655406Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.655839Z [stderr] 
+2026-10-12T05:05:19.655870Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.655886Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.655958Z [stderr] 
+2026-10-12T05:05:19.655973Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.655987Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.655997Z [stderr] 
+2026-10-12T05:05:19.656007Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.656019Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.656364Z [stderr] 
+2026-10-12T05:05:19.656384Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.656398Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.656889Z [stderr] 
+2026-10-12T05:05:19.656920Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.656936Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.658176Z [stderr] 
+2026-10-12T05:05:19.658206Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.658221Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.660053Z [stderr] 
+2026-10-12T05:05:19.660095Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.660113Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.660303Z [stderr] 
+2026-10-12T05:05:19.660342Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.660359Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.660393Z [stderr] 
+2026-10-12T05:05:19.660407Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.660420Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.662035Z [stderr] 
+2026-10-12T05:05:19.662074Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.662093Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.662658Z [stderr] 
+2026-10-12T05:05:19.662697Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.662715Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.663912Z [stderr] 
+2026-10-12T05:05:19.663952Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.663970Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.665733Z [stderr] 
+2026-10-12T05:05:19.665774Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.665792Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.665968Z [stderr] 
+2026-10-12T05:05:19.665988Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.666002Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.666066Z [stderr] 
+2026-10-12T05:05:19.666082Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.666096Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.667682Z [stderr] 
+2026-10-12T05:05:19.667726Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.667747Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.668339Z [stderr] 
+2026-10-12T05:05:19.668374Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.668392Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.669617Z [stderr] 
+2026-10-12T05:05:19.669662Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.669682Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.671249Z [stderr] 
+2026-10-12T05:05:19.671294Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.671325Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.671488Z [stderr] 
+2026-10-12T05:05:19.671509Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.671525Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.671537Z [stderr] 
+2026-10-12T05:05:19.671549Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.671562Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.673100Z [stderr] 
+2026-10-12T05:05:19.673145Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.673165Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.673739Z [stderr] 
+2026-10-12T05:05:19.673780Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.673799Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.675016Z [stderr] 
+2026-10-12T05:05:19.675052Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.675071Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.676830Z [stderr] 
+2026-10-12T05:05:19.676870Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.676888Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.677144Z [stderr] 
+2026-10-12T05:05:19.677178Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.677197Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.677209Z [stderr] 
+2026-10-12T05:05:19.677220Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.677235Z [stderr] injected visitor unwind
+2026-10-12T05:05:19.678764Z [stderr] 
+2026-10-12T05:05:19.678799Z [stderr] thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+2026-10-12T05:05:19.678817Z [stderr] injected visitor unwind
+2026-10-12T05:05:33.591271Z [stderr] preparation power-loss cases: 1456
+2026-10-12T05:05:36.205437Z [stderr] preparation process-death cases: 66
+2026-10-12T05:08:43.972397Z [stderr] fault sweep mode=7 boundaries=24: all publication states covered
+2026-10-12T05:08:44.020805Z [stderr] fault sweep mode=263 boundaries=24: all publication states covered
+2026-10-12T05:08:44.055328Z [stderr] fault sweep mode=27 boundaries=24: all publication states covered
+2026-10-12T05:08:44.090991Z [stderr] fault sweep mode=283 boundaries=24: all publication states covered
+2026-10-12T05:08:44.289592Z [stderr] fault sweep mode=5 boundaries=24: all publication states covered
+2026-10-12T05:08:44.470897Z [stderr] fault sweep mode=261 boundaries=24: all publication states covered
+2026-10-12T05:08:44.677774Z [stderr] fault sweep mode=25 boundaries=24: all publication states covered
+2026-10-12T05:08:44.858723Z [stderr] fault sweep mode=281 boundaries=24: all publication states covered
+2026-10-12T05:08:44.898325Z [stderr] fault sweep mode=6 boundaries=24: all publication states covered
+2026-10-12T05:08:44.946164Z [stderr] fault sweep mode=262 boundaries=24: all publication states covered
+2026-10-12T05:08:44.984257Z [stderr] fault sweep mode=26 boundaries=24: all publication states covered
+2026-10-12T05:08:45.023867Z [stderr] fault sweep mode=282 boundaries=24: all publication states covered
+2026-10-12T05:08:45.225541Z [stderr] fault sweep mode=4 boundaries=24: all publication states covered
+2026-10-12T05:08:45.416466Z [stderr] fault sweep mode=260 boundaries=24: all publication states covered
+2026-10-12T05:08:45.626616Z [stderr] fault sweep mode=24 boundaries=24: all publication states covered
+2026-10-12T05:08:45.838046Z [stderr] fault sweep mode=280 boundaries=24: all publication states covered
+2026-10-12T05:08:47.241004Z [stderr] 
+2026-10-12T05:08:47.241046Z [stderr] thread 'lockbox::commit::tests::recovery_resumes_after_a_progress_callback_panics' panicked at revault_lockbox_api/src/lockbox/commit.rs:2407:17:
+2026-10-12T05:08:47.241067Z [stderr] simulated termination after durable checkpoint

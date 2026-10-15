@@ -1,0 +1,1 @@
+{"archive_bytes":68288512,"archive_sha256":"680e85ebb6a71b73655fb538161194041042fb0d44475d379ac47451b071e22f","construction":{"logical_fragment_unit":65536,"method":"one_authenticated_update_from_empty_typed_tree"},"kind":"typed_tree_fixture","layout":"shared-control-typed-tree","scope":"canonical typed files; no timing or migration claim","verified":true}

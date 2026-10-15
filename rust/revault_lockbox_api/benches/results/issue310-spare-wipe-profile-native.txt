@@ -1,0 +1,253 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 8K of event 'cycles:u'
+# Event count (approx.): 46310044569
+#
+# Overhead  Command          Shared Object                  Symbol                                                                                                                                                                                                                                                                                                   
+# ........  ...............  .............................  .........................................................................................................................................................................................................................................................................................................
+#
+    21.06%  issue310-prepar  issue310-prepare-batch-before  [.] protection_gate::main
+            |
+            ---protection_gate::main
+
+    10.01%  issue310-prepar  issue310-prepare-batch-before  [.] <revault_lockbox_api::file_format::page_buffer::ZeroizingBytes as core::ops::drop::Drop>::drop
+            |
+            ---<revault_lockbox_api::file_format::page_buffer::ZeroizingBytes as core::ops::drop::Drop>::drop
+               |          
+                --8.88%--core::ptr::drop_in_place<revault_lockbox_api::file_format::page_buffer::ZeroizingBytes>
+                          revault_lockbox_api::lockbox::files::FilePageWriter<State>::write_prepared_compression_frame
+                          revault_lockbox_api::lockbox::files::FilePageWriter<State>::write_compression_frame
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::write_file_data_sequential
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::add_file_with_permissions
+                          protection_gate::main
+
+     8.49%  issue310-prepar  libc.so.6                      [.] __memmove_avx_unaligned_erms
+            |
+            ---__memmove_avx_unaligned_erms
+               |          
+               |--2.96%--revault_lockbox_api::lockbox::files::read_next_chunk
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::write_file_data_sequential
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::add_file_with_permissions
+               |          protection_gate::main
+               |          
+               |--2.43%--<zstd_complete::decoding::frame_decoder::FrameDecoder as std::io::Read>::read
+               |          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               |          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+               |          revault_lockbox_api::compression::zstd_decode
+               |          revault_lockbox_api::compression::decode_compression_frame
+               |          revault_lockbox_api::file_format::indexed_frame::BlockFrameReader::read
+               |          revault_lockbox_api::file_format::indexed_frame::block_page::Reader::read
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_native_block_chunk_with_cache
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+               |          protection_gate::main
+               |          
+                --1.07%--revault_lockbox_api::lockbox::files::NativeReadBytes::into_vec
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_native_block_chunk_with_cache
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                          protection_gate::main
+
+     4.95%  issue310-prepar  libc.so.6                      [.] __memcmp_avx2_movbe
+            |
+            ---__memcmp_avx2_movbe
+               |          
+                --4.93%--protection_gate::main
+
+     4.30%  issue310-prepar  issue310-prepare-batch-before  [.] keccak::backends::soft::keccak_p
+            |
+            ---keccak::backends::soft::keccak_p
+               |          
+                --3.62%--<shake::ShakeReader<_> as digest::XofReader>::read
+                          ml_dsa::sampling::rej_ntt_poly
+                          hybrid_array::from_fn::<impl hybrid_array::Array<T,U>>::try_from_fn
+
+     3.73%  issue310-prepar  issue310-prepare-batch-before  [.] zstd_complete::kernel::dfast::compress_block
+            |
+            ---zstd_complete::kernel::dfast::compress_block
+               zstd_complete::encoding::levels::c_port::dfast::compress_block_double_fast_no_dict_with_state_and_loaded_dict
+               zstd_complete::encoding::levels::c_port::dfast_block::prepare_block_double_fast_no_dict_stored_with_state_and_loaded_dict
+               zstd_complete::encoding::levels::c_port::dfast_block::mode::append_block_double_fast_no_dict_with_state_and_policy_in_mode
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx_in
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict
+               zstd_complete::encoding::levels::c_port::strategy_frame::encode_frame_no_dict
+               zstd_complete::encoding::compress_slice_c_level
+               revault_lockbox_api::compression::encode_with_compression
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_payload
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare
+               revault_lockbox_api::lockbox::files::FilePageWriter<State>::write_compression_frame
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::write_file_data_sequential
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::add_file_with_permissions
+               protection_gate::main
+
+     2.71%  issue310-prepar  [unknown]                      [k] 0xffffffff9682c90e
+            |
+            ---0xffffffff9682c90e
+               0xffffffff96832b68
+               0xffffffff96838419
+               0xffffffff96839837
+               0xffffffff9687b358
+               0xffffffff9687eb6b
+               0xffffffff967fca72
+               0xffffffff967fce8a
+               0xffffffff967fe1fb
+               0xffffffff967fe6c3
+               0xffffffff967fea4e
+               0xffffffff964173ae
+               0xffffffff977222e3
+               0xffffffff96000bb7
+               |          
+                --1.51%--__memmove_avx_unaligned_erms
+                          |          
+                           --1.09%--<alloc::vec::Vec<T,A> as alloc::vec::spec_extend::SpecExtend<&T,core::slice::iter::Iter<T>>>::spec_extend
+                                     revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                                     protection_gate::main
+
+     2.61%  issue310-prepar  libc.so.6                      [.] __memset_avx2_unaligned_erms
+            |
+            ---__memset_avx2_unaligned_erms
+               |          
+                --1.06%--zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+                          revault_lockbox_api::compression::zstd_decode
+                          revault_lockbox_api::compression::decode_compression_frame
+                          revault_lockbox_api::file_format::indexed_frame::BlockFrameReader::read
+                          revault_lockbox_api::file_format::indexed_frame::block_page::Reader::read
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_native_block_chunk_with_cache
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                          protection_gate::main
+
+     2.56%  issue310-prepar  issue310-prepare-batch-before  [.] <module_lattice::algebra::NttPolynomial<ml_dsa::algebra::BaseField> as ml_dsa::ntt::NttInverse>::ntt_inverse
+            |
+            ---<module_lattice::algebra::NttPolynomial<ml_dsa::algebra::BaseField> as ml_dsa::ntt::NttInverse>::ntt_inverse
+               |          
+                --1.87%--hybrid_array::iter::<impl core::iter::traits::collect::FromIterator<T> for hybrid_array::Array<T,U>>::from_iter
+
+     2.46%  issue310-prepar  issue310-prepare-batch-before  [.] keccak::backends::soft::keccak_p
+            |
+            ---keccak::backends::soft::keccak_p
+               |          
+                --1.65%--<shake::ShakeReader<_> as digest::XofReader>::read
+                          |          
+                           --1.46%--hybrid_array::from_fn::<impl hybrid_array::Array<T,U>>::try_from_fn
+
+     2.41%  issue310-prepar  issue310-prepare-batch-before  [.] <revault_lockbox_api::storage::page_cache::CachedCompressionFrame as core::ops::drop::Drop>::drop
+            |
+            ---<revault_lockbox_api::storage::page_cache::CachedCompressionFrame as core::ops::drop::Drop>::drop
+               alloc::sync::Arc<T,A>::drop_slow
+               <hashbrown::raw::RawTable<T,A> as core::ops::drop::Drop>::drop
+               core::ptr::drop_in_place<core::cell::RefCell<revault_lockbox_api::storage::page_cache::PageCache>>
+               core::ptr::drop_in_place<revault_lockbox_api::lockbox::Lockbox<revault_lockbox_api::lockbox::ReadOnly>>
+               protection_gate::main
+
+     2.33%  issue310-prepar  issue310-prepare-batch-before  [.] <twox_hash::xxhash64::Hasher as core::hash::Hasher>::write
+            |
+            ---<twox_hash::xxhash64::Hasher as core::hash::Hasher>::write
+               <zstd_complete::decoding::frame_decoder::FrameDecoder as std::io::Read>::read
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+               revault_lockbox_api::compression::zstd_decode
+               revault_lockbox_api::compression::decode_compression_frame
+               revault_lockbox_api::file_format::indexed_frame::BlockFrameReader::read
+               revault_lockbox_api::file_format::indexed_frame::block_page::Reader::read
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_native_block_chunk_with_cache
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+               protection_gate::main
+
+     2.31%  issue310-prepar  issue310-prepare-batch-before  [.] zstd_complete::decoding::sequence_section_decoder::decode_sequences
+            |
+            ---zstd_complete::decoding::sequence_section_decoder::decode_sequences
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+               revault_lockbox_api::compression::zstd_decode
+               revault_lockbox_api::compression::decode_compression_frame
+               revault_lockbox_api::file_format::indexed_frame::BlockFrameReader::read
+               revault_lockbox_api::file_format::indexed_frame::block_page::Reader::read
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_native_block_chunk_with_cache
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+               protection_gate::main
+
+     1.82%  issue310-prepar  issue310-prepare-batch-before  [.] zstd_complete::encoding::blocks::compressed::sequence_bitstream::encode_stored_sequences
+            |
+            ---zstd_complete::encoding::blocks::compressed::sequence_bitstream::encode_stored_sequences
+               zstd_complete::encoding::blocks::compressed::compress_c_stored_block_with_stats_impl
+               zstd_complete::encoding::levels::c_port::block_emit::append_stored_block_or_raw_deferred
+               zstd_complete::encoding::levels::c_port::dfast_block::encode_stored_words_block
+               zstd_complete::encoding::levels::c_port::dfast_block::mode::append_block_double_fast_no_dict_with_state_and_policy_in_mode
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx_in
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict
+               zstd_complete::encoding::levels::c_port::strategy_frame::encode_frame_no_dict
+               zstd_complete::encoding::compress_slice_c_level
+               revault_lockbox_api::compression::encode_with_compression
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_payload
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare
+               revault_lockbox_api::lockbox::files::FilePageWriter<State>::write_compression_frame
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::write_file_data_sequential
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::add_file_with_permissions
+               protection_gate::main
+
+     1.28%  issue310-prepar  issue310-prepare-batch-before  [.] ml_dsa::ntt::<impl module_lattice::algebra::MultiplyNtt for ml_dsa::algebra::BaseField>::multiply_ntt
+            |
+            ---ml_dsa::ntt::<impl module_lattice::algebra::MultiplyNtt for ml_dsa::algebra::BaseField>::multiply_ntt
+
+     1.19%  issue310-prepar  issue310-prepare-batch-before  [.] zstd_complete::fse::fse_decoder::FSETable::build_decoding_table
+            |
+            ---zstd_complete::fse::fse_decoder::FSETable::build_decoding_table
+
+     1.18%  issue310-prepar  issue310-prepare-batch-before  [.] zstd_complete::encoding::levels::c_port::pre_split::Fingerprint::record
+            |
+            ---zstd_complete::encoding::levels::c_port::pre_split::Fingerprint::record
+               zstd_complete::encoding::levels::c_port::pre_split::FrameProgress::next_block_size
+
+     1.15%  issue310-prepar  issue310-prepare-batch-before  [.] zstd_complete::encoding::match_generator::sequence::<impl zstd_complete::encoding::match_generator::MatchGenerator>::next_sequence
+            |
+            ---zstd_complete::encoding::match_generator::sequence::<impl zstd_complete::encoding::match_generator::MatchGenerator>::next_sequence
+               zstd_complete::encoding::blocks::compressed::prepare_block
+               zstd_complete::encoding::blocks::compressed::compress_block_with_config
+               zstd_complete::encoding::levels::fastest::emit_matcher_block_or_raw
+               zstd_complete::encoding::frame_compressor::FrameCompressor<R,W,M>::compress
+               zstd_complete::encoding::compress_to_vec
+               revault_lockbox_api::compression::looks_incompressible
+               revault_lockbox_api::compression::encode_with_compression
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_payload
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare
+               revault_lockbox_api::lockbox::files::FilePageWriter<State>::write_compression_frame
+
+     1.14%  issue310-prepar  issue310-prepare-batch-before  [.] <module_lattice::algebra::Polynomial<ml_dsa::algebra::BaseField> as ml_dsa::ntt::Ntt>::ntt
+            |
+            ---<module_lattice::algebra::Polynomial<ml_dsa::algebra::BaseField> as ml_dsa::ntt::Ntt>::ntt
+
+     1.11%  issue310-prepar  issue310-prepare-batch-before  [.] zstd_complete::encoding::levels::c_port::pre_split::FrameProgress::next_block_size
+            |
+            ---zstd_complete::encoding::levels::c_port::pre_split::FrameProgress::next_block_size
+
+     1.05%  issue310-prepar  [unknown]                      [k] 0xffffffff96834be1
+            |
+            ---0xffffffff96834be1
+               0xffffffff96834f02
+               0xffffffff9683616d
+               0xffffffff96838182
+               0xffffffff96839837
+               0xffffffff9687b358
+               0xffffffff9687eb6b
+               0xffffffff967fca72
+               0xffffffff967fce8a
+               0xffffffff967fe1fb
+               0xffffffff967fe6c3
+               0xffffffff967fea4e
+               0xffffffff964173ae
+               0xffffffff977222e3
+               0xffffffff96000bb7
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

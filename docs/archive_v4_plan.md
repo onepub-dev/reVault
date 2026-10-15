@@ -1,36 +1,1405 @@
-# Archive v4 work and planning
+# Archive v4 design and delivery plan
 
-This page locates the v4 work; it is not a new implementation plan or an
-assertion that a format has been selected or qualified for release.
+Created: 2026-09-26. Current status: format 4 was released in CLI and bindings
+0.5.0. Development is being integrated into `main`; subsequent releases use
+the [release process](release_process.md).
+This plan implements the [project goals](../manual/project-goals.md).
+The [documentation map](documentation_map.md) assigns authority and cleanup work.
 
-The implementation branch is `issue-310-zip-read-performance`. Its plan and
-evidence are ahead of the old main-checkout draft. Use `git worktree list` to
-find the existing checkout, then read these files **on that branch**:
+## Main integration — 2026-10-09
 
-- `manual/project-goals.md` — the goals used by that branch's evaluation.
-- `docs/archive_v4_plan.md` — implementation sequence and current recorded scope.
-- `docs/archive_v4_evaluation.md` — acceptance criteria and retained evidence.
-- `docs/decisions/` — proposed and accepted design decisions.
-- `docs/archive_v4_history.md` — previous branch checkpoints.
+Merged main through `6343b3fe`, including Vault aliases, script helpers, unified
+completion installation and the current G1–G11 project goals. This branch retains
+its advanced implementation plan, evaluation and evidence. Active goal references
+are remapped from the earlier G1–G7 numbering; historical reports retain their
+original numbering. Main's documentation cleanup does not supersede this plan.
+The current evaluation explicitly reconciles G3/G11's scale, ZIP/PGP read/write
+and 100 MB total CLI RSS requirements; earlier 256 MiB incremental proposals do
+not establish release acceptance. The user resumed work with a 25% remaining
+Codex usage stop condition, replacing the historical 70% threshold.
+Whole-tree atomic path installation and process-death handling are now covered by
+the separate component checkpoint below. This merge does not qualify the format
+or erase failures.
 
-The [branch plan](https://github.com/onepub-dev/reVault/blob/issue-310-zip-read-performance/docs/archive_v4_plan.md)
-is available on GitHub when that branch has been pushed. For local work, the
-existing worktree and its actual Git state take precedence over remote status.
+## Current position and next work — 2026-10-15
 
-Main's [project goals](../manual/project-goals.md) now use G1–G11. Historical
-plans and branch evidence may use earlier numbering. Reconcile goal references
-explicitly before updating requirements; do not silently reinterpret old gates.
+The user authorized integrating the 0.5.0 branch into `main`, consolidating the
+historical migration packages, correcting exporter selection, and making the
+next compatible release after the integrated checks pass. All subsequent
+development and releases use `main`. The [release process](release_process.md)
+and root [agent instructions](../AGENTS.md) define the current release cadence.
 
-## Historical context
+The [October 13 checklist](evidence/release-readiness-2026-10-13/README.md) remains
+historical evidence, including its failures, incomplete observations, and exact
+source identities. Its statements that nothing was published and its repeated
+full-observation requirements describe that checkpoint, not the current state.
+Neither the 0.5.0 publication nor this policy update establishes a new numerical
+performance pass.
 
-- [September 26 planning baseline](history/archive-v4-plan-2026-09-26.md).
-- [September 27 pause and handoff](history/archive-v4-checkpoint-2026-09-27.md).
+Every release must pass functional, migration, compatibility, platform, and
+installed-package gates for its exact candidate. Full ZIP/PGP comparisons,
+repeated sampling, bootstrap analyses, and broad RSS campaigns are separate
+qualification work, run when explicitly requested or justified by relevant
+changes. Focused performance/resource checks still apply to affected storage,
+allocation, compression, concurrency, and platform paths. Lightweight regression
+tests for resource limits remain routine checks.
 
-These snapshots preserve earlier requirements, work locations, evidence and
-limitations. Their branch heads, pending changes and milestone states are dated.
-Reading or relocating them does not resume the paused implementation or
-establish release readiness. Recheck the applicable pause/usage constraint and
-actual branch state on an explicit resume.
+G11's performance and resource targets remain project goals. Existing failed or
+incomplete observations remain failed or incomplete; a change in measurement
+cadence does not convert them to passes. An architecture comparison is required
+when selecting or changing architectures, not as an A-versus-itself exercise
+for every patch release.
 
-See the [documentation map](documentation_map.md) for maintained entry points
-and the distinction between product goals, implementation plans and history.
+### Historical optimization pause
+
+The [worker workspace and last-use trial](evidence/extraction-workspace-2026-10-12/RESULTS.md)
+passed its fixed 112-extraction aggregate gates. Candidate CLI peaks were
+43–68 MB across the four plaintext many-file cohorts. Large compressed extraction
+had a slower median and narrowly passed the aggregate 5% timing limit
+(upper bound 1.04986893); per-stratum noninferiority is not established.
+All 74 focused test executions and the WASM password/setter lifecycle checks
+passed. The observed conservative CLI-plus-agent bound was at most 76.60 MB,
+including preparation, within this limited plaintext workload scope. Optimization
+paused at this checkpoint at the user's request. Subsequent security and release
+instructions supersede the earlier no-release plan. The earlier full-suite pass does not qualify these subsequent changes.
+
+The [current many-file extraction screen](evidence/many-file-current-2026-10-12/RESULTS.md)
+completed 16 verified extractions across raw/compressed 256-file and 1,024-file
+cohorts. CLI peaks alone were 119.63–254.30 MB; every cohort fails the 100 MB
+target. The largest conservative CLI-plus-helper bound was 262.63 MB. No
+historical timing comparison or rejected worker-budget policy is used. The subsequent
+[last-use retirement trial](evidence/extraction-last-use-2026-10-12/RESULTS.md)
+reduced peak CLI RSS to 40–68 MB but slowed compressed extraction by 20–30%,
+failing its frozen timing guards. Its two runtime changes were reverted without
+qualification tests or a WASM rebuild. Subsequent bounded syscall/page-fault
+attribution informed the distinct workspace revision recorded above.
+
+The [helper-inclusive protected-write screen](evidence/protected-helper-memory-2026-10-12/RESULTS.md)
+completed eight verified writes. The largest conservative command-peak plus
+agent-HWM bound was 95.60 MB, including preparation. This covers the observed
+CLI and persistent helper, not a complete transient process census: child
+inventory checked only the agent's main thread. Current many-file extraction,
+including compressed input, is recorded above; no global memory acceptance is claimed.
+
+The [direct encrypted final-page trial](evidence/encrypted-final-page-2026-10-12/RESULTS.md)
+passed its fixed 56-lifecycle gates: paired elapsed improved about 14% for
+compressed source and 40% for random input, with compressed median RSS down 14%.
+All candidate subprocess peaks, including preparation, were below 100 MB
+(maximum 96.73 MB). Persistent helper RSS is excluded, so total process-tree and
+many-file acceptance remain open. All 39 focused test executions and portable
+WASM password/setter lifecycle checks passed. The prior full integration pass below
+predates this new candidate.
+
+The [direct raw cleartext final-page trial](evidence/direct-clear-page-2026-10-12/RESULTS.md)
+passed all fixed gates across 112 verified adds: measured elapsed fell 24–52%
+and median RSS fell 17–25%. All measured candidate peaks in these four plaintext
+one-GiB cohorts were below 100 MB (maximum 89.69 MB). This is not a general
+encrypted/many-file memory guarantee. The implementation is retained after 37 passing focused test executions and
+current-source portable WASM lifecycle checks. The subsequent full integration
+exposed retained empty secure-arena backing exhausting the unchanged locking
+limit. The [pressure reclamation correction](evidence/secure-arena-reclamation-2026-10-12/README.md)
+preserves live backing, slot generations and security policy, with one bounded
+retry. Natural-pressure and 56-process hot-reuse checks passed, followed by
+complete default API integration (695 passed, 18 ignored) and native integration
+(702 passed, 18 ignored), with exact inventory and source identities verified.
+That checkpoint's WASM checks also passed. The subsequent protected-write
+baseline, encrypted-page trial and helper screen are recorded above.
+Full workload and release qualification remain outstanding.
+
+The [direct raw-body trial](evidence/direct-page-body-2026-10-12/RESULTS.md)
+completed 112 verified imports and was rejected despite 9.7–14.4% elapsed gains
+and a 6.2% compressed Interactive median RSS reduction. Raw Interactive and
+BulkImport maximum RSS rose 7.46% and 8.76%, violating the fixed guards. The
+runtime was restored exactly; no extra samples or qualification tests were run.
+Further work must address remaining allocation overlap without weakening gates.
+
+The [checked object-stream reservation trial](evidence/object-stream-reserve-2026-10-12/RESULTS.md)
+completed 112 verified adds and was rejected: compressed Interactive median RSS
+fell only 3.71% against a required 5%; compressed elapsed intervals missed the
+guard and raw BulkImport peak RSS rose 8.65%. The one-line change was restored
+exactly, with no extra samples or qualification tests. The diagnostic hypothesis
+did not establish a process-level win; a materially different mechanism is
+required before further runtime experiments.
+
+The [temporary import memory diagnostic](evidence/import-memory-attribution-2026-10-12/RESULTS.md)
+completed four independently verified public imports with balanced ownership
+ledgers and zero transient counters after worker joins. The temporary runtime
+was restored exactly. Object-stream excess capacity suggests a separate checked
+exact-reservation trial; instrumentation results establish no performance gain
+or 100 MB acceptance. All current release and integration limits remain open.
+
+The requested [encrypted and signed public ZIP comparison](evidence/protected-zip-comparison-2026-10-12/RESULTS.md)
+completed 32 verified operations (24 measured, three repetitions per group).
+It times normal protected create + open + add and subsequent extraction against
+fresh compression-only Info-ZIP runs, with complete-command credential costs
+and unequal security/permission semantics explicitly recorded. This descriptive
+screen does not replace ZIP+PGP, many-file or full release qualification.
+
+
+### Persistent optimisation goal — 2026-10-11
+
+Brett now requests continued performance optimisation until usage remaining is
+below 10%, or above 99% after a reset. This supersedes the earlier 50%-remaining
+cutoff. The fresh reading at this resume is 2% used (98% remaining). Check the
+actual account window at bounded milestones; do not infer a reset from elapsed
+time. Keep working through worthwhile improvements rather than stopping after
+each measurement checkpoint. No release or main-worktree changes are authorized.
+
+The [adaptive worker trial](evidence/adaptive-workers-2026-10-11/README.md)
+completed 720 verified samples. Lazy authenticated-descriptor selection passes
+the frozen aggregate control and useful-profile gates; retain it as opt-in while
+keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
+does not establish parity-wise non-inferiority. No threshold revision is planned.
+The latest completed milestone reading is 68% used (32% remaining), so the goal continues.
+
+The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
+completed 480 component and 64 public CLI samples. All archive variants remain
+slower than ZIP in that component screen; the public source64 elapsed result has
+an overlong-agent-socket confound, preserved explicitly in its evidence.
+The [corrected cache trial](evidence/native-extract-cache-budget-2026-10-11/README.md)
+completed 320 CLI processes and met its frozen aggregate timing/RSS gates.
+Retain native Auto ExtractMany targets of 32 MiB shared page/native-frame cache
+and 8 MiB separate decoded frames: measured 1 GiB maximum CLI RSS fell 67–70%,
+with every trial below 100 MB. Explicit policies and WASM are unchanged.
+Random64 even-round timing intervals remain uncertain above the 5% bound.
+
+The [credential-open experiment](evidence/credential-open-2026-10-12/README.md)
+completed an 8-process baseline and 56-process paired comparison. Retain bounded
+access-directory reads on the existing locked handle: public password-API open
+plus a tiny persisted proof fell from 1.146 GB to 71.95 MB peak RSS at 1 GiB,
+with about 89% lower elapsed time. Both sizes and round strata pass the frozen
+timing gates; focused direct-file credential/authentication checks pass. The
+complete default and native-layout library integration attempts each reached
+their 20-minute bounds during the same unchanged candidate recovery campaign
+(exit 124). They recorded 283 and 287 observed passes respectively, 11 ignored
+each and no observed failures, but neither produced a complete-suite result.
+CLI creation/password consumers and the Vault library passed all 35 tests.
+Full candidate/release qualification remains open.
+The [raw many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
+passed its fixed 56-process gate and all 33 focused test executions, but the
+subsequent [compressed qualification](evidence/parallel-compressed-extraction-2026-10-12/README.md)
+failed the small-case noninferiority bound: ratio 0.993 [0.911, 1.083], with an
+upper bound above 1.05. This does not prove a slowdown, but it does not qualify
+the global policy. Reverted only the worker-cache sharing change and its dependent
+tests to `a881d15d`; retain all raw/compressed evidence, the earlier single-file
+cache improvement and bounded credential opens. No outcome-based reruns or
+compression guard were introduced.
+
+The [explicit-file CLI trial](evidence/explicit-file-extraction-2026-10-12/README.md)
+completed eight descriptive and 56 paired processes. Retain the command-local
+File extraction profile change to ExtractMany: peak RSS fell 67–69% to 77.3 MB
+for source Zstd and 74.9 MB for random raw at 1 GiB. Elapsed ratios were 0.986
+[0.976, 0.995] and 0.978 [0.969, 0.988], passing the frozen aggregate timing gate.
+The raw odd-round interval includes one, so not every stratum proves a speedup.
+Global ReadMostly and range/interactive behavior remain unchanged; no broader
+G11, architecture or release qualification is claimed.
+
+
+The [current public write baseline](evidence/public-add-2026-10-12/README.md)
+and [serial diagnostic](evidence/public-add-serial-2026-10-12/README.md) each
+completed 16 verified processes. Auto write RSS remained above 100 MB in all
+four cohorts; serial reduced RSS but roughly doubled compressed-source elapsed.
+The [parallel encoder reuse trial](evidence/parallel-encoder-reuse-2026-10-12/README.md)
+then completed 112 fresh paired processes and passed its frozen intermediate
+gates. Retain per-worker scoped encoder reuse: compressed BulkImport median RSS
+fell 27.3% and maximum RSS fell from 153.9 to 107.0 MB. All aggregate elapsed
+upper bounds were below 1.05. Raw BulkImport median RSS increased 13.3%, and
+its odd-round elapsed interval does not establish the same 5% bound. All new
+cohort maxima still exceed 100 MB; the whole-CLI write target remains open.
+The [submission-window trial](evidence/import-window-2026-10-12/README.md)
+completed 112 verified processes but failed its frozen rule: compressed Interactive
+elapsed upper bound 1.0579 exceeds 1.05 and raw BulkImport median RSS ratio 0.9765
+misses the required 0.95. Compressed BulkImport also had a small elapsed slowdown,
+ratio 1.0224 [1.0165, 1.0292]. Reverted only the nine-line window to `7b7cb50a`;
+no outcome-driven reruns or tests of the rejected runtime were added.
+The retained encoder reuse passed all 15 focused default/native API and public CLI
+checks; the rejected window received no additional tests. No broad suite was rerun.
+The [single-file add cache trial](evidence/single-file-add-cache-2026-10-12/README.md)
+then completed 56 verified processes and passed its frozen combined gates. Retain
+the command-local 32 MiB page/native-frame target for existing-archive single-file
+adds without changing profile/compression/worker semantics. Median RSS fell 38.0%
+for source Zstd and 44.4% for random raw; maxima fell to 150.5 and 149.7 MB, still
+above the 100 MB target. Aggregate elapsed ratios 0.9992 [0.9786, 1.0172] and 0.9937
+[0.9812, 1.0034] pass the guard but do not prove speedups. Raw even rounds show a
+small slowdown. All 51 focused test executions and representative Dart/JavaScript/WASM lifecycles
+passed; binding-check baseline debt and unavailable runtime coverage remain explicit;
+no architecture or release acceptance follows from this intermediate improvement.
+
+The [raw-frame ownership trial](evidence/raw-frame-ownership-2026-10-12/README.md)
+completed 112 verified processes and passed all frozen aggregate guards. Retain
+owned raw-buffer transfer: raw Interactive median RSS fell 8.9% and maximum RSS
+fell from 149.81 to 129.84 MB; raw BulkImport median fell 13.6% and maximum fell
+from 116.44 to 87.79 MB. All aggregate elapsed upper bounds were below 1.05,
+but raw BulkImport even-round upper 1.0534 does not establish that stratum's bound.
+Compressed Interactive modestly improved elapsed time, not median memory.
+Compressed maxima 148.62/108.90 MB and raw Interactive 129.84 MB leave the overall
+100 MB write target open. All 30 focused release test executions and both
+portable WASM lifecycles passed; generated WASM is current. No broad suite was
+rerun for this experiment; prior integration timeout limits remain.
+
+The [8 MiB single-file add trial](evidence/single-file-add-cache8-2026-10-12/README.md)
+completed 56 verified processes and met every frozen gate. Retain the command-local
+32→8 MiB target reduction without profile/compression/worker changes. Median RSS
+fell 21.2% for source Zstd and 14.2% for raw fallback; maxima fell to 122.47 and
+108.81 MB. Elapsed ratios 1.0134 [0.9963, 1.0315] and 1.0013 [0.9898, 1.0123]
+meet the 5% guard but establish no speedup. Both maxima still exceed 100 MB.
+BulkImport was unchanged and not retimed. All seven focused release API/CLI
+lifecycle checks passed; no broad suite was rerun for this one-line policy change.
+
+The [page-flush ownership trial](evidence/page-flush-ownership-2026-10-12/README.md)
+completed 112 verified processes and met all frozen gates. Retain consuming
+payload transfer in place of two deep clones. Median RSS fell 11.9%/13.4% for
+compressed Interactive/BulkImport and 12.9%/25.0% for raw. Maxima are now
+108.47/97.21/87.70/75.25 MB; only compressed Interactive remains above 100 MB
+in this four-cohort screen. Aggregate elapsed ratios are 0.9977/0.9633/0.9567/0.9173;
+all but compressed Interactive establish improvements, without an every-stratum
+speedup claim. All nine focused release checks and both portable WASM lifecycles
+passed; the generated WASM is current. No per-experiment broad suite was rerun.
+
+The [borrowed page-body trial](evidence/page-body-borrow-2026-10-12/README.md)
+completed 112 verified processes but failed its frozen memory gate: compressed
+Interactive median RSS ratio 0.9666 misses 0.95. Although all aggregate elapsed
+intervals improve and maximum-RSS guards pass, compressed Interactive still
+peaks at 108.77 MB and raw median RSS rises 5.8%/1.8%. Reverted the two-expression
+trial exactly to `4957aa5a`; no extra samples, tests or WASM rebuild followed.
+The page-flush improvement remains current and the overall write target stays open.
+
+The [page-body lifetime trial](evidence/page-body-lifetime-2026-10-12/README.md)
+completed 112 verified processes but failed both its compressed Interactive
+usefulness gate (median RSS +1.44%) and compressed BulkImport maximum-RSS guard
+(+6.61%). All aggregate elapsed guards pass, without establishing an aggregate
+speedup. Reverted the one-line lifetime change exactly to `574ebafc`; no extra
+samples, qualification tests or WASM rebuild were run for the rejected change.
+The retained page-flush improvement
+remains current. Next, diagnose the prior incomplete integration campaign with
+an isolated bounded run before deciding the broader validation scope.
+
+The [fresh public ZIP comparison](evidence/public-zip-comparison-2026-10-12/README.md)
+completed 32 verified operations, with three measured repetitions per cell.
+For compressible/random 1 GiB sources, current native write medians are
+2.18/6.56 seconds versus Info-ZIP 23.09/24.31; read medians are 3.70/2.92
+versus 4.89/5.54 seconds. Native peak RSS reaches 104.62 MB, versus about
+3 MB for ZIP. This descriptive screen uses Zstd3 versus actual Deflate6 on
+both corpora, different integrity/recovery/metadata policies and public CLI
+endpoints; it is not equivalent-security parity or a comparison to the old
+Rust ZIP component's Stored/raw variant. The 100 MB write target remains open.
+
+The explicit CLI password-unlock path was already bounded; no CLI-unlock or
+contact-performance gain is claimed. The worker-budget trial is no longer enabled.
+Cached-content-key extraction is a different path. Many-file parallel cache
+multiplication, ReadMostly, PGP/write, candidate security, public semantics and
+cross-version qualification remain open; no architecture or release is selected.
+
+### Optimisation resumed after security checkpoint — 2026-10-11
+
+Brett explicitly instructed: "if the password fix is in resume optimisation".
+Security checkpoint `a191020a` is pushed; this new instruction supersedes the
+performance pause below. The current account reading reports 0% used in the
+seven-day window, permitting bounded work under the prior 50%-remaining cutoff.
+No release is authorized. Historical security and performance evidence remains
+unchanged.
+
+The [completed bounded milestone](evidence/post-security-workers-2026-10-11/README.md)
+rebuilt the candidate endpoint and completed 640 verified extractions. Four workers
+improve compressed-source reads at 16–1024 MiB by 10.3–40.5%; serial wins at
+1 MiB and for raw/plain and incompressible plaintext fallback at every tested size.
+The default remains serial. Next test lazy authenticated-descriptor selection,
+including mixed compressed/raw chunks and short/repeated reads, before adopting
+automatic policy. Final account usage is 2% used (98% remaining); this checkpoint
+closes a bounded measurement milestone, not the remaining optimisation work. This candidate
+endpoint is distinct from the repaired native authenticated graph; its separate
+security and release qualification remain open.
+
+### Security prerequisite and performance pause — 2026-10-11
+
+Brett has paused performance tuning at checkpoint `0de2dd4a` until the
+[password-integrity handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)
+is incorporated and its acceptance gates pass. Preserve all previous benchmark
+evidence and source/executable epochs; do not start worker-selection experiments.
+Brett subsequently instructed this session to finish the security work and not
+restart performance work. That instruction supersedes the earlier remaining-usage
+cutoff for this security task. Performance remains paused after security acceptance
+and checkpointing; resuming it requires a new instruction. No release is authorized.
+
+The format-3 audit confirms outsider header reset, partial ciphertext replay and
+public slot-ID manipulation in signed and unsigned encrypted archives. Equivalent
+v4 attacks were untested at the pause checkpoint; the resumed native results below
+now confirm the same acceptances. Candidate paths require independent qualification.
+The retained [reproduction patch](evidence/password-integrity-audit-2026-10-11/reproduction-tests.patch)
+contains tests only; selective adaptation uses v4 header offsets. Main's unrelated
+edits remain untouched. The pause checkpoint did not implement security fixes.
+
+The next work, in order, is:
+
+1. Adapt reproductions to native/current v4 and candidate paths; record vulnerable,
+   rejected, unreachable and untested cases by exact revision/features. Review
+   concrete authentication and reference bindings before changing wire layout.
+2. Authenticate every accepted state including empty archives, bind graph references
+   to expected objects/versions and bytes, and authenticate access metadata after
+   credential bootstrap. Cover selective reads, writes, recovery, cleanup,
+   compaction, migration and alternate backends without unconditional full scans.
+3. After integrity gates pass, make new password archives unsigned by default
+   consistently in CLI, Rust APIs and bindings. Password holders may read/write
+   without a signer or implicit Vault. Preserve explicit signed creation and all
+   existing signed archives' verification requirements; never silently strip signing.
+4. Validate migration and bidirectional compatibility. Incompatible commitments
+   belong to format 4 / `0.5.x`, not a supposedly compatible `0.4.x` patch.
+5. Pass the handoff's adversarial, lifecycle, recovery, resource and compatibility
+   gates on one retained implementation and checkpoint it. Keep performance work
+   paused. Use focused tests during implementation and broad integration validation
+   at the completed security checkpoint.
+
+The user resolved mixed-access policy: new password-only archives default to
+unsigned; new mixed password/contact archives remain signed. Adding or removing
+access on existing archives preserves their signing mode. Conversion of signed archives requires
+an explicit, separately verified replacement preserving originals. Whole-archive
+rollback needs external freshness state; that limit does not excuse partial replay.
+No profile-renaming or configurable-default feature is authorized by this handoff.
+
+Implementation has resumed for this security plan, not performance tuning. The
+pre-fix native-v4 evidence confirmed all three attacks in both encrypted signing
+modes; the rejection control also passed. See the retained
+[pre-fix native output](evidence/password-integrity-audit-2026-10-11/native-v4-before-fixes.log).
+That evidence is historical and has not been rerun as an acceptance test.
+
+The security implementation now binds native TOC, variable, form, free-space and
+redaction references to canonical page commitments. It authenticates empty state,
+access metadata, control extents and symlink objects, and verifies exact returned
+pages on cache hits and fresh reads. Relocation verifies retained objects before
+copying; recovery uses selected authenticated membership, including empty state.
+Focused post-fix refusal and lifecycle checks precede the password-default change.
+The [security contract](security_model.md) records the resulting behavior and limits.
+
+New password creation defaults to unsigned across the CLI, native APIs and bindings;
+explicit signing remains available. File access intent is independent of signer
+presence through additive read/write modes; legacy open behavior is preserved.
+Separate sender/recipient CLI lifecycles and current Node/Dart binding lifecycles
+have passed. The isolated pinned historical-v4 exporter and public CLI migration
+test preserve original archive/Vault bytes and verify compressed content, variables
+and signing after import. See the [exporter workflow](../tools/experimental-v4-exporter/README.md).
+
+The completed native integration and exact passing follow-ups are recorded in the
+[evidence matrix](evidence/password-integrity-audit-2026-10-11/security-implementation.md)
+with retained logs and the tested source epoch.
+The first broad run was cancelled after temporary-directory quota failures and is
+not acceptance evidence. Remaining resource, complete-format recovery and release
+qualification limits must stay explicit; this checkpoint does not authorize release
+or performance work.
+
+### Compressed and encrypted cold-disk extraction — 2026-10-11
+
+The [six-case GiB comparison](evidence/protected-extraction-2026-10-11/README.md)
+finds four workers reduce elapsed time by 8.6–22.5% in the tested compressed or
+encrypted cases, with 45.0–70.9% more CPU. Raw/plain source extraction regresses
+9.5%. The user accepts increased CPU as a reasonable trade-off for lower elapsed
+time; CPU growth alone does not reject these gains. Only after a new user instruction
+resumes performance work following the security prerequisite, evaluate workload-aware
+worker selection, including size crossover and incompressible plaintext fallback,
+while retaining serial reads where they are faster. No automatic policy or native
+reader change is included in this measurement milestone.
+
+All six complete case comparisons retain cold residency, calibrated physical-I/O,
+byte verification, CPU/RSS and paired uncertainty evidence. Two interrupted batches
+remain incomplete; their partial cases are excluded and rerun in full, with exact
+source and executable epochs recorded. The repeated source GiB is explicitly not
+a unique GiB corpus. ZIP uses unequal codecs/protection where documented; PGP,
+public CLI, scale and G11 qualification remain open. The 50%-remaining usage limit
+continues to apply; the final measurement checkpoint reports 27% used.
+
+The user also requested focused checks during experiments and batching retained
+improvements before full-suite integration validation. This policy is recorded in
+AGENTS.md. No full suite was run for this measurement-only milestone.
+
+### Cold disk extraction and bounded parallel reads — 2026-10-10
+
+The balanced raw/plain buffered batch does not establish ZIP parity or a
+parallel-read improvement: serial tree elapsed time is 36.3% higher for
+1 GiB and 51.9% higher for 10,000 files. On 1 GiB, two workers add 12.2%
+elapsed and 33.7% CPU; four workers show no clear elapsed gain and add
+40.2% CPU. Keep one worker as default and parallelism explicitly test-only.
+Next qualify realistic compressed/encrypted large streams before choosing
+another pipeline experiment. All-mode correctness is not performance qualification.
+
+The [cold disk extraction and bounded parallel reads](evidence/cold-parallel-extraction-2026-10-10/README.md) milestone records one, two and four configured CPU workers
+against serial ZIP on random GiB and 10,000-file fixtures. It requires zero
+archive page-cache residency and substantial process storage reads. Separate
+reader-parity-balanced buffered and exploratory durable protocols report paired elapsed/CPU
+intervals and peak RSS; buffered output drain is reported outside timing.
+Earlier warm-cache/buffered extraction results remain historical diagnostics.
+The reader remains test-only; public CLI and broader G3/G11 gates remain open.
+
+### Disk-backed scale and extraction milestone — 2026-10-10
+
+The [bounded construction and extraction evidence](evidence/scale-extraction-2026-10-10/README.md)
+supersedes the failed first capacity attempts for the new implementation. Both
+1 GiB and 10,000-file/625 MiB fixtures now create and independently verify.
+Fresh index records are streamed, and writer/readers apply shared metadata byte
+budgets while preserving integrity and refusal/cleanup behavior. The fixed
+30-pair one-worker comparison measures actual filesystem extraction, CPU and RSS.
+It is warm-cache Btrfs, raw/plain and write/close without fsync, not public CLI or
+cold-I/O qualification. The prior failures and small-fixture results remain
+historical evidence. TB/million-entry streaming, broader modes, mutation scale,
+parallel reads and the G11 release gates remain outstanding. The user’s 50%
+remaining usage cutoff still applies.
+
+### Performance resumed with 50% remaining cutoff — 2026-10-10
+
+The user explicitly resumed work until usage remaining reaches 50%. This
+supersedes the previous no-cutoff run below. The fresh current-session reading at
+09:43 UTC reports 0% used (100% remaining) for the seven-day window. Recheck local
+rate-limit telemetry at bounded milestones and stop new work at 50% used.
+The worktree was clean at resume revision `1db0cb59`, including the later Unicode alias validation;
+preserve those commits. The [opening admission profile](evidence/open-admission-profile-2026-10-10/README.md)
+is complete; journal opening contributes 16–17 µs and metadata-page reads dominate
+format lookup. Instrumentation is removed. The [journal buffer substitution](evidence/journal-buffer-2026-10-10/README.md)
+is retained for a small measured benefit, explicitly not realistic throughput
+qualification. The user highlighted the inadequacy of small artifacts and
+approved evaluating bounded parallel reads. The [disk-backed capacity checks](evidence/large-capacity-2026-10-10/README.md)
+expose the fresh exporter’s 4,096-fragment ceiling on a 1 GiB file and its
+1,024-file ceiling on the 10,000-file workload.
+Prioritize bounded-memory construction/audit scaling before further small-fixture
+optimization; preserve failures rather than silently downsizing workloads.
+Measure full filesystem extraction separately
+from a verified streaming sink, and report CPU/RSS alongside worker count.
+The earlier fixtures are RAM-backed and cache-resident; their measurements are
+microcost evidence only.
+No performance qualification or public v4 activation is implied.
+
+### Unicode Vault aliases — 2026-10-10
+
+The user assigned [issue #328](https://github.com/onepub-dev/reVault/issues/328)
+to the format-4 performance branch. Unicode aliases retain the existing Vault
+alias collection and payload schema, using shared NFC normalization and a
+pinned Unicode naming policy. Automatic alias creation is included as a
+prerequisite. The format-4 container boundary prevents format-3 clients from
+decoding these records; the Vault structure version remains unchanged. This
+scoped CLI/Vault change does not resume unrelated archive optimization or
+establish format-4 release readiness. See the
+[validation evidence](evidence/unicode-aliases-2026-10-10/README.md).
+
+### Performance resumed without a usage cutoff — 2026-10-10
+
+The user explicitly resumed performance work and removed the earlier usage
+limit for this run. The [selective reader profile](evidence/selective-read-profile-2026-10-10/README.md)
+identifies additional index-page work on the first large-archive range read and
+SHA-256 as the dominant raw full-stream cost. Diagnostic instrumentation is
+removed. The [compact decoded-leaf cache](evidence/compact-index-cache-2026-10-10/README.md)
+is retained after a corrected fixed comparison: 11.8%/18.6% lower total range-read
+time and 3.6% for small files. The compressed-stream result is inconclusive.
+All six cases still fail ZIP parity. The initial wrong-control batch is preserved
+and excluded from the isolated conclusion. The [isolated hash-cost experiment](evidence/stored-byte-hash-cost-2026-10-10/README.md)
+shows BLAKE3 benefits at large units but a substantial 4 KiB regression. SHA-256
+remains unchanged pending a separate archive-level and dependency/security decision.
+The [wiped read-buffer trial](evidence/wiped-read-buffer-2026-10-10/README.md)
+is retained after a fixed paired comparison. Raw full-stream total time improves 2.0% at 8 MiB and 1.5% at 64 MiB; 8 MiB range improves 2.6%. Small-file, compressed-stream and 64 MiB range intervals include no change, so no gain is claimed there. All six cases still fall short of ZIP parity.
+The current implementation checkpoint is `311bbeef`, following compact cache
+`f57a12ca`; tests and raw evidence are retained. Remaining read work should target
+the measured publication/lookup cost for fresh range reads and evaluate payload
+hashing through an explicit architecture proposal, rather than assuming further
+allocation micro-optimizations will close the ZIP gap. No usage cutoff is active
+for this resumed work. All broader integration, scale, recovery and performance
+gates remain open.
+
+### Selective authenticated reads — 2026-10-10
+
+The user accepted [verification of selected paths and chunks](selective_authenticated_reads.md)
+and explicitly waived the 25% remaining usage cutoff for this task only. The
+experimental ordinary reader is separated from the explicit audited image used
+by updates. It authenticates lookup paths, selected file chunks, variables and
+form values, with a bounded per-snapshot decoded-page cache. Complete graph,
+padding, reclaimed-space and payload audits remain explicit. No Vault integrity
+cache or format change is introduced. Focused validation and the fixed six-case fresh-process comparison are complete;
+see [implementation and measured results](evidence/selective-authenticated-reads-2026-10-10/README.md).
+This completes the selective-read task, not overall format qualification.
+The earlier borrowed traversal remains in the audited path and has no isolated
+performance acceptance claim. Experimental v4 remains on this branch.
+
+
+### Rejected path-buffer move — 2026-10-10
+
+The [two-line ownership-move trial](evidence/typed-tree-path-move-rejected-2026-10-10/README.md)
+passes lifecycle/reader checks and Clippy. Small-file opening improves 1.9%, but
+all three large-fixture cases regress 1.5–3.2%; it is reverted to `f99f4e3f`.
+Source allocation elimination does not establish end-to-end benefit. Next pursue
+the decoder-to-visitor allocation boundary identified by function attribution,
+with preserved validation/wipe lifetimes and uninstrumented comparison before
+broader claims. Keep the rejected micro-optimizations as negative evidence.
+
+### Traversal function attribution — 2026-10-10
+
+The [temporary instrumented diagnostic](evidence/typed-tree-index-attribution-2026-10-10/README.md)
+passes index/reader checks, Clippy and 400 verified opens. Raw 64 MiB index-stage
+medians split into 234 µs verified page reads, 248 µs decoding and 346 µs visitor
+work; 186 µs checksum time is nested within page reads. All timing source is
+restored to `0fd6ae24`; only reproducible evidence is retained. Next investigate
+bounded per-record allocation reduction across decoding/typed visitor staging,
+with complete membership/page validation and wipe lifetimes preserved. A borrowed
+record view is a new unimplemented hypothesis, not an accepted architecture.
+
+### Rejected fused leaf validation — 2026-10-10
+
+The [leaf-validation trial](evidence/typed-tree-leaf-validation-rejected-2026-10-10/README.md)
+passes index/reader tests and Clippy but regresses raw 8 MiB opening by 1.4% and
+raw 64 MiB by 0.7%. Small/compressed intervals are inconclusive. The two Rust
+files are restored exactly to `9fcf3cb0`; only evidence is retained. Both paired
+binaries included storage-meter overhead, so this is a bounded diagnostic.
+Next separate checksum, decoding and typed staging costs before selecting
+another traversal change; do not repeat rejected scan/body-borrow hypotheses.
+
+### Traversal storage attribution — 2026-10-10
+
+The [diagnostic-only storage meter](evidence/typed-tree-storage-meter-2026-10-10/README.md)
+passes focused checks and Clippy, then verifies 400 observed opens. File-length
+queries account for under 1% of index-stage time; backend reads account for about
+6–9%. Leave length checks intact. Most time remains in checksums, decoding,
+typed visitor staging and instrumentation, not measured storage operations.
+Next separate those costs or test bounded per-record allocation reductions;
+preserve verification timing and avoid repeating the rejected body-borrow trial.
+This adds attribution, not a new speedup or ZIP qualification result.
+
+### Ownership coverage construction — 2026-10-10
+
+The [bounded graph construction change](evidence/typed-tree-graph-coverage-2026-10-10/README.md)
+retains final exact coverage and immediate duplicate/bounds/count checks while
+removing redundant insertion-time interval searches. Nine ownership tests,
+focused readers, 17 shared-tree tests and Clippy pass. Fixed paired opening times
+improve 3.5% for raw 8 MiB and 7.3% for raw 64 MiB; the compressed result is
+inconclusive, including up to a 2.4% regression. The [current stage diagnostic](evidence/typed-tree-open-combined-2026-10-10/README.md)
+still identifies authenticated traversal as the dominant raw 64 MiB cost. Next
+separate verified page reads, decoding and typed visitor staging before selecting
+a traversal change. Preserve detection timing and every validation obligation.
+The full ZIP comparison below predates this optimization and remains failed.
+
+### Combined reader comparison — 2026-10-10
+
+The [post-optimization six-case batch](evidence/typed-tree-combined-read-2026-10-10/README.md)
+on `ed4d6c0f` passes every content/identity check and still fails ZIP parity:
+1.159× small files, 2.600–3.359× streams and 9.716×/23.954× ranges. Post-format
+focused tests and Clippy pass. The failed launcher setup and excluded observations
+are retained separately. Opening dominates ranges; payload work dominates large
+streams. Next investigate bounded authenticated traversal and fresh payload cost
+attribution while preserving validation. This superseded the earlier full-read
+baseline at the time; the selective-read evidence above is now the current read scorecard.
+Public activation, scale, recovery, migration and full qualification remain open.
+
+### Bounded fragment join — 2026-10-10
+
+The [vector staging and file-ID join](evidence/typed-tree-fragment-join-2026-10-10/README.md)
+preserves fragment/identity/extent checks and improves four fixed paired opening
+cases by 5.9–10.0%. A nine-fault decoder regression passes in all 16 modes, as do
+focused readers, filesystem lifecycle and Clippy. These are warm-open diagnostics,
+not ZIP parity or peak-memory qualification. Rerun the six matched full-read/range
+cases on the combined accepted reader changes before making a broader claim.
+
+### Guarded reclaimed-space buffer reuse — 2026-10-10
+
+The [bounded reuse change](evidence/typed-tree-reclaim-reuse-2026-10-10/README.md)
+passes eight ownership tests, focused readers, 15 external-source controls and
+Clippy. Four fixed 30-pair diagnostics improve total warm opening by 2.3%, 8.1%,
+9.5% and 1.5%, with every interval below one and all content/hash checks passing.
+Every free/pending byte remains checked using one guarded buffer of at most
+64 KiB data. This does not establish ZIP parity or public-format qualification.
+Next investigate authenticated index traversal and remeasure full read cases
+after a coherent set of accepted changes; preserve the rejected borrow experiment.
+
+### Detailed traversal diagnostic — 2026-10-10
+
+The [refined observer](evidence/typed-tree-open-detail-2026-10-10/README.md) passes
+17 shared-tree tests, focused readers and Clippy. Four verified 100-open cases
+separate publication, index traversal, graph construction and reclaimed-space
+validation. Index walking dominates raw 64 MiB; publication plus reclaimed-space
+checks consume nearly half of raw 8 MiB opening. Investigate bounded guarded
+buffer reuse only after checking external-source and erasure semantics; no gain
+is established. Continue with the user's 25% remaining usage cutoff.
+
+### Rejected plaintext-copy experiment — 2026-10-10
+
+The [fixed paired experiment](evidence/typed-tree-borrow-rejected-2026-10-10/README.md)
+removed a redundant plaintext index copy but regressed all four open-time cases
+by 1.7–3.5%; it was reverted. All correctness checks passed, so the rejection is
+performance-based. Raw observations, the rejected patch and identities remain.
+Next separate traversal decoding, ownership construction and reclaimed-space
+validation before selecting another change. ZIP parity remains failed.
+
+### Open-stage diagnostic — 2026-10-10
+
+The [100-open diagnostic](evidence/typed-tree-open-stages-2026-10-10/README.md)
+uses the same verification path and identifies authenticated traversal as the
+largest stage in four fixtures (249–1161 microseconds). The stage includes
+decoding, ownership and reclaimed-space checks; it is not a CPU profile. Host
+profiling permissions were left unchanged. Focused reader tests and Clippy pass.
+Any follow-up must preserve verification and measure against frozen controls.
+
+### Matched read baseline — 2026-10-10
+
+The [current fixed read batch](evidence/typed-tree-matched-read-2026-10-10/README.md)
+compares source `a47f686f` against rebuilt ZIP and packed C with Rust 1.88.0.
+All six 30-pair cases fail ZIP parity: 1.066× small files, 3.883×/2.593× raw/
+compressed 8 MiB streams, 3.707× raw 64 MiB stream, and 10.887×/28.005× midpoint
+range reads. All bytes and retained identities verify. Direct export admits the
+64 MiB fixture without increasing caps. Opening dominates range time; profile it
+before selecting another optimization. This is a component baseline, not public
+CLI/PGP/write/scale qualification; historical small-file passes remain historical.
+
+### Typed credential readers and fresh conversion — 2026-10-10
+
+The [typed credential integration](evidence/tree-credential-reader-2026-10-10/README.md)
+connects password/contact bootstrap to all typed record families and refuses a
+publication change during opening. It fixes a secure-memory read-guard lifetime
+failure without changing secret storage. Dense-to-tree conversion now retains
+wrappers while rebasing the directory generation for fresh output. Mode/mirror
+and partial-write tests cover this bounded path. An additional 72 process exits
+verify password/contact access through installation and resume. This does not resolve credential
+overflow/mutation, public activation or the complete-format qualification gates.
+
+### Credential-preserving copy — 2026-10-10
+
+The [bounded credential-directory integration](evidence/tree-access-copy-2026-10-10/README.md)
+retains exact password/contact wrappers across copy and resume in all encrypted
+modes. It checks both mirrors before publication, refuses changed credentials in
+an otherwise valid successor and cleans up 16 partial key-directory write failures.
+Focused copy/resume and bootstrap controls and strict Clippy pass. The two native
+recovery failures reproduce and remain unresolved; no owner checks were relaxed.
+Access overflow/mutation, public integration, partial temporary ownership and
+complete performance/resource/aging/compatibility qualification remain outstanding.
+
+### Complete-copy resume — 2026-10-10
+
+The [test-only complete-copy admission](evidence/tree-resume-2026-10-10/README.md)
+passes five focused tests, 48 process exits and strict Clippy. It verifies current
+source lineage, exact selected rows and guarded payload digests before installing
+an explicitly selected complete replacement. Partial/stale/edited/corrupt candidates
+are preserved and refused. This does not establish ownership of partial files or
+an automatic recovery protocol; access roots and full qualification remain open.
+The user explicitly resumed with the existing 25% remaining usage cutoff.
+
+### Whole-tree path installation — 2026-10-09
+
+The [test-only path installer](evidence/tree-path-install-2026-10-09/README.md)
+passes six focused tests, including 96 fresh process exits across all 16 modes,
+plus six existing copy controls and strict Clippy. Independent reopen preserves
+all selected families, successor lineage, permissions and subsequent writes.
+Returned failures preserve the original before rename and the successor after it;
+stale source/temporary paths refuse safely. The initial fixture guard failure is
+retained. Authenticated ownership/adoption of abandoned temporaries, access-root
+integration and complete resource/aging/recovery qualification remain outstanding.
+
+### Resumed checkpoint — 2026-10-08
+
+The [resumed validation](evidence/resume-2026-10-08/README.md) reproduces 21
+compression tests, 241 format tests (7 ignored), strict Clippy, and 13 vendor
+workspace tests (1 ignored) with Rust 1.88.0. Missing upstream vendor test
+fixtures were restored with provenance. Historical evidence source snapshots
+retain their exact bytes under `.rs.txt` names to protect them from formatting.
+Historical `/tmp` benchmark artifacts are unavailable in this environment;
+new comparisons must rebuild matched controls and retain their own identities.
+
+The [owned decoder storage correction](evidence/decoder-owned-storage-2026-10-08/README.md)
+now wipes specified owned byte allocations on growth/release and rejects excess
+literal/sequence block output before static storage can overflow. It passes 17
+vendor decoder unit tests, 15 workspace tests (1 ignored), no-default-features
+checking and the unchanged archive compression/format/Clippy suites. This is a
+scoped byte-buffer guarantee, not full entropy/sequence/caller-memory wiping.
+Post-format checks passed. The fixed codec-only batch measured time regressions
+of 1.040×/1.382×/1.443× for fresh owned 4 KiB/256 KiB/8 MiB decodes and 1.021×
+for the 256 KiB static control. These include erasure and bounds corrections;
+no A3/A4 archive claim follows, and the correctness policy remains in place. A separate fixed
+wide-write follow-up retained full-capacity erasure and measured 0.970×/0.770×/
+0.741× owned lifecycle time against the byte-wise correction (static control
+0.994×). Residual cost against the original unwiped decoder was not directly
+remeasured; do not multiply ratios across batches or claim archive parity.
+
+The [October 9 direct tree exporter](evidence/fresh-tree-export-2026-10-09/README.md)
+now bypasses both dense and cost-model serialized intermediates through shared
+audited repacking. Seven focused tests cover all-mode beyond-dense reopen/read,
+93 destination faults, source commitment changes and access/count refusals.
+A file-backed streamed 64 MiB probe covers the original raw capacity failure
+plus compressed/protected cases. The format suite passes 248 tests (8 ignored)
+and strict Clippy. Source retention, full ownership/content verification and
+empty-destination cleanup remain required; experimental count caps are unchanged.
+These are private adapter results, not public activation or resource gate passes.
+Post-format format/probe/Clippy checks passed. Both preserved native recovery
+failures reproduce under `native-block-layout`; their assertions remain intact.
+
+The [secure segment component](evidence/secure-segments-2026-10-09/README.md)
+preserves established page wire bytes and the public 1 MiB value limit with
+bounded guarded segments. Its separate post-format component/public baseline,
+252 format tests (8 ignored), 19 page-api tests and strict Clippy pass.
+
+The subsequent [selected typed-variable integration](evidence/typed-variables-2026-10-09/README.md)
+connects those segments to exact selected physical ownership, guarded staging,
+readback and retirement recovery in the **test-only (`cfg(test)`) shared-tree
+adapter**. It preserves normal/secret access, no-change and explicit downgrade
+semantics alongside existing file and metadata changes, and adds selected
+variable salvage. The pre-final implementation passes 257 format tests (8
+ignored) with serialized execution plus strict Clippy; final affected and post-format checks pass and are retained separately. Representative fault evidence covers 3,432 transaction
+cuts and 2,724 interrupted recoveries. No public variable API is activated.
+
+Two concurrent test runs hit the host's 8,192 KiB locked-memory limit. Isolated
+maximum-value and serialized full-suite checks pass, but guarded-memory arenas
+remain retained and concurrent capacity is unqualified. Independent 64 KiB
+region loss co-loses both small variables in the unpadded fixture; padded modes
+lose one and retain the neighbor. Neither outcome is hidden by the one-byte
+corruption result. Dense return refuses variable-bearing images before writes;
+whole-archive migration/compaction with variables remains unqualified.
+
+The [borrowed source checkpoint](evidence/variable-resource-2026-10-09/README.md)
+removes the test-only secret setter's full guarded clone. Final affected checks,
+strict Clippy and one fixed parallel regression pass. The fixed 30-pair/mode
+comparison reduces locked-memory endpoints by 1,028 KiB and create/no-change
+CPU; three read modes retain small measured regressions. All independent readers
+and 32 reciprocal readers pass. Earlier allocation failures remain evidence,
+and concurrency/incremental-peak gates stay open. The subsequent
+[test-only atomic moves](evidence/variable-moves-2026-10-09/README.md) preserve
+value identity/revision/extents and public validation across all modes, 1,512
+transaction cuts and 504 interrupted recoveries. Post-format tests and strict
+Clippy pass. The [prepared guarded staging prerequisite](evidence/prepared-staging-2026-10-09/README.md)
+now connects bounded two-pass pages to variable mutation. All 32 fresh aggregate
+probes (16 modes, one/twelve 1 MiB values) reopen and verify under the unchanged
+8 MiB policy; endpoint snapshots are not peak or timing qualification. Variable,
+ready-vector and affected production checks and strict Clippy pass after the
+tracked formatting hook. The [public form baseline](evidence/form-history-2026-10-09/README.md)
+passes mixed historical captures and independent form/file namespace states in
+all 16 modes. The [test-only typed form snapshots](evidence/typed-forms-2026-10-09/README.md)
+now connect full-size segmented texts, exact references and complete selected
+ownership. The pre-final format suite passes 267 tests (11 ignored); final affected tests
+and Clippy pass, including post-format affected checks at `341315af`. Both
+separately frozen 16-mode FileStore batches verify
+13.6 MB logical snapshots with a maximum 4,076 KiB locked-memory endpoint under
+the 8,192 KiB policy. This is bounded staging/scoped reading, not full-object or
+concurrency qualification. The [form lifecycle followthrough](evidence/form-lifecycle-2026-10-09/README.md)
+adds selected deletion and streamed salvage, passing 1,704 transaction cuts and
+564 interrupted recoveries, all-mode corruption/dependency controls and 16 fresh
+aggregate streaming probes under the unchanged memory policy. Post-format affected checks and strict Clippy pass at `9ec6c89f`. Partial delivery
+requires whole-call staging; stable storage remains a precondition. The [atomic form moves](evidence/form-moves-2026-10-09/README.md)
+now preserve payload identities and publish parent creation with path changes;
+all-mode controls, 1,488 transaction cuts, 504 interrupted recoveries and strict
+Clippy pass, including post-format affected checks at `29cb3ed4`. The [public cross-record secret-upgrade baseline](evidence/form-secret-upgrade-2026-10-09/README.md)
+now passes all modes, including historical secret and absent-field records. The [selected-source prerequisite](evidence/selected-source-2026-10-09/README.md)
+now prepares guarded replacements from authenticated old extents without cloning
+the archive: 3,288 transaction cuts, 1,020 interrupted recoveries and exactly 16
+fresh aggregate probes pass. Maximum locked-memory endpoint is 4,076 KiB under
+the unchanged 8 MiB policy; archive growth remains explicit. Post-format affected
+checks and strict Clippy pass at `8cec9211`. The [atomic field adapter](evidence/form-fields-2026-10-09/README.md) now preserves
+cross-record upgrade history, context-aware reuse and checked revisions. Five
+controls, public history/segment checks, strict Clippy, 2,232 transaction cuts and
+672 interrupted recoveries pass. Exactly 16 fresh nine-value aggregate upgrades
+pass with maximum 4,140 KiB locked-memory endpoint; archive growth stays explicit.
+Post-format affected controls and strict Clippy pass at `b104513a`.
+The [public definition/resolution baseline](evidence/form-definitions-public-2026-10-09/README.md)
+now passes all modes, including type-ID/alias precedence and empty required-field
+records. The [test-only definition adapter](evidence/form-definitions-2026-10-09/README.md)
+now connects revision/resolution and empty-record creation over one selected
+snapshot. Five controls, four public history tests and strict Clippy pass, along
+with 3,168 transaction cuts and 1,164 interrupted recoveries. Eleven MiB of normal
+metadata passes all modes with explicit caller/getter costs. Post-format affected
+checks and strict Clippy pass at `7201cfae`. The [whole-tree extent copy](evidence/whole-tree-copy-2026-10-09/README.md) now
+preserves all selected file/variable/form state and checked successor lineage.
+All16-mode history controls, 1,896 returned-failure cleanup cases, late readback/
+cleanup/source-change controls and 10MiB FileStore functional fixtures pass.
+Post-format verification at `047a0f7a` passes six whole-tree controls, four
+shared-anchor tests, 13 page tests and strict Clippy; earlier checksum and fixture
+failures remain retained. The matrix and aggregate were not repeated for formatting. This is extent relocation, not pack repacking or filesystem
+installation at that checkpoint. The later path-installation component above
+adds process-death handling; resumable temporary ownership still needs a design.
+Keep the security policy and failure evidence; no allocator weakening is implied.
+Forms/references and broader public adapters, native selected
+membership/recovery, architecture selection and complete CPU/RSS/aging/size and
+compatibility qualification remain unfinished. The two native failures remain
+preserved, and no further decoder micro-tuning is implied by this sequence.
+
+### Local implementation checkpoint — 2026-10-02
+
+The [final combined decoder checkpoint](evidence/decoder-final-2026-10-02/README.md)
+passes 21 compression tests, 241 format tests (7 ignored) and strict Clippy.
+It additionally rejects declared-length mismatches before transferring output
+out of its zeroizing guard. The [isolated inline hint](evidence/decoder-inline-2026-10-02/README.md)
+shows a 4.4% compressed plaintext read benefit; other read intervals include
+parity, and unexplained RSS/open shifts are not attributed to that hint.
+Final combined source also completes four matched paired cases against the FSE
+baseline with no observed read/total regression. Raw-control movement limits
+causal attribution, and the large/range ZIP gaps remain open.
+
+Subsequent accepted decoder work: [FSE arithmetic](evidence/decoder-fse-2026-10-02/README.md)
+reduces measured compressed read time 3.9–8.7% versus the separately accepted
+[checksum/wiping correction](evidence/decoder-checksum-2026-10-02/README.md).
+Main qualification passes 20 compression tests, 241 format tests (7 ignored)
+and strict Clippy. The overlap-copy experiment was rejected. Codec format,
+authentication, checksum comparison and wiping remain intact.
+
+The preceding [compiler-matched read and aging checkpoint](evidence/typed-tree-pinned88-2026-10-02/README.md)
+passes 241 format tests, strict Clippy and 16,000 bounded mixed payload cycles
+across 16 modes. Six read cases use the exact Rust 1.88.0 pin and retained C/ZIP
+controls. Small plaintext is 0.546× ZIP; raw 8 MiB, compressed 8 MiB and range
+remain 3.567×, 2.524× and 5.896× ZIP. Public semantics, native recovery and format
+selection remain outstanding. Earlier checkpoints below retain their own scope.
+
+The [64 MiB raw extension](evidence/typed-tree-64m-2026-10-02/README.md) uses an
+existing authenticated update to build the tree after fresh export hit the dense
+intermediate limit. With unchanged caps and matched raw fragment units, stream
+has no clear difference from C (0.999× [0.967, 1.033]); range is 0.821× C.
+Both remain slower than ZIP. The scoped performance work now has bounded
+small/8 MiB/protected/64 MiB evidence; remaining payload costs are attributed to
+hardware SHA-256 and codec work, with no further safe duplicate application work
+identified. Public semantics and architecture decisions remain separate work.
+
+The subsequent [overlapping decoder-copy experiment](evidence/decoder-overlap-trial-2026-10-02/README.md)
+passed safety checks but showed no clear paired read improvement, so it was not
+promoted. It exposed a pre-existing full-buffer Zstd checksum-comparison omission
+(calculation existed); that correctness change is separate from performance
+experiments. Original authentication and rejected evidence remain preserved.
+
+The [separate checksum/wiping correction](evidence/decoder-checksum-2026-10-02/README.md)
+is now promoted and main-qualified: 20 compression tests, 241 format tests
+(7 ignored) and strict Clippy pass. Full-buffer decode compares each frame's
+already-computed checksum; fresh fallback errors wipe the entire writable output.
+Its separate paired comparison shows no material total regression. Streaming API
+semantics and all architecture decisions remain separate. The subsequent accepted
+FSE arithmetic experiment is summarized above and retains this correction.
+At that October 2 checkpoint, ordinary vendor-owned decoder history remained outside the output/arena wipe
+correction and still deallocates without zeroization; full decoder-memory wiping
+requires separate qualification.
+
+The [authenticated transition and reuse checkpoint](evidence/shared-tree-transitions-2026-10-02/README.md)
+records uncommitted work on top of `4744b635`, with source hashes and validation.
+Raw-record overflow-tree rewriting now connects durable preparation, authenticated
+COW publication, abort/roll-forward cleanup and reuse of metadata and journal
+arenas. No-change repeats preserve bytes. This is a bounded `cfg(test)` adapter,
+not typed/public mutation, complete inline/overflow transitions or format selection.
+The September 27 statements below about an unconnected raw transition writer and
+journal overflow are superseded only within this documented adapter's scope.
+
+Final checks pass 6 focused writer tests, 220 format tests (6 manual probes
+ignored), and strict Clippy. Forty small metadata cycles stabilize at 720,896
+bytes in all 16 modes; the large raw-record case stabilizes at 26,542,080 bytes
+over eight additional cycles. These are bounded observations, not complete A5
+qualification, compaction or ZIP performance claims. Resource measurements had
+concurrent HMB test load and include fixture construction and verification.
+
+The subsequent [bounded allocation-map bank change](evidence/compact-map-bank-2026-10-02/README.md)
+passes the unchanged 4,000-operation mixed-aging stability gate. The earlier
+metadata-arena hold trial failed and was removed. The passing unpadded result
+retains more total bytes (1,507,859) than the historical control's final size;
+this is a stability result, not a space-efficiency or full A5 pass.
+Both native recovery failures reproduce. Independent
+signed-native salvage still needs authenticated membership integration; do not
+weaken whole-content authentication to manufacture a pass. Next work must connect
+typed/public records and complete transitions, evaluate mixed-layout space cost and
+native membership/recovery, and qualify the same implementation against the
+existing gates. Preserve the retained controls and rejected trial evidence.
+
+The [typed-tree and salvage checkpoint](evidence/typed-tree-2026-10-02/README.md)
+now connects files, fragments, packs and canonical filesystem metadata to the
+authenticated tree. Fresh export preserves the dense source; tree metadata
+updates preserve file payloads. All-mode lifecycle grows beyond the dense
+catalogue capacity, and read-only salvage recovers intact neighbours while
+failing closed on lost selected membership. Normal signed-plaintext eager
+verification is unchanged. Five focused tests, 225 format tests (6 ignored)
+and strict Clippy pass. This supersedes the raw-only limit for those typed
+records, not public/native activation, payload mutation, variables or forms.
+Fresh export requires an empty destination and rejects access-slot translation.
+The subsequent [in-place transition checkpoint](evidence/typed-transitions-2026-10-02/README.md)
+connects automatic dense/tree routing, growth and return-to-inline through a
+separate explicit descendant-retirement proof. It passes 228 format tests and
+strict Clippy; bounded all-mode lifecycles return to their exact initial sizes.
+Resource evidence is descriptive and includes setup/reopens, not a ZIP claim or
+transient peak. Next integrate authenticated payload mutation with pack-neighbour
+preservation, then remaining public record/access semantics and qualification;
+public native activation remains unselected.
+
+The [typed payload checkpoint](evidence/typed-payload-2026-10-02/README.md)
+connects bounded tree-only addition, replacement and removal to the same
+preparation/publication/cleanup transaction. Affected packs are retired whole;
+surviving encoded neighbours are verified and copied, with staged-byte readback
+before publication. The final format suite passes 233 tests (6 ignored) and
+strict Clippy. That checkpoint appended changed packs. The subsequent
+[vacant-payload reuse checkpoint](evidence/typed-payload-reuse-2026-10-02/README.md)
+connects single-claim authenticated placement and passes bounded 32-cycle
+all-mode stabilization, reused-write faults and sampled large overflow-journal
+faults. Final format regression passes 237 tests (6 ignored) and strict Clippy.
+Exact retained sizes differ between fresh fixture observations; no universal
+size bound or full payload-aging gate is inferred. Dense payload dispatch and
+return preflight, streaming public writes, variables/forms and access semantics
+remain subsequent work at that checkpoint.
+
+The subsequent [dense payload dispatch and recovery checkpoint](evidence/typed-dense-payload-2026-10-02/README.md)
+connects both starting layouts, safe small-result return and preflight refusal
+without relocation. It passes 240 format tests (6 ignored), strict Clippy,
+1,620 focused interruption cases and 192 sampled large overflow faults across
+both layouts. All-mode 32-cycle aging remains within each fixture's first-16
+completed-size maximum; this is not full 1,000-cycle qualification. The scoped
+mutation/recovery tranche is complete and controlled read comparisons are next.
+Public semantics, migration, native activation and full qualification remain.
+
+The [controlled typed-tree read batch](evidence/typed-tree-read-2026-10-02/README.md)
+now completes four plaintext padded cases with 30 pairs and three warmups each.
+Small files take 0.602× ZIP time; 8 MiB raw, compressed and raw-range cases remain
+3.627×, 2.596× and 7.002× ZIP respectively. Tree raw/range open is slower than
+packed C despite faster reads, and process RSS is higher. Preserve these failures
+and use the measured open cost for a bounded integrity-preserving optimization;
+do not imply whole-format eligibility or a ZIP parity pass.
+
+The [single-traversal optimization](evidence/typed-tree-single-pass-2026-10-02/README.md)
+removes duplicate authenticated index traversal without changing validation.
+It passes 241 format tests (6 ignored) and strict Clippy. A fresh paired batch
+measures 19–24% lower open time, about 20% lower total raw-range time and about
+5% lower process RSS versus the original typed reader. Large/range ZIP gaps
+remain; bounded payload attribution is next, retaining both measured baselines.
+
+The isolated batches above omitted the root toolchain pin and used Rust 1.94.1;
+retained C/ZIP binaries use 1.88.0. Only the direct original/optimized tree pair
+is compiler-matched. Preserve the exploratory ratios and repeat retained-control
+comparisons with the repository's exact 1.88.0 pin before stronger layout claims.
+
+### September 27 baseline and remaining program
+
+Updated 2026-09-27. P2 is still an architecture comparison, not a selected format.
+The production default writer has bounded staging; candidate C has authenticated
+membership, separated metadata mirrors, resumable allocation/erasure, file/range
+reads and [independently protected physical packs](evidence/independent-file-packs-2026-09-27/README.md)
+with [tested updates and explicit read-only salvage](evidence/candidate-file-lifecycle-2026-09-27/README.md)
+and [source-preserving file compaction](evidence/candidate-compaction-2026-09-27/README.md).
+C remains test-only and lacks complete public
+record/access semantics. The [current scorecard](archive_v4_evaluation.md#current-scorecard)
+states which gates remain failed or incomplete.
+
+1. Finish the shared-control architecture experiment against the
+   [whole-format eligibility findings](archive_v4_evaluation.md#whole-format-eligibility-review).
+   The [fresh dense file image](evidence/dense-file-image-2026-09-27/README.md) now
+   connects authenticated controls, credential bootstrap, a bounded catalogue,
+   denser independent fragments and verified file/range reads. It remains file-only
+   with [persisted metadata updates](evidence/dense-metadata-update-2026-09-27/README.md).
+   Renames/permission changes now connect the catalogue, ownership graph, compact
+   preparation, mirrored publication and retirement through interruption tests.
+   Payload mutation remains unconnected. The first edit retains two extra 64 KiB
+   control allocations: both retained small fixtures grow from 320 to 448 KiB
+   (1.935× ZIP), stable through 100 metadata edits and 100 unchanged repeats.
+   [Split slots were ruled out for the primary corpus](evidence/inline-slot-feasibility-2026-09-27/README.md):
+   its 29/37 KiB encoded catalogues cannot fit a 24 KiB slot. Compare paged
+   catalogue COW with the [read-only paged cost model](evidence/paged-catalogue-cost-2026-09-27/README.md),
+   budgeting actual hybrid publication bytes, complete file/pack leaves and staging
+   space together on retained records before implementing another writer. The frozen
+   32-record model misses each primary private pool by 3,328 bytes; its embedded
+   root fits. The declared 16/32/64/128-record comparison fails both small cases
+   in every variant. Stop tuning page size. Test a bounded metadata return-to-inline
+   protocol that authenticates a shorter sealed length before erasing/truncating
+   the retired external tail; preserve payload/key ownership and interruption
+   recovery. The [metadata-tail experiment](evidence/metadata-tail-retirement-2026-09-27/README.md)
+   now connects that narrow transition to durable preparation and recovery. Measure
+   its extra publications and CPU cost before adoption. Five retained corpora now
+   complete 100 metadata edits and 100 unchanged repeats at their original sizes;
+   both small archives finish at 320 KiB, using 448 KiB temporarily. This is only
+   a metadata-size subcase; mixed payload aging and public semantics remain.
+   The [typed filesystem metadata experiment](evidence/typed-filesystem-metadata-2026-09-27/README.md)
+   now persists directories, symlink targets and real permissions through the same
+   COW protocol. Node-aware salvage preserves authenticated metadata alongside
+   independently verified file results; public mutation policy remains pending.
+   Integrate typed catalogue overflow, remaining public records, payload updates,
+   overflow transitions and compaction/installation before qualification. Preserve the existing candidate as the control.
+   Implement overflow before adding an inline-only variable/form prototype: the
+   [existing variable limit](../rust/revault_lockbox_api/src/constants.rs) is
+   1 MiB per value, already larger than the entire 64 KiB decoded experimental
+   catalogue. Preserve that public capacity and secure-value semantics.
+   The next implementation tranche must connect authenticated child references,
+   bounded traversal and allocation ownership, followed by journal overflow and
+   interruption-safe retirement. Keep the small inline case and test transition
+   into overflow, further growth, replacement/deletion and return to inline.
+   Include missing/corrupt children, duplicate ownership, stale references, and
+   control-bank loss; recovery must not scan old generations to replace missing
+   selected membership. Re-measure completed and temporary space, CPU and RSS
+   across the transition rather than extrapolating the file-only results.
+   Start by adapting the existing [authenticated index](../rust/revault_lockbox_api/src/file_format/authenticated_index.rs):
+   it already provides ordered bounded pages, mirrored references, COW changes,
+   and `visit_owned` traversal of reachable pages. Its 49,152-byte entry-value
+   limit means a 1 MiB variable still needs authenticated value segments; raising
+   that limit would invalidate the bounded-page design. Reuse is conditional on
+   integrating descendant claims into the [shared ownership graph](../rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs),
+   whose [descendant ownership component](evidence/shared-ownership-2026-09-27/README.md#descendant-metadata-ownership-component)
+   now checks mirrored placement and retirement separately from the private-root
+   suffix proof. The [shared overflow reader](evidence/shared-tree-reader-2026-09-27/README.md)
+   now binds a private root manifest to authenticated index traversal, allocation
+   records and descendant ownership. Typed records, the transition writer and
+   journal overflow remain unconnected; existing dense images still use no descendants.
+   Preserve the [variable API's secure-page and scoped-secret access](../rust/revault_lockbox_api/src/lockbox/variables.rs);
+   ordinary wipe-on-drop index bytes alone do not establish equivalent secret
+   memory handling. This is the starting implementation route, not approval of
+   a new wire format or a completed reuse claim.
+   Five retained images now match the size model; both small fixtures are actual
+   320 KiB files (1.382× ZIP), with full persisted-byte verification. Budget
+   temporary metadata, sealed-length/cleanup and any relocation publication; this
+   size result does not qualify mutation, CPU/RSS or full public semantics.
+   [Read-only salvage](evidence/dense-salvage-2026-09-27/README.md) now verifies
+   intact neighbours independently. A highly compressible stress case loses
+   512 files per destroyed physical region versus C's 64; one-byte corruption
+   loses one file. On the retained primary corpus the corresponding losses are
+   190 plaintext / 176 protected files versus C's 64. Explicitly decide this
+   trade-off independently of the per-fragment random-read bound.
+2. Retain the [failed mixed aging qualification](evidence/mixed-file-aging-2026-09-27/README.md):
+   all four 1,000-operation modes preserve contents and erasure, but unpadded
+   control-space growth at cycle 421 exceeds the first-100 high water. Diagnose
+   placement in the whole-layout comparison; do not mask it with compaction.
+   Extend packed-file process death and source-handle orchestration. File-only
+   compaction passes source-preserving failures and 16 process deaths; resource
+   probes cover 100k files and 1 GiB, with platform/headroom checks remaining.
+3. Run one declared whole-layout comparison addressing fixed control costs,
+   metadata access/cache policy and normal-open padding verification together.
+   Retain the failed results: C is 3.77× ZIP raw / 4.02× compressed on 8 MiB reads;
+   small files remain 6.08× ZIP after compaction; encrypted range-open regresses.
+   Raw 64 MiB passes its size subcase at 1.016× ZIP. No A3/A4 pass is claimed. The declared
+   [shared-control read comparison](evidence/shared-control-read-comparison-2026-09-27/README.md)
+   measures the bounded reader after 100 metadata cycles against retained C and
+   ZIP, using six fixed cases and the same verification/timing loop. Its small
+   plaintext result is 0.626× ZIP (upper 95% 0.654); large plaintext reads remain
+   2.85–3.36× ZIP. Large raw read-only time remains 0.969× C despite halving open
+   time. Completed profiles show about 92% of raw sampled user CPU in hardware
+   SHA-256; compressed reads are dominated by decompression/checksum/copy work.
+   Do not resume catalogue tuning or silently change checksum/security/worker
+   contracts to hide that gap. Continue missing record and mutation integration;
+   the small-file result is not a complete A3 pass.
+   Preserve source, authority, erasure and padding guarantees; do not resume an
+   unlimited sequence of buffer/encoder changes or silently replace workloads.
+4. Finish migration/owner fixtures, bidirectional CLI/binding/Vault compatibility
+   and release qualification. Obtain a corrected published compression dependency
+   and verify isolated packaged builds before removing the temporary vendor patch.
+5. Complete H1's remaining platform/binding packaging and remote CI qualification.
+   The separate #322 branch at `d8dfa6cf` now passes Linux locked, denied and hung
+   credential-store tests, existing-keyring interoperability, a clean release
+   install without D-Bus development packages and the installed headless lifecycle.
+   Do not mix unfinished v4 into format-3 `0.4.x`.
+
+The [checkpoint history](archive_v4_history.md) preserves earlier decisions and
+measurements without competing next-work instructions. Guarantees and numeric
+budget changes still require explicit review; none is implied by a green test.
+
+## Outcome and scope
+
+Deliver an archive format that makes mirror and other mutations physically
+safe, supports efficient first reads and updates, and preserves security,
+recoverability and cross-language compatibility. Evaluate the whole archive
+design before continuing isolated performance tuning.
+
+Retain the v4 transaction work already on `main` as the starting point. Compare
+the current data layout, experimental indexed blocks, and a simpler pack/extent
+layout against the same contract. A wholesale rewrite is a candidate outcome,
+not a prerequisite or a decision already made.
+
+Cover files, directories, symlinks, variables, forms, access metadata, mirror
+definitions and Vault operations that use the archive engine. Independent Vault
+storage redesign, new sharing services, passkeys, deduplication and unrelated
+features are outside this work.
+
+Also deliver the independent installation/portability fix in
+[#322](https://github.com/onepub-dev/reVault/issues/322): the CLI must install and
+work on desktop and headless systems. Track this as H1 below. It does not require
+an archive redesign and must not wait for the v4 layout decision.
+
+## Starting evidence
+
+This is the original planning snapshot from source/document review. The
+[implementation evidence](evidence/v4-baseline-2026-09-26.md) records subsequent
+executed suites and reproduced blockers; no new comparative timings are claimed.
+
+| Area | Recorded state | Evidence |
+| --- | --- | --- |
+| Main | `0f9a137e`; v4 transactions, accounting, rollback, compaction and external backing-store support landed | [Transaction protocol](../manual/develop-with-revault/transactions.md), [implementation map](transaction_recovery.md) |
+| Performance branch | `issue-310-zip-read-performance`, HEAD `8fb653e8`; latest production commit `00a351ff`; native blocks remain opt-in | Branch file `rust/revault_lockbox_api/benches/results/issue310-resume-checkpoint.txt` |
+| Uncommitted work | Parallel encoder-pool prototype in four files; no established performance win | Same checkpoint; inspect the actual diff before touching it |
+| Native correctness | Last checkpoint reports two failing recovery tests; default suite passed in that recorded run | `issue310-resume-checkpoint.txt` and `issue310-resume-audit-2026-09-22.txt` |
+| Read objective | Recorded large compressed native reads remained approximately 3.8–3.9 times ZIP duration in one comparison | `issue310-shared-window-notes.txt`; this is not a claim about every workload |
+| Write objective | Protected compressed native/default gate still open; encrypted-only upper 95% bound was +10.876%, above +5% | `issue310-layout-gate-62180a3-notes.txt` |
+| Release fixtures | Missing retained v4/current Vault-container fixtures; non-v1 archive export path still invokes the current reader | [Retained fixtures](../rust/revault_migration/tests/retained_fixtures.rs) |
+| Documentation | Conflicting format descriptions and duplicated historical overviews | [Cleanup inventory](documentation_map.md) |
+| Headless installation | #322 reports `cargo install revault_cli` v0.0.17 failing because `libdbus-sys` requires `dbus-1.pc`; current Linux Vault dependencies include `dbus`, `secret-service`, `zbus` and `keyring` | [Issue #322](https://github.com/onepub-dev/reVault/issues/322), [Vault manifest](../rust/revault_vault_api/Cargo.toml); runtime behaviour and other platforms still need investigation |
+
+The issue-310 evidence files above live on that branch, not necessarily on
+`main`. Find the persistent worktree with `git worktree list`, or inspect the
+files with `git show issue-310-zip-read-performance:<path>`. Do not rely on an
+agent's absolute local path or on ignored build artifacts surviving.
+
+Original requirements remain useful provenance:
+[crash-safe redaction #303](https://github.com/onepub-dev/reVault/issues/303),
+[ZIP read performance #310](https://github.com/onepub-dev/reVault/issues/310),
+[abandoned allocations and full retirement #313](https://github.com/onepub-dev/reVault/issues/313).
+Issue #322 also explicitly asks whether other target platforms have equivalent
+constraints; the fix must include that audit rather than assuming Linux is the
+only affected environment.
+
+## Acceptance contract
+
+Goal IDs refer to the project goals. This table is the initial scorecard; P1
+defines the detailed matrix and P2 fills measured evidence. Do not weaken a
+gate after seeing a failing result without an explicit recorded change of scope.
+
+| Gate | Acceptance | Initial status |
+| --- | --- | --- |
+| A1 — committed state and ownership (G5, G6) | Every physical range is live, retained control/history, zero reusable space, or durably tracked pending work. Faults select a complete old/new state. Cleanup is resumable; no abandoned payload remains after completed reclamation. | Implementation exists; full matrix to revalidate |
+| A2 — damage and authorization (G5, G6) | Intact independently recoverable content retains provable authorization despite unrelated damage. Never authorize content using its own untrusted checksum or resurrect uncommitted/deleted records. Document limits where authority is lost. | Design unresolved; native failures recorded |
+| A3 — reads (G7, G11) | Unencrypted first-read parity with ZIP on each designated primary workload; 10% faster remains the aspiration. Separate raw/compressed and small/large workloads, fresh handles, cold I/O and warm decoded caches. | Not met; exact primary workload selection in P1 |
+| A4 — open and writes (G7, G11) | Retain the recorded native/default non-regression gate: upper 95% bound of relative duration change no greater than +5% on designated comparable cases. Include protected modes, streaming and real CLI operations. | Open; protocol and cases to freeze in P1 |
+| A5 — space and resources (G3, G6, G7, G11) | No content leaks or no-change allocation accumulation. Separate retained history from live/free bytes. Bound parser/cache/worker memory; establish numeric limits for growth, read/write amplification, recovery time and compaction headroom before selection. | Limits/budgets to specify in P1 |
+| A6 — migration and interoperability (G4, G9) | Supported historical formats migrate with full logical verification and source preservation. Retained fixtures and all released CLI/binding/carrier combinations pass the compatibility matrix. | Release blockers remain |
+| A7 — maintainability and specification (G10) | One reviewable layout/protection model, explicit ownership and persistence ordering, normative specification, decision records and reproducible evidence. | Documentation consolidation started |
+| A8 — installation and session independence (G4, G8, G9, G10) | Normal CLI installation and core workflows succeed on supported headless and desktop targets. Optional credential services are not mandatory build/runtime requirements; absent, locked or denied stores have bounded, actionable behaviour and secure explicit-credential alternatives. | #322 open; H1 pending |
+
+G11 additionally requires ZIP write and PGP protected read/write comparisons,
+plus a 100 MB total CLI RSS ceiling. The earlier A3/A4 controls below are
+necessary but not sufficient to establish those goals; the evaluation contract
+records the pending workload and scale qualification.
+
+For A3, P1 must operationally define “10% faster” and statistical parity rather
+than switching between throughput and latency measures. For A4, compare equally
+protected/durable modes; do not compare encrypted writes to unprotected ZIP as
+if the work were equivalent. A confidence interval exceeding a threshold is a
+failure to establish the gate, not proof of that worst-case slowdown.
+
+## Milestones and dependencies
+
+| Milestone | Main deliverable | Depends on | State |
+| --- | --- | --- | --- |
+| P0 — preserve and reproduce | Exact baseline/evidence inventory and reproduced blockers | This plan | Complete: prototype preserved, blockers reproduced, deterministic append/reuse CLI abort coverage passes |
+| P1 — define contracts | Security model, evaluation contract and proposed design decisions | P0; drafting can begin immediately | Drafts written; mode assignment, budgets and decisions await review |
+| P2 — compare architectures | Same-workload results for three candidates | Frozen P1 contracts | A/B and file-only C comparisons retained; independent shared packs/deletion pass correctness; full C lifecycle/recovery/record matrix, resource evidence and contract review remain |
+| P3 — select and specify | Accepted decision records and complete v4 wire specification | P2 | Pending |
+| P4 — implement and harden | Selected implementation with green correctness and performance gates | P3 | Pending |
+| P5 — qualify release | Migration, compatibility, platform and documentation evidence | P4; fixture/tooling repairs can start earlier | Pending |
+| H1 — fix #322 | Headless/desktop installation and credential-backend validation | Can start after its own baseline reproduction; independent of P1–P4 | Independent branch: Linux dependency fix and targeted tests pass; full platform/store matrix outstanding |
+
+Assign a named owner and reviewer when starting each milestone. The product
+maintainer owns changes to guarantees and primary targets; storage/security
+reviewers own protocol and trust analysis; performance and release maintainers
+own reproducibility and interoperability evidence. No dates or staffing are
+assumed by this plan.
+
+### H1 — Fix headless installation and audit other targets (#322)
+
+Local checkpoint: `issue-322-headless-cli` at `d8dfa6cf`. Linux uses pure-Rust
+D-Bus with a five-second total credential-operation deadline, including bus
+handshake and prompts. Private-service tests cover healthy interoperability,
+locked/denied stores and hung authentication, session negotiation, methods and
+prompts. The release CLI installs and passes a persisted-byte headless lifecycle
+in an offline Linux container without D-Bus development packages. Vault tests,
+strict Clippy and Windows GNU cross-check pass. Evidence is retained on that
+branch in `docs/evidence/headless-credential-deadlines-2026-09-27/`.
+Actual macOS/Windows credential-service behaviour, binding packages, remote CI
+and appropriate-release-line integration remain unqualified; A8 is not complete.
+
+This is a separate issue branch/worktree owned by the CLI/platform maintainer.
+It may proceed alongside the archive milestones. The issue is a build failure,
+so detecting an absent desktop service only at runtime does not fix it.
+
+* Reproduce the reported Cargo installation in a minimal Linux environment
+  without `libdbus-1-dev`, a graphical session, a session bus or Secret Service.
+  Record which direct/transitive features pull in `libdbus-sys`, and distinguish
+  build-time native requirements, dynamic runtime libraries and service access.
+* Audit equivalent installation, credential-store and session assumptions on
+  macOS and Windows, including SSH/noninteractive use, CI/service accounts and
+  locked or unavailable stores. Record applicability explicitly; do not assume
+  Linux environment-variable handling proves other targets work. Audit affected
+  native binding carriers; document WASM/platform exclusions rather than adding
+  a desktop service dependency to portable code.
+* Choose a dependency/backend arrangement that preserves desktop integration
+  and the normal headless installation path. Evaluate pure-Rust backends and
+  optional platform features. Adding a requirement to install D-Bus development
+  packages, or vendoring C D-Bus, is not the intended resolution. Avoid relying
+  only on a special `--no-default-features` workaround for ordinary installation.
+* Define unavailable/disabled/locked/denied credential-store behaviour. Explicit
+  credentials must support core commands without a desktop session. An operation
+  that specifically requests an unavailable Auto Open backend should return an
+  actionable error. Never fall back to plaintext credential persistence or wait
+  indefinitely for an interactive prompt in unattended execution.
+* Add clean-environment installation and public CLI lifecycle coverage. Create
+  a Vault/Lockbox, add data, independently reopen/read and compare bytes, then
+  exercise the supported session and explicit credential flows. Cover no TTY,
+  no bus/store, and a working desktop store; verify bounded failure for unavailable
+  requested capabilities. Inspect packaged native dependencies as well as
+  source builds so developer-machine libraries cannot hide the defect.
+* Update installation/Auto Open/platform documentation and CI images. Keep a
+  minimal-environment CI lane without desktop development packages; existing
+  lanes that install `libdbus-1-dev` cannot establish this acceptance criterion.
+
+Exit: A8 passes with reproducible build and runtime evidence on the supported
+target matrix; desktop credential integration still works. The fix may ship
+independently on the appropriate release line once its checks pass. If ported
+to format-3 `0.4.x`, transfer only the compatible fix and validate that branch;
+do not pull v4 code with it. P5 includes A8 as a release gate, not a reason to
+delay H1 until archive selection.
+
+### P0 — Preserve work and reproduce the baseline
+
+* Record exact commits, feature flags and uncommitted diffs in both worktrees.
+  Preserve the parallel prototype separately; do not discard it or continue its
+  tuning as the next default task. Keep the format-3 release branch isolated.
+* Build matching default and native-layout configurations. Reproduce the two
+  recorded recovery failures, then run the relevant baseline suites. Distinguish
+  existing failures, environment limits and new regressions.
+* Reproduce failed mirror preparation through the public CLI with deterministic
+  source changes after writes, followed by independent reopen/content checks.
+  Audit coverage against #313 rather than assuming the core reproduction covers
+  the CLI path. Exercise appended and reused space.
+* Check retained-fixture routing and inventory failures. Record the complete
+  historical exporter and current Vault-container matrix.
+* Produce a short evidence index with commands, hashes and feature sets. Make
+  active issue tracking reflect the remaining work without rewriting history.
+
+Exit: another contributor can reproduce each known blocker and locate every
+retained change. No performance result depends on a missing old executable.
+
+### P1 — Resolve the requirements before selecting the layout
+
+Create `docs/security_model.md` and `docs/archive_v4_evaluation.md`. Define
+protection modes, attacker capabilities, metadata leakage, security boundaries,
+recovery trust and workload budgets. Keep ordinary transaction recovery distinct
+from salvage of damaged archives.
+
+Draft three decision records:
+
+| Decision | Questions and candidate approaches |
+| --- | --- |
+| Signing and independent recovery | Must normal open eagerly verify all content? How does a surviving file/extent prove owner authorization and committed membership when another file or the TOC is damaged? Compare existing full-content verification with authenticated per-object commitments under a signed root. A Merkle-style structure is an option, not a chosen design. Specify deletion freshness, rollback/replay limits and recovery when proofs are lost. |
+| Physical layout and access units | Choose compression frame, authentication block, packing and allocation units together. A 16 KiB verification block does not provide a Zstd restart point. Define small-file packing, raw range reads, compressed range amplification, metadata opening, padding and remote range-request cost. Keep one descriptor model across protection modes. |
+| Allocation, history and reclamation | Compare conservative base-free-range reservation with explicit bounded reservations. Define ownership of control allocations, durability ordering, history retention, checkpoint cost, tail trimming and verified compaction. Measure rollback of a tiny failed update against a large free-space inventory. |
+
+Preserve all established security guarantees while evaluating alternatives.
+Any change to eager verification, damage detection timing, recipient access,
+padding defaults or owner authorization needs an explicit product/security
+decision before activation. No benchmark licenses weakened authentication,
+skipped wiping, reduced durability or an extra default full-frame codec pass.
+
+Exit: every acceptance gate has a test/measurement method and a fixed target or
+documented limit. Open choices have named decision owners. No target required
+for selection is left as “improve performance.”
+
+### P2 — Compare complete designs
+
+| Candidate | Purpose | Principal questions |
+| --- | --- | --- |
+| A: existing data pages with v4 transactions | Control and possible final design | Can the goals be met without the native block extension? Which whole-page/frame costs remain unavoidable? |
+| B: experimental native indexed blocks | Evaluate retained issue-310 work | Do raw range gains survive compressed, small-file, signed-recovery and aged-archive workloads without unacceptable complexity or write cost? |
+| C: simpler pack/extent layout with the same transaction guarantees | Test whether a different layout removes recurring work | Can independently protected packs/extents, compact indexes and explicit recovery commitments simplify ownership and reduce I/O/copies? What are packing, redaction and recovery costs? |
+
+Use bounded prototypes with the same required guarantees. A prototype missing
+signing, rollback or redaction can inform a cost breakdown, but cannot win a
+production comparison against a complete implementation. Keep raw results and
+rejected experiments. Do not spend an unlimited series of micro-optimizations
+making one candidate look acceptable before comparing the alternatives.
+
+The evaluation document must cover:
+
+* Synthetic small files (including the existing 512 × 4 KiB case), a large
+  small-file tree (100,000 entries), 1/8/64 MiB files, and a GB-class streaming
+  case with explicit memory accounting.
+* Compressible, incompressible and mixed contents plus a pinned real source
+  tree/package corpus; synthetic credentials only.
+* Create, open/list, first byte, whole-file/range reads, full extraction, initial
+  mirror import, unchanged repeat, additions, larger/smaller replacements,
+  removals, refusal/abort, recovery and compaction.
+* At least 100 update cycles for leak/accounting assertions and a 1,000-cycle
+  aging experiment. Exercise fragmented free space and accumulated history.
+* All encryption/signing combinations, raw/Zstd, default privacy padding, and
+  a separately reported optional no-padding case. Test both ordinary defaults
+  and explicit cache/worker policies; identify native and WASM constraints.
+* Fresh handles over warm OS caches, genuinely cold I/O where reproducible,
+  and repeated reads over warm decoded caches as separate results. Record
+  network request/byte amplification for remote-range use independently.
+
+Report end-to-end duration, first-byte latency, CPU, peak RSS, archive size,
+bytes read/written/decoded/zeroed, allocations, sync counts, recovery work and
+compaction disk headroom. Separate payload, metadata, padding, free space and
+retained history. Stage profiles explain costs; their overlapping medians are
+not additive end-to-end measurements.
+
+Build before timing, pin source/features/dependencies/corpora, alternate paired
+candidate runs, retain sample distributions and uncertainty, and verify persisted
+bytes outside the timed section. Record hardware, cache policy, worker count,
+OS state and uncontrolled load. No owned build/test overlaps timed runs. Use
+Rust for new runners. State differences in codecs, protection, durability and
+CRC/authentication coverage when comparing ZIP or encrypted archive tools.
+
+Exit: a bounded comparative report explains which design meets each gate and
+where it fails. If none passes, return to the specific unmet P1 decision;
+do not activate the least-bad candidate or quietly drop a workload.
+
+### P3 — Select the design and write the normative specification
+
+Select a design using the complete scorecard, including complexity and recovery
+cost. Record rejected alternatives and trade-offs in accepted decision records.
+Update `rust/revault_lockbox_api/ARCHIVE_FORMAT.md` with the chosen v4 encodings,
+endianness, authenticated identities/lengths, nonce rules, limits, padding,
+compression, indexes, history and feature/version rules. Link the maintained
+transaction protocol and add conformance vectors.
+
+Define what every v4 reader must understand before any `0.5.x` release. A later
+writer flag must not introduce output unreadable by earlier clients in that
+line. Audit whether any v4 artifacts have already been distributed; specify
+their support/migration explicitly rather than assuming unreleased means unused.
+
+Exit: an independent implementation reviewer can determine valid/invalid bytes,
+publication authority, recovery behaviour and compatibility from the documents
+and vectors. No unresolved format-level decision is hidden in a feature flag.
+
+### P4 — Implement the selected design and prove its invariants
+
+Implement cohesive changes on isolated branches/worktrees, preserving unrelated
+work. Retain measured improvements where they fit the selected architecture;
+remove rejected production paths after replacement coverage exists.
+
+Exercise create → unchanged repeat → add → replace larger/smaller → remove →
+independent reopen for every record family and mixed transactions. Verify file,
+variable and form bytes, metadata, permissions, mirror ownership and access
+semantics. Test shared-page neighbours, streams, handles, free-space reuse,
+readonly opens, cancellation and stale/external storage handles.
+
+Inject returned failures and real process death around intent, reservations,
+payload/root/auth writes, sync, publication, zeroing, checkpoints, truncation and
+replacement. Interrupt recovery again. Check complete allocation accounting and
+physical erasure where the public CLI cannot observe them; document that testing
+exception. Keep public CLI setup and separate CLI persisted-content verification
+for end-to-end tests.
+
+Only after the architecture is selected, profile remaining gate failures and
+perform targeted optimization. Each experiment states the unmet gate, expected
+effect, controls, memory/security costs and stopping condition. Stop when the
+gate passes or evidence redirects the design; a microbenchmark win alone does
+not close a milestone.
+
+Exit: no known correctness failures in the selected configuration, and all
+required A1–A5/A7 results pass on the same source revision. Run tests and checks
+before Rust formatting; use the tracked commit hook without bypassing it.
+
+### P5 — Qualify migration, bindings and the release
+
+Repair historical fixture-reader routing. Retain immutable v4 archive fixtures
+and the current Vault-structure/container combination alongside all historical
+fixtures. Include supported modes, mirror failures/bloat, secure-page retirement,
+non-default owner identity, interruption/resume and replacement recovery.
+
+Migration must preserve identity, established owner, access semantics, creation
+options and all committed records. Verify all logical contents before installing
+or reusing resumed output; ignore abandoned payloads. Keep originals/backups and
+encrypted intermediates. Publish required historical exporter dependencies in
+verified order and exercise the exact installed tooling.
+
+Rebuild every distributed native/WASM carrier and matching language package.
+Test cross-language and cross-version reads/writes within the compatibility line,
+including older readers consuming newer output, plus supported platform and
+endianness combinations. Keep format-3 `0.4.x` separate from format-4 `0.5.x`;
+never reuse Dart's published format-2 `0.3.x` line for format 3.
+
+Run affected core, CLI mirror/migration, migration-exporter, Vault, binding and
+platform crash/recovery suites and executable conformance tests. Select focused
+performance qualification according to the [release process](release_process.md);
+do not repeat the full observation matrix for every release. Complete the documentation cleanup
+and any outstanding security review required by the selected design/release.
+Include H1's minimal headless installation and desktop/runtime capability matrix;
+a release builder with all native development packages installed is insufficient.
+
+Exit: the release checklist links exact revisions, commands, artifacts and
+passing results for A1–A8. A package bump, green unit suite, closed issue or
+unchanged ABI does not substitute for this evidence.
+
+## Progress discipline
+
+Update this current-work list and the evaluation scorecard when scope changes.
+Append dated evidence to the [history](archive_v4_history.md), keeping source,
+commands, failures and limits reproducible. Historical “next” notes are not the
+active plan. A completed component or resource win does not close a release gate.

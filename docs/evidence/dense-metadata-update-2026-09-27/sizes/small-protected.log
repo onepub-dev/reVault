@@ -1,0 +1,7 @@
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... CANDIDATE_SAMPLE {"archive_bytes":458752,"archive_sha256":"dcbd730577359948d4aeb75451ff08f331c06fd006d913884baf3ae29fa28e94","binary_sha256":"ecb4474a57c5cb192dc49ae8d5b71c53583089a5fd3a0600d46b323412c0384b","bytes_per_file":4096,"cycles":100,"files":512,"first_update_bytes":458752,"fresh_handle_source_bytes_verified_each_edit":true,"initial_bytes":327680,"kind":"dense_metadata_lifecycle_size","scope":"bounded metadata updates only; no payload edits, full aging or performance qualification","stable_after_first_update":true,"unchanged_repeats":100}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 511 filtered out; finished in 7.32s
+

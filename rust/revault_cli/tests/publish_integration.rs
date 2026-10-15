@@ -27,17 +27,13 @@ fn cli_publish_and_receive_with_two_servers() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let cluster = TwoServerCluster::start("cli-integration", PeerMode::BothDirections);
     let (vault_root, agent_root) = temp_roots("cli-publish-receive");
+    let _agent_guard = common::TestAgentGuard::new(&agent_root, Some(&vault_root));
     init_vault_with_email(bin, &vault_root, &agent_root, "alice@example.test");
 
     let publish = publish_contact(bin, &vault_root, &agent_root, &cluster.topology_url());
     let owner = cluster.owner_store(&publish.publish_code);
     let verified = owner.verify_email(&publish.verified_query_code, &publish.verified_query_token);
-    assert!(
-        verified.success,
-        "{}
-",
-        verified.message
-    );
+    assert!(verified.success, "profile verification did not succeed");
 
     let receive = run_output_in(
         bin,
@@ -68,7 +64,7 @@ fn cli_publish_and_receive_with_two_servers() {
         .primary
         .store
         .verify_email(&direct.verified_query_code, &direct.verified_query_token);
-    assert!(verified.success, "{}", verified.message);
+    assert!(verified.success, "profile verification did not succeed");
     let overwritten = run_output_in(
         bin,
         &[
@@ -101,6 +97,7 @@ fn cli_publish_can_be_received_from_failover_path() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let cluster = TwoServerCluster::start("cli-failover", PeerMode::BothDirections);
     let (vault_root, agent_root) = temp_roots("cli-failover");
+    let _agent_guard = common::TestAgentGuard::new(&agent_root, Some(&vault_root));
     init_vault_with_email(bin, &vault_root, &agent_root, "alice@example.test");
 
     let publish = publish_contact(bin, &vault_root, &agent_root, &cluster.topology_url());
@@ -112,7 +109,7 @@ fn cli_publish_can_be_received_from_failover_path() {
     let non_owner = cluster.non_owner_store(&publish.publish_code);
     let verify =
         owner_store.verify_email(&publish.verified_query_code, &publish.verified_query_token);
-    assert!(verify.success, "{}", verify.message);
+    assert!(verify.success, "profile verification did not succeed");
 
     wait_until(
         "publish replicated to standby",
@@ -290,13 +287,16 @@ fn verification_query_parts(url: &str) -> (String, String) {
 }
 
 fn run_output_in(bin: &str, args: &[&str], vault_root: &PathBuf, agent_root: &PathBuf) -> Output {
-    println!(
-        "CLI command: {bin} {}",
-        args.iter()
-            .map(|a| a.to_string())
-            .collect::<Vec<_>>()
-            .join(" ")
-    );
+    // Arguments and captured output can contain ephemeral private backup keys
+    // and verification tokens. Keep diagnostics to fixed operation labels.
+    let operation = match args {
+        ["vault", "init", ..] => "vault initialization",
+        ["profile", "publish", ..] => "profile publication",
+        ["contact", "receive", ..] => "contact receipt",
+        ["session", "stop", ..] => "session stop",
+        _ => "fixture CLI operation",
+    };
+    println!("CLI operation: {operation}");
     let started = Instant::now();
     let output = Command::new(bin)
         .args(args)
@@ -305,12 +305,19 @@ fn run_output_in(bin: &str, args: &[&str], vault_root: &PathBuf, agent_root: &Pa
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
+        // This owned loopback fixture tests publication and persisted receive,
+        // not host suspend capability. Do not inherit the developer's policy.
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
         .output()
         .unwrap();
     println!("CLI status: {}", output.status);
     println!("CLI duration: {:?}", started.elapsed());
-    println!("CLI stdout:\n{}", String::from_utf8_lossy(&output.stdout));
-    println!("CLI stderr:\n{}", String::from_utf8_lossy(&output.stderr));
+    println!(
+        "CLI output bytes: stdout={}, stderr={}",
+        output.stdout.len(),
+        output.stderr.len()
+    );
     output
 }
 
@@ -326,10 +333,10 @@ fn agent_log_path(agent_root: &Path) -> PathBuf {
 fn assert_success(output: &Output) {
     assert!(
         output.status.success(),
-        "command failed\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
+        "command failed: status={}, stdout_bytes={}, stderr_bytes={}",
         output.status,
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr),
+        output.stdout.len(),
+        output.stderr.len(),
     );
 }
 
@@ -553,11 +560,10 @@ fn wait_until(label: &str, timeout: Duration, mut predicate: impl FnMut() -> boo
 
 fn temp_roots(label: &str) -> (PathBuf, PathBuf) {
     let vault_root = temp_dir(&format!("{label}-vault"));
-    let agent_root = temp_dir(&format!("{label}-agent"));
+    // The shared helper owns a private, bounded-length socket directory.
+    let agent_root = common::agent_socket_dir(&temp_dir(&format!("{label}-agent")));
     let _ = fs::remove_dir_all(&vault_root);
-    let _ = fs::remove_dir_all(&agent_root);
     fs::create_dir_all(&vault_root).unwrap();
-    fs::create_dir_all(&agent_root).unwrap();
     (vault_root, agent_root)
 }
 

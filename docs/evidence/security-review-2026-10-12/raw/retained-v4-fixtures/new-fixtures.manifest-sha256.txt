@@ -1,0 +1,1 @@
+39ed92277892bf6d4c3090f1c0ce93eb99fc7f36b066dd4cede069a5cd8172a1  docs/evidence/security-review-2026-10-12/raw/retained-v4-fixtures/new-fixtures.sha256

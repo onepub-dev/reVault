@@ -1,0 +1,271 @@
+{
+  "all_samples_verified": true,
+  "all_retained_inputs_unchanged": true,
+  "frozen_hashes_stable": true,
+  "cases": {
+    "small512-mixed-compressed-stream": {
+      "sample_file": "/tmp/revault-tree-read-20261010-final/measure/small512-mixed-compressed-stream/samples.jsonl",
+      "sample_line_count": 101,
+      "verified_sample_records": 99,
+      "warmup_pairs": 3,
+      "measured_pairs": 30,
+      "case": {
+        "bytes": 4096,
+        "compressed": true,
+        "corpus": "mixed",
+        "files": 512,
+        "mode": "plain",
+        "unpadded": false
+      },
+      "source_file_count": 512,
+      "source_inventory_sha256": "08c99511758d29928a1f4193f303b90131025763b969af3438aad5b7993d51c6",
+      "fixture_artifacts": {
+        "archive.zip": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/small512-mixed-compressed/archive.zip",
+          "bytes": 237078,
+          "sha256": "34c4aff69e205356a8d53d6090aa5c13eb2e6dd0cc41b5cf42e50e58a5883ee7"
+        },
+        "candidate.lbox": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/small512-mixed-compressed/candidate.lbox",
+          "bytes": 1703936,
+          "sha256": "4c4558998f4ca1ed5f0c1bd338e4b72e5c1e4e083cc032e098974a29a0b3d933"
+        },
+        "candidate.public": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/small512-mixed-compressed/candidate.public",
+          "bytes": 2000,
+          "sha256": "3c9d6dbf123c71200a811d49d58bf0bfde091a770b47b90473774c5c84dea3a5"
+        },
+        "other/tree.lbox": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/small512-mixed-compressed/other/tree.lbox",
+          "bytes": 720896,
+          "sha256": "3d9e2d0ce9aab8dc3e6a52b075a701fb67fb9452c24b2efffc13a87e868990c2"
+        },
+        "other/tree.public": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/small512-mixed-compressed/other/tree.public",
+          "bytes": 2000,
+          "sha256": "df4326d50111a17cd8ec2666727fa9afdec61c44d999fff2c8d32e1d65f1169a"
+        }
+      }
+    },
+    "raw8m-random-stream": {
+      "sample_file": "/tmp/revault-tree-read-20261010-final/measure/raw8m-random-stream/samples.jsonl",
+      "sample_line_count": 101,
+      "verified_sample_records": 99,
+      "warmup_pairs": 3,
+      "measured_pairs": 30,
+      "case": {
+        "bytes": 8388608,
+        "compressed": false,
+        "corpus": "random",
+        "files": 1,
+        "mode": "plain",
+        "unpadded": false
+      },
+      "source_file_count": 1,
+      "source_inventory_sha256": "31099ea95ec7ecedf6cf944b3c03a502b7d068a045408e28e7ec37259341ab68",
+      "fixture_artifacts": {
+        "archive.zip": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw8m-random/archive.zip",
+          "bytes": 8388736,
+          "sha256": "821e8ece83e8e72bdb84e4ec540fd7f8b95c9f639a8d5751b1923ceebfcd4faf"
+        },
+        "candidate.lbox": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw8m-random/candidate.lbox",
+          "bytes": 9175040,
+          "sha256": "bde38a1749d980b255dde24045de40947d2b608ebec771b47ed5238cdc7659aa"
+        },
+        "candidate.public": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw8m-random/candidate.public",
+          "bytes": 2000,
+          "sha256": "fb45deb5726df17c7acbf412ba26cc5763ff4f8934ee449472e9f841d3297994"
+        },
+        "other/tree.lbox": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw8m-random/other/tree.lbox",
+          "bytes": 8650752,
+          "sha256": "7ee2a3befc88ff9f583f55dbaa7e5ad187f779ad06cd8f0fa7728d067ffb1694"
+        },
+        "other/tree.public": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw8m-random/other/tree.public",
+          "bytes": 2000,
+          "sha256": "beccf3cf9c5b54981e73a0a917010487fe5195a33df8aedc44f09862639f2c28"
+        }
+      }
+    },
+    "compressed8m-pattern-stream": {
+      "sample_file": "/tmp/revault-tree-read-20261010-final/measure/compressed8m-pattern-stream/samples.jsonl",
+      "sample_line_count": 101,
+      "verified_sample_records": 99,
+      "warmup_pairs": 3,
+      "measured_pairs": 30,
+      "case": {
+        "bytes": 8388608,
+        "compressed": true,
+        "corpus": "pattern",
+        "files": 1,
+        "mode": "plain",
+        "unpadded": false
+      },
+      "source_file_count": 1,
+      "source_inventory_sha256": "00f005b217c4cb899d9032e817a608308c5a98b9381860f34cd64f4c91ff38a4",
+      "fixture_artifacts": {
+        "archive.zip": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/compressed8m-pattern/archive.zip",
+          "bytes": 110296,
+          "sha256": "ae486fb0ca1d89007f9475bdf7f33258dceded530dd5ba8bc6aefc973d0df91b"
+        },
+        "candidate.lbox": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/compressed8m-pattern/candidate.lbox",
+          "bytes": 2883584,
+          "sha256": "1731f1823e0c78c43c89d620c366ca4010463644762edcd667817d8337833763"
+        },
+        "candidate.public": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/compressed8m-pattern/candidate.public",
+          "bytes": 2000,
+          "sha256": "dda3bd152d85382af4bb665099e916dae29b903706a1a4f04742f7e06da8274d"
+        },
+        "other/tree.lbox": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/compressed8m-pattern/other/tree.lbox",
+          "bytes": 327680,
+          "sha256": "6c526254bfdbf96819c355466e40ebbcf6edff708509677f46e3843d805c4c90"
+        },
+        "other/tree.public": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/compressed8m-pattern/other/tree.public",
+          "bytes": 2000,
+          "sha256": "83cd1da31984652491012849a9793feb235f40df120f7038c0bb1da023b6e132"
+        }
+      }
+    },
+    "raw8m-random-range": {
+      "sample_file": "/tmp/revault-tree-read-20261010-final/measure/raw8m-random-range/samples.jsonl",
+      "sample_line_count": 101,
+      "verified_sample_records": 99,
+      "warmup_pairs": 3,
+      "measured_pairs": 30,
+      "case": {
+        "bytes": 8388608,
+        "compressed": false,
+        "corpus": "random",
+        "files": 1,
+        "mode": "plain",
+        "unpadded": false
+      },
+      "source_file_count": 1,
+      "source_inventory_sha256": "31099ea95ec7ecedf6cf944b3c03a502b7d068a045408e28e7ec37259341ab68",
+      "fixture_artifacts": {
+        "archive.zip": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw8m-random/archive.zip",
+          "bytes": 8388736,
+          "sha256": "821e8ece83e8e72bdb84e4ec540fd7f8b95c9f639a8d5751b1923ceebfcd4faf"
+        },
+        "candidate.lbox": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw8m-random/candidate.lbox",
+          "bytes": 9175040,
+          "sha256": "bde38a1749d980b255dde24045de40947d2b608ebec771b47ed5238cdc7659aa"
+        },
+        "candidate.public": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw8m-random/candidate.public",
+          "bytes": 2000,
+          "sha256": "fb45deb5726df17c7acbf412ba26cc5763ff4f8934ee449472e9f841d3297994"
+        },
+        "other/tree.lbox": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw8m-random/other/tree.lbox",
+          "bytes": 8650752,
+          "sha256": "7ee2a3befc88ff9f583f55dbaa7e5ad187f779ad06cd8f0fa7728d067ffb1694"
+        },
+        "other/tree.public": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw8m-random/other/tree.public",
+          "bytes": 2000,
+          "sha256": "beccf3cf9c5b54981e73a0a917010487fe5195a33df8aedc44f09862639f2c28"
+        }
+      }
+    },
+    "raw64m-random-stream": {
+      "sample_file": "/tmp/revault-tree-read-20261010-final/measure/raw64m-random-stream/samples.jsonl",
+      "sample_line_count": 101,
+      "verified_sample_records": 99,
+      "warmup_pairs": 3,
+      "measured_pairs": 30,
+      "case": {
+        "bytes": 67108864,
+        "compressed": false,
+        "corpus": "random",
+        "files": 1,
+        "mode": "plain",
+        "unpadded": false
+      },
+      "source_file_count": 1,
+      "source_inventory_sha256": "6115e03ad4d0ba86cefdead26fe472a440d80b8bda1865475ec3bf56a7c87c0f",
+      "fixture_artifacts": {
+        "archive.zip": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw64m-random/archive.zip",
+          "bytes": 67108992,
+          "sha256": "a217062067cb23a48c6813f526f7137464cfc5104017c43e05b9f44c2256b392"
+        },
+        "candidate.lbox": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw64m-random/candidate.lbox",
+          "bytes": 68419584,
+          "sha256": "e0f24a6790e1d7158e730ce4e56c63656d2eef5dd2a4a305250795c7e6377dc2"
+        },
+        "candidate.public": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw64m-random/candidate.public",
+          "bytes": 2000,
+          "sha256": "00e9508d6922c2fa0f1ed4234f8aaf04b72573e7e2f4dbcc21f3e6a70ad31417"
+        },
+        "other/tree.lbox": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw64m-random/other/tree.lbox",
+          "bytes": 68026368,
+          "sha256": "0c098194eb7cfe027762af2a933f96a814854366773cd3bf6d67f9efeacf6775"
+        },
+        "other/tree.public": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw64m-random/other/tree.public",
+          "bytes": 2000,
+          "sha256": "d49f86bc45d4d0d7d389b764144a7a2ada0dad328cd97b9ab173cc860b93f008"
+        }
+      }
+    },
+    "raw64m-random-range": {
+      "sample_file": "/tmp/revault-tree-read-20261010-final/measure/raw64m-random-range/samples.jsonl",
+      "sample_line_count": 101,
+      "verified_sample_records": 99,
+      "warmup_pairs": 3,
+      "measured_pairs": 30,
+      "case": {
+        "bytes": 67108864,
+        "compressed": false,
+        "corpus": "random",
+        "files": 1,
+        "mode": "plain",
+        "unpadded": false
+      },
+      "source_file_count": 1,
+      "source_inventory_sha256": "6115e03ad4d0ba86cefdead26fe472a440d80b8bda1865475ec3bf56a7c87c0f",
+      "fixture_artifacts": {
+        "archive.zip": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw64m-random/archive.zip",
+          "bytes": 67108992,
+          "sha256": "a217062067cb23a48c6813f526f7137464cfc5104017c43e05b9f44c2256b392"
+        },
+        "candidate.lbox": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw64m-random/candidate.lbox",
+          "bytes": 68419584,
+          "sha256": "e0f24a6790e1d7158e730ce4e56c63656d2eef5dd2a4a305250795c7e6377dc2"
+        },
+        "candidate.public": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw64m-random/candidate.public",
+          "bytes": 2000,
+          "sha256": "00e9508d6922c2fa0f1ed4234f8aaf04b72573e7e2f4dbcc21f3e6a70ad31417"
+        },
+        "other/tree.lbox": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw64m-random/other/tree.lbox",
+          "bytes": 68026368,
+          "sha256": "0c098194eb7cfe027762af2a933f96a814854366773cd3bf6d67f9efeacf6775"
+        },
+        "other/tree.public": {
+          "path": "/tmp/revault-tree-read-20261010-final/cases/raw64m-random/other/tree.public",
+          "bytes": 2000,
+          "sha256": "d49f86bc45d4d0d7d389b764144a7a2ada0dad328cd97b9ab173cc860b93f008"
+        }
+      }
+    }
+  }
+}

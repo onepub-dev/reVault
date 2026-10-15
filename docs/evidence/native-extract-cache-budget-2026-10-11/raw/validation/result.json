@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "release_filters": 7,
+  "test_executions": 24,
+  "distinct_tests": 23,
+  "initial_attempt": "test-only compile failure: used Lockbox.cache_stats instead of inspector().cache_stats; fixed without runtime changes",
+  "full_suite": "not run for individual performance experiment per AGENTS; batch integration remains pending",
+  "warning": "existing DecodedRecord dead code",
+  "source_epoch": "pre-format snapshot; hook formatting follows checks",
+  "base": "f6f4417323d4ed19c9591f01b94a26ed3ab26482"
+}

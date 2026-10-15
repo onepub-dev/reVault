@@ -1,0 +1,4 @@
+dd18de118ad90c5609820f3a1ae49a72286b297e7bc67e639653a16f43c64dd5  /tmp/revault-tree-open-stages-20261010/bin/revault_lockbox_api_tests
+a08bae5d6294eb1ac3137c56264263af5bfb999d62e77ba556e6549afdedf846  /tmp/revault-tree-open-stages-20261010/source.diff
+0ad24904362c00d9878cedaeeed443ce7a100d209e3d01e264f66c2528c1777f  /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+2a4e6a9dceaabbbb15adf9257a10319d47201e672227efc9f7a57ff965e63d8b  /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs

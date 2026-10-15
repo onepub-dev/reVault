@@ -1,0 +1,1 @@
+/usr/bin/gcc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror -Irevault_bindings ../bindings/e2e/c/conformance.c -Ltarget/release -Wl,-rpath,<worktree>/rust/target/release -lrevault_api -o /tmp/rv-c-freshabi-20261013/conformance-c

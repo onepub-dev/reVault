@@ -1,0 +1,1 @@
+Exact tested pre-format source. Tracked hook may format committed Rust; these .rs.txt bytes remain authoritative for measured/tested epoch. Full integration source manifests and binaries are preserved separately.

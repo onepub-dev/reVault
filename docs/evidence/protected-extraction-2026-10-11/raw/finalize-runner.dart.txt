@@ -1,0 +1,4 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+void main(){final file=File('/home/bsutton/.cache/revault-protected-20261011-evidence/run.dart'); var s=file.readAsStringSync(); s=s.replaceAll('cases.fold<int>(0, (sum, spec) => sum + spec.payloadBytes)','cases.map((spec)=>spec.payloadBytes).reduce((a,b)=>a>b?a:b)');file.writeAsStringSync(s); print(green('Serial-output projection bounded to largest active output.'));}

@@ -1,0 +1,239 @@
+    Checking cfg-if v1.0.4
+    Checking cmov v0.5.4
+    Checking rand_core v0.10.1
+    Checking typenum v1.20.1
+    Checking const-oid v0.10.2
+    Checking zeroize v1.9.0
+    Checking cpufeatures v0.3.1
+    Checking libc v0.2.189
+    Checking serde_core v1.0.229
+    Checking crossbeam-utils v0.8.23
+    Checking num-traits v0.2.19
+    Checking memchr v2.8.3
+    Checking keccak v0.2.2
+    Checking zerocopy v0.8.57
+    Checking zmij v1.0.23
+    Checking subtle v2.6.1
+    Checking base64ct v1.8.3
+    Checking itoa v1.0.18
+    Checking either v1.18.0
+    Checking sponge-cursor v0.1.0
+    Checking anstyle v1.0.14
+    Checking ciborium-io v0.2.2
+    Checking ctutils v0.4.2
+    Checking tinyvec_macros v0.1.1
+    Checking plotters-backend v0.3.7
+    Checking clap_lex v1.1.0
+    Checking regex-syntax v0.8.11
+    Checking tinyvec v1.13.2
+    Checking itertools v0.13.0
+    Checking thiserror v2.0.20
+    Checking crc32fast v1.5.1
+    Checking clap_builder v4.6.6
+    Checking log v0.4.34
+    Checking hashbrown v0.17.1
+    Checking crossbeam-epoch v0.9.21
+    Checking plotters-svg v0.3.7
+    Checking cast v0.3.0
+    Checking equivalent v1.0.2
+    Checking twox-hash v2.1.4
+    Checking simd-adler32 v0.3.10
+    Checking same-file v1.0.6
+    Checking zlib-rs v0.6.7
+    Checking bumpalo v3.20.3
+    Checking unicode-normalization v0.1.25
+    Checking crossbeam-deque v0.8.8
+    Checking walkdir v2.5.0
+    Checking plotters v0.3.7
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+    Checking zopfli v0.8.3
+    Checking oxiarc-core v0.4.1
+    Checking rayon-core v1.13.0
+    Checking indexmap v2.14.2
+    Checking hybrid-array v0.4.15
+    Checking alloca v0.4.0
+    Checking anes v0.1.6
+    Checking typed-path v0.12.3
+    Checking rayon v1.12.0
+    Checking getrandom v0.4.3
+    Checking page_size v0.6.0
+    Checking oorandom v11.1.5
+    Checking phc v0.6.1
+    Checking revault_page_api v0.0.34 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_page_api)
+    Checking oxiarc-zstd v0.4.1
+    Checking regex-automata v0.4.18
+    Checking criterion-plot v0.8.2
+    Checking password-hash v0.6.1
+    Checking flate2 v1.1.10
+    Checking serde_json v1.0.151
+    Checking serde v1.0.229
+    Checking clap v4.6.6
+    Checking crypto-common v0.2.2
+    Checking block-buffer v0.12.1
+    Checking inout v0.2.2
+    Checking module-lattice v0.2.3
+    Checking zip v8.6.0
+    Checking tinytemplate v1.2.1
+    Checking der v0.8.2
+    Checking digest v0.11.3
+    Checking cipher v0.5.2
+    Checking universal-hash v0.6.1
+    Checking aead v0.6.1
+    Checking kem v0.3.0
+    Checking poly1305 v0.9.1
+    Checking signature v3.0.0
+    Checking curve25519-dalek v5.0.0
+    Checking sha2 v0.11.0
+    Checking shake v0.1.0
+    Checking sha3 v0.11.0
+    Checking hmac v0.13.0
+    Checking blake2 v0.11.0
+    Checking regex v1.13.1
+    Checking chacha20 v0.10.2
+    Checking ed25519 v3.0.0
+    Checking hkdf v0.13.0
+    Checking argon2 v0.6.0
+    Checking chacha20poly1305 v0.11.0
+    Checking ml-kem v0.3.2
+    Checking spki v0.8.0
+    Checking pkcs8 v0.11.0
+    Checking x25519-dalek v3.0.0
+    Checking ed25519-dalek v3.0.0
+    Checking ml-dsa v0.1.1
+    Checking half v2.7.1
+    Checking ciborium-ll v0.2.2
+    Checking ciborium v0.2.2
+    Checking criterion v0.8.2
+    Checking revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+error[E0277]: `Partial` doesn't implement `std::fmt::Debug`
+   --> revault_lockbox_api/src/file_format/data_extent/tests.rs:440:22
+    |
+440 |     impl Storage for Partial {
+    |                      ^^^^^^^ `Partial` cannot be formatted using `{:?}`
+    |
+    = help: the trait `std::fmt::Debug` is not implemented for `Partial`
+    = note: add `#[derive(Debug)]` to `Partial` or manually `impl std::fmt::Debug for Partial`
+note: required by a bound in `storage::Storage`
+   --> revault_lockbox_api/src/storage/mod.rs:22:35
+    |
+22  | pub(crate) trait Storage: Clone + std::fmt::Debug {
+    |                                   ^^^^^^^^^^^^^^^ required by this bound in `Storage`
+    = note: the full name for the type has been written to '/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-1558824a477b85e3.long-type-8914376233323898232.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+help: consider annotating `file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures::Partial` with `#[derive(Debug)]`
+    |
+436 +     #[derive(Debug)]
+437 |     struct Partial {
+    |
+
+error[E0277]: the trait bound `Partial: Clone` is not satisfied
+   --> revault_lockbox_api/src/file_format/data_extent/tests.rs:440:22
+    |
+440 |     impl Storage for Partial {
+    |                      ^^^^^^^ the trait `std::clone::Clone` is not implemented for `Partial`
+    |
+note: required by a bound in `storage::Storage`
+   --> revault_lockbox_api/src/storage/mod.rs:22:27
+    |
+22  | pub(crate) trait Storage: Clone + std::fmt::Debug {
+    |                           ^^^^^ required by this bound in `Storage`
+    = note: the full name for the type has been written to '/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-1558824a477b85e3.long-type-8914376233323898232.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+help: consider annotating `file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures::Partial` with `#[derive(Clone)]`
+    |
+436 +     #[derive(Clone)]
+437 |     struct Partial {
+    |
+
+error[E0277]: the trait bound `Partial: Clone` is not satisfied
+   --> revault_lockbox_api/src/file_format/data_extent/tests.rs:463:35
+    |
+463 |                 let start=storage.append(&bytes).unwrap();
+    |                                   ^^^^^^ the trait `std::clone::Clone` is not implemented for `Partial`
+    |
+note: required by a bound in `storage::Storage::append`
+   --> revault_lockbox_api/src/storage/mod.rs:22:27
+    |
+22  | pub(crate) trait Storage: Clone + std::fmt::Debug {
+    |                           ^^^^^ required by this bound in `Storage::append`
+...
+26  |     fn append(&mut self, bytes: &[u8]) -> Result<u64>;
+    |        ------ required by a bound in this associated function
+    = note: the full name for the type has been written to '/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-1558824a477b85e3.long-type-8914376233323898232.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+help: consider annotating `file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures::Partial` with `#[derive(Clone)]`
+    |
+436 +     #[derive(Clone)]
+437 |     struct Partial {
+    |
+
+error[E0277]: `Partial` doesn't implement `std::fmt::Debug`
+   --> revault_lockbox_api/src/file_format/data_extent/tests.rs:463:35
+    |
+463 |                 let start=storage.append(&bytes).unwrap();
+    |                                   ^^^^^^ `Partial` cannot be formatted using `{:?}`
+    |
+    = help: the trait `std::fmt::Debug` is not implemented for `Partial`
+    = note: add `#[derive(Debug)]` to `Partial` or manually `impl std::fmt::Debug for Partial`
+note: required by a bound in `storage::Storage::append`
+   --> revault_lockbox_api/src/storage/mod.rs:22:35
+    |
+22  | pub(crate) trait Storage: Clone + std::fmt::Debug {
+    |                                   ^^^^^^^^^^^^^^^ required by this bound in `Storage::append`
+...
+26  |     fn append(&mut self, bytes: &[u8]) -> Result<u64>;
+    |        ------ required by a bound in this associated function
+    = note: the full name for the type has been written to '/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-1558824a477b85e3.long-type-8914376233323898232.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+help: consider annotating `file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures::Partial` with `#[derive(Debug)]`
+    |
+436 +     #[derive(Debug)]
+437 |     struct Partial {
+    |
+
+error[E0277]: the trait bound `Partial: Clone` is not satisfied
+   --> revault_lockbox_api/src/file_format/data_extent/tests.rs:465:36
+    |
+465 |                 let sealed=storage.len().unwrap();
+    |                                    ^^^ the trait `std::clone::Clone` is not implemented for `Partial`
+    |
+note: required by a bound in `storage::Storage::len`
+   --> revault_lockbox_api/src/storage/mod.rs:22:27
+    |
+22  | pub(crate) trait Storage: Clone + std::fmt::Debug {
+    |                           ^^^^^ required by this bound in `Storage::len`
+23  |     fn len(&self) -> Result<u64>;
+    |        --- required by a bound in this associated function
+    = note: the full name for the type has been written to '/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-1558824a477b85e3.long-type-8914376233323898232.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+help: consider annotating `file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures::Partial` with `#[derive(Clone)]`
+    |
+436 +     #[derive(Clone)]
+437 |     struct Partial {
+    |
+
+error[E0277]: `Partial` doesn't implement `std::fmt::Debug`
+   --> revault_lockbox_api/src/file_format/data_extent/tests.rs:465:36
+    |
+465 |                 let sealed=storage.len().unwrap();
+    |                                    ^^^ `Partial` cannot be formatted using `{:?}`
+    |
+    = help: the trait `std::fmt::Debug` is not implemented for `Partial`
+    = note: add `#[derive(Debug)]` to `Partial` or manually `impl std::fmt::Debug for Partial`
+note: required by a bound in `storage::Storage::len`
+   --> revault_lockbox_api/src/storage/mod.rs:22:35
+    |
+22  | pub(crate) trait Storage: Clone + std::fmt::Debug {
+    |                                   ^^^^^^^^^^^^^^^ required by this bound in `Storage::len`
+23  |     fn len(&self) -> Result<u64>;
+    |        --- required by a bound in this associated function
+    = note: the full name for the type has been written to '/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-1558824a477b85e3.long-type-8914376233323898232.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+help: consider annotating `file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures::Partial` with `#[derive(Debug)]`
+    |
+436 +     #[derive(Debug)]
+437 |     struct Partial {
+    |
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `revault_lockbox_api` (lib test) due to 6 previous errors

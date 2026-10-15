@@ -1,0 +1,100 @@
+{
+  "complete": true,
+  "measured_rounds_per_case": 12,
+  "warmup_rounds_per_case": 3,
+  "sample_rows": 120,
+  "cases": [
+    {
+      "case": "raw-random-1gib",
+      "input_identity_before": {
+        "source": {
+          "inventory_sha256": "de96aec9691a38fb23dc9b565a1e03a197ad579a7d46863810c502164aa47b06",
+          "file_count": 1,
+          "unique_file_hashes": 1,
+          "aggregate_manifest_sha256": "cb4133c072d9731c1adf4df31b5da4762af25eeb0de5de13ffbd806337be0ec2"
+        },
+        "case_json_sha256": "decd1350d231c9965818d2ea88b65a26772fe5690c68e7d525f4eabe2e215aa0",
+        "inventory_sha256": "de96aec9691a38fb23dc9b565a1e03a197ad579a7d46863810c502164aa47b06",
+        "archive_sha256": "f6d5258ad27006cde6bd8dcf3000c49905056cb1edcf9456421bc082b6489ab0",
+        "tree_sha256": "04c7af72eebefd1b97e5ec16b196c7f303f6cd2512c7073d257c2bae22ad5255",
+        "tree_public_sha256": "8e9c3e57dd3f7fcd03a58460206a548bfa491ebcc4b5913cc45ce642faa3dfe1"
+      },
+      "input_identity_after": {
+        "source": {
+          "inventory_sha256": "de96aec9691a38fb23dc9b565a1e03a197ad579a7d46863810c502164aa47b06",
+          "file_count": 1,
+          "unique_file_hashes": 1,
+          "aggregate_manifest_sha256": "cb4133c072d9731c1adf4df31b5da4762af25eeb0de5de13ffbd806337be0ec2"
+        },
+        "case_json_sha256": "decd1350d231c9965818d2ea88b65a26772fe5690c68e7d525f4eabe2e215aa0",
+        "inventory_sha256": "de96aec9691a38fb23dc9b565a1e03a197ad579a7d46863810c502164aa47b06",
+        "archive_sha256": "f6d5258ad27006cde6bd8dcf3000c49905056cb1edcf9456421bc082b6489ab0",
+        "tree_sha256": "04c7af72eebefd1b97e5ec16b196c7f303f6cd2512c7073d257c2bae22ad5255",
+        "tree_public_sha256": "8e9c3e57dd3f7fcd03a58460206a548bfa491ebcc4b5913cc45ce642faa3dfe1"
+      },
+      "stable": true,
+      "rounds_complete": 15,
+      "warmup_rounds_planned": 3,
+      "measured_rounds_planned": 12,
+      "sample_counts": {
+        "zip": 15,
+        "typed-tree-1": 15,
+        "typed-tree-2": 15,
+        "typed-tree-4": 15
+      },
+      "failure": null
+    },
+    {
+      "case": "raw-random-10000x64k",
+      "input_identity_before": {
+        "source": {
+          "inventory_sha256": "93a9865249fec863507123e1a14e79f198e840add17d8e629a23ba608e9b90bd",
+          "file_count": 10000,
+          "unique_file_hashes": 10000,
+          "aggregate_manifest_sha256": "0299e196bbad97589d6e94938701f0e3738afa61582b5c786ba0f092100c445a"
+        },
+        "case_json_sha256": "cde8310908e23612652a970adee29dbc5516904571c35c560c8d0b1185db2988",
+        "inventory_sha256": "93a9865249fec863507123e1a14e79f198e840add17d8e629a23ba608e9b90bd",
+        "archive_sha256": "cb4b71302ebfd3fba6dc43ebedcd9710d870cdbeb5215b9be5328c84365aec81",
+        "tree_sha256": "00427d862383140b369f934c27a4c10ac0dbacca7bfd8e5a6af40961046de245",
+        "tree_public_sha256": "bb75af0f16aaad96cda387d6186e1e89487f0514d08d8384a9ffa3208d649c06"
+      },
+      "input_identity_after": {
+        "source": {
+          "inventory_sha256": "93a9865249fec863507123e1a14e79f198e840add17d8e629a23ba608e9b90bd",
+          "file_count": 10000,
+          "unique_file_hashes": 10000,
+          "aggregate_manifest_sha256": "0299e196bbad97589d6e94938701f0e3738afa61582b5c786ba0f092100c445a"
+        },
+        "case_json_sha256": "cde8310908e23612652a970adee29dbc5516904571c35c560c8d0b1185db2988",
+        "inventory_sha256": "93a9865249fec863507123e1a14e79f198e840add17d8e629a23ba608e9b90bd",
+        "archive_sha256": "cb4b71302ebfd3fba6dc43ebedcd9710d870cdbeb5215b9be5328c84365aec81",
+        "tree_sha256": "00427d862383140b369f934c27a4c10ac0dbacca7bfd8e5a6af40961046de245",
+        "tree_public_sha256": "bb75af0f16aaad96cda387d6186e1e89487f0514d08d8384a9ffa3208d649c06"
+      },
+      "stable": true,
+      "rounds_complete": 15,
+      "warmup_rounds_planned": 3,
+      "measured_rounds_planned": 12,
+      "sample_counts": {
+        "zip": 15,
+        "typed-tree-1": 15,
+        "typed-tree-2": 15,
+        "typed-tree-4": 15
+      },
+      "failure": null
+    }
+  ],
+  "variants": [
+    "zip",
+    "typed-tree-1",
+    "typed-tree-2",
+    "typed-tree-4"
+  ],
+  "affinity_mask_for_every_sample": "0,1,2,3,4",
+  "zip_is_serial": true,
+  "cold_gate": "sync -d, fadvise DONTNEED, fincore RES == 0; sample must report process storage_io.read_bytes >= 90% of logical payload",
+  "durable": true,
+  "artifact_cap_bytes": 21474836480,
+  "apparent_bytes_after": 10243228974
+}

@@ -1,0 +1,17 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const e='/home/bsutton/.cache/revault-protected-20261011-evidence';
+String hash(String p){final r=Process.runSync('sha256sum',[p]);if(r.exitCode!=0)throw StateError('hash failed:$p');return '${r.stdout}'.split(' ').first;}
+void main(){
+ final destination=File('$e/recovery-executables.json');if(destination.existsSync())throw StateError('Refuse refreezing');
+ final prior=(jsonDecode(File('$e/retained-executable-epoch.json').readAsStringSync()) as Map)['original_identity'] as Map;
+ final expected=prior['source_hashes'] as Map;
+ final actual={for(final p in expected.keys)p:hash('$e/provenance-reconstruction/rust/$p')};
+ if(expected.entries.any((v)=>actual[v.key]!=v.value))throw StateError('Recovery source differs from exact retained epoch');
+ const tree='/home/bsutton/.cache/revault-protected-20261011-bin/revault_lockbox_api_tests';
+ const zip='/home/bsutton/.cache/revault-protected-20261011-bin/archive_evaluation';
+ final result={'tree_path':tree,'tree_sha256':hash(tree),'zip_path':zip,'zip_sha256':hash(zip),'source_hashes':actual,'source_hashes_match_prior_epoch':true,'source_file_count':actual.length,'prior_tree_sha256':prior['tree_test_executable_sha256'],'prior_zip_sha256':prior['zip_runner_executable_sha256'],'construction':'cargo+1.88.0 release external-source lockedoffline no-run; explicit empty Rust flags; new native binary epoch, no test suite executed','recovery_cases':['source-expanded-1gib-compressed-encrypted','random-1gib-raw-encrypted','random-1gib-compressed-encrypted'],'rounds_each':16,'excluded_preparatory_each':4,'measured_each':12,'prior_complete_cases_preserved':3,'partial_case4_excluded_entirely':true,'protocol_sha256':hash('$e/protocol.json'),'calibration_sha256':hash('$e/physical-read-calibration.json'),'runner_sha256':hash('$e/recovery-run.dart'),'frozen_utc':DateTime.now().toUtc().toIso8601String()};
+ destination.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(result),flush:true);print(green(jsonEncode({'tree_sha256':result['tree_sha256'],'zip_sha256':result['zip_sha256'],'verified_source_files':actual.length})));
+}

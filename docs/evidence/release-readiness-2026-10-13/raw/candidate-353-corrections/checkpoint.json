@@ -1,0 +1,30 @@
+{
+  "base_candidate": "353ded7da454de970a075819add09073e4190e28",
+  "base_candidate_qualified": false,
+  "runtime_production_changes": false,
+  "scope": "Swift conformance assertion, Ruby registry validation cwd/payload guard, Windows-compatible test observation order, release documentation",
+  "local_results_sha256": "19edd63f6805d86240b89f060e5849a5e88089467d195c9184d890cdb6003ddc",
+  "independent_ci_sha256": "093eba6274b6b24e4e6e7d0dccbdbd1c6737f7ac9e14f3710b431ed09e4bd941",
+  "windows_diagnostic_sha256": "d21e2ed14fecfb7bed8d59ff50a74bf32429801d708fce961de9a9766eb38666",
+  "qualified_patch_sha256": "8ae202c8a6164a0d707bb74f8f6124114a23e3a414898cac11d39b6f0b86a2d2",
+  "pre_hook_source_hashes": {
+    ".github/workflows/bindings-lint.yml": "3c4865489d48a85ab7e7fddf5d4d72c6c5ffb746087b6fe3949a832e81aacd30",
+    "bindings/swift/Sources/RevaultConformance/main.swift": "f0bc144fe9fccd3e335bb18a12f1b2fc86713dccd96b1ae5a776f474a0206389",
+    "rust/revault_vault_api/tests/vault_api.rs": "d39e890311cf5955f93392eb8a060e5e081a3b22904a84595de79de37f86c454",
+    "docs/archive_v4_plan.md": "5f22b438ce93853e6b6a0718b5cb5a6b9ef0b10198e76be72d5e988e43ea0fd5",
+    "docs/evidence/release-readiness-2026-10-13/README.md": "6556c03fb35f6660a30217a2a312507edfd876f418ec7c3b1eb0944248eec799"
+  },
+  "local_test_count": {
+    "swift": 1,
+    "corrected_vault": 2,
+    "original_poisoned_cache_case": 1,
+    "supplementary_cache_case": 1
+  },
+  "required_static_checks": "Swift warnings-as-errors and Vault integration-target Clippy passed",
+  "registry_validation": "All exact available workflow registry commands passed locally; source-package versions are internal0.2.0, not release0.5 artifacts",
+  "windows_runtime_qualification": "Pending replacement candidate; Linux focused success does not establish Windows pass",
+  "raw_logs_copied": false,
+  "raw_private_evidence_preserved_outside_git": true,
+  "publication": false,
+  "resource_measurements_started": false
+}

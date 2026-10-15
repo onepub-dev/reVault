@@ -1,0 +1,371 @@
+#! /usr/bin/env dcli
+// Deferred retention only: run after the batch and summarize.dart both finish.
+// Uses the current write-docs skill conventions; preserves GitBook metadata.
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const base = '/tmp/revault-parallel-20261010';
+const worktree = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance';
+const milestone = 'cold-parallel-extraction-2026-10-10';
+const variantNames = {'zip': 'ZIP', 'typed-tree-1': 'Tree 1', 'typed-tree-2': 'Tree 2', 'typed-tree-4': 'Tree 4'};
+const caseNames = {'raw-random-1gib': '1 GiB file', 'raw-random-10000x64k': '10,000 × 64 KiB'};
+void require(bool ok, String why) { if (!ok) throw StateError(why); }
+Map<String, dynamic> obj(Object? value) => value as Map<String, dynamic>;
+Map<String, dynamic> readJson(String path) => obj(jsonDecode(File(path).readAsStringSync()));
+String command(String executable, List<String> args, {String? cwd}) {
+  final result = Process.runSync(executable, args, workingDirectory: cwd);
+  require(result.exitCode == 0, '$executable failed (exit ${result.exitCode})');
+  return '${result.stdout}';
+}
+String hash(String path) => command('sha256sum', ['--', path]).split(RegExp(r'\s+')).first;
+String insert(String source, String anchor, String content) {
+  require(source.split(anchor).length == 2, 'Missing or duplicate documentation anchor: $anchor');
+  return source.replaceFirst(anchor, '$anchor$content');
+}
+String decimal(Object? value, [int places = 3]) {
+  require(value is num && value.isFinite, 'Invalid summary number');
+  return (value as num).toStringAsFixed(places);
+}
+String interval(Object? value, [int pairs = 12]) {
+  final row = obj(value);
+  require(row['pairs'] == pairs && row['bootstrap_replicates'] == 10000, 'Unexpected paired statistics');
+  return '${decimal(row['geometric_mean_ratio'])} [${decimal(row['low95'])}, ${decimal(row['high95'])}]';
+}
+void checkEnvironment(Object? value, String path) {
+  if (value is Map) {
+    for (final entry in value.entries) {
+      if (entry.key == 'environment' && entry.value is Map) {
+        final keys = (entry.value as Map).keys.cast<String>();
+        require(keys.every((key) => const {'REVAULT_READ_WORKERS', 'REVAULT_EXTRACT_DURABLE', 'REVAULT_CANDIDATE_ROOT', 'REVAULT_CANDIDATE_PHASE', 'REVAULT_CANDIDATE_UNIT', 'REVAULT_EXTRACT_OUTPUT', 'REVAULT_EXTRACT_TID_PARITY', 'REVAULT_EXTRACT_PID_NAMESPACE', 'REVAULT_EXTRACT_BLOCK_DEVICES'}.contains(key)),
+            'Unscoped environment map in $path; inspect key names without exposing values');
+      }
+      checkEnvironment(entry.value, path);
+    }
+  } else if (value is List) {
+    for (final item in value) { checkEnvironment(item, path); }
+  }
+}
+Map<String, dynamic> validateProtocol(String directory, String runner, String summarizer, bool durable) {
+  final complete = readJson('$base/$directory/complete.json');
+  final summary = readJson('$base/$directory/metrics-summary.json');
+  require(complete['complete'] == true && summary['complete'] == true, 'Batch/metrics incomplete');
+  require(complete['durable'] == durable, 'Wrong protocol durability');
+  final gates = obj(summary['gates']);
+  for (final key in ['all_samples_verified', 'zero_archive_residency_before_each_sample',
+    'storage_reads_at_least_90_percent_of_payload', 'stable_input_source_and_executable_audits',
+    'all_four_variants']) {
+    require(gates[key] == true, 'Missing completed gate $key');
+  }
+  require(gates['file_and_both_directory_syncs_in_timer'] == durable, 'Wrong synchronization gate');
+  if (!durable) {
+    require(gates['buffered_completion_without_fsync'] == true &&
+        gates['owned_outputs_drained_after_verification_before_cleanup'] == true &&
+        gates['six_measured_samples_each_reader_tid_parity_per_variant'] == true,
+        'Buffered completion/drain gates missing');
+  }
+  require(gates['measured_rounds_per_case'] == 12 && gates['excluded_warmup_rounds_per_case'] == (durable ? 3 : 4),
+      'Unexpected fixed round counts');
+  // Check every summarized input before copying any evidence or changing docs.
+  for (final entry in obj(summary['evidence_sha256']).entries) {
+    require(entry.key.startsWith('$base/'), 'Evidence outside the fixed root');
+    require(hash(entry.key) == entry.value, 'Evidence changed after summary: ${entry.key}');
+  }
+  require(hash('$base/$summarizer') == summary['summarizer_sha256'], 'Summarizer changed');
+  final identity = obj(obj(summary['metadata'])['identity_after']);
+  require(command('git', ['rev-parse', 'HEAD'], cwd: worktree).trim() == identity['source_revision'], 'HEAD changed since measurement');
+  final sourceRoot = durable ? '$base/durable-source/rust' : '$worktree/rust';
+  if (durable) {
+    final captured = readJson('$base/durable-source/identity.json');
+    require(captured['source_revision'] == identity['source_revision'] &&
+        captured['runner_sha256'] == identity['runner_sha256'] &&
+        captured['worktree_status'] == identity['worktree_status'], 'Durable snapshot epoch mismatch');
+    final capturedHashes = obj(captured['source_hashes']);
+    final measuredHashes = obj(identity['source_hashes']);
+    require(capturedHashes.length == measuredHashes.length &&
+        measuredHashes.entries.every((entry) => capturedHashes[entry.key] == entry.value), 'Durable snapshot source identities mismatch');
+    require(File('$base/durable-source/source.patch').lengthSync() > 0, 'Missing original epoch patch');
+  }
+  for (final entry in obj(identity['source_hashes']).entries) {
+    require(!entry.key.contains('..') && !entry.key.startsWith('/'), 'Invalid source identity path');
+    require(hash('$sourceRoot/${entry.key}') == entry.value, 'Measured source epoch changed: ${entry.key}');
+  }
+  require(hash('$base/$runner') == identity['runner_sha256'], 'Measured runner changed');
+  for (final kind in ['tree_test', 'zip_runner']) {
+    require((identity['${kind}_executable'] as String).startsWith('$base/${durable ? 'bin' : 'balanced-bin'}/'),
+        'Executable path does not match separate epoch');
+    require(hash(identity['${kind}_executable'] as String) == identity['${kind}_executable_sha256'],
+        'Measured executable changed');
+  }
+  return summary;
+}
+Future<void> gzipVerified(File source, File target, String originalHash) async {
+  final compress = await Process.start('gzip', ['-n', '-c', '--', source.path]);
+  final compressError = compress.stderr.transform(utf8.decoder).join();
+  await compress.stdout.pipe(target.openWrite());
+  require(await compress.exitCode == 0, 'gzip failed for ${source.path}: ${await compressError}');
+  final decompress = await Process.start('gzip', ['-d', '-c', '--', target.path]);
+  final digest = await Process.start('sha256sum', []);
+  final decodeError = decompress.stderr.transform(utf8.decoder).join();
+  final digestError = digest.stderr.transform(utf8.decoder).join();
+  final digestOutput = digest.stdout.transform(utf8.decoder).join();
+  await decompress.stdout.pipe(digest.stdin);
+  require(await decompress.exitCode == 0, 'gzip decode failed: ${await decodeError}');
+  require(await digest.exitCode == 0, 'Decoded hash failed: ${await digestError}');
+  require((await digestOutput).split(RegExp(r'\s+')).first == originalHash, 'Lossless compression verification failed');
+}
+Future<void> main(List<String> args) async {
+  require(args.isEmpty, 'Usage: ./retain.dart (fixed bounded evidence/worktree locations)');
+  final summaries = {
+    'balanced-buffered-batch': validateProtocol('balanced-buffered-batch', 'balanced-buffered-run.dart', 'summarize-balanced-buffered.dart', false),
+    'cold-batch': validateProtocol('cold-batch', 'run.dart', 'summarize.dart', true),
+  };
+  final destination = '$worktree/docs/evidence/$milestone';
+  require(!Directory(destination).existsSync(), 'Refusing to overwrite existing milestone');
+  final draft = File('$base/README.draft.md').readAsStringSync();
+  require(draft.split('RESULTS_PENDING').length == 2, 'Draft must contain exactly one RESULTS_PENDING marker');
+  final results = StringBuffer('Both protocols use twelve measured rounds per case. Balanced buffered results\n'
+      'exclude four preparatory rounds; the original durable results exclude three.\n'
+      'RSS is the maximum process-lifetime peak observed before verification,\n'
+      'including startup. Whole-process RSS and storage-I/O ranges are in the linked JSON.\n\n');
+  for (final protocol in summaries.entries) {
+  final buffered = protocol.key == 'balanced-buffered-batch';
+  final summary = protocol.value;
+  results.write('### ${buffered ? 'Cold input, buffered completion with balanced reader parity' : 'Exploratory cold input, explicit durable completion'}\n\n'
+      '[Complete metrics and paired intervals](raw/${protocol.key}/metrics-summary.json).\n\n'
+      '| Case | Variant | Median elapsed (s) | Median CPU (s) | Maximum peak RSS (MiB) |\n'
+      '| --- | --- | ---: | ---: | ---: |\n');
+  final cases = obj(summary['cases']);
+  require(cases.length == 2, 'Unexpected case count');
+  for (final caseEntry in caseNames.entries) {
+    final values = obj(obj(cases[caseEntry.key])['variants']);
+    require(values.length == 4, 'Unexpected variant count');
+    for (final variant in variantNames.entries) {
+      final row = obj(values[variant.key]);
+      require(row['measured_samples'] == 12, 'Incomplete variant');
+      results.writeln('| ${caseEntry.value} | ${variant.value} | ${decimal(row['median_elapsed_seconds'])} | ${decimal(row['median_cpu_seconds'])} | ${decimal((row['max_extraction_peak_rss_kib'] as num) / 1024, 2)} |');
+    }
+  }
+  if (buffered) {
+    results.write('\nReader-parity strata each contain six measured samples. The device fraction is\n'
+        'the range of nvme0n1 read sectors divided by both devices\' read sectors.\n'
+        'These counters include unrelated host activity; equal reader parity does\n'
+        'not prove equal physical mirror selection across different archive extents.\n\n'
+        '| Case | Variant | TID parity | Samples | Median elapsed (s) | Median CPU (s) | nvme0 read fraction range |\n'
+        '| --- | --- | ---: | ---: | ---: | ---: | ---: |\n');
+    for (final caseEntry in caseNames.entries) {
+      final strata = obj(obj(cases[caseEntry.key])['variants_by_reader_tid_parity']);
+      for (final parity in ['0', '1']) {
+        final values = obj(strata[parity]);
+        for (final variant in variantNames.entries) {
+          final row = obj(values[variant.key]);
+          require(row['measured_samples'] == 6, 'Incomplete parity stratum');
+          final range = row['global_nvme0_read_fraction_range'] as List;
+          results.writeln('| ${caseEntry.value} | ${variant.value} | $parity | 6 | ${decimal(row['median_elapsed_seconds'])} | ${decimal(row['median_cpu_seconds'])} | ${decimal(range[0])}–${decimal(range[1])} |');
+        }
+      }
+    }
+  }
+  if (buffered) {
+    results.write('\nThe following drain occurs after process verification and before cleanup. It is\n'
+        'reported separately, never added to the extraction time above; the intervening\n'
+        'verification gap means their sum is not a durable completion measurement.\n\n'
+        '| Case | Variant | Median postprocess drain (s) | Drain range (s) |\n'
+        '| --- | --- | ---: | ---: |\n');
+    for (final caseEntry in caseNames.entries) {
+      final values = obj(obj(cases[caseEntry.key])['variants']);
+      for (final variant in variantNames.entries) {
+        final row = obj(values[variant.key]);
+        final range = row['postprocess_drain_seconds_range'] as List;
+        require(range.length == 2, 'Missing drain range');
+        results.writeln('| ${caseEntry.value} | ${variant.value} | ${decimal(row['median_postprocess_drain_seconds'])} | ${decimal(range[0])}–${decimal(range[1])} |');
+      }
+    }
+  }
+  results.write('\n'
+      'Paired ratios are candidate/baseline geometric means with seeded 10,000-replicate\n'
+      '95% paired percentile bootstrap intervals. Ratios below one mean less elapsed\n'
+      'time or CPU time for the candidate. Intervals have no multiplicity adjustment.\n\n'
+      '${buffered ? 'Aggregate intervals resample six adjacent two-round blocks, preserving both parity strata. Within-parity intervals resample six paired rounds.' : 'Durable intervals resample twelve paired rounds; reader parity and physical mirror selection were not recorded, so these intervals do not resolve that confounding.'}\n\n'
+      '| Case | Candidate / baseline | Elapsed ratio [95% CI] | CPU ratio [95% CI] |\n'
+      '| --- | --- | ---: | ---: |\n');
+  for (final caseEntry in caseNames.entries) {
+    final comparisons = obj(obj(cases[caseEntry.key])['paired_comparisons']);
+    for (final pair in ['typed-tree-1_vs_zip', 'typed-tree-2_vs_zip', 'typed-tree-4_vs_zip', 'typed-tree-2_vs_typed-tree-1', 'typed-tree-4_vs_typed-tree-1']) {
+      final labels = pair.split('_vs_');
+      final row = obj(comparisons[pair]);
+      results.writeln('| ${caseEntry.value} | ${variantNames[labels[0]]} / ${variantNames[labels[1]]} | ${interval(row['elapsed_seconds'])} | ${interval(row['cpu_seconds'])} |');
+      if (buffered) {
+        final strata = obj(row['by_reader_tid_parity']);
+        for (final parity in ['0', '1']) {
+          final stratum = obj(strata[parity]);
+          results.writeln('| ${caseEntry.value}, parity $parity | ${variantNames[labels[0]]} / ${variantNames[labels[1]]} | ${interval(stratum['elapsed_seconds'], 6)} | ${interval(stratum['cpu_seconds'], 6)} |');
+        }
+      }
+    }
+  }
+  results.writeln();
+  }
+  results.write('\n[Raw protocol, flags, samples and test logs](raw/retention-manifest.json) and\n'
+      '[tracked Rust changes](raw/source.patch) retain the measured implementation.\n'
+      'The [original durable epoch patch](raw/durable-source/source.patch) and\n'
+      '[original source identity](raw/durable-source/identity.json) accompany the\n'
+      'preserved original changed/new source files; unchanged files come from the\n'
+      'recorded base revision. The buffered epoch adds the\n'
+      '[observation module](raw/source/benchmark-observation.rs.txt). Scripts and Rust\n'
+      'snapshots are retained as text, with original-to-retained paths in the manifest.\n'
+      'The new [parallel reader](raw/source/reader-parallel.rs.txt) and\n'
+      '[parallel regression tests](raw/source/tests-parallel.rs.txt) are retained separately.\n');
+  const link = '[cold disk extraction and bounded parallel reads](evidence/$milestone/README.md)';
+  final replacements = <String, String>{};
+  for (final name in ['archive_v4_plan.md', 'archive_v4_evaluation.md', 'documentation_map.md']) {
+    final path = '$worktree/docs/$name';
+    var content = File(path).readAsStringSync();
+    require(!content.contains('evidence/$milestone/'), 'Milestone link already present in $name');
+    if (name == 'archive_v4_plan.md') {
+      content = insert(content, '## Current position and next work\n', '\n### Cold disk extraction and bounded parallel reads — 2026-10-10\n\n'
+          'The $link milestone records one, two and four configured CPU workers\n'
+          'against serial ZIP on random GiB and 10,000-file fixtures. It requires zero\n'
+          'archive page-cache residency and substantial process storage reads. Separate\n'
+          'reader-parity-balanced buffered and exploratory durable protocols report paired elapsed/CPU\n'
+          'intervals and peak RSS; buffered output drain is reported outside timing.\n'
+          'Earlier warm-cache/buffered extraction results remain historical diagnostics.\n'
+          'The reader remains test-only; public CLI and broader G3/G11 gates remain open.\n');
+      content = insert(content, '### Cold disk extraction and bounded parallel reads — 2026-10-10\n', '\n'
+          'The balanced raw/plain buffered batch does not establish ZIP parity or a\n'
+          'parallel-read improvement: serial tree elapsed time is 36.3% higher for\n'
+          '1 GiB and 51.9% higher for 10,000 files. On 1 GiB, two workers add 12.2%\n'
+          'elapsed and 33.7% CPU; four workers show no clear elapsed gain and add\n'
+          '40.2% CPU. Keep one worker as default and parallelism explicitly test-only.\n'
+          'Next qualify realistic compressed/encrypted large streams before choosing\n'
+          'another pipeline experiment. All-mode correctness is not performance qualification.\n');
+    } else if (name == 'archive_v4_evaluation.md') {
+      content = insert(content, '## Current scorecard\n', '\nThe $link milestone adds separate cold-archive buffered and durable\n'
+          'comparisons for random 1 GiB and 10,000 × 64 KiB workloads with serial ZIP\n'
+          'and one/two/four configured tree workers, with buffered postprocess drain\n'
+          'reported separately from extraction. Buffered reader parity is balanced and\n'
+          'device-global I/O counters are retained; the older durable epoch did not\n'
+          'record mirror selection and remains exploratory. Measurements and paired\n'
+          'elapsed/CPU confidence intervals are component evidence; public CLI and\n'
+          'broader G3/G11 qualification remain open. Earlier warm-cache/no-fsync\n'
+          'extraction measurements below remain historical diagnostics.\n');
+    } else {
+      content = '${content.trimRight()}\n\n- $link: cold archive residency/storage-read gates, separate buffered/durable output protocols, postprocess drain, and paired elapsed/CPU/RSS evidence for one/two/four configured workers.\n';
+    }
+    replacements[path] = content;
+  }
+  final accepted = <File>[];
+  final excluded = <String>[];
+  // Validate the complete immutable epoch above, but retain only its changed
+  // tracked files and new modules. Base HEAD + patch reconstruct unchanged files.
+  final durableChangedSources = <String>{
+    'revault_lockbox_api/src/file_format/candidate_files/tree_image/reader/parallel.rs',
+    'revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs',
+  };
+  final durablePatch = File('$base/durable-source/source.patch').readAsStringSync();
+  for (final line in const LineSplitter().convert(durablePatch)) {
+    if (line.startsWith('+++ b/rust/')) {
+      final sourcePath = line.substring('+++ b/rust/'.length);
+      require(!sourcePath.contains('..') && !sourcePath.startsWith('/'), 'Invalid original patch path');
+      durableChangedSources.add(sourcePath);
+    }
+  }
+  require(durableChangedSources.contains('revault_lockbox_api/src/benchmark_extraction.rs'),
+      'Original helper must be included in durable epoch reconstruction');
+  const suffixes = ['.json', '.jsonl', '.log', '.txt', '.stdout', '.stderr', '.dart', '.sha256', '.patch', '.rs', '.toml', '.lock'];
+  for (final entity in Directory(base).listSync(recursive: true, followLinks: false)) {
+    final relative = entity.path.substring(base.length + 1);
+    if (entity is! File) continue;
+    if (relative.startsWith('durable-source/rust/') &&
+        !durableChangedSources.contains(relative.substring('durable-source/rust/'.length))) {
+      excluded.add(relative); continue;
+    }
+    if (relative.split('/').any((part) => ['bin', 'balanced-bin', 'target', '.dart_tool'].contains(part)) ||
+        relative == 'README.draft.md' || !suffixes.any(relative.endsWith)) {
+      excluded.add(relative); continue;
+    }
+    // Reviewed maximum 26,419,362 bytes: repeated per-file drain metadata in
+    // balanced 10k sample JSONL. Keep a 32MiB bound, not an unbounded bypass.
+    require(entity.lengthSync() <= 32 * 1024 * 1024, 'Oversized evidence file requires review: $relative');
+    final content = entity.readAsStringSync(); // Reject binary/non-UTF8 masquerading as text.
+    require(!content.contains('\u0000'), 'Binary evidence rejected: $relative');
+    if (relative.endsWith('.json')) checkEnvironment(jsonDecode(content), relative);
+    if (relative.endsWith('.jsonl')) {
+      for (final line in const LineSplitter().convert(content)) {
+        if (line.trim().isNotEmpty) checkEnvironment(jsonDecode(line), relative);
+      }
+    }
+    accepted.add(entity);
+  }
+  final patch = command('git', ['diff', '--', 'rust/revault_lockbox_api/src', 'rust/revault_lockbox_api/benches'], cwd: worktree);
+  require(patch.contains('data_extent.rs') && patch.contains('benchmark_extraction.rs'), 'Missing tracked implementation in patch');
+  final newSources = {
+    'reader-parallel.rs.txt': '$worktree/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader/parallel.rs',
+    'tests-parallel.rs.txt': '$worktree/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs',
+    'benchmark-observation.rs.txt': '$worktree/rust/revault_lockbox_api/src/benchmark_observation.rs',
+  };
+  for (final file in newSources.values) { require(File(file).existsSync(), 'Missing new source $file'); }
+  // Validate lossless compressed artifacts in /tmp before any worktree write.
+  final staging = Directory.systemTemp.createTempSync('revault-retain-gzip-');
+  final retainedPaths = <String, String>{};
+  final retainedFiles = <String, File>{};
+  final encodings = <String, Map<String, dynamic>>{};
+  for (final file in accepted) {
+    final original = file.path.substring(base.length + 1);
+    final namedSource = original.endsWith('.dart') || original.endsWith('.rs') ||
+        original.endsWith('.patch') || original.startsWith('durable-source/') || original.startsWith('deferred/');
+    final compressed = file.lengthSync() > 128 * 1024 && !namedSource &&
+        !original.endsWith('/metrics-summary.json');
+    var retained = original.endsWith('.dart') || original.endsWith('.rs') ? '$original.txt' : original;
+    if (original == 'source.patch') retained = 'source-before-batch.patch';
+    if (compressed) retained = '$retained.gz';
+    require(!retainedFiles.containsKey(retained), 'Retained evidence path collision: $retained');
+    retainedPaths[original] = retained;
+    final target = File('${staging.path}/$retained');
+    target.parent.createSync(recursive: true);
+    final originalHash = hash(file.path);
+    if (compressed) {
+      await gzipVerified(file, target, originalHash);
+    } else {
+      file.copySync(target.path);
+      require(hash(target.path) == originalHash, 'Copied evidence hash mismatch');
+    }
+    encodings[original] = {'retained_path': retained, 'encoding': compressed ? 'gzip' : 'identity',
+      'original_sha256': originalHash, 'retained_sha256': hash(target.path),
+      'original_bytes': file.lengthSync(), 'retained_bytes': target.lengthSync(),
+      'lossless_verified': true};
+    retainedFiles[retained] = target;
+  }
+  // All gates and compression verification finish before the first worktree write.
+  final raw = '$destination/raw';
+  Directory('$raw/source').createSync(recursive: true);
+  for (final entry in retainedFiles.entries) {
+    final target = File('$raw/${entry.key}');
+    target.parent.createSync(recursive: true);
+    entry.value.copySync(target.path);
+    require(hash(target.path) == hash(entry.value.path), 'Final retained copy hash mismatch');
+  }
+  // Preserve the initial snapshot too, then install the exact post-batch tracked patch.
+  final priorPatch = File('$raw/source.patch');
+  if (priorPatch.existsSync()) priorPatch.copySync('$raw/source-before-batch.patch');
+  priorPatch.writeAsStringSync(patch);
+  for (final entry in newSources.entries) { File(entry.value).copySync('$raw/source/${entry.key}'); }
+  for (final file in Directory(raw).listSync(recursive: true).whereType<File>()) {
+    command('chmod', ['0644', '--', file.path]);
+  }
+  final manifest = {
+    'retained_utc': DateTime.now().toUtc().toIso8601String(),
+    'source_root': base, 'excluded_paths': excluded..sort(),
+    'original_to_retained_paths': retainedPaths,
+    'retained_encodings': encodings,
+    'compression_policy': 'gzip -n -c for raw text over128KiB, except named source/scripts and linked metric summaries; decompression SHA256 must match original; reviewed original file limit32MiB',
+    'files_sha256': {for (final file in Directory(raw).listSync(recursive: true).whereType<File>())
+      file.path.substring(raw.length + 1): hash(file.path)},
+  };
+  File('$raw/retention-manifest.json').writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(manifest)}\n');
+  command('chmod', ['0644', '--', '$raw/retention-manifest.json']);
+  File('$destination/README.md').writeAsStringSync(draft.replaceFirst('RESULTS_PENDING', results.toString().trimRight()));
+  for (final entry in replacements.entries) { File(entry.key).writeAsStringSync(entry.value); }
+  staging.deleteSync(recursive: true);
+  print(green('Retained complete cold-batch evidence and linked milestone: $destination'));
+}

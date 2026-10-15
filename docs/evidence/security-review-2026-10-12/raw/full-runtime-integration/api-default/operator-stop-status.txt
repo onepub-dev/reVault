@@ -1,0 +1,3 @@
+exit=-15 (SIGTERM)
+test-result-failure-lines=0
+status=interrupted_incomplete

@@ -1,0 +1,68 @@
+diff --git a/rust/revault_lockbox_api/Cargo.toml b/rust/revault_lockbox_api/Cargo.toml
+index 21802817..5e35bbf0 100644
+--- a/rust/revault_lockbox_api/Cargo.toml
++++ b/rust/revault_lockbox_api/Cargo.toml
+@@ -30,16 +30,16 @@ native-block-layout = []
+ issue303-protocol = []
+ 
+ [dependencies]
+-argon2 = "0.6"
++argon2 = { version = "0.6", features = ["zeroize"] }
+ chacha20poly1305 = "0.11"
+ ed25519-dalek = "3"
+ getrandom = "0.4"
+ hkdf = "0.13"
+-hmac = "0.13"
++hmac = { version = "0.13", features = ["zeroize"] }
+ revault_page_api = { version = "0.0.34", path = "../revault_page_api" }
+-ml-dsa = { version = "0.1", features = ["getrandom"] }
+-ml-kem = { version = "0.3.2", features = ["getrandom"] }
+-sha2 = "0.11"
++ml-dsa = { version = "0.1", features = ["getrandom", "zeroize"] }
++ml-kem = { version = "0.3.2", features = ["getrandom", "zeroize"] }
++sha2 = { version = "0.11", features = ["zeroize"] }
+ serde_json = "1"
+ unicode-normalization = "=0.1.25"
+ x25519-dalek = { version = "3", features = ["static_secrets"] }
+@@ -59,6 +59,10 @@ zip = { version = "8", default-features = false, features = ["deflate"] }
+ [target.'cfg(unix)'.dependencies]
+ libc = "0.2"
+ 
++[target.'cfg(any(unix, windows))'.dependencies]
++cap-std = "=4.0.3"
++cap-fs-ext = "=4.0.3"
++
+ [target.'cfg(windows)'.dependencies]
+ windows-sys = { version = "0.61", features = [
+     "Win32_Foundation",
+diff --git a/rust/revault_migrate_archive_v3/legacy/Cargo.toml b/rust/revault_migrate_archive_v3/legacy/Cargo.toml
+index 493ffbd6..25030678 100644
+--- a/rust/revault_migrate_archive_v3/legacy/Cargo.toml
++++ b/rust/revault_migrate_archive_v3/legacy/Cargo.toml
+@@ -29,11 +29,11 @@ chacha20poly1305 = "0.11"
+ ed25519-dalek = "3"
+ getrandom = "0.4"
+ hkdf = "0.13"
+-hmac = "0.13"
++hmac = { version = "0.13", features = ["zeroize"] }
+ revault_page_api = { version = "0.0.34", path = "../../revault_page_api" }
+-ml-dsa = { version = "0.1", features = ["getrandom"] }
++ml-dsa = { version = "0.1", features = ["getrandom", "zeroize"] }
+ ml-kem = { version = "0.3.2", features = ["getrandom"] }
+-sha2 = "0.11"
++sha2 = { version = "0.11", features = ["zeroize"] }
+ serde_json = "1"
+ unicode-normalization = "0.1"
+ x25519-dalek = { version = "3", features = ["static_secrets"] }
+diff --git a/rust/revault_vault_api/Cargo.toml b/rust/revault_vault_api/Cargo.toml
+index d2e18308..1ebba8c0 100644
+--- a/rust/revault_vault_api/Cargo.toml
++++ b/rust/revault_vault_api/Cargo.toml
+@@ -31,6 +31,7 @@ zeroize = "1.9"
+ 
+ [target.'cfg(unix)'.dependencies]
+ libc = "0.2"
++socket2 = "0.6"
+ 
+ [target.'cfg(target_os = "linux")'.dependencies]
+ async-io = "2"

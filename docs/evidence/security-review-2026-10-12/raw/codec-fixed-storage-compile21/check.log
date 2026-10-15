@@ -1,0 +1,615 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `into_owned` found for enum `Result` in the current scope
+  --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:58:22
+   |
+58 |             prepared.into_owned(),
+   |                      ^^^^^^^^^^ method not found in `Result<DFastPreparedWords, CapacityError>`
+   |
+note: the method `into_owned` exists on the type `DFastPreparedWords`
+  --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:56:5
+   |
+56 |     pub(super) fn into_owned(self) -> DFastPreparedBlock {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: use the `?` operator to extract the `DFastPreparedWords` value, propagating a `Result::Err` value to the caller
+   |
+58 |             prepared?.into_owned(),
+   |                     +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:83:13
+    |
+77  |         return encode_prepared_words_block(
+    |                --------------------------- arguments to this function are incorrect
+...
+83  |             prepared,
+    |             ^^^^^^^^ expected `DFastPreparedWords`, found `Result<DFastPreparedWords, ...>`
+    |
+    = note: expected struct `DFastPreparedWords`
+                 found enum `Result<DFastPreparedWords, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:536:15
+    |
+536 | pub(super) fn encode_prepared_words_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+542 |     prepared: DFastPreparedWords,
+    |     ----------------------------
+help: use the `?` operator to extract the `Result<DFastPreparedWords, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+83  |             prepared?,
+    |                     +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:108:9
+    |
+102 |     encode_stored_words_block(
+    |     ------------------------- arguments to this function are incorrect
+...
+108 |         stored,
+    |         ^^^^^^ expected `DFastStoredWords`, found `Result<DFastStoredWords, CapacityError>`
+    |
+    = note: expected struct `DFastStoredWords`
+                 found enum `Result<DFastStoredWords, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:569:15
+    |
+569 | pub(super) fn encode_stored_words_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+575 |     mut stored: DFastStoredWords,
+    |     ----------------------------
+help: use the `?` operator to extract the `Result<DFastStoredWords, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+108 |         stored?,
+    |               +
+
+error[E0599]: no method named `into_owned` found for enum `Result` in the current scope
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:150:22
+    |
+150 |             prepared.into_owned(),
+    |                      ^^^^^^^^^^ method not found in `Result<DFastPreparedWords, CapacityError>`
+    |
+note: the method `into_owned` exists on the type `DFastPreparedWords`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:56:5
+    |
+56  |     pub(super) fn into_owned(self) -> DFastPreparedBlock {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: use the `?` operator to extract the `DFastPreparedWords` value, propagating a `Result::Err` value to the caller
+    |
+150 |             prepared?.into_owned(),
+    |                     +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:173:13
+    |
+167 |         return encode_prepared_words_block(
+    |                --------------------------- arguments to this function are incorrect
+...
+173 |             prepared,
+    |             ^^^^^^^^ expected `DFastPreparedWords`, found `Result<DFastPreparedWords, ...>`
+    |
+    = note: expected struct `DFastPreparedWords`
+                 found enum `Result<DFastPreparedWords, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:536:15
+    |
+536 | pub(super) fn encode_prepared_words_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+542 |     prepared: DFastPreparedWords,
+    |     ----------------------------
+help: use the `?` operator to extract the `Result<DFastPreparedWords, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+173 |             prepared?,
+    |                     +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:196:9
+    |
+190 |     encode_stored_words_block(
+    |     ------------------------- arguments to this function are incorrect
+...
+196 |         stored,
+    |         ^^^^^^ expected `DFastStoredWords`, found `Result<DFastStoredWords, CapacityError>`
+    |
+    = note: expected struct `DFastStoredWords`
+                 found enum `Result<DFastStoredWords, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:569:15
+    |
+569 | pub(super) fn encode_stored_words_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+575 |     mut stored: DFastStoredWords,
+    |     ----------------------------
+help: use the `?` operator to extract the `Result<DFastStoredWords, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+196 |         stored?,
+    |               +
+
+error[E0599]: no method named `into_owned` found for enum `Result` in the current scope
+  --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:56:22
+   |
+56 |             prepared.into_owned(),
+   |                      ^^^^^^^^^^ method not found in `Result<FastPreparedWords, CapacityError>`
+   |
+note: the method `into_owned` exists on the type `FastPreparedWords`
+  --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:55:5
+   |
+55 |     pub(super) fn into_owned(self) -> FastPreparedBlock {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: use the `?` operator to extract the `FastPreparedWords` value, propagating a `Result::Err` value to the caller
+   |
+56 |             prepared?.into_owned(),
+   |                     +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:81:13
+    |
+75  |         return encode_prepared_words_block(
+    |                --------------------------- arguments to this function are incorrect
+...
+81  |             prepared,
+    |             ^^^^^^^^ expected `FastPreparedWords`, found `Result<FastPreparedWords, CapacityError>`
+    |
+    = note: expected struct `FastPreparedWords`
+                 found enum `Result<FastPreparedWords, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:530:15
+    |
+530 | pub(super) fn encode_prepared_words_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+536 |     prepared: FastPreparedWords,
+    |     ---------------------------
+help: use the `?` operator to extract the `Result<FastPreparedWords, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+81  |             prepared?,
+    |                     +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:106:9
+    |
+100 |     encode_stored_words_block(
+    |     ------------------------- arguments to this function are incorrect
+...
+106 |         stored,
+    |         ^^^^^^ expected `FastStoredWords`, found `Result<FastStoredWords, CapacityError>`
+    |
+    = note: expected struct `FastStoredWords`
+                 found enum `Result<FastStoredWords, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:563:15
+    |
+563 | pub(super) fn encode_stored_words_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+569 |     mut stored: FastStoredWords,
+    |     ---------------------------
+help: use the `?` operator to extract the `Result<FastStoredWords, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+106 |         stored?,
+    |               +
+
+error[E0599]: no method named `into_owned` found for enum `Result` in the current scope
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:148:22
+    |
+148 |             prepared.into_owned(),
+    |                      ^^^^^^^^^^ method not found in `Result<FastPreparedWords, CapacityError>`
+    |
+note: the method `into_owned` exists on the type `FastPreparedWords`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:55:5
+    |
+55  |     pub(super) fn into_owned(self) -> FastPreparedBlock {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: use the `?` operator to extract the `FastPreparedWords` value, propagating a `Result::Err` value to the caller
+    |
+148 |             prepared?.into_owned(),
+    |                     +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:171:13
+    |
+165 |         return encode_prepared_words_block(
+    |                --------------------------- arguments to this function are incorrect
+...
+171 |             prepared,
+    |             ^^^^^^^^ expected `FastPreparedWords`, found `Result<FastPreparedWords, CapacityError>`
+    |
+    = note: expected struct `FastPreparedWords`
+                 found enum `Result<FastPreparedWords, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:530:15
+    |
+530 | pub(super) fn encode_prepared_words_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+536 |     prepared: FastPreparedWords,
+    |     ---------------------------
+help: use the `?` operator to extract the `Result<FastPreparedWords, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+171 |             prepared?,
+    |                     +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:190:9
+    |
+184 |     encode_stored_words_block(
+    |     ------------------------- arguments to this function are incorrect
+...
+190 |         stored,
+    |         ^^^^^^ expected `FastStoredWords`, found `Result<FastStoredWords, CapacityError>`
+    |
+    = note: expected struct `FastStoredWords`
+                 found enum `Result<FastStoredWords, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:563:15
+    |
+563 | pub(super) fn encode_stored_words_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+569 |     mut stored: FastStoredWords,
+    |     ---------------------------
+help: use the `?` operator to extract the `Result<FastStoredWords, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+190 |         stored?,
+    |               +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:162:38
+    |
+160 |   ) -> GreedyBlockOutput {
+    |        ----------------- expected `GreedyBlockOutput` because of return type
+161 |       match depth {
+162 |           LazyBlockStrategy::Greedy => compress_block_greedy_no_dict_with_state_and_loaded_dict(
+    |  ______________________________________^
+163 | |             src,
+164 | |             block_range,
+165 | |             params,
+...   |
+168 | |             loaded_dict_end,
+169 | |         ),
+    | |_________^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+    |
+    = note: expected struct `GreedyBlockOutput`
+                 found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+169 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0308]: `?` operator has incompatible types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:231:5
+    |
+229 |   ) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
+    |        ----------------------------------------------------------- expected `Result<GreedyEncodedBlock, CapacityError>` because of return type
+230 |       let mut match_state = GreedyMatchState::new();
+231 | /     encode_block_hash_chain_no_dict_with_state_and_policy_in_mode(
+232 | |         GreedyBlockSource {
+233 | |             src,
+234 | |             block_range: 0..src.len(),
+...   |
+245 | |         BlockEncodeMode::Normal,
+246 | |     )?
+    | |______^ expected `Result<GreedyEncodedBlock, ...>`, found `GreedyEncodedBlock`
+    |
+    = note: `?` operator cannot convert from `GreedyEncodedBlock` to `Result<GreedyEncodedBlock, CapacityError>`
+    = note: expected enum `Result<GreedyEncodedBlock, CapacityError>`
+             found struct `GreedyEncodedBlock`
+help: try removing this `?`
+    |
+246 -     )?
+246 +     )
+    |
+help: try wrapping the expression in `core::prelude::v1::Ok`
+    |
+231 ~     core::prelude::v1::Ok(encode_block_hash_chain_no_dict_with_state_and_policy_in_mode(
+232 |         GreedyBlockSource {
+...
+245 |         BlockEncodeMode::Normal,
+246 ~     )?)
+    |
+
+error[E0308]: `?` operator has incompatible types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:405:16
+    |
+362 |   ) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
+    |        ----------------------------------------------------------- expected `Result<GreedyEncodedBlock, CapacityError>` because of return type
+...
+405 |           return encode_stored_block(
+    |  ________________^
+406 | |             block,
+407 | |             last_block,
+408 | |             params,
+...   |
+415 | |             bytes,
+416 | |         )?;
+    | |__________^ expected `Result<GreedyEncodedBlock, ...>`, found `GreedyEncodedBlock`
+    |
+    = note: `?` operator cannot convert from `GreedyEncodedBlock` to `Result<GreedyEncodedBlock, CapacityError>`
+    = note: expected enum `Result<GreedyEncodedBlock, CapacityError>`
+             found struct `GreedyEncodedBlock`
+help: try removing this `?`
+    |
+416 -         )?;
+416 +         );
+    |
+help: try wrapping the expression in `core::prelude::v1::Ok`
+    |
+405 ~         return core::prelude::v1::Ok(encode_stored_block(
+406 |             block,
+...
+415 |             bytes,
+416 ~         )?);
+    |
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs:67:9
+   |
+67 |         prepared,
+   |         ^^^^^^^^ expected `PreparedBlock`, found `Result<PreparedBlock, CapacityError>`
+   |
+   = note: expected struct `compressed::PreparedBlock`
+                found enum `Result<compressed::PreparedBlock, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<compressed::PreparedBlock, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+67 |         prepared: prepared.expect("REASON"),
+   |                 +++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs:87:9
+   |
+87 |         prepared,
+   |         ^^^^^^^^ expected `PreparedBlock`, found `Result<PreparedBlock, CapacityError>`
+   |
+   = note: expected struct `compressed::PreparedBlock`
+                found enum `Result<compressed::PreparedBlock, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<compressed::PreparedBlock, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+87 |         prepared: prepared.expect("REASON"),
+   |                 +++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs:100:39
+    |
+98  |   ) -> GreedyBlockOutput {
+    |        ----------------- expected `GreedyBlockOutput` because of return type
+99  |       match depth {
+100 |           LazyBlockStrategy::BtLazy2 => compress_block_btlazy2_attached_dict_with_state(
+    |  _______________________________________^
+101 | |             source.src,
+102 | |             source.block_range,
+103 | |             source.active_dict_limit,
+...   |
+111 | |             source.dictionary_index_start,
+112 | |         ),
+    | |_________^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+    |
+    = note: expected struct `GreedyBlockOutput`
+                 found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+112 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs:167:38
+    |
+165 |   ) -> GreedyBlockOutput {
+    |        ----------------- expected `GreedyBlockOutput` because of return type
+166 |       match depth {
+167 |           LazyBlockStrategy::Greedy => compress_block_greedy_ext_dict_with_state(
+    |  ______________________________________^
+168 | |             src,
+169 | |             block_range,
+170 | |             dict_limit,
+...   |
+174 | |             loaded_dict_end,
+175 | |         ),
+    | |_________^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+    |
+    = note: expected struct `GreedyBlockOutput`
+                 found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+175 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/ldm.rs:46:9
+   |
+44 |       ) -> sequence::LdmSequenceResult {
+   |            --------------------------- expected `LdmSequenceResult` because of return type
+45 |           self.table.reset();
+46 | /         sequence::generate_sequences_no_dict_in(
+47 | |             src,
+48 | |             params,
+49 | |             &mut self.table,
+50 | |             core::mem::take(&mut self.sequences),
+51 | |         )
+   | |_________^ expected `LdmSequenceResult`, found `Result<LdmSequenceResult, CapacityError>`
+   |
+   = note: expected struct `LdmSequenceResult`
+                found enum `Result<LdmSequenceResult, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<LdmSequenceResult, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+51 |         ).expect("REASON")
+   |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/attached.rs:101:9
+    |
+101 |         prepared,
+    |         ^^^^^^^^ expected `PreparedBlock`, found `Result<PreparedBlock, CapacityError>`
+    |
+    = note: expected struct `compressed::PreparedBlock`
+                 found enum `Result<compressed::PreparedBlock, CapacityError>`
+help: use the `?` operator to extract the `Result<compressed::PreparedBlock, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+101 |         prepared: prepared?,
+    |                 +++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:288:9
+    |
+288 |         prepared,
+    |         ^^^^^^^^ expected `PreparedBlock`, found `Result<PreparedBlock, CapacityError>`
+    |
+    = note: expected struct `compressed::PreparedBlock`
+                 found enum `Result<compressed::PreparedBlock, CapacityError>`
+help: use the `?` operator to extract the `Result<compressed::PreparedBlock, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+288 |         prepared: prepared?,
+    |                 +++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:453:9
+    |
+453 |         prepared,
+    |         ^^^^^^^^ expected `PreparedBlock`, found `Result<PreparedBlock, CapacityError>`
+    |
+    = note: expected struct `compressed::PreparedBlock`
+                 found enum `Result<compressed::PreparedBlock, CapacityError>`
+help: use the `?` operator to extract the `Result<compressed::PreparedBlock, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+453 |         prepared: prepared?,
+    |                 +++++++++++
+
+error[E0609]: no field `sequences` on type `&Result<LdmSequenceResult, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs:198:51
+    |
+198 |         .map(|result| LdmRawSeqStore::new(&result.sequences));
+    |                                                   ^^^^^^^^^ unknown field
+
+error[E0609]: no field `sequences` on type `&Result<LdmSequenceResult, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs:513:51
+    |
+513 |         .map(|result| LdmRawSeqStore::new(&result.sequences));
+    |                                                   ^^^^^^^^^ unknown field
+
+Some errors have detailed explanations: E0308, E0599, E0609.
+For more information about an error, try `rustc --explain E0308`.
+warning: `zstd-complete` (lib) generated 20 warnings
+error: could not compile `zstd-complete` (lib) due to 25 previous errors; 20 warnings emitted

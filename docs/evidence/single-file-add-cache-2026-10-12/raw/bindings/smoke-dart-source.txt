@@ -1,0 +1,51 @@
+Recovered from the temporary `bindings/dart/test/cache_limit_smoke.dart` invocation after the test file was removed. The first invocation included `import 'package:dcli/dcli.dart';`, which was removed after package compilation reported that the binding package does not declare dcli. The successful version was still launched directly through its `#! /usr/bin/env dcli` shebang and contains no dcli import.
+
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:revault_api/revault_api.dart';
+
+Future<void> main() async {
+  final root = Directory.systemTemp.createTempSync('rv-cache-dart-');
+  final archive = '${root.path}/test.lbox';
+  final key = SecretBytes.copyOf(Uint8List.fromList(List.filled(32, 77)));
+  try {
+    await Revault.load();
+    var box = Lockbox.create(archive, contentKey: key);
+    try {
+      box.addFile('/pending', Uint8List.fromList('setter-lifecycle'.codeUnits));
+      box.setCacheLimit('bytes', bytes: 8192);
+      if (box.cacheStats().limitBytes != 8192) {
+        throw StateError('bytes setter did not update cache stats');
+      }
+      final before = box.cacheStats();
+      try {
+        box.setCacheLimit('invalid');
+        throw StateError('invalid mode unexpectedly succeeded');
+      } on RevaultException {
+        final after = box.cacheStats();
+        if (after.limitBytes != before.limitBytes ||
+            after.usedBytes != before.usedBytes ||
+            after.entries != before.entries) {
+          throw StateError('invalid mode changed cache state');
+        }
+      }
+      box.commit();
+    } finally {
+      box.close();
+    }
+    box = Lockbox.open(archive, contentKey: key);
+    try {
+      if (String.fromCharCodes(box.getFile('/pending')) != 'setter-lifecycle') {
+        throw StateError('committed pending content did not reopen');
+      }
+    } finally {
+      box.close();
+    }
+    print('Dart setter lifecycle passed');
+  } finally {
+    key.close();
+    root.deleteSync(recursive: true);
+  }
+}

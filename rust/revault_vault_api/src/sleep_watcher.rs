@@ -1,5 +1,13 @@
 use std::io;
 use std::thread;
+static CACHE_MONITOR_ACTIVE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+pub(crate) fn set_cache_monitor_active(active: bool) {
+    CACHE_MONITOR_ACTIVE.store(active, std::sync::atomic::Ordering::Release);
+}
+pub(crate) fn cache_monitor_active() -> bool {
+    CACHE_MONITOR_ACTIVE.load(std::sync::atomic::Ordering::Acquire)
+}
 
 #[cfg(windows)]
 use std::sync::mpsc::Sender;
@@ -13,6 +21,7 @@ type SleepHandler = Box<dyn FnMut(SleepEvent) + Send>;
 pub(crate) enum SleepEvent {
     SuspendRequested,
     Resumed,
+    Unavailable,
 }
 
 pub(crate) struct SleepWatcher {
@@ -132,6 +141,7 @@ mod platform {
                         inhibitor = acquire_sleep_inhibitor(&connection).ok();
                     }
                 }
+                handler(SleepEvent::Unavailable);
             })
             .map(|_| ())
     }
@@ -411,10 +421,13 @@ mod platform {
     }
 
     pub(super) fn spawn_handler(handler: SleepHandler) -> io::Result<()> {
+        let (ready, received) = std::sync::mpsc::sync_channel(1);
         thread::Builder::new()
             .name("lockbox-sleep-watcher".to_string())
-            .spawn(move || watch_iokit(handler))
-            .map(|_| ())
+            .spawn(move || watch_iokit(handler, ready))?;
+        received
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .map_err(|e| io::Error::other(format!("sleep watcher readiness unavailable: {e}")))?
     }
 
     pub(super) fn agent_sleep_support() -> AgentSleepSupport {
@@ -524,7 +537,7 @@ mod platform {
         fn IOPMAssertionRelease(assertion_id: u32) -> i32;
     }
 
-    fn watch_iokit(handler: SleepHandler) {
+    fn watch_iokit(handler: SleepHandler, ready: std::sync::mpsc::SyncSender<io::Result<()>>) {
         let mut notification_port: IONotificationPortRef = null_mut();
         let mut notifier: io_object_t = 0;
         let context = Box::new(CallbackContext {
@@ -544,6 +557,7 @@ mod platform {
             )
         };
         if root_port == 0 || notification_port.is_null() {
+            let _ = ready.send(Err(io::Error::other("IORegisterForSystemPower failed")));
             // SAFETY: Reclaims the boxed context when registration failed.
             unsafe {
                 drop(Box::from_raw(context_ptr));
@@ -559,16 +573,25 @@ mod platform {
         // valid run-loop source while the notification port remains alive.
         let Some(source) = (unsafe { IONotificationPort::run_loop_source(notification_port) })
         else {
+            let _ = ready.send(Err(io::Error::other("IOKit run-loop source unavailable")));
             return;
         };
         let Some(run_loop) = CFRunLoop::current() else {
+            let _ = ready.send(Err(io::Error::other(
+                "Core Foundation run loop unavailable",
+            )));
             return;
         };
         // SAFETY: Core Foundation provides this global run-loop mode constant
         // for process-wide read-only use.
         let default_mode = unsafe { kCFRunLoopDefaultMode };
         run_loop.add_source(Some(&source), default_mode);
+        let _ = ready.send(Ok(()));
         CFRunLoop::run();
+        // SAFETY: the callback context remains registered and alive here.
+        if let Ok(mut handler) = unsafe { &*context_ptr }.handler.lock() {
+            handler(SleepEvent::Unavailable);
+        }
     }
 
     unsafe extern "C-unwind" fn sleep_callback(
@@ -605,20 +628,27 @@ mod platform {
 mod platform {
     use super::*;
     use std::ffi::c_void;
+    use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
     use windows_sys::Win32::System::Power::{
-        RegisterSuspendResumeNotification, SetThreadExecutionState,
-        UnregisterSuspendResumeNotification, DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS, ES_CONTINUOUS,
-        ES_SYSTEM_REQUIRED,
+        PowerClearRequest, PowerCreateRequest, PowerRequestSystemRequired, PowerSetRequest,
+        RegisterSuspendResumeNotification, UnregisterSuspendResumeNotification,
+        DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS,
+    };
+    use windows_sys::Win32::System::Threading::{
+        POWER_REQUEST_CONTEXT_SIMPLE_STRING, REASON_CONTEXT, REASON_CONTEXT_0,
     };
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         DEVICE_NOTIFY_CALLBACK, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PBT_APMSUSPEND,
     };
 
     pub(super) fn spawn(sender: Sender<SleepEvent>) -> io::Result<()> {
+        let (ready, received) = std::sync::mpsc::sync_channel(1);
         thread::Builder::new()
             .name("lockbox-sleep-watcher".to_string())
-            .spawn(move || watch_power_notifications(sender))
-            .map(|_| ())
+            .spawn(move || watch_power_notifications(sender, ready))?;
+        received
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .map_err(|e| io::Error::other(format!("sleep watcher readiness unavailable: {e}")))?
     }
 
     pub(super) fn agent_sleep_support() -> AgentSleepSupport {
@@ -628,32 +658,51 @@ mod platform {
         }
     }
 
-    pub(super) struct SleepInhibitor;
+    // The owned request is independent of the acquiring thread. A suspend
+    // callback or the last client may release it on a different thread.
+    pub(super) struct SleepInhibitor {
+        request: OwnedHandle,
+    }
 
     impl SleepInhibitor {
-        pub(super) fn acquire_active(_reason: &str) -> io::Result<Self> {
-            // SAFETY: `SetThreadExecutionState` has no Rust-side memory
-            // invariants and stores process/thread execution-state flags.
-            let previous = unsafe { SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED) };
-            if previous == 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(Self)
+        pub(super) fn acquire_active(reason: &str) -> io::Result<Self> {
+            let mut reason: Vec<u16> = reason.encode_utf16().chain(Some(0)).collect();
+            let context = REASON_CONTEXT {
+                Version: 0,
+                Flags: POWER_REQUEST_CONTEXT_SIMPLE_STRING,
+                Reason: REASON_CONTEXT_0 {
+                    SimpleReasonString: reason.as_mut_ptr(),
+                },
+            };
+            // SAFETY: context and its terminated UTF-16 reason remain live
+            // throughout this call; Windows copies the reason into the request.
+            let raw = unsafe { PowerCreateRequest(&context) };
+            if raw.is_null() || raw == windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE {
+                return Err(io::Error::last_os_error());
             }
+            // SAFETY: successful creation transfers this unique handle to us.
+            let request = unsafe { OwnedHandle::from_raw_handle(raw) };
+            if unsafe { PowerSetRequest(request.as_raw_handle(), PowerRequestSystemRequired) } == 0
+            {
+                return Err(io::Error::last_os_error());
+            }
+            Ok(Self { request })
         }
     }
 
     impl Drop for SleepInhibitor {
         fn drop(&mut self) {
-            // SAFETY: Restores the continuous execution state flag when the
-            // inhibitor guard is dropped.
+            // SAFETY: the request remains owned and valid until after Drop.
             unsafe {
-                SetThreadExecutionState(ES_CONTINUOUS);
+                PowerClearRequest(self.request.as_raw_handle(), PowerRequestSystemRequired);
             }
         }
     }
 
-    fn watch_power_notifications(sender: Sender<SleepEvent>) {
+    fn watch_power_notifications(
+        sender: Sender<SleepEvent>,
+        ready: std::sync::mpsc::SyncSender<io::Result<()>>,
+    ) {
         let sender = Box::new(sender);
         let context = Box::into_raw(sender);
         let mut params = DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS {
@@ -670,12 +719,14 @@ mod platform {
             )
         };
         if registration == 0 {
+            let _ = ready.send(Err(io::Error::last_os_error()));
             // SAFETY: Reclaims the boxed sender when registration failed.
             unsafe {
                 drop(Box::from_raw(context));
             }
             return;
         }
+        let _ = ready.send(Ok(()));
         loop {
             thread::park();
         }

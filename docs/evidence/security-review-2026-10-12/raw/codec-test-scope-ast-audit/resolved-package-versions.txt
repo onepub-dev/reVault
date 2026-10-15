@@ -1,0 +1,11 @@
+6:name = "proc-macro2"
+7-version = "1.0.107"
+8-source = "registry+https://github.com/rust-lang/crates.io-index"
+--
+15:name = "quote"
+16-version = "1.0.47"
+17-source = "registry+https://github.com/rust-lang/crates.io-index"
+--
+33:name = "syn"
+34-version = "2.0.119"
+35-source = "registry+https://github.com/rust-lang/crates.io-index"

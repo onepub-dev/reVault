@@ -179,25 +179,53 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
     fs::write(
         consumer.join("Cargo.toml"),
         format!(
-            "[package]\nname = \"revault-api-consumer\"\nversion = \"0.0.0\"\nedition = \"2021\"\nrust-version = \"1.88\"\n\n[dependencies]\nrevault-api = {{ path = {:?} }}\n\n[patch.crates-io]\nrevault_lockbox_api = {{ path = {:?} }}\nrevault_vault_api = {{ path = {:?} }}\n",
+            "[package]\nname = \"revault-api-consumer\"\nversion = \"0.0.0\"\nedition = \"2021\"\nrust-version = \"1.88\"\n\n[dependencies]\nrevault-api = {{ path = {:?} }}\n\n[patch.crates-io]\nrevault_lockbox_api = {{ path = {:?} }}\nrevault_vault_api = {{ path = {:?} }}\nrevault_page_api = {{ path = {:?} }}\n",
             unpacked.join(unpacked_name),
             repository.join("rust/revault_lockbox_api"),
             repository.join("rust/revault_vault_api"),
+            repository.join("rust/revault_page_api"),
         ),
     )?;
-    fs::write(
+    // Exercise the extracted facade itself; source-workspace suites below are
+    // complementary and cannot substitute for installed-package persistence.
+    fs::copy(
+        repository.join("bindings/e2e/rust/src/main.rs"),
         consumer.join("src/main.rs"),
-        "use revault_api::{ContactKeyPair, Vault};\nfn main() { let _ = std::mem::size_of::<Option<ContactKeyPair>>(); let _ = std::mem::size_of::<Option<Vault>>(); }\n",
     )?;
-    run_status(
+    let artifacts = work.join("rust-installed-consumer-artifacts");
+    fs::create_dir(&artifacts)?;
+    let consumer_result = run_status(
         Command::new("cargo")
-            .args(["check", "--manifest-path"])
+            .args(["run", "--manifest-path"])
             .arg(consumer.join("Cargo.toml"))
             // Keep the consumer independent, but reuse Cargo's fingerprinted
             // build cache restored by the workflow for the source workspace.
             .arg("--target-dir")
-            .arg(repository.join("rust/target")),
-    )?;
+            .arg(repository.join("rust/target"))
+            .env("REVAULT_E2E_ARTIFACT_DIR", &artifacts)
+            .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+            .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
+            .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false"),
+    );
+    let consumer_result = consumer_result.and_then(|_| {
+        run_status(
+            Command::new("cargo")
+                .args(["run", "--locked", "--manifest-path"])
+                .arg(consumer.join("Cargo.toml"))
+                .arg("--target-dir")
+                .arg(repository.join("rust/target"))
+                .args(["--", "--interop", "rust"])
+                .env("REVAULT_E2E_ARTIFACT_DIR", &artifacts)
+                .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+                .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
+                .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false"),
+        )
+    });
+    // Attempt cleanup even when the consumer fails; never retain its synthetic
+    // Vault/private material as package evidence. The .crate remains available.
+    let cleanup_result = fs::remove_dir_all(&artifacts);
+    consumer_result?;
+    cleanup_result?;
     Ok(archive)
 }
 

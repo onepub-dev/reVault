@@ -1,0 +1,41 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const root='/home/bsutton/.cache/revault-protected-20261011-evidence';
+String sha(String p){final r=Process.runSync('sha256sum',[p]);if(r.exitCode!=0)throw StateError('hash failed');return '${r.stdout}'.split(' ').first;}
+void main(List<String> args){
+ if(args.length!=1)throw ArgumentError('retention destination raw directory');
+ final dest=Directory(args.single).absolute;
+ if(dest.existsSync())throw StateError('Refuse existing retention destination');
+ final entries=<File>[];
+ void visit(Directory dir){for(final entity in dir.listSync(followLinks:false)){
+  final relative=entity.path.substring(root.length+1);
+  if(relative.split('/').any((s)=>['tmp','tooling-tmp','.dart_tool','provenance-reconstruction','bin','balanced-bin','build-target','target'].contains(s)))continue;
+  if(entity is Directory){visit(entity);continue;}
+  if(entity is! File)throw StateError('Unexpected nonregular evidence $relative');
+  if(relative.endsWith('.tar')||relative.endsWith('.tar.gz'))continue;
+  if(entity.lengthSync()>32*1024*1024)throw StateError('Evidence file exceeds reviewed32MiB bound:$relative');
+  entries.add(entity);
+ }}
+ visit(Directory(root));entries.sort((a,b)=>a.path.compareTo(b.path));
+ final total=entries.fold<int>(0,(s,f)=>s+f.lengthSync());
+ if(total>512*1024*1024)throw StateError('Unexpected raw evidence growth');
+ final records=<Map<String,Object>>[];dest.createSync(recursive:true);
+ for(final file in entries){
+  final relative=file.path.substring(root.length+1);final originalSha=sha(file.path);
+  var target=relative.endsWith('.dart')?'$relative.txt':relative;
+  final bytes=file.readAsBytesSync();
+  final compress=bytes.length>131072&&!relative.endsWith('metrics-summary.json')&&!relative.endsWith('.dart');
+  final stored=compress?gzip.encode(bytes):bytes;
+  if(compress)target+='.gz';
+  final output=File('${dest.path}/$target');output.parent.createSync(recursive:true);output.writeAsBytesSync(stored,flush:true);
+  final verified=compress?gzip.decode(output.readAsBytesSync()):output.readAsBytesSync();
+  if(verified.length!=bytes.length)throw StateError('Retention length mismatch');
+  for(var i=0;i<bytes.length;i++)if(bytes[i]!=verified[i])throw StateError('Retention byte mismatch');
+  if(sha(file.path)!=originalSha)throw StateError('Source evidence changed during retention');
+  records.add({'source_relative':relative,'retained_relative':target,'original_bytes':bytes.length,'original_sha256':originalSha,'retained_bytes':stored.length,'retained_sha256':sha(output.path),'encoding':compress?'gzip':'identity','losslessly_verified':true});
+ }
+ File('${dest.path}/retention-manifest.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert({'source_root':root,'original_bytes':total,'files':records,'excluded':'tooling tmp,.dart_tool,provenance-reconstruction,bin/build-target/target andtar; fixtures,binaries remain external pinned artifacts','scope':'all selected text evidence and failures; executable reconstruction references prior cold-parallel report source epoch'}),flush:true);
+ print(green('Retained ${records.length} independently byte-verified evidence files.'));
+}

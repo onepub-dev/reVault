@@ -1,0 +1,26 @@
+{
+  "generator": "Exact benches/evaluation/runner.rs Case::payload SplitMix64 expression; Dart VM signed64 wrapping and unsigned >>>; low byte; one 65,536-byte write per file",
+  "native_reference_check": {
+    "verified": true,
+    "reference": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/source/file-000000.bin",
+    "file_index": 0,
+    "offsets": [
+      0,
+      65529,
+      1048589,
+      1073737728
+    ],
+    "bytes_per_offset": 4096,
+    "remaining_indices_validation": "native ZIP create verifier checks every generated file byte"
+  },
+  "preserved_failed_root": "/home/bsutton/.cache/revault-performance-20261010-large/parallel-v2/raw-random-10000x64k",
+  "file_count": 10000,
+  "bytes_each": 65536,
+  "payload_bytes": 655360000,
+  "new_root": "/home/bsutton/.cache/revault-performance-20261010-large/parallel-v3/raw-random-10000x64k",
+  "archive_evaluation_sha256_before": "c9e0a6d4cee1510149531e17640b7577b9059b43d6572a34dfc97d8368c0a38d",
+  "artifact_cap_bytes": 21474836480,
+  "apparent_bytes_before": 8266550363,
+  "projected_new_bytes": 3276800000,
+  "available_bytes_before": 1552362520576
+}

@@ -1,0 +1,1 @@
+Pre-manifest is inherited from the same-HEAD broad-checkpoint pre-run source manifest, captured before this diagnostic. No Rust source changes occurred between it and the diagnostic. Post-manifest independently captured immediately afterward.

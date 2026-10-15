@@ -1,0 +1,126 @@
+   Compiling libc v0.2.189
+   Compiling rustix v1.1.4
+   Compiling getrandom v0.4.3
+   Compiling proc-macro2 v1.0.107
+   Compiling rustls-pki-types v1.15.1
+   Compiling hybrid-array v0.4.15
+   Compiling linux-raw-sys v0.12.1
+   Compiling ring v0.17.14
+   Compiling cfg_aliases v0.2.2
+   Compiling unicase v2.9.0
+   Compiling httparse v1.10.1
+   Compiling once_cell v1.21.4
+   Compiling quote v1.0.47
+   Compiling rustls v0.23.45
+   Compiling adler2 v2.0.1
+   Compiling nix v0.31.3
+   Compiling http v1.5.0
+   Compiling miniz_oxide v0.9.1
+   Compiling zlib-rs v0.6.7
+   Compiling mime_guess v2.0.5
+   Compiling strsim v0.11.1
+   Compiling const-oid v0.10.2
+   Compiling block-buffer v0.12.1
+   Compiling syn v3.0.5
+   Compiling crypto-common v0.2.2
+   Compiling subtle v2.6.1
+   Compiling heck v0.5.0
+   Compiling base64 v0.23.1
+   Compiling toml_parser v1.1.3+spec-1.1.0
+   Compiling clap_builder v4.6.6
+   Compiling ureq-proto v0.6.2
+   Compiling digest v0.11.3
+   Compiling webpki-roots v1.0.9
+   Compiling toml_writer v1.1.2+spec-1.1.0
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling toml_edit v0.25.13+spec-1.1.0
+   Compiling sha2 v0.11.0
+   Compiling getrandom v0.2.17
+   Compiling filetime v0.2.29
+   Compiling xattr v1.6.1
+   Compiling tempfile v3.27.0
+   Compiling tar v0.4.46
+   Compiling syn v2.0.119
+   Compiling semver v1.0.28
+   Compiling ctrlc v3.5.2
+   Compiling flate2 v1.1.10
+   Compiling zip v8.6.0
+   Compiling serde_derive v1.0.229
+   Compiling clap_derive v4.6.4
+   Compiling rustls-webpki v0.103.15
+   Compiling clap v4.6.6
+   Compiling serde v1.0.229
+   Compiling ureq v3.4.1
+   Compiling revault_tooling v0.1.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_tooling)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 23.82s
+     Running unittests src/main.rs (target/debug/deps/revault_tool-1a7f59d07d4bc317)
+
+running 56 tests
+test e2e::tests::concurrent_conformance_processes_use_distinct_service_runtimes ... ok
+test e2e::tests::shared_conformance_runners_report_the_selected_language ... ok
+test e2e::tests::known_languages_are_unique ... ok
+test package_conformance::tests::windows_php_carrier_matches_the_process_architecture ... ok
+test e2e::tests::domains_remain_descriptive ... ok
+test publication::tests::luarocks_arch_is_derived_from_the_native_target ... ok
+test package_conformance::tests::windows_go_rejects_dynamic_toolchain_runtimes ... ok
+test private_api_boundary::tests::known_private_boundaries_and_unrelated_exports_are_allowed ... ok
+test publication::tests::maven_publication_uses_the_expected_coordinates ... ok
+test publication::tests::luarocks_error_response_decodes_error_messages ... ok
+test publication::tests::release_versions_are_strict_numeric_triples ... ok
+test publication::tests::luarocks_duplicate_errors_are_only_ignored_for_duplicate_messages ... ok
+test private_api_boundary::tests::glob_and_alias_cycles_fail_closed ... ok
+test publication::tests::luarocks_version_includes_the_rockspec_revision ... ok
+test release::tests::converts_verbatim_paths_for_msvc ... ok
+test private_api_boundary::tests::direct_grouped_and_chained_alias_exposure_requires_review ... ok
+test release::tests::go_link_flags_name_the_exact_packaged_carrier ... ok
+test publication::tests::checkout_replacement_preserves_git_metadata ... ok
+test publication::tests::nuget_publication_url_uses_the_flat_container_identity ... ok
+test release::tests::go_platforms_include_required_system_libraries ... ok
+test publication::tests::git_package_promotion_preserves_its_language_readme ... ok
+test private_api_boundary::tests::public_types_fields_and_aliases_cannot_expose_excluded_types ... ok
+test release::tests::cli_publication_excludes_binding_implementation_crates ... ok
+test release::tests::maps_every_native_target ... ok
+test release::tests::rejects_parent_archive_paths ... ok
+test release::tests::release_documentation_versions_follow_the_automated_release_version ... ok
+test release::tests::windows_targets_need_a_separate_go_carrier ... ok
+test release::tests::replaces_detected_manifest_versions_without_a_baseline_constant ... ok
+test release_candidate::tests::candidate_list_distinguishes_preparation_and_publication ... ok
+test release_candidate::tests::completed_jobs_collapse_with_elapsed_time_across_midnight ... ok
+test publication::tests::prebuilt_lua_payloads_validate_without_rebuilding ... ok
+test release::tests::copies_sources_below_a_target_directory ... ok
+test release_candidate::tests::failure_excerpt_falls_back_to_log_tail ... ok
+test release_candidate::tests::failure_excerpt_hides_unrelated_job_output ... ok
+test release_candidate::tests::dashboard_collapses_successes_and_retains_failure_details ... ok
+test release_candidate::tests::dashboard_distinguishes_skipped_cancelled_and_neutral_jobs ... ok
+test release_candidate::tests::dependency_bumps_preserve_historical_migrations ... ok
+test release_candidate::tests::failure_excerpt_keeps_diagnostics_without_setup_noise ... ok
+test release_candidate::tests::failure_excerpt_reports_dart_formatting_files ... ok
+test release_candidate::tests::failure_excerpt_preserves_wasm_schema_mismatch ... ok
+test publication::tests::rust_foundation_versions_come_from_the_frozen_manifests ... ok
+test release_candidate::tests::nested_failures_follow_run_diagnostics_once ... ok
+test publication::tests::swift_promotion_normalizes_the_generated_header ... ok
+test release_candidate::tests::promotion_refuses_missing_replaced_or_foreign_artifacts ... ok
+test release_candidate::tests::publication_excerpt_keeps_gradle_and_pub_rejections ... ok
+test release_candidate::tests::publishing_failure_excerpt_keeps_registry_rejection ... ok
+test release_candidate::tests::running_phase_shows_elapsed_time ... ok
+test release_candidate::tests::stable_version_validation ... ok
+test release_candidate::tests::watcher_reports_phase_changes_once_in_redirected_output ... ok
+test repository::tests::parses_pointer_and_value_declarations ... ok
+test release_candidate::tests::release_versions_keep_manual_variables_current ... ok
+Initialized empty Git repository in /tmp/.tmpbL6OSv/.git/
+test command_tests::public_command_structure ... ok
+[master (root-commit) 61439d8] Baseline
+test release_candidate::tests::prerelease_source_can_prepare_next_stable_release ... ok
+test e2e::tests::command_output_capture_preserves_both_streams ... ok
+test e2e::tests::command_output_timeout_is_bounded ... ok
+[master 1aaf714] Prepare all release: CLI 1.0.1, bindings 2.0.6
+ 11 files changed, 67 insertions(+), 7 deletions(-)
+ create mode 100644 bindings/dart/CHANGELOG.md
+ create mode 100644 bindings/e2e/rust/Cargo.lock
+ create mode 100644 bindings/rust/Cargo.lock
+ create mode 100644 release-notes/candidate.txt
+ create mode 100644 rust/Cargo.lock
+test release_candidate::tests::version_preparation_updates_path_dependencies_and_commits_reviewable_notes ... ok
+
+test result: ok. 56 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+

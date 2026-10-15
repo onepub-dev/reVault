@@ -4,8 +4,8 @@ use crate::file_format::{decode_symlink_payload, encode_symlink_payload};
 use crate::lockbox_path::LockboxPath;
 use crate::node_kind::NodeKind;
 use crate::page::{
-    encoded_object_len, page_size_for_encoded_objects, uncompressed_objects_fit, PageObject,
-    PageObjectKind, DEFAULT_METADATA_PAGE_BYTES,
+    encoded_object_len, uncompressed_objects_fit, PageObject, PageObjectKind,
+    DEFAULT_METADATA_PAGE_BYTES,
 };
 use crate::toc_entry::TocEntry;
 use crate::{Error, Result};
@@ -53,6 +53,7 @@ impl<State> Lockbox<State> {
             record_offset: 0,
             record_len: 0,
             record_object_id: 0,
+            record_digest: [0; 32],
             deleted: false,
             node_kind: NodeKind::Symlink,
             permissions: DEFAULT_SYMLINK_PERMISSIONS,
@@ -104,14 +105,21 @@ impl<State> Lockbox<State> {
             .iter()
             .map(|pending| pending.object.clone())
             .collect::<Vec<_>>();
-        let page_size = page_size_for_encoded_objects(&objects)?;
+        let page_size =
+            crate::page::page_size_for_encoded_objects_with_format(&objects, self.format_mode)?;
         let page_offset = self.allocate_page_offset(page_size as u64)?;
         self.write_decoded_page_at(page_offset, self.sequence, objects)?;
         for pending in pending {
+            let digest = crate::file_format::page_commitment::object_digest(
+                self.lockbox_id,
+                self.format_mode,
+                &pending.object,
+            )?;
             if let Some(entry) = self.toc_entries.get_mut(pending.path.as_str()) {
                 entry.record_offset = page_offset;
                 entry.record_len = page_size as u64;
                 entry.record_object_id = pending.object.id;
+                entry.record_digest = digest;
                 let path = entry.path.clone();
                 self.staged.toc_tree.dirty_keys.insert(path);
             }
@@ -141,7 +149,7 @@ impl<State> Lockbox<State> {
         if entry.record_offset == 0 || entry.record_object_id == 0 {
             return Err(Error::CorruptRecord);
         }
-        self.with_page_object(entry.record_offset, entry.record_object_id, |object| {
+        self.with_authenticated_entry_object(entry, |object| {
             if object.kind != PageObjectKind::Symlink {
                 return Err(Error::CorruptRecord);
             }

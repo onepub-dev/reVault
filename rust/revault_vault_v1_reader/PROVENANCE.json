@@ -1,0 +1,8 @@
+{
+  "package": "revault_vault_v1_reader",
+  "published_source_package": "revault_vault_api",
+  "published_source_version": "0.0.2",
+  "published_archive_sha256": "f0525f1ba72e46dc029e5e3cb505faa6bdd59b96875e6a5da0e1e20afa897564",
+  "source_contract": "src copied byte-for-byte except the three archive compression.rs files: explicit decoder window admission and ordinary cfg(test) compatibility validators. Vault src is unchanged. Original LICENSE retained and original README follows a compatibility scope notice. Manifest renamed/routed; original external examples/tests/benchmarks and their development dependencies omitted. Library auto tests disabled; focused library tests explicitly selected and required to execute. Retained migration tests provide public format qualification.",
+  "decoder": "ruzstd >=0.9.1,<0.10; 100 MiB maximum window; existing bounded output and concatenated-frame behavior retained"
+}

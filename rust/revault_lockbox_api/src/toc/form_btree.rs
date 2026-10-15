@@ -3,12 +3,13 @@ use std::sync::Arc;
 
 use crate::checked::{read_u16_le, read_u32_le};
 use crate::constants::DEFAULT_METADATA_MAX_PAGE_BODY_BYTES;
+use crate::file_format::page_commitment::PageCommitment;
 use crate::form::{
     FormDefinition, FormFieldDefinition, FormFieldKind, FormFieldValue, FormRecord, FormTypeId,
     FormValue,
 };
 use crate::incremental_btree::{BTreeEntry, BTreeLeaf};
-use crate::page_tree::{PageTreeChild, PageTreeChildren, PageTreeLayout};
+use crate::page_tree::{AuthenticatedPageTreeChildren, PageTreeChild, PageTreeLayout};
 use crate::secret_vec::{secure_read_access, SecureVec};
 use crate::{Error, LockboxPath, Result, SecretString};
 
@@ -46,6 +47,7 @@ pub(crate) enum FormNode {
 pub(crate) struct FormChild {
     pub(crate) first_key: String,
     pub(crate) offset: u64,
+    pub(crate) commitment: PageCommitment,
 }
 
 impl FormChild {
@@ -55,13 +57,14 @@ impl FormChild {
             offset: self.offset,
         }
         .encoded_len()
+            + 40
     }
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct FormLeaf {
     pub(crate) offset: u64,
-    pub(crate) object_id: u64,
+    pub(crate) commitment: PageCommitment,
     pub(crate) entries: Vec<FormEntry>,
 }
 
@@ -82,6 +85,7 @@ impl BTreeLeaf<FormEntry> for FormLeaf {
 #[derive(Debug, Clone)]
 pub(crate) struct FormInternal {
     pub(crate) offset: u64,
+    pub(crate) commitment: PageCommitment,
     pub(crate) object_id: u64,
     pub(crate) children: Vec<FormTreeNode>,
 }
@@ -93,6 +97,12 @@ pub(crate) enum FormTreeNode {
 }
 
 impl FormTreeNode {
+    pub(crate) fn commitment(&self) -> PageCommitment {
+        match self {
+            Self::Leaf(leaf) => leaf.commitment,
+            Self::Internal(internal) => internal.commitment,
+        }
+    }
     pub(crate) fn offset(&self) -> u64 {
         match self {
             Self::Leaf(leaf) => leaf.offset,
@@ -190,7 +200,13 @@ pub(crate) fn encode_form_internal(children: &[FormChild]) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     out.push(FORM_NODE_VERSION);
     out.push(FORM_INTERNAL);
-    out.extend_from_slice(&PageTreeChildren::new(routing_children).encode());
+    out.extend_from_slice(
+        &AuthenticatedPageTreeChildren::new(
+            routing_children,
+            children.iter().map(|child| child.commitment).collect(),
+        )
+        .encode()?,
+    );
     if out.len() > DEFAULT_METADATA_MAX_PAGE_BODY_BYTES {
         return Err(Error::SecurityLimitExceeded(
             "form internal node exceeds maximum page size".to_string(),
@@ -205,7 +221,7 @@ pub(crate) fn form_leaf_groups(entries: &[FormEntry]) -> Result<Vec<&[FormEntry]
 }
 
 pub(crate) fn form_child_groups(children: &[FormChild]) -> Result<Vec<&[FormChild]>> {
-    PageTreeLayout::new(FORM_NODE_PREFIX_BYTES + CHILD_COUNT_BYTES, "form child")
+    PageTreeLayout::new(FORM_NODE_PREFIX_BYTES + CHILD_COUNT_BYTES + 4, "form child")
         .groups(children, FormChild::encoded_len)
 }
 
@@ -218,11 +234,12 @@ pub(crate) fn decode_form_node_secure(payload: &SecureVec) -> Result<FormNode> {
             match payload[1] {
                 FORM_LEAF => decode_form_leaf_metadata(payload),
                 FORM_INTERNAL => Ok(ParsedFormNode::Internal(
-                    PageTreeChildren::decode(&payload[2..], validate_form_tree_key)?
-                        .into_iter()
-                        .map(|child| FormChild {
+                    AuthenticatedPageTreeChildren::decode(&payload[2..], validate_form_tree_key)?
+                        .into_pairs()
+                        .map(|(child, commitment)| FormChild {
                             first_key: child.first_key,
                             offset: child.offset,
+                            commitment,
                         })
                         .collect(),
                 )),
@@ -293,7 +310,7 @@ fn decode_form_leaf_metadata(payload: &[u8]) -> Result<ParsedFormNode> {
         return Err(Error::CorruptRecord);
     }
     let mut reader = FormNodeReader::new(&payload[FORM_NODE_PREFIX_BYTES..]);
-    let count = reader.u32()? as usize;
+    let count = reader.count(3)?;
     let mut entries = Vec::with_capacity(count);
     for _ in 0..count {
         let key = reader.string()?;
@@ -373,7 +390,7 @@ fn decode_definition(reader: &mut FormNodeReader<'_>) -> Result<FormDefinition> 
     } else {
         String::new()
     };
-    let count = reader.u32()? as usize;
+    let count = reader.count(6)?;
     let mut fields = Vec::with_capacity(count);
     for _ in 0..count {
         fields.push(FormFieldDefinition {
@@ -433,7 +450,7 @@ fn decode_record(reader: &mut FormNodeReader<'_>) -> Result<ParsedFormRecord> {
     if definition_revision == 0 {
         return Err(Error::CorruptRecord);
     }
-    let count = reader.u32()? as usize;
+    let count = reader.count(8)?;
     let mut values = Vec::with_capacity(count);
     for _ in 0..count {
         let field_id = FormFieldDefinition::validated_id(&reader.string()?)?;
@@ -483,7 +500,10 @@ fn validate_form_tree_key(key: &str) -> Result<()> {
 }
 
 fn put_string_secure(out: &mut SecureVec, value: &str) -> Result<()> {
-    out.try_extend_from_slice(&(value.len() as u16).to_le_bytes())?;
+    let len = u16::try_from(value.len()).map_err(|_| {
+        Error::InvalidInput("form string exceeds the 65535-byte wire limit".to_string())
+    })?;
+    out.try_extend_from_slice(&len.to_le_bytes())?;
     out.try_extend_from_slice(value.as_bytes())?;
     Ok(())
 }
@@ -554,6 +574,16 @@ struct FormNodeReader<'a> {
 impl<'a> FormNodeReader<'a> {
     fn new(bytes: &'a [u8]) -> Self {
         Self { bytes, offset: 0 }
+    }
+
+    // Admit collection capacity from the bytes still available, before reserving.
+    // The minima include only fixed prefixes; later parsing validates all values.
+    fn count(&mut self, minimum_entry_bytes: usize) -> Result<usize> {
+        let count = self.u32()? as usize;
+        if count > (self.bytes.len() - self.offset) / minimum_entry_bytes {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(count)
     }
 
     fn u8(&mut self) -> Result<u8> {
@@ -628,5 +658,53 @@ impl<'a> FormNodeReader<'a> {
         } else {
             Err(Error::CorruptRecord)
         }
+    }
+}
+
+#[cfg(test)]
+mod wire_admission_tests {
+    use super::*;
+
+    #[test]
+    fn collection_admission_matches_remaining_fixed_prefixes() {
+        for minimum in [3, 6, 8] {
+            let mut bytes = 2u32.to_le_bytes().to_vec();
+            bytes.resize(4 + 2 * minimum, 0);
+            assert_eq!(FormNodeReader::new(&bytes).count(minimum).unwrap(), 2);
+            bytes.pop();
+            assert!(matches!(
+                FormNodeReader::new(&bytes).count(minimum),
+                Err(Error::CorruptRecord)
+            ));
+            assert_eq!(
+                FormNodeReader::new(&0u32.to_le_bytes())
+                    .count(minimum)
+                    .unwrap(),
+                0
+            );
+        }
+    }
+
+    #[test]
+    fn string_wire_limit_is_checked_before_output_mutation() {
+        let mut output = SecureVec::new();
+        output.try_extend_from_slice(b"prefix").unwrap();
+        let oversized = "x".repeat(usize::from(u16::MAX) + 1);
+        assert!(matches!(
+            put_string_secure(&mut output, &oversized),
+            Err(Error::InvalidInput(_))
+        ));
+        output
+            .with_bytes(|bytes| assert_eq!(bytes, b"prefix"))
+            .unwrap();
+        let boundary = "x".repeat(usize::from(u16::MAX));
+        put_string_secure(&mut output, &boundary).unwrap();
+        output
+            .with_bytes(|bytes| {
+                let mut reader = FormNodeReader::new(&bytes[6..]);
+                assert_eq!(reader.string().unwrap(), boundary);
+                reader.done().unwrap();
+            })
+            .unwrap();
     }
 }

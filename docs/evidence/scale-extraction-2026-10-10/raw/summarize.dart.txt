@@ -1,0 +1,69 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+import 'package:dcli/dcli.dart';
+
+double median(List<double> input) {
+  final values = [...input]..sort();
+  return (values[(values.length - 1) ~/ 2] + values[values.length ~/ 2]) / 2;
+}
+Map<String, double> ratio(List<double> values) {
+  final logs = values.map(log).toList();
+  final rng = Random(31020261010);
+  final samples = List<double>.generate(10000, (_) {
+    var sum = 0.0;
+    for (var i = 0; i < logs.length; i++) sum += logs[rng.nextInt(logs.length)];
+    return exp(sum / logs.length);
+  })..sort();
+  return {'geometric_mean': exp(logs.reduce((a, b) => a + b) / logs.length),
+    'low95': samples[249], 'high95': samples[9749]};
+}
+void main() {
+  const root = '/tmp/revault-scale-20261010';
+  if (!exists('$root/batch/batch-complete.json')) throw StateError('No completed batch');
+  final completion = jsonDecode(File('$root/batch/batch-complete.json').readAsStringSync());
+  if (completion['complete'] != true) throw StateError('Incomplete batch');
+  final results = <String, dynamic>{};
+  for (final name in ['raw-random-1gib', 'raw-mixed-10000x64k']) {
+    final paths = Directory('$root/batch').listSync(recursive: true)
+        .whereType<File>().where((f) => f.path.endsWith('samples.jsonl') && f.path.contains(name)).toList();
+    if (paths.length != 1) throw StateError('Expected one sample file for $name: $paths');
+    final rows = paths.single.readAsLinesSync().where((s) => s.isNotEmpty)
+        .map((s) => jsonDecode(s) as Map<String, dynamic>).toList();
+    if (rows.length != 66 || rows.any((r) => r['verified'] != true)) throw StateError('Missing/failed samples $name');
+    final measured = rows.where((r) => r['warmup'] == false).toList();
+    final groups = <int, Map<String, dynamic>>{};
+    for (final row in measured) {
+      final group = groups.putIfAbsent(row['pair_index'] as int, () => {});
+      if (group.containsKey(row['backend'])) throw StateError('Duplicate pair backend');
+      group[row['backend'] as String] = row;
+    }
+    if (groups.length != 30 || groups.values.any((g) => g.length != 2 || !g.containsKey('zip') || !g.containsKey('typed-tree'))) {
+      throw StateError('Incomplete pairs $name');
+    }
+    final elapsed = <double>[];
+    final cpu = <double>[];
+    for (final group in groups.values) {
+      elapsed.add((group['typed-tree']['sample']['total_seconds'] as num).toDouble() /
+          (group['zip']['sample']['total_seconds'] as num).toDouble());
+      cpu.add((group['typed-tree']['sample']['resources']['cpu']['cpu_seconds'] as num).toDouble() /
+          (group['zip']['sample']['resources']['cpu']['cpu_seconds'] as num).toDouble());
+    }
+    results[name] = {'pairs':30, 'elapsed_tree_over_zip':ratio(elapsed), 'cpu_tree_over_zip':ratio(cpu),
+      for (final backend in ['zip', 'typed-tree']) backend: (() {
+        final data = measured.where((r) => r['backend'] == backend).toList();
+        List<double> values(dynamic Function(Map<String,dynamic>) get) => data.map((r) => (get(r) as num).toDouble()).toList();
+        return {'median_seconds':median(values((r) => r['sample']['total_seconds'])),
+          'median_mib_per_second':median(values((r) => r['sample']['mib_per_second'])),
+          'median_cpu_seconds':median(values((r) => r['sample']['resources']['cpu']['cpu_seconds'])),
+          'max_timed_peak_rss_kib':values((r) => r['sample']['resources']['peak_rss_kib']).reduce(max),
+          'max_process_peak_rss_kib':values((r) => r['process_max_rss_kib']).reduce(max)};
+      })()};
+  }
+  final output = {'cases':results, 'bootstrap_seed':31020261010, 'bootstrap_resamples':10000,
+    'measurement':'warm-cache one-worker filesystem extraction; no fsync; exact output verification outside timing',
+    'qualification':'component evidence only; no CLI RSS or TB/million-file claim'};
+  File('$root/metrics-summary.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(output));
+  print(jsonEncode(output));
+}

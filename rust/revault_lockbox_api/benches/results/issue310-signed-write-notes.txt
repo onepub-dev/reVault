@@ -1,0 +1,65 @@
+Issue #310: write evidence for packed-frame reuse during content signing
+2026-09-22; baseline fc0e068, candidate b328ea2.
+
+Added optional REVAULT_ZIP_READ_WRITE_PROFILE=1 instrumentation to zip_read.
+Stderr CSV records one create/add/commit/close measurement per fixture. Existing
+stdout read CSV is unchanged. Creation excludes signer generation and input/ZIP
+preparation. Total includes dropping the writer. No fsync or power-loss durability
+claim. Each timed archive is reopened with a fresh handle and all stored bytes
+are compared with the original input by the existing stream benchmark.
+
+Both executables built with native-block-layout and identical instrumented
+benchmark source. Baseline used fc0e068 files.rs and signed_content.rs; originals
+were restored and byte-compared after the baseline build. No production changes
+in this evidence commit. SHA256:
+before 444ccfd12257be1df663d24f4efdde45ce9663eb8aeae5596f550305afe5d1cc
+after  6794807ceef61a0ff997eb588b966724b69e139d91ab31d7bb5ba2ce8a3a959c
+
+512 x 4096-byte files, four protection modes, both codecs, default size padding,
+CPU 2, warm OS cache, no password KDF, no concurrent builds/tests. Alternate
+before/after order on odd pairs and after/before on even pairs. Each executable
+uses a unique scratch directory under ignored worktree target/issue310-write-tmp.
+
+Common environment:
+REVAULT_ZIP_READ_CASE=small REVAULT_ZIP_READ_PROFILE=Interactive
+REVAULT_ZIP_READ_ACCESS=stream REVAULT_ZIP_READ_SAMPLES=1
+REVAULT_ZIP_READ_WRITE_PROFILE=1
+Run with taskset -c 2. Each invocation writes all four modes and both codecs.
+- CREATE_PROFILE=BulkImport, CORPUS=pattern: five pairs.
+- CREATE_PROFILE=BulkImport, CORPUS=random: five pairs.
+- CREATE_PROFILE=Interactive, CORPUS=pattern: three pairs.
+CREATE_PROFILE and CORPUS also have the REVAULT_ZIP_READ_ prefix.
+208 writes, each followed by independently reopened byte verification. One read
+sample is verification/supporting context, not a statistically useful read gate.
+Raw artifacts include fixture profile, variant and run. Summary gives medians
+of run times plus median/min/max paired percentage changes, without confidence
+bounds. Pair keys must include profile, corpus, mode, codec and run.
+
+Signed plaintext BulkImport creation results, median total milliseconds:
+                       before      after     median paired change
+pattern raw             99.794     26.957          -72.79%
+pattern compressed    1545.825     24.053          -98.45%
+random raw              97.805     27.654          -72.52%
+random compressed      115.254     28.147          -75.89%
+The improvement is concentrated in commit hashing. Compressed pattern commit
+alone falls from 1541.900 to 19.909 ms. The smaller improvement on random data
+shows the effect of avoiding repeated decompression of a very compressible frame.
+No padding/authentication checks or digest framing changed.
+
+Control results are noisy. Other BulkImport cases initially ranged from -9.33%
+to +14.66% median paired changes. Default-created signed archives changed -1.14%
+raw and +2.74% compressed; no default-layout write speedup is demonstrated.
+Investigated the +14.66% encrypted/raw/random control separately: 21 alternating
+pairs, with MODE=encrypted and COMPRESSION=false added to the common environment.
+It measured 24.506 -> 24.815 ms, median paired +2.46%, individual pairs -22.20%
+to +18.00%. All 42 additional persisted archives were independently byte-checked.
+The original large slowdown was not reproduced at that magnitude, but these
+noisy measurements do not establish formal non-regression or broad parity.
+Control raw/readback/summary artifacts retain this follow-up independently.
+Total verification: 250 persisted archives, 128,000 files, 500 MiB logical data.
+
+Strict Clippy passed for default and native zip_read benchmark configurations.
+No library behavior changed in this commit, so the b328ea2 correctness results
+remain the latest production validation: 335 default passes; native 329 passes,
+10 known failures; 5 ignored in each. Native remains feature-gated. Recovery,
+shared page-cache integration, broad parity/load and release gates remain open.

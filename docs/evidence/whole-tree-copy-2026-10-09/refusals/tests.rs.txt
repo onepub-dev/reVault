@@ -1,0 +1,116 @@
+//! Private selected-tree fixtures; no public CLI writes this experimental format.
+use super::*;
+use super::super::variables::Guarded;
+use crate::file_format::allocation_map::Extent;
+use std::cell::Cell;
+use std::rc::Rc;
+
+#[derive(Debug)]
+struct CopyGuard<S>{inner:S,all:Vec<Extent>,phase:Rc<Cell<bool>>,destination:bool,mutations:Rc<Cell<usize>>,copy_read:Rc<Cell<u64>>,published:Rc<Cell<bool>>}
+impl<S> Clone for CopyGuard<S>{fn clone(&self)->Self{panic!("compaction must not clone source or destination")}}
+impl<S:Storage> Storage for CopyGuard<S>{
+ fn len(&self)->Result<u64>{self.inner.len()}
+ fn read_at(&self,at:u64,len:usize)->Result<Vec<u8>>{
+  assert!(!self.phase.get()||!self.all.iter().any(|e|at<e.start+e.len&&e.start<at+len as u64),"ordinary payload read during relocation/readback");self.inner.read_at(at,len)
+ }
+ fn read_at_into(&self,at:u64,out:&mut[u8])->Result<()>{if self.phase.get()&&self.all.iter().any(|e|at<e.start+e.len&&e.start<at+out.len() as u64){self.copy_read.set(self.copy_read.get()+out.len() as u64);}self.inner.read_at_into(at,out)}
+ fn append(&mut self,b:&[u8])->Result<u64>{assert!(self.destination,"source mutation");self.mutations.set(self.mutations.get()+1);self.phase.set(true);self.inner.append(b)}
+ fn write_at(&mut self,at:u64,b:&[u8])->Result<()>{assert!(self.destination,"source mutation");self.mutations.set(self.mutations.get()+1);if at==0&&b.starts_with(b"RV4SHR01"){self.phase.set(false);self.published.set(true);}self.inner.write_at(at,b)}
+ fn truncate(&mut self,n:u64)->Result<()>{assert!(self.destination,"source mutation");self.mutations.set(self.mutations.get()+1);self.inner.truncate(n)}
+ fn sync(&self)->Result<()>{assert!(self.destination,"source mutation");self.mutations.set(self.mutations.get()+1);self.inner.sync()}
+}
+fn hash(storage:&impl Storage)->[u8;32]{let mut h=Sha256::new();let len=storage.len().unwrap();h.update(len.to_le_bytes());let mut at=0;while at<len{let n=(len-at).min(65536) as usize;storage.read_at_secure(at,n).unwrap().with_bytes(|b|h.update(b)).unwrap();at+=n as u64;}h.finalize().into()}
+fn secure_spans(c:&super::super::super::super::dense_catalogue::Catalogue)->Vec<(u64,u64)>{c.variables.iter().flat_map(|v|v.layout.extents.iter()).chain(c.forms.texts().into_iter().flat_map(|t|t.extents.iter())).map(|e|(e.start,e.start+e.len)).collect()}
+fn rows(c:&super::super::super::super::dense_catalogue::Catalogue)->Vec<(u8,Vec<u8>,Vec<u8>)>{c.tree_records().unwrap().into_iter().map(|r|(r.namespace,r.key.to_vec(),r.value.to_vec())).collect()}
+#[test]
+fn whole_tree_compaction_preserves_selected_history_and_lineage_all_modes(){
+ let owner=OwnerSigningKeyPair::generate().unwrap();let public=owner.public_key();
+ for bits in 0..16{
+  let mode=mode(bits&1!=0,bits&2!=0,bits&4!=0,bits&8!=0);let authority=authority(mode,&public);let signer=mode.signed().then_some(&owner);
+  let (mut original,mut defs,mut records)=super::lifecycle::fixture(mode,&authority,&owner);
+  let mut next=defs[0].clone();next.revision=2;next.fields[0].label="Latest label".into();import_definition(&mut original,archive(),mode,&authority,signer,key(mode),&next).unwrap();defs.push(next);defs.sort_by(|a,b|(&a.type_id,a.revision).cmp(&(&b.type_id,b.revision)));
+  // Historical removed normal capture plus large secret crosses a64KiB stored extent.
+  let secret=Arc::new(SecretString::try_from_slice(("s".repeat(65535)+"🦀"+&"x".repeat(1048576-65539)).as_bytes()).unwrap());
+  let mut historical=records[0].clone();historical.path=LockboxPath::new("/history/mixed").unwrap();historical.values.push(FormFieldValue{field_id:"removed".into(),captured_label:"Removed field".into(),kind:FormFieldKind::Text,value:FormValue::Normal("retained old normal".into())});historical.values[0].value=FormValue::Secret(secret.clone());import_captured_record(&mut original,archive(),mode,&authority,signer,key(mode),&historical).unwrap();records.push(historical);records.sort_by(|a,b|a.path.cmp(&b.path));
+  let name=VariableName::new("secret").unwrap();tree_image::variables::set_secret_variable(&mut original,archive(),mode,&authority,signer,key(mode),&name,&secret).unwrap();
+  let retired=VariableName::new("retired").unwrap();tree_image::variables::set_variable(&mut original,archive(),mode,&authority,signer,key(mode),&retired,"obsolete").unwrap();tree_image::variables::delete_variable(&mut original,archive(),mode,&authority,signer,key(mode),&retired).unwrap();
+  let old_hash=hash(&original);let opened=TreeImage::open(crate::file_format::allocation_map::compaction::View(&original),archive(),mode,&authority,key(mode)).unwrap();let anchor=opened.image.anchor.clone();let old=opened.tree.graph.payloads();let old_rows=rows(&opened.image.catalogue);let old_metadata=opened.image.filesystem_metadata().unwrap();let secure=secure_spans(&opened.image.catalogue);assert!(old.iter().any(|e|e.len>65536));drop(opened);
+  let mut at=crate::file_format::publication_anchor::REGION_LEN as u64;let mut mapping=BTreeMap::new();for e in &old{mapping.insert(e.start,Extent{start:at,..*e});at+=e.len;}
+  let new:Vec<_>=old.iter().map(|e|mapping[&e.start]).collect();let new_secure=secure.iter().map(|(start,end)|{let e=mapping[start];assert_eq!(e.len,end-start);(e.start,e.start+e.len)}).collect();let phase=Rc::new(Cell::new(false));let published=Rc::new(Cell::new(false));let source_reads=Rc::new(Cell::new(0));let destination_reads=Rc::new(Cell::new(0));
+  let source=CopyGuard{inner:original,all:old.clone(),phase:phase.clone(),destination:false,mutations:Rc::new(Cell::new(0)),copy_read:source_reads.clone(),published:published.clone()};let destination=CopyGuard{inner:Guarded::new(StorageBackend::memory(Vec::new()),new_secure),all:new.clone(),phase:phase.clone(),destination:true,mutations:Rc::new(Cell::new(0)),copy_read:destination_reads.clone(),published:published.clone()};
+  let result=tree_image::compact(&source,destination,archive(),mode,&authority,signer,key(mode)).unwrap();assert!(published.get());assert!(!phase.get());assert_eq!(source.mutations.get(),0);let total:u64=old.iter().map(|e|e.len).sum();assert_eq!(source_reads.get(),total);assert_eq!(destination_reads.get(),total);assert_eq!(hash(&source),old_hash);
+  let (report,actual_defs,actual_records)=super::lifecycle::collect(&result,mode,&authority).unwrap();assert_eq!(report,tree_image::forms::SalvageReport::default());assert_eq!(actual_defs,defs);assert_eq!(actual_records,records);
+  let mut reopened=TreeImage::open(crate::file_format::allocation_map::compaction::View(&result),archive(),mode,&authority,key(mode)).unwrap();assert_eq!(reopened.image.anchor.generation,anchor.generation+1);assert_eq!(reopened.image.anchor.previous,shared::commitment(&anchor).unwrap());assert_eq!(reopened.tree.graph.payloads(),new);assert_eq!(reopened.image.filesystem_metadata().unwrap(),old_metadata);assert_eq!(reopened.get_variable(&VariableName::new("retained").unwrap()).unwrap().as_deref(),Some("retained variable"));assert!(reopened.get_variable(&retired).unwrap().is_none());reopened.with_secret_variable(&name,|s|assert_eq!(s,&*secret)).unwrap().unwrap();
+  for (path,expected) in [(b"/docs/data".as_slice(),b"payload".as_slice()),(b"/docs/neighbor".as_slice(),b"neighbor".as_slice())]{let mut bytes=Vec::new();reopened.image.read_range(path,0,expected.len() as u64,|b|{bytes.extend_from_slice(b);Ok(())}).unwrap();assert_eq!(bytes,expected);}
+  // Normalize only placement back to source and compare every typed metadata row.
+  let inverse:BTreeMap<_,_>=old.iter().zip(&new).map(|(old,new)|(new.start,*old)).collect();for pack in &mut reopened.image.catalogue.packs{pack.extent=inverse[&pack.extent.start];}for v in &mut reopened.image.catalogue.variables{let e=v.layout.extents.iter().map(|e|inverse[&e.start]).collect::<Vec<_>>();v.layout.rebind(&e).unwrap();}for t in reopened.image.catalogue.forms.texts_mut(){let e=t.extents.iter().map(|e|inverse[&e.start]).collect::<Vec<_>>();t.rebind(&e).unwrap();}assert_eq!(rows(&reopened.image.catalogue),old_rows);
+  println!("WHOLE_TREE_COPY mode={bits} source={} destination={} payload_bytes={total}",source.len().unwrap(),result.len().unwrap());
+ }
+}
+#[test]
+fn whole_tree_compaction_streamed_checksum_matches_existing_wire_domain(){
+  assert_eq!(crate::crypto::strong_checksum(b"").iter().map(|b|format!("{b:02x}")).collect::<String>(), "2b64aadfef6d2ca03a6a4fe42116cd1e80cddb4c79e597d29b083685c5102bc3");
+  assert_eq!(crate::crypto::strong_checksum(b"abc").iter().map(|b|format!("{b:02x}")).collect::<String>(), "54c928bb86583308bc555a07ea748c531490e0fa85df1a7d86d0ec0ff4d814a7");
+ for length in [0usize,1,63,65535,65536,65537,131089]{
+  let bytes:Vec<u8>=(0..length).map(|n|(n%251) as u8).collect();
+  // Retain the previous one-shot construction independently of the factored helper.
+  let mut original=Sha256::new();original.update(b"lockbox-v1-public-checksum/sha256");original.update((length as u64).to_le_bytes());original.update(&bytes);let expected:[u8;32]=original.finalize().into();
+  assert_eq!(crate::crypto::strong_checksum(&bytes),expected);
+  for chunk in [1,7,65536]{let mut h=crate::crypto::strong_checksum_hasher(length as u64);for part in bytes.chunks(chunk){h.update(part);}assert_eq!(<[u8;32]>::from(h.finalize()),expected);}
+  let mut wrong=crate::crypto::strong_checksum_hasher(length as u64+1);wrong.update(&bytes);assert_ne!(<[u8;32]>::from(wrong.finalize()),expected);
+ }
+}
+
+#[derive(Clone,Debug)]
+struct SharedStore(Rc<std::cell::RefCell<StorageBackend>>);
+impl SharedStore{fn new(bytes:Vec<u8>)->Self{Self(Rc::new(std::cell::RefCell::new(StorageBackend::memory(bytes))))}}
+impl Storage for SharedStore{
+ fn len(&self)->Result<u64>{self.0.borrow().len()}
+ fn read_at(&self,at:u64,len:usize)->Result<Vec<u8>>{self.0.borrow().read_at(at,len)}
+ fn read_at_into(&self,at:u64,out:&mut[u8])->Result<()>{self.0.borrow().read_at_into(at,out)}
+ fn append(&mut self,b:&[u8])->Result<u64>{self.0.borrow_mut().append(b)}
+ fn write_at(&mut self,at:u64,b:&[u8])->Result<()>{self.0.borrow_mut().write_at(at,b)}
+ fn truncate(&mut self,n:u64)->Result<()>{self.0.borrow_mut().truncate(n)}
+ fn sync(&self)->Result<()>{self.0.borrow().sync()}
+}
+fn watched_destination(bytes:Vec<u8>)->(CopyGuard<SharedStore>,SharedStore,Rc<Cell<usize>>){
+ let output=SharedStore::new(bytes);let mutations=Rc::new(Cell::new(0));
+ let destination=CopyGuard{inner:output.clone(),all:Vec::new(),phase:Rc::new(Cell::new(false)),destination:true,mutations:mutations.clone(),copy_read:Rc::new(Cell::new(0)),published:Rc::new(Cell::new(false))};
+ (destination,output,mutations)
+}
+#[test]
+fn whole_tree_compaction_refusals_precede_destination_mutation_all_modes(){
+ let owner=OwnerSigningKeyPair::generate().unwrap();let public=owner.public_key();let other=OwnerSigningKeyPair::generate().unwrap();let other_public=other.public_key();let wrong_key=[98;32];
+ for bits in 0..16{
+  let mode=mode(bits&1!=0,bits&2!=0,bits&4!=0,bits&8!=0);let authority=authority(mode,&public);let signer=mode.signed().then_some(&owner);
+  let (original,_,_)=super::lifecycle::fixture(mode,&authority,&owner);let original_hash=hash(&original);
+  let (dest,output,calls)=watched_destination(b"existing destination".to_vec());let before=hash(&output);
+  assert!(matches!(tree_image::compact(&original,dest,archive(),mode,&authority,signer,key(mode)),Err(Error::InvalidInput(_))));assert_eq!(calls.get(),0);assert_eq!(hash(&output),before);
+  let wrong=Authority::Owner(&other_public);let (dest,output,calls)=watched_destination(Vec::new());
+  assert!(tree_image::compact(&original,dest,archive(),mode,&wrong,Some(&other),key(mode)).is_err());assert_eq!(calls.get(),0);assert_eq!(output.len().unwrap(),0);
+  if mode.signed(){let (dest,output,calls)=watched_destination(Vec::new());assert!(tree_image::compact(&original,dest,archive(),mode,&authority,Some(&other),key(mode)).is_err());assert_eq!(calls.get(),0);assert_eq!(output.len().unwrap(),0);}
+  if !mode.plaintext(){let (dest,output,calls)=watched_destination(Vec::new());assert!(tree_image::compact(&original,dest,archive(),mode,&authority,signer,Some(&wrong_key)).is_err());assert_eq!(calls.get(),0);assert_eq!(output.len().unwrap(),0);}
+  let mut maximum=Guarded::new(StorageBackend::memory(original.inner.read_all().unwrap()),original.spans.borrow().clone());
+  let maximum_anchor=shared::tests::rewrite_fixture_generation(&mut maximum,archive(),mode,&authority,signer,key(mode),u64::MAX).unwrap();
+  let mut reopened=TreeImage::open(crate::file_format::allocation_map::compaction::View(&maximum),archive(),mode,&authority,key(mode)).unwrap();reopened.image.verify_all().unwrap();assert_eq!(reopened.image.anchor,maximum_anchor);drop(reopened);
+  let maximum_hash=hash(&maximum);let (dest,output,calls)=watched_destination(Vec::new());assert!(matches!(tree_image::compact(&maximum,dest,archive(),mode,&authority,signer,key(mode)),Err(Error::SecurityLimitExceeded(ref reason)) if reason.contains("generation")));assert_eq!(calls.get(),0);assert_eq!(output.len().unwrap(),0);assert_eq!(hash(&maximum),maximum_hash);
+  let opened=TreeImage::open(crate::file_format::allocation_map::compaction::View(&original),archive(),mode,&authority,key(mode)).unwrap();let extent=opened.image.catalogue.forms.records[0].fields[0].value.extents[0];drop(opened);
+  let mut damaged=Guarded::new(StorageBackend::memory(original.inner.read_all().unwrap()),original.spans.borrow().clone());let at=extent.start+extent.len-1;let byte=damaged.inner.read_at(at,1).unwrap()[0];damaged.inner.write_at(at,&[byte^1]).unwrap();let damaged_hash=hash(&damaged);let(dest,output,calls)=watched_destination(Vec::new());assert!(tree_image::compact(&damaged,dest,archive(),mode,&authority,signer,key(mode)).is_err());assert_eq!(calls.get(),0);assert_eq!(output.len().unwrap(),0);assert_eq!(hash(&damaged),damaged_hash);
+  assert_eq!(hash(&original),original_hash);
+ }
+}
+#[test]
+fn whole_tree_compaction_refuses_real_authenticated_access_root(){
+ let owner=OwnerSigningKeyPair::generate().unwrap();let public=owner.public_key();let password=SecretString::try_from_slice(b"synthetic tree copy password").unwrap();
+ for bits in [1,3,13,15]{
+  let mode=mode(true,bits&2!=0,bits&4!=0,bits&8!=0);let authority=authority(mode,&public);let signer=mode.signed().then_some(&owner);let(mut source,_,_)=super::lifecycle::fixture(mode,&authority,&owner);
+  let(_,manifest)=shared::open_private(&source,archive(),mode,&authority,key(mode)).unwrap();
+  // No public shared-tree access writer exists. Rebuild only synthetic control
+  // state using the actual password-slot/bootstrap encoder, retaining typed graph.
+  let slot=crate::key_slot::KeySlot::password_bytes(1,b"synthetic tree copy password",vec![74;16],key(mode).unwrap()).unwrap();
+  source.write_at(0,&vec![0;crate::file_format::publication_anchor::REGION_LEN]).unwrap();shared::initialize(&mut source,archive(),mode,&authority,signer,key(mode),&manifest,&[slot]).unwrap();
+  let opened=shared::credential_open(&source,archive(),mode,mode.signed().then_some(&public),crate::file_format::publication_anchor::bootstrap::Credential::Password(&password),None).unwrap();opened.key.with_bytes(|k|assert_eq!(k,key(mode).unwrap())).unwrap();
+  TreeImage::open(crate::file_format::allocation_map::compaction::View(&source),archive(),mode,&authority,key(mode)).unwrap().image.verify_all().unwrap();let before=hash(&source);let(dest,output,calls)=watched_destination(Vec::new());
+  assert!(matches!(tree_image::compact(&source,dest,archive(),mode,&authority,signer,key(mode)),Err(Error::InvalidOperation(ref reason)) if reason.contains("access roots")));assert_eq!(calls.get(),0);assert_eq!(output.len().unwrap(),0);assert_eq!(hash(&source),before);
+ }
+}

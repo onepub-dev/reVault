@@ -1,0 +1,12 @@
+a881d15de5710527c60a8584147d9f5110c00a33
+ M rust/revault_lockbox_api/src/lockbox/extraction.rs
+ M rust/revault_lockbox_api/src/lockbox/files.rs
+ M rust/revault_lockbox_api/src/storage/page_cache.rs
+?? docs/evidence/parallel-extraction-2026-10-12/
+?? tools/parallel-extraction.dart
+b0fb323753105217dd780e6bc3cdfb8e29af4b5f9044ef6a9835c63d913d994b  target/credential-open-20261012/bin/lockbox-new
+ad13cbce31f6b76e84bc15960b9f1b15913b463858da8f63c71fe963f936b4ec  target/parallel-extraction-202612/bin/lockbox-new
+fee1c35a7a762e47dd26661e72b0f4160adf6158f441983ad64a0f1947e22c21  revault_lockbox_api/src/storage/page_cache.rs
+d22a00ac59257491470ab9aea1a0f67040f7e8fed632ea3309662dd102fae20d  revault_lockbox_api/src/lockbox/extraction.rs
+b017029bd9169c4bccd4e9619bf365dd34b5a2a0c80abd99c3ab3d7e941f18ac  revault_lockbox_api/src/lockbox/files.rs
+8b3444bf2390acec1150d9840bfc3f0bfc02b7f42d4b34df926ce7974b36cdd2  revault_cli/Cargo.toml

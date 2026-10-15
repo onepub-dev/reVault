@@ -1,0 +1,1 @@
+dart analyze tools/direct-clear-page.dart tools/summarize-direct-clear-page.dart

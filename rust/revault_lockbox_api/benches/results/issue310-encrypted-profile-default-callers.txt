@@ -1,0 +1,44 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 4K of event 'cycles:u'
+# Event count (approx.): 31797496763
+#
+# Overhead  Command          Shared Object                     Symbol
+# ........  ...............  ................................  .....................................................................................................................................................................................................................................................
+#
+    36.61%  protection_gate  protection_gate-a58df4485f37a924  [.] protection_gate::main
+            |
+             --4.76%--protection_gate::main
+
+     7.27%  protection_gate  libc.so.6                         [.] __memmove_avx_unaligned_erms
+            |
+            ---__memmove_avx_unaligned_erms
+
+     6.40%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::kernel::dfast::compress_block
+     5.96%  protection_gate  libc.so.6                         [.] __memcmp_avx2_movbe
+            |
+            ---__memcmp_avx2_movbe
+
+     4.48%  protection_gate  protection_gate-a58df4485f37a924  [.] revault_lockbox_api::file_format::page_buffer::zeroize_bytes
+     3.57%  protection_gate  libc.so.6                         [.] __memset_avx2_unaligned_erms
+            |
+            ---__memset_avx2_unaligned_erms
+
+     3.52%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::decoding::sequence_section_decoder::decode_sequences
+     3.33%  protection_gate  protection_gate-a58df4485f37a924  [.] <twox_hash::xxhash64::Hasher as core::hash::Hasher>::write
+     3.26%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::encoding::levels::c_port::pre_split::Fingerprint::record
+     2.88%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::decoding::ringbuffer::RingBuffer::extend_from_within_unchecked
+     2.25%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::encoding::blocks::compressed::sequence_bitstream::encode_stored_sequences
+     2.12%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::encoding::match_generator::sequence::<impl zstd_complete::encoding::match_generator::MatchGenerator>::next_sequence
+     1.73%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::encoding::levels::c_port::pre_split::FrameProgress::next_block_size
+     1.45%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::decoding::sequence_execution::execute_sequences
+     1.42%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::fse::fse_decoder::FSETable::build_decoding_table
+     1.33%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::decoding::decode_buffer::DecodeBuffer::repeat
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

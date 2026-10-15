@@ -1,0 +1,756 @@
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: method `len` is never used
+  --> vendor/zstd-complete/src/fixed_storage.rs:38:19
+   |
+23 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+38 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `zstd-complete` (lib) generated 21 warnings (run `cargo fix --lib -p zstd-complete` to apply 20 suggestions)
+warning: associated function `new` is never used
+  --> revault_lockbox_api/src/compression/encode_workspace.rs:63:19
+   |
+62 | impl EncoderFrame {
+   | ----------------- associated function in this implementation
+63 |     pub(crate) fn new(input: &[u8], probe: bool) -> Self {
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: associated function `open_bytes_with_password` is never used
+   --> revault_lockbox_api/src/lockbox/key_management.rs:749:19
+    |
+201 | impl Lockbox {
+    | ------------ associated function in this implementation
+...
+749 |     pub(crate) fn open_bytes_with_password(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_compression_frame_manifest` is never used
+  --> revault_lockbox_api/src/model/compression_frame_manifest.rs:49:15
+   |
+49 | pub(crate) fn encode_compression_frame_manifest(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `revault_lockbox_api` (lib) generated 3 warnings
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+   Compiling revault_cli v0.5.0-dev.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli)
+    Finished `release` profile [optimized] target(s) in 1.10s
+     Running tests/aliases.rs (target/release/deps/aliases-5d849b7ac119140a)
+
+running 21 tests
+test alias_destinations_are_refused_without_overwriting_existing_files ... CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095682
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095682 elapsed=627.015781ms status=exit status: 0
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095689
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095689 elapsed=702.493827ms status=exit status: 0
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095706
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095706 elapsed=602.101395ms status=exit status: 0
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095713
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095713 elapsed=602.045074ms status=exit status: 0
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095714
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095714 elapsed=903.842746ms status=exit status: 0
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095736
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095736 elapsed=602.038934ms status=exit status: 0
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095737
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095737 elapsed=677.277297ms status=exit status: 1
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095738
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095738 elapsed=401.551995ms status=exit status: 0
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095740
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095740 elapsed=602.219117ms status=exit status: 1
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095742
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095742 elapsed=401.578816ms status=exit status: 0
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095743
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095743 elapsed=501.873025ms status=exit status: 0
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095744
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095744 elapsed=602.071184ms status=exit status: 0
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095749
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095749 elapsed=709.296393ms status=exit status: 1
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095751
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095751 elapsed=401.297332ms status=exit status: 0
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095772
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095772 elapsed=501.783735ms status=exit status: 1
+CLI start: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095773
+CLI end: test=alias_destinations_are_refused_without_overwriting_existing_files pid=2095773 elapsed=100.712315ms status=exit status: 0
+ok
+test alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination ... CLI start: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095775
+CLI end: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095775 elapsed=627.054921ms status=exit status: 0
+CLI start: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095782
+CLI end: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095782 elapsed=702.326094ms status=exit status: 0
+CLI start: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095784
+CLI end: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095784 elapsed=602.082155ms status=exit status: 0
+CLI start: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095785
+CLI end: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095785 elapsed=702.527117ms status=exit status: 0
+CLI start: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095786
+CLI end: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095786 elapsed=501.760424ms status=exit status: 1
+CLI start: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095852
+CLI end: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095852 elapsed=501.830005ms status=exit status: 0
+CLI start: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095854
+CLI end: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095854 elapsed=602.098615ms status=exit status: 0
+CLI start: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095875
+CLI end: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095875 elapsed=501.897876ms status=exit status: 12
+CLI start: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095876
+CLI end: test=alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination pid=2095876 elapsed=100.732715ms status=exit status: 0
+ok
+test alias_lifecycle_persists_and_tracks_identity ... CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095878
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095878 elapsed=627.073711ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095885
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095885 elapsed=702.301334ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095886
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095886 elapsed=602.083734ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095887
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095887 elapsed=501.850085ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095888
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095888 elapsed=602.090044ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095889
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095889 elapsed=501.893796ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095893
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095893 elapsed=702.391814ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095896
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095896 elapsed=501.772584ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095916
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095916 elapsed=702.353944ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095917
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095917 elapsed=576.896305ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095918
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095918 elapsed=501.799754ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095919
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095919 elapsed=501.881285ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095920
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095920 elapsed=501.841965ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095921
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095921 elapsed=501.694093ms status=exit status: 12
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095922
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095922 elapsed=401.452063ms status=exit status: 0
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095924
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095924 elapsed=401.331503ms status=exit status: 2
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095926
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095926 elapsed=401.499395ms status=exit status: 2
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095927
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095927 elapsed=401.569635ms status=exit status: 2
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095947
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095947 elapsed=401.395673ms status=exit status: 2
+CLI start: test=alias_lifecycle_persists_and_tracks_identity pid=2095948
+CLI end: test=alias_lifecycle_persists_and_tracks_identity pid=2095948 elapsed=100.731736ms status=exit status: 0
+ok
+test aliases_never_fall_back_and_reject_replaced_or_forgotten_targets ... CLI start: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2095950
+CLI end: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2095950 elapsed=727.514123ms status=exit status: 0
+CLI start: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096025
+CLI end: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096025 elapsed=702.232973ms status=exit status: 0
+CLI start: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096051
+CLI end: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096051 elapsed=602.163215ms status=exit status: 0
+CLI start: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096052
+CLI end: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096052 elapsed=702.424385ms status=exit status: 0
+CLI start: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096053
+CLI end: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096053 elapsed=702.339354ms status=exit status: 0
+CLI start: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096055
+CLI end: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096055 elapsed=501.754984ms status=exit status: 12
+CLI start: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096056
+CLI end: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096056 elapsed=401.576086ms status=exit status: 0
+CLI start: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096077
+CLI end: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096077 elapsed=702.221703ms status=exit status: 0
+CLI start: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096078
+CLI end: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096078 elapsed=501.763215ms status=exit status: 1
+CLI start: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096084
+CLI end: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096084 elapsed=175.698744ms status=exit status: 1
+CLI start: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096159
+CLI end: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096159 elapsed=501.593992ms status=exit status: 0
+CLI start: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096210
+CLI end: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096210 elapsed=501.789385ms status=exit status: 12
+CLI start: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096211
+CLI end: test=aliases_never_fall_back_and_reject_replaced_or_forgotten_targets pid=2096211 elapsed=100.721005ms status=exit status: 0
+ok
+test aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt ... CLI start: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096213
+CLI end: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096213 elapsed=627.209502ms status=exit status: 0
+CLI start: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096220
+CLI end: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096220 elapsed=702.412835ms status=exit status: 0
+CLI start: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096224
+CLI end: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096224 elapsed=602.002094ms status=exit status: 0
+CLI start: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096227
+CLI end: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096227 elapsed=401.466424ms status=exit status: 0
+CLI start: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096228
+CLI end: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096228 elapsed=501.804215ms status=exit status: 0
+CLI start: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096249
+CLI end: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096249 elapsed=401.469204ms status=exit status: 0
+CLI start: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096253
+CLI end: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096253 elapsed=501.803314ms status=exit status: 0
+CLI start: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096254
+CLI end: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096254 elapsed=326.393054ms status=exit status: 1
+CLI start: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096280
+CLI end: test=aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt pid=2096280 elapsed=75.384684ms status=exit status: 0
+ok
+test completion_exposes_names_only_and_retains_assignment_destination ... CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096326
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096326 elapsed=627.081592ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096335
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096335 elapsed=602.074174ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096336
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096336 elapsed=902.884304ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096339
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096339 elapsed=1.103510995s status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096407
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096407 elapsed=501.863936ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096427
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096427 elapsed=1.203813515s status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096428
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096428 elapsed=1.203890116s status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096430
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096430 elapsed=1.178507164s status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096434
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096434 elapsed=1.003119223s status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096436
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096436 elapsed=150.907291ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096438
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096438 elapsed=351.35372ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096457
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096457 elapsed=301.286325ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096520
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096520 elapsed=301.213215ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096521
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096521 elapsed=301.363116ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096524
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096524 elapsed=150.80927ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096525
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096525 elapsed=150.959612ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096526
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096526 elapsed=176.016779ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096527
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096527 elapsed=175.890137ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096528
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096528 elapsed=150.81754ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096529
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096529 elapsed=150.908731ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096530
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096530 elapsed=25.482523ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096531
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096531 elapsed=25.459192ms status=exit status: 0
+CLI start: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096532
+CLI end: test=completion_exposes_names_only_and_retains_assignment_destination pid=2096532 elapsed=100.687455ms status=exit status: 0
+ok
+test create_alias_collisions_warn_and_preserve_both_lockboxes ... CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096534
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096534 elapsed=627.115171ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096542
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096542 elapsed=702.267563ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096546
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096546 elapsed=601.960043ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096547
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096547 elapsed=501.746024ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096548
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096548 elapsed=501.792445ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096568
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096568 elapsed=802.439912ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096571
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096571 elapsed=401.568126ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096586
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096586 elapsed=501.773365ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096587
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096587 elapsed=501.847045ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096588
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096588 elapsed=476.767378ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096598
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096598 elapsed=802.595464ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096600
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096600 elapsed=401.455034ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096601
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096601 elapsed=501.766744ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096602
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096602 elapsed=501.698774ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096622
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096622 elapsed=501.677853ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096623
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096623 elapsed=802.613894ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096624
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096624 elapsed=401.494614ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096625
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096625 elapsed=501.868285ms status=exit status: 0
+CLI start: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096626
+CLI end: test=create_alias_collisions_warn_and_preserve_both_lockboxes pid=2096626 elapsed=100.739336ms status=exit status: 0
+ok
+test create_registers_derived_and_explicit_aliases_with_readback ... CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096628
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096628 elapsed=627.233493ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096638
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096638 elapsed=702.499416ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096642
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096642 elapsed=602.211897ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096643
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096643 elapsed=602.183126ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096653
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096653 elapsed=902.929835ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096673
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096673 elapsed=501.791965ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096674
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096674 elapsed=401.547186ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096675
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096675 elapsed=476.814888ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096676
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096676 elapsed=903.043226ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096677
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096677 elapsed=501.814794ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096678
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096678 elapsed=401.582845ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096699
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096699 elapsed=602.015174ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096703
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096703 elapsed=903.097337ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096726
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096726 elapsed=501.879816ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096727
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096727 elapsed=401.718637ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096728
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096728 elapsed=602.151256ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096729
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096729 elapsed=903.138267ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096734
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096734 elapsed=501.736444ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096735
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096735 elapsed=401.442784ms status=exit status: 0
+CLI start: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096737
+CLI end: test=create_registers_derived_and_explicit_aliases_with_readback pid=2096737 elapsed=100.715626ms status=exit status: 0
+ok
+test create_rejects_invalid_aliases_and_does_not_register_failed_creations ... CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096739
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096739 elapsed=627.194433ms status=exit status: 0
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096748
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096748 elapsed=702.479935ms status=exit status: 0
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096768
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096768 elapsed=602.002384ms status=exit status: 0
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096776
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096776 elapsed=501.851416ms status=exit status: 0
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096846
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096846 elapsed=401.381853ms status=exit status: 2
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096905
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096905 elapsed=401.532275ms status=exit status: 2
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096907
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096907 elapsed=401.533915ms status=exit status: 2
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096908
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096908 elapsed=401.523655ms status=exit status: 2
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096909
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096909 elapsed=401.499984ms status=exit status: 2
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096910
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096910 elapsed=401.496345ms status=exit status: 2
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096911
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096911 elapsed=376.475257ms status=exit status: 2
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096913
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096913 elapsed=401.594106ms status=exit status: 2
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096914
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096914 elapsed=401.491294ms status=exit status: 2
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096915
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096915 elapsed=401.532715ms status=exit status: 2
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096935
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096935 elapsed=401.542585ms status=exit status: 2
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096951
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096951 elapsed=426.44451ms status=exit status: 2
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096955
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096955 elapsed=376.453617ms status=exit status: 1
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096956
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096956 elapsed=501.869105ms status=exit status: 1
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096957
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096957 elapsed=401.549775ms status=exit status: 1
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096960
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096960 elapsed=501.885676ms status=exit status: 1
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096962
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096962 elapsed=501.856516ms status=exit status: 0
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096963
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2096963 elapsed=501.740114ms status=exit status: 0
+CLI start: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2097044
+CLI end: test=create_rejects_invalid_aliases_and_does_not_register_failed_creations pid=2097044 elapsed=100.688366ms status=exit status: 0
+ok
+test create_validates_options_and_vault_before_creating_an_archive ... CLI start: test=create_validates_options_and_vault_before_creating_an_archive pid=2097046
+CLI end: test=create_validates_options_and_vault_before_creating_an_archive pid=2097046 elapsed=326.19935ms status=exit status: 1
+CLI start: test=create_validates_options_and_vault_before_creating_an_archive pid=2097053
+CLI end: test=create_validates_options_and_vault_before_creating_an_archive pid=2097053 elapsed=401.533375ms status=exit status: 1
+CLI start: test=create_validates_options_and_vault_before_creating_an_archive pid=2097054
+CLI end: test=create_validates_options_and_vault_before_creating_an_archive pid=2097054 elapsed=401.538925ms status=exit status: 0
+CLI start: test=create_validates_options_and_vault_before_creating_an_archive pid=2097055
+CLI end: test=create_validates_options_and_vault_before_creating_an_archive pid=2097055 elapsed=401.484054ms status=exit status: 0
+CLI start: test=create_validates_options_and_vault_before_creating_an_archive pid=2097075
+CLI end: test=create_validates_options_and_vault_before_creating_an_archive pid=2097075 elapsed=401.572815ms status=exit status: 0
+CLI start: test=create_validates_options_and_vault_before_creating_an_archive pid=2097077
+CLI end: test=create_validates_options_and_vault_before_creating_an_archive pid=2097077 elapsed=702.379264ms status=exit status: 0
+CLI start: test=create_validates_options_and_vault_before_creating_an_archive pid=2097079
+CLI end: test=create_validates_options_and_vault_before_creating_an_archive pid=2097079 elapsed=501.875735ms status=exit status: 1
+CLI start: test=create_validates_options_and_vault_before_creating_an_archive pid=2097080
+CLI end: test=create_validates_options_and_vault_before_creating_an_archive pid=2097080 elapsed=100.641164ms status=exit status: 0
+ok
+test environment_child ... ok
+test format_three_reader_refuses_unicode_format_four_vault_without_mutation ... ok
+test helpers_read_normal_and_secret_fields_and_reject_invalid_destinations ... CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097084
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097084 elapsed=627.128771ms status=exit status: 0
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097091
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097091 elapsed=702.505566ms status=exit status: 0
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097092
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097092 elapsed=602.153826ms status=exit status: 0
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097095
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097095 elapsed=903.014725ms status=exit status: 0
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097096
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097096 elapsed=902.977985ms status=exit status: 0
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097120
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097120 elapsed=902.911874ms status=exit status: 0
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097125
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097125 elapsed=476.796268ms status=exit status: 0
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097126
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097126 elapsed=501.871265ms status=exit status: 0
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097127
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097127 elapsed=501.935766ms status=exit status: 0
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097128
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097128 elapsed=25.536764ms status=exit status: 2
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097129
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097129 elapsed=476.697307ms status=exit status: 1
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097197
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097197 elapsed=501.881055ms status=exit status: 1
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097198
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097198 elapsed=501.923106ms status=exit status: 1
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097200
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097200 elapsed=501.862166ms status=exit status: 1
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097220
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097220 elapsed=501.782774ms status=exit status: 1
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097221
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097221 elapsed=903.000005ms status=exit status: 0
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097222
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097222 elapsed=501.939847ms status=exit status: 0
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097224
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097224 elapsed=501.890536ms status=exit status: 37
+CLI start: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097227
+CLI end: test=helpers_read_normal_and_secret_fields_and_reject_invalid_destinations pid=2097227 elapsed=100.558383ms status=exit status: 0
+ok
+test lockbox_alias_creation_refuses_existing_target_including_extensionless_name ... CLI start: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097229
+CLI end: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097229 elapsed=627.261043ms status=exit status: 0
+CLI start: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097236
+CLI end: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097236 elapsed=702.469426ms status=exit status: 0
+CLI start: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097237
+CLI end: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097237 elapsed=501.851416ms status=exit status: 0
+CLI start: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097238
+CLI end: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097238 elapsed=401.532675ms status=exit status: 1
+CLI start: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097239
+CLI end: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097239 elapsed=602.153765ms status=exit status: 0
+CLI start: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097259
+CLI end: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097259 elapsed=602.249517ms status=exit status: 0
+CLI start: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097260
+CLI end: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097260 elapsed=175.978188ms status=exit status: 1
+CLI start: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097261
+CLI end: test=lockbox_alias_creation_refuses_existing_target_including_extensionless_name pid=2097261 elapsed=125.765703ms status=exit status: 0
+ok
+test migration_alias_selector_exports_and_imports_with_independent_readback ... CLI start: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097263
+CLI end: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097263 elapsed=627.193563ms status=exit status: 0
+CLI start: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097282
+CLI end: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097282 elapsed=702.280804ms status=exit status: 0
+CLI start: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097283
+CLI end: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097283 elapsed=602.116545ms status=exit status: 0
+CLI start: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097284
+CLI end: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097284 elapsed=602.179666ms status=exit status: 0
+CLI start: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097288
+CLI end: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097288 elapsed=501.764994ms status=exit status: 0
+CLI start: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097290
+CLI end: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097290 elapsed=602.166715ms status=exit status: 0
+CLI start: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097291
+CLI end: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097291 elapsed=501.753164ms status=exit status: 0
+CLI start: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097311
+CLI end: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097311 elapsed=602.099235ms status=exit status: 0
+CLI start: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097312
+CLI end: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097312 elapsed=401.453714ms status=exit status: 0
+CLI start: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097313
+CLI end: test=migration_alias_selector_exports_and_imports_with_independent_readback pid=2097313 elapsed=100.729966ms status=exit status: 0
+ok
+test new_names_reserve_at_but_host_paths_do_not ... CLI start: test=new_names_reserve_at_but_host_paths_do_not pid=2097315
+CLI end: test=new_names_reserve_at_but_host_paths_do_not pid=2097315 elapsed=627.195373ms status=exit status: 0
+CLI start: test=new_names_reserve_at_but_host_paths_do_not pid=2097325
+CLI end: test=new_names_reserve_at_but_host_paths_do_not pid=2097325 elapsed=702.582037ms status=exit status: 0
+CLI start: test=new_names_reserve_at_but_host_paths_do_not pid=2097326
+CLI end: test=new_names_reserve_at_but_host_paths_do_not pid=2097326 elapsed=602.231646ms status=exit status: 0
+CLI start: test=new_names_reserve_at_but_host_paths_do_not pid=2097327
+CLI end: test=new_names_reserve_at_but_host_paths_do_not pid=2097327 elapsed=501.810244ms status=exit status: 2
+CLI start: test=new_names_reserve_at_but_host_paths_do_not pid=2097330
+CLI end: test=new_names_reserve_at_but_host_paths_do_not pid=2097330 elapsed=903.006286ms status=exit status: 2
+CLI start: test=new_names_reserve_at_but_host_paths_do_not pid=2097331
+CLI end: test=new_names_reserve_at_but_host_paths_do_not pid=2097331 elapsed=902.981305ms status=exit status: 0
+CLI start: test=new_names_reserve_at_but_host_paths_do_not pid=2097352
+CLI end: test=new_names_reserve_at_but_host_paths_do_not pid=2097352 elapsed=878.024889ms status=exit status: 0
+CLI start: test=new_names_reserve_at_but_host_paths_do_not pid=2097353
+CLI end: test=new_names_reserve_at_but_host_paths_do_not pid=2097353 elapsed=903.001865ms status=exit status: 0
+CLI start: test=new_names_reserve_at_but_host_paths_do_not pid=2097354
+CLI end: test=new_names_reserve_at_but_host_paths_do_not pid=2097354 elapsed=902.943475ms status=exit status: 2
+CLI start: test=new_names_reserve_at_but_host_paths_do_not pid=2097356
+CLI end: test=new_names_reserve_at_but_host_paths_do_not pid=2097356 elapsed=100.750536ms status=exit status: 0
+ok
+test representative_archive_routes_accept_alias_selector ... CLI start: test=representative_archive_routes_accept_alias_selector pid=2097358
+CLI end: test=representative_archive_routes_accept_alias_selector pid=2097358 elapsed=627.073541ms status=exit status: 0
+CLI start: test=representative_archive_routes_accept_alias_selector pid=2097365
+CLI end: test=representative_archive_routes_accept_alias_selector pid=2097365 elapsed=702.232913ms status=exit status: 0
+CLI start: test=representative_archive_routes_accept_alias_selector pid=2097367
+CLI end: test=representative_archive_routes_accept_alias_selector pid=2097367 elapsed=602.038144ms status=exit status: 0
+CLI start: test=representative_archive_routes_accept_alias_selector pid=2097387
+CLI end: test=representative_archive_routes_accept_alias_selector pid=2097387 elapsed=451.634659ms status=exit status: 0
+CLI start: test=representative_archive_routes_accept_alias_selector pid=2097388
+CLI end: test=representative_archive_routes_accept_alias_selector pid=2097388 elapsed=551.832248ms status=exit status: 0
+CLI start: test=representative_archive_routes_accept_alias_selector pid=2097389
+CLI end: test=representative_archive_routes_accept_alias_selector pid=2097389 elapsed=1.003202044s status=exit status: 0
+CLI start: test=representative_archive_routes_accept_alias_selector pid=2097392
+CLI end: test=representative_archive_routes_accept_alias_selector pid=2097392 elapsed=501.811765ms status=exit status: 0
+CLI start: test=representative_archive_routes_accept_alias_selector pid=2097393
+CLI end: test=representative_archive_routes_accept_alias_selector pid=2097393 elapsed=501.800355ms status=exit status: 0
+CLI start: test=representative_archive_routes_accept_alias_selector pid=2097395
+CLI end: test=representative_archive_routes_accept_alias_selector pid=2097395 elapsed=100.735846ms status=exit status: 0
+ok
+test session_default_alias_reads_follow_lockbox_move ... CLI start: test=session_default_alias_reads_follow_lockbox_move pid=2097397
+CLI end: test=session_default_alias_reads_follow_lockbox_move pid=2097397 elapsed=627.187112ms status=exit status: 0
+CLI start: test=session_default_alias_reads_follow_lockbox_move pid=2097404
+CLI end: test=session_default_alias_reads_follow_lockbox_move pid=2097404 elapsed=702.414115ms status=exit status: 0
+CLI start: test=session_default_alias_reads_follow_lockbox_move pid=2097407
+CLI end: test=session_default_alias_reads_follow_lockbox_move pid=2097407 elapsed=602.169635ms status=exit status: 0
+CLI start: test=session_default_alias_reads_follow_lockbox_move pid=2097427
+CLI end: test=session_default_alias_reads_follow_lockbox_move pid=2097427 elapsed=802.641024ms status=exit status: 0
+CLI start: test=session_default_alias_reads_follow_lockbox_move pid=2097428
+CLI end: test=session_default_alias_reads_follow_lockbox_move pid=2097428 elapsed=150.8167ms status=exit status: 0
+CLI start: test=session_default_alias_reads_follow_lockbox_move pid=2097429
+CLI end: test=session_default_alias_reads_follow_lockbox_move pid=2097429 elapsed=351.365799ms status=exit status: 0
+CLI start: test=session_default_alias_reads_follow_lockbox_move pid=2097430
+CLI end: test=session_default_alias_reads_follow_lockbox_move pid=2097430 elapsed=902.993525ms status=exit status: 0
+CLI start: test=session_default_alias_reads_follow_lockbox_move pid=2097431
+CLI end: test=session_default_alias_reads_follow_lockbox_move pid=2097431 elapsed=501.844525ms status=exit status: 0
+CLI start: test=session_default_alias_reads_follow_lockbox_move pid=2097500
+CLI end: test=session_default_alias_reads_follow_lockbox_move pid=2097500 elapsed=401.560085ms status=exit status: 0
+CLI start: test=session_default_alias_reads_follow_lockbox_move pid=2097501
+CLI end: test=session_default_alias_reads_follow_lockbox_move pid=2097501 elapsed=100.715905ms status=exit status: 0
+ok
+test unicode_alias_helpers_normalize_lookup_and_completion_prefixes ... CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097503
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097503 elapsed=627.093761ms status=exit status: 0
+CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097511
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097511 elapsed=702.482606ms status=exit status: 0
+CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097512
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097512 elapsed=501.900126ms status=exit status: 0
+CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097532
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097532 elapsed=903.011646ms status=exit status: 0
+CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097533
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097533 elapsed=902.865604ms status=exit status: 0
+CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097566
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097566 elapsed=902.954475ms status=exit status: 0
+CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097568
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097568 elapsed=602.241907ms status=exit status: 0
+CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097570
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097570 elapsed=150.938721ms status=exit status: 0
+CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097571
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097571 elapsed=150.77476ms status=exit status: 0
+CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097572
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097572 elapsed=150.848741ms status=exit status: 0
+CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097573
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097573 elapsed=150.83109ms status=exit status: 0
+CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097596
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097596 elapsed=476.647816ms status=exit status: 0
+CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097607
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097607 elapsed=501.864306ms status=exit status: 37
+CLI start: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097629
+CLI end: test=unicode_alias_helpers_normalize_lookup_and_completion_prefixes pid=2097629 elapsed=100.591864ms status=exit status: 0
+ok
+test unicode_alias_lifecycle_normalizes_and_preserves_persisted_values ... CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097631
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097631 elapsed=627.164092ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097638
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097638 elapsed=702.429805ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097639
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097639 elapsed=602.187806ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097640
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097640 elapsed=602.191686ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097641
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097641 elapsed=501.872135ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097643
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097643 elapsed=501.894896ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097644
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097644 elapsed=501.855095ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097645
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097645 elapsed=501.785465ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097646
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097646 elapsed=677.364868ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097666
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097666 elapsed=602.111665ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097673
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097673 elapsed=501.849065ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097674
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097674 elapsed=401.502325ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097675
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097675 elapsed=501.792685ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097676
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097676 elapsed=401.608076ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097680
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097680 elapsed=501.911136ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097682
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097682 elapsed=501.914726ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097683
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097683 elapsed=501.842085ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097685
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097685 elapsed=501.905146ms status=exit status: 12
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097691
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097691 elapsed=401.555205ms status=exit status: 0
+CLI start: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097713
+CLI end: test=unicode_alias_lifecycle_normalizes_and_preserves_persisted_values pid=2097713 elapsed=100.741896ms status=exit status: 0
+ok
+test unicode_creation_derives_names_and_preserves_normalization_collisions ... CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097715
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097715 elapsed=627.120952ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097724
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097724 elapsed=702.312794ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097786
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097786 elapsed=501.791944ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097792
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097792 elapsed=602.014224ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097794
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097794 elapsed=903.011376ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097795
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097795 elapsed=501.816255ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097798
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097798 elapsed=401.566656ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097801
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097801 elapsed=602.094784ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097803
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097803 elapsed=902.879293ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097897
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097897 elapsed=476.712377ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097898
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097898 elapsed=401.548015ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097900
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097900 elapsed=501.760494ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097901
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097901 elapsed=902.920324ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097934
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097934 elapsed=501.881956ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097938
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097938 elapsed=401.520485ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097944
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097944 elapsed=501.726614ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097946
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097946 elapsed=501.820145ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097966
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097966 elapsed=902.854123ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097970
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097970 elapsed=401.413053ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097972
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097972 elapsed=501.807025ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097973
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097973 elapsed=802.768836ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097993
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097993 elapsed=401.487634ms status=exit status: 0
+CLI start: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097996
+CLI end: test=unicode_creation_derives_names_and_preserves_normalization_collisions pid=2097996 elapsed=100.894488ms status=exit status: 0
+ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 147.71s
+

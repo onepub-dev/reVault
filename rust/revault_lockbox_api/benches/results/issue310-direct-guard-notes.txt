@@ -1,0 +1,78 @@
+Issue 310: consolidate source validation for direct native raw reads
+
+Base production: 50c7d29. Native layout remains experimental and opt-in.
+Complete aligned plaintext raw blocks are read directly into the caller's
+initialized output buffer and checked against the authenticated block index.
+Previously this path checked full source extent/revision before I/O and source
+identity again after hashing. It now checks full source extent, revision and
+identity once after hashing and before returning success. Read/checksum/source
+errors still wipe the complete caller buffer. External reads retain their own
+terminal-failure checks. AEAD paths, ordinary owned reads, cached partial reads,
+format bytes and write behavior are unchanged.
+
+This is safe because the mutable caller buffer cannot be returned successfully
+until both block verification and the final source check succeed. A valid hash
+is insufficient when source authority changed. New tests keep all packet bytes
+valid but remove only allocation padding, write identical bytes through a shared
+storage clone (changing revision), or replace the archive path on Unix. Each
+fault must fail and zero the whole output. Existing corruption, truncation,
+external cancellation/version/short-read/failure-latching tests also pass.
+
+Profiling diagnostic on the baseline: 4 files x8 MiB, plain raw, Interactive
+creation/read, random named-file order, pattern data, 100 samples, CPU 2.
+perf record -F 499 -g --call-graph dwarf captured 2546 samples. Whole-process
+self samples: SHA-256 x86_sha compression 34.35%, byte comparison 9.90%, ZIP CRC
+5.26%; 32.29% was attributed through the direct native raw-read stack. Profile
+includes fixture creation, ZIP and verification; not an isolated native cost
+breakdown. Kernel symbols were unavailable. Profiling timings are diagnostic,
+not part of the paired benchmark. CSV and report retained separately.
+
+Validation, before the tracked commit hook formats staged Rust:
+- focused native-block tests: 10 passed, including new stale-source test.
+- default + external-source: 349 unit passed, 5 ignored; all executed
+  integrations and doc tests passed (existing endianness test ignored).
+- native-block-layout + external-source: 354 unit passed, 2 unchanged known
+  signed-recovery failures, 5 ignored. Native integrations run separately: pass.
+  Known failures: recovery_skips_truncated_tail_and_keeps_prior_intact_files;
+  native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+- cargo clippy -p revault_lockbox_api --all-targets
+  --features native-block-layout,external-source -- -D warnings: pass.
+
+Benchmark, rust cwd, TMPDIR=$PWD/target/issue310-sign-tmp, CPU 2:
+Baseline target/issue310-block-lru-after SHA256
+4c98e708b42a488bf3a846474d9377e4380f228c4317b87ddd21d52058bd89bd
+Candidate target/issue310-direct-guard-after SHA256
+bbb44437be23b00fc5ffa9174bbb22101b3824360842780bdfa0d6ef7bfbc00a
+Built using cargo bench -p revault_lockbox_api --features native-block-layout
+--bench zip_read --no-run. All owned builds/tests stopped before timing.
+Eight alternating paired rounds, plain, Interactive creation, random named-file
+order, pattern/random corpus, raw/compressed requested, Interactive/ReadMostly
+read profiles. Small: 512x4096, passes1/2, samples9. Large: 4x8388608, passes1,
+samples5. 256 small +128 large rows. Every returned byte checked. Fresh archive
+per child, fresh handles per sample. OS caches warm; no cold-I/O claim.
+
+Large raw median-total speedup 1.058-1.104x. Paired median time changes:
+Interactive pattern -5.787% [-11.324,-0.349]
+Interactive random  -8.775% [-14.493,-3.961]
+ReadMostly pattern  -6.839% [-10.786,-2.233]
+ReadMostly random   -6.954% [-11.797,-0.936]
+Random corpus requested compressed uses raw fallback: speedup1.086-1.088x,
+paired changes -7.966% [-11.633,-5.534] and -8.005% [-10.491,-3.975].
+Compressed pattern controls speedup0.971-1.029x, paired intervals include zero.
+Small controls speedup0.956-1.048x, all paired intervals include zero; this does
+not prove absence of regression. Large raw native/ZIP still2.515-2.732x, so
+broad ZIP parity is unachieved.
+Intervals: 10000 percentile bootstrap samples over 8 paired round changes,
+xorshift seed310, order statistics249/9749. Exploratory, not multiplicity
+adjusted. Raw rows, summaries, paired intervals and runner sources retained.
+
+Separate strace diagnostic, identical large raw pattern workload, samples3:
+statx baseline6461 -> candidate3389: exactly3072 fewer =1024 per read sample.
+pread64 unchanged3298; read unchanged3168. Includes fixture/ZIP activity.
+This matches removing one redundant source check per32KiB direct read across
+32MiB. Strace timings are not used for performance claims. Both syscall reports
+and verified workload CSVs retained. Tests/builds finished before tracing.
+
+Retain this local improvement. No format/migration/default changes, no push.
+Broader read parity, cold I/O, protected-write gate, signed recovery, CLI
+lifecycle coverage and binding/release/activation work remain open.

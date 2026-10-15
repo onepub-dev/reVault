@@ -1,0 +1,65 @@
+Current protected public write baseline — preparation draft
+
+Do not execute while integration is running. No candidate implementation is
+authorized by this protocol. A successful integration checkpoint and a separately
+built current release-mode development CLI with recorded source provenance are
+required before configuring execution_authorized=true in build-inputs.json.
+
+This is a fresh descriptive baseline, not a comparison against historical
+protected ZIP timings. Use the two existing pinned 1 GiB source corpora from
+native-public-extraction-2026-10-11: source/Zstd and incompressible/random.
+Keep their bytes and regular0664 host modes unchanged. Do not copy corpora.
+
+Eight writes: fixed source-case order, four rounds per case. Round0 is excluded
+preparation; rounds1–3 are measured. Each round creates a fresh archive and
+performs public create, explicit open, then add. Report summed elapsed/user/system
+time and maximum peak RSS across these three sequential subprocesses. Never sum
+RSS. The persistent synthetic Vault agent is EXCLUDED from this RSS; results do
+not establish whole-process-tree or total machine memory. Vault initialization
+and agent startup are excluded. Per-command Vault opening/KDF and archive open
+remain included. Normal synthetic default Vault profile supplies owner signing.
+Passphrases exist only in memory/child environment, not arguments or evidence.
+Suppress all CLI output that could contain recovery secrets; preserve only
+allowlisted metadata and command statuses. Stop agents and remove owned private
+Vault contexts in bounded finally cleanup.
+
+Archive options are ChaCha20-Poly1305, owner signing, Zstd level3, default padding;
+write workers remain Auto. One existing-archive file add selects its existing
+command-local policy, currently8MiB; no profile/worker/cache changes. CPU affinity
+0–4; umask0022; isolated HOME/XDG/config/session environment. No ambient secret or
+ZIP configuration. Source cold admission requires sync/fadvise/fincore RES=0,
+at most three attempts, outside elapsed write timing. Archive sync -d is timed
+separately and may be added as a separately labeled drained total; this does not
+equal a crash-durability proof.
+
+After every write, outside timing: doctor confirms encryption/signing/compression
+and padding; recursive public listing confirms exactly the intended file/length;
+separate public extraction exercises normal authentication; exact output tree,
+regular file, stored/default-restored0600 mode, length and independent cmp bytes
+must pass. Output is synced before deletion. Record archive length/hash per sample
+before deleting it; archive identity is not a post-batch promise. Do not mutate
+original source modes to force metadata equivalence.
+
+Use fresh ledgers, owned directory and current executable. Require a full runtime
+source manifest (>700 current Rust/manifest/lock entries) tied to the build,
+current HEAD, exact executable, provenance files, harness/analyzer/protocol,
+source and helper hashes before/after batch. Pending allocator changes must be
+included in that manifest even if HEAD alone has not yet changed. No reuse of
+historical binary/sample ledger. Build/test durations are excluded and cannot
+overlap timing. Stop on first command, admission, identity or verification error;
+no replacement samples, retries or calibration. Per measured command600s maximum,
+30-minute campaign work deadline with60s reserved for bounded owned cleanup;
+each timeout is clamped to remaining work budget, kill-after10s. Cleanup can
+extend wall completion by its bounded grace and is not timed as import work.
+
+Combined owned artifact cap24GiB including prior retained corpora/archives/binaries
+and new outputs; reserve source-sized archive overhead and concurrent extraction
+output, require2GiB free headroom, recheck after write. Additional current owned
+roots must be supplied in build-inputs.json. Existing source roots are counted by
+the inherited budget. Cleanup only exact new owned contexts/outputs, no broad rm.
+
+Report three measured values per case, median/full range for complete command
+elapsed, separately drained elapsed, max subprocess RSS and archive sizes.
+No confidence interval, speedup/noninferiority, ZIP parity or universal100MB claim
+from three descriptive repetitions. A later candidate protocol must be frozen
+separately if this baseline justifies it.

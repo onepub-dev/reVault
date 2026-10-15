@@ -1,0 +1,24 @@
+#[test]
+fn packaged_static_encoder_frame_decoder_roundtrip() {
+    let input = (0..131_071).map(|i| ((i * 31 + i / 17) % 251) as u8).collect::<Vec<_>>();
+    let output = zstd_packaged_consumer_check::static_roundtrip(&input).unwrap();
+    assert_eq!(output, input);
+}
+
+#[test]
+fn packaged_frame_decoder_rejects_corrupt_content_checksum() {
+    use zstd_complete::decoding::errors::FrameDecoderError;
+    use zstd_complete::encoding::{CompressionLevel, FrameCompressor};
+    let input = b"packaged checksum check: deliberately repeated content ".repeat(400);
+    let mut compressor = FrameCompressor::<&[u8], Vec<u8>, _>::new(CompressionLevel::DEFAULT);
+    compressor.set_source(input.as_slice());
+    compressor.set_drain(Vec::new());
+    compressor.compress();
+    let mut frame = compressor.drain().unwrap().clone();
+    *frame.last_mut().unwrap() ^= 1;
+    let mut output = vec![0; input.len()];
+    let error = zstd_complete::decoding::FrameDecoder::new()
+        .decode_all(&frame, &mut output)
+        .unwrap_err();
+    assert!(matches!(error, FrameDecoderError::ChecksumMismatch));
+}

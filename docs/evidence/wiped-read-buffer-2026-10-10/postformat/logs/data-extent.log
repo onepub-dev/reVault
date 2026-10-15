@@ -1,0 +1,137 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 1m 07s
+     Running unittests src/lib.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 8 tests
+test file_format::data_extent::tests::malformed_descriptors_padding_and_oversized_codec_windows_are_rejected ... ok
+test file_format::data_extent::tests::packed_codec_and_padding_contexts_are_distinct_and_bounded ... ok
+test file_format::data_extent::tests::persisted_extents_round_trip_through_selected_ownership_all_modes_and_units ... ok
+test file_format::data_extent::tests::raw_extent_budget_includes_encryption_and_rejects_oversized_packs ... ok
+test file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures ... 
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+
+thread 'file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures' panicked at revault_lockbox_api/src/file_format/data_extent/tests.rs:549:29:
+injected visitor unwind
+ok
+test file_format::data_extent::tests::raw_visit_still_refuses_authenticated_nonzero_internal_padding ... ok
+test file_format::data_extent::tests::repeated_decoder_matches_fresh_decoder_for_independent_extent_streams ... ok
+test file_format::data_extent::tests::stored_commitment_and_encryption_context_prevent_substitution ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 661 filtered out; finished in 0.35s
+

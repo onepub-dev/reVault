@@ -1,0 +1,3 @@
+cwd=/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust
+command=./target/debug/revault-tool internal check-bindings
+binary=./target/debug/revault-tool

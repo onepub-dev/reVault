@@ -3,7 +3,7 @@ FROM revault-e2e-native:local AS native
 FROM gradle:8.10-jdk22
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl dbus-x11 gnome-keyring libsecret-tools libdbus-1-3 python3 unzip \
+    curl dbus-x11 gnome-keyring libsecret-tools libglib2.0-bin libdbus-1-3 python3 unzip \
     && rm -rf /var/lib/apt/lists/*
 RUN curl --fail --location --show-error \
       https://services.gradle.org/distributions/gradle-8.13-bin.zip \

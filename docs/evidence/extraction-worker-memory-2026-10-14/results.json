@@ -1,0 +1,140 @@
+{
+  "candidate": "c17c21128730f66e5b8a4bed4ddd6c3b101f0555",
+  "release_ready": false,
+  "failed_campaign": {
+    "evidence_directory": "/tmp/revault-final-comparison-c17c21128730-attempt2",
+    "executor_exit_code": 255,
+    "completed_observations": 528,
+    "attempted_sequence": 528,
+    "cell": "many_10k_64k",
+    "track": "zip_plain",
+    "operation": "write",
+    "warmup": true,
+    "failed_command": "native_extract",
+    "command_exit_code": 0,
+    "command_timed_out": false,
+    "inside_write_timing_endpoint": false,
+    "inside_resource_gate": true,
+    "cli_peak_rss_bytes": 148746240,
+    "helper_hwm_bytes": 8634368,
+    "hard_limit_bytes": 100000000,
+    "operation_verification_completed": false,
+    "cleanup_verified": true,
+    "comparison_qualified": false,
+    "artifacts": {
+      "terminal.json": "db673934647c70baacb4725b31ba6836de6a65c78e4d439c141cc24c2b8a983e",
+      "acceptance-plan.json": "416c33077d29190f45a6fc1f739d1c7adf0174de77ff4292b5e12284e9289cdb",
+      "schedule.json": "2e26ed1182821e0d695b6f93cf84393787364b3935c032abac8e45f11e258e34",
+      "observations/0528/sample-disposition.json": "63d1f6c4cfab37f50aef71c825848fbdb77df04173f7246edd03a6264c58c978",
+      "observations/0528/cleanup-s0528.json": "1e6a8ca2eda536fba4b584e919be2f55ef2d97a79c51c5c664c73d1efd146469",
+      "observations/0528/cli-resources.jsonl": "76764136a0d8cd5d1799cecfff0740828f13b49b02539a8f35ed92545cd80038",
+      "observations/0528/commands/000098-native_extract.json": "c12661b21cf9c1ce174475d27c7dbb29f956f0853fb936098411d86a69f5fc85"
+    }
+  },
+  "validation": {
+    "initial_compile_failure": {
+      "evidence_directory": "/tmp/revault-extraction-worker-validation-c17",
+      "command": {
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust",
+        "argv": [
+          "cargo",
+          "+1.88.0",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "revault_lockbox_api",
+          "--lib",
+          "lockbox::extraction::tests",
+          "--",
+          "--test-threads=1"
+        ],
+        "cargo_build_jobs": "2",
+        "timeout_seconds": 1800
+      },
+      "exit_code": 101,
+      "source_manifest_unchanged": true,
+      "artifacts": {
+        "command.json": "4015bc7b06e7ee8567f13f1277075fdb4aca18878f0206bab74e9e5eb4879c54",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr.log": "4f140ee97a87f24d4629815385bad9059b44062a8b22046fe71ba2fefd42ea4f",
+        "pre.manifest.sha256": "d68d79445c34befd89987834d99ffca830c180de0acab29ebbebb644d235e9e0",
+        "post.manifest.sha256": "d68d79445c34befd89987834d99ffca830c180de0acab29ebbebb644d235e9e0",
+        "pre.target.sha256": "a30357b849f75b88b705a37b3e590b73b566582f86be721d7e2d0cf54a1234b1",
+        "post.target.sha256": "a30357b849f75b88b705a37b3e590b73b566582f86be721d7e2d0cf54a1234b1"
+      }
+    },
+    "focused_extraction_tests": {
+      "evidence_directory": "/tmp/revault-extraction-worker-validation-c17-attempt2",
+      "command": {
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust",
+        "argv": [
+          "cargo",
+          "+1.88.0",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "revault_lockbox_api",
+          "--lib",
+          "lockbox::extraction::tests",
+          "--",
+          "--test-threads=1"
+        ],
+        "cargo_build_jobs": "2",
+        "timeout_seconds": 1800
+      },
+      "exit_code": 0,
+      "source_manifest_unchanged": true,
+      "artifacts": {
+        "command.json": "4015bc7b06e7ee8567f13f1277075fdb4aca18878f0206bab74e9e5eb4879c54",
+        "stdout.log": "c6af505c73332f2f7f08daec10a52d3ee0af9b5e4d8e275413ae3b786100aec6",
+        "stderr.log": "1e0f182c5910bc2468c03cb7aa8f5599f5d93574762069151b2b4241d87d581e",
+        "pre.manifest.sha256": "32d2fd4ff1cf563a3714da00a6ace11a22b77afa7beae4884c3994249927f81a",
+        "post.manifest.sha256": "32d2fd4ff1cf563a3714da00a6ace11a22b77afa7beae4884c3994249927f81a",
+        "pre.target.sha256": "54654f8a5043bf22e3e320ab4ace7006444cd33d892ce9ca8ae8d1de6924d4c5",
+        "post.target.sha256": "54654f8a5043bf22e3e320ab4ace7006444cd33d892ce9ca8ae8d1de6924d4c5"
+      }
+    },
+    "all_target_clippy": {
+      "evidence_directory": "/tmp/revault-extraction-worker-clippy-c17",
+      "command": {
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust",
+        "argv": [
+          "cargo",
+          "+1.88.0",
+          "clippy",
+          "--locked",
+          "--offline",
+          "-p",
+          "revault_lockbox_api",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "cargo_build_jobs": "2",
+        "timeout_seconds": 1800
+      },
+      "exit_code": 0,
+      "source_manifest_unchanged": true,
+      "artifacts": {
+        "command.json": "a78897b3ebe8c8c81300757fc2f43fe1dd1b8ce3043cde237f3e6dbe09a435f0",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr.log": "df6cf390f3f0fe2deaa088dc3dc86948525dd98ed4851be520b887c0fa85d865",
+        "pre.manifest.sha256": "32d2fd4ff1cf563a3714da00a6ace11a22b77afa7beae4884c3994249927f81a",
+        "post.manifest.sha256": "32d2fd4ff1cf563a3714da00a6ace11a22b77afa7beae4884c3994249927f81a",
+        "pre.target.sha256": "54654f8a5043bf22e3e320ab4ace7006444cd33d892ce9ca8ae8d1de6924d4c5",
+        "post.target.sha256": "54654f8a5043bf22e3e320ab4ace7006444cd33d892ce9ca8ae8d1de6924d4c5"
+      }
+    }
+  },
+  "focused_tests": {
+    "passed": 10,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 724
+  },
+  "resource_fix_qualification": "pending exact checkpoint build and bounded two-mode screen",
+  "raw_output_copied": false
+}

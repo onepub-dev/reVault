@@ -1,0 +1,27 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+String sha(String p) => '${Process.runSync('sha256sum',[p]).stdout}'.trim().split(RegExp(r'\s+')).first;
+void main() {
+ const root='/tmp/revault-tree-read-combined-corrected-20261010';
+ final rows=File('$root/smoke/small512-c-default-tree-with-unit/samples.jsonl').readAsLinesSync().where((l)=>l.trim().isNotEmpty).map((l)=>jsonDecode(l) as Map<String,dynamic>).toList();
+ final samples=rows.where((r)=>r['kind']=='sample').toList();
+ final measured=samples.where((r)=>r['warmup']==false).toList();
+ final layouts=measured.map((r)=>r['layout']).toSet();
+ final ok=samples.length==12 && measured.length==3 && layouts.containsAll(['default','candidate-262144','shared-control-typed-tree']) && samples.every((r)=>r['verified']==true && r['logical_bytes_read']==2097152);
+ final smoke={'sample_rows':samples.length,'warmup_sample_rows':samples.where((r)=>r['warmup']==true).length,'measured_sample_rows':measured.length,'measured_layouts':layouts.toList(),'all_verified':samples.every((r)=>r['verified']==true),'logical_bytes_read_per_sample':2097152,'setup_only_excluded':true,'passed':ok};
+ File('$root/smoke/verification.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(smoke));
+ if(!ok) throw StateError('$smoke');
+ final sums=<String,String>{};
+ for(final n in ['revault_lockbox_api_tests','archive_evaluation','adapter_packed','adapter_tree']) sums[n]=sha('$root/bin/$n');
+ sums['cargo_lock']=sha('/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/Cargo.lock');
+ File('$root/frozen-sha256.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(sums));
+ File('$root/logs/protocol-setup-errors.txt').writeAsStringSync('''1. Invalid attempt: adapter_packed was compiled with REVAULT_CANDIDATE_FROZEN_DENSE=1; fixtures lack dense.lbox/public. All six cases failed before any matched pair. Retained at excluded-invalid-attempt/ and excluded from results.
+2. Corrected smoke attempt omitted REVAULT_CANDIDATE_UNIT and failed NotPresent.
+3. Retry reused a smoke evidence directory; runner rejected the existing directory.
+4. Fresh corrected smoke with unit=262144 passed: 9 warmups plus 3 measured samples spanning ZIP/default C, C candidate unit 262144, and typed tree. All 12 samples report 2,097,152 verified bytes. All smoke timings excluded from fixed comparison.
+''');
+ print('CORRECTED_SMOKE_OK ${jsonEncode(smoke)}');
+ print('FROZEN ${jsonEncode(sums)}');
+}

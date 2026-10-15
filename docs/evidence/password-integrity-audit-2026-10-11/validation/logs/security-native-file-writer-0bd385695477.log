@@ -1,0 +1,37 @@
+warning: field `payload` is never read
+  --> revault_lockbox_api/src/model/record.rs:26:16
+   |
+22 | pub(crate) struct DecodedRecord {
+   |                   ------------- field in this struct
+...
+26 |     pub(crate) payload: Vec<u8>,
+   |                ^^^^^^^
+   |
+   = note: `DecodedRecord` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `revault_lockbox_api` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running unittests src/lib.rs (target/debug/deps/revault_lockbox_api-6637e4b482e7344a)
+
+running 3 tests
+
+thread 'lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes' panicked at revault_lockbox_api/src/lockbox/block_frame_tests.rs:259:21:
+assertion failed: manifest_report.intact_files.iter().any(|entry| entry.path == path)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes ... FAILED
+
+thread 'lockbox::block_frame_tests::native_file_writer_packed_deletion_preserves_survivors_in_all_modes' panicked at revault_lockbox_api/src/lockbox/block_frame_tests.rs:653:30:
+called `Result::unwrap()` on an `Err` value: CorruptRecord
+test lockbox::block_frame_tests::native_file_writer_packed_deletion_preserves_survivors_in_all_modes ... FAILED
+test lockbox::block_frame_tests::native_file_writer_failures_publish_no_partial_chunk_and_reopen_the_base ... ok
+
+failures:
+
+failures:
+    lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes
+    lockbox::block_frame_tests::native_file_writer_packed_deletion_preserves_survivors_in_all_modes
+
+test result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 703 filtered out; finished in 0.40s
+
+error: test failed, to rerun pass `-p revault_lockbox_api --lib`

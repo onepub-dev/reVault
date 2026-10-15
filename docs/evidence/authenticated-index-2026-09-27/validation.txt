@@ -1,0 +1,260 @@
+COMMAND OUTPUT: /tmp/revault-index-tests.log
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.55s
+     Running unittests src/lib.rs (target/debug/deps/revault_lockbox_api-6184e1a0ad334063)
+
+running 10 tests
+test file_format::authenticated_index::tests::authenticated_index_resource_observation ... ignored, 100,000-entry file-backed index resource observation; run explicitly in release mode
+test file_format::authenticated_index::tests::bounded_decoding_rejects_truncation_lengths_context_and_invalid_child_graphs ... ok
+test file_format::authenticated_index::tests::independently_encoded_index_vectors_match_wire_bytes_and_identity_routes ... ok
+test file_format::authenticated_index::tests::read_key_holder_cannot_replace_owner_authorized_nodes_or_reinstate_deleted_records ... ok
+test file_format::authenticated_index::tests::signed_membership_recovers_intact_content_without_reading_damaged_neighbor ... ok
+test file_format::authenticated_index::tests::padding_policy_preserves_constant_node_lengths_and_rejects_noncanonical_padding ... ok
+test file_format::authenticated_index::tests::insertion_and_publication_faults_select_only_complete_old_or_new_membership ... ok
+2048-entry replacement: nodes=11 reads=11 bytes_read=2224 bytes_appended=4450
+test file_format::authenticated_index::tests::file_reopen_all_modes_preserves_published_lifecycle_and_hides_preparation ... ok
+test file_format::authenticated_index::tests::incremental_updates_share_subtrees_and_bound_reads_without_a_whole_index_clone ... ok
+test file_format::authenticated_index::tests::mixed_mutations_match_an_independent_map_and_maximum_records_round_trip ... ok
+
+test result: ok. 9 passed; 0 failed; 1 ignored; 0 measured; 381 filtered out; finished in 1.71s
+
+
+COMMAND OUTPUT: /tmp/revault-index-clippy.log
+    Checking revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.95s
+
+COMMAND OUTPUT: /tmp/revault-index-proof-default.log
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.60s
+     Running unittests src/lib.rs (target/debug/deps/revault_lockbox_api-6184e1a0ad334063)
+
+running 1 test
+test lockbox::recovery::commitment_tests::independent_owner_proof_recovers_real_neighbor_without_opening_damaged_snapshot ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 390 filtered out; finished in 0.91s
+
+
+COMMAND OUTPUT: /tmp/revault-index-proof-native.log
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.62s
+     Running unittests src/lib.rs (target/debug/deps/revault_lockbox_api-7ee7a7c9cb4ba690)
+
+running 1 test
+test lockbox::recovery::commitment_tests::independent_owner_proof_recovers_real_neighbor_without_opening_damaged_snapshot ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 397 filtered out; finished in 0.83s
+
+
+COMMAND OUTPUT: /tmp/revault-index-format-tests.log
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running unittests src/lib.rs (target/debug/deps/revault_lockbox_api-6184e1a0ad334063)
+
+running 74 tests
+test file_format::authenticated_index::tests::authenticated_index_resource_observation ... ignored, 100,000-entry file-backed index resource observation; run explicitly in release mode
+test file_format::commit_root::tests::commit_root_numeric_fields_are_little_endian ... ok
+test file_format::commit_auth::tests::commit_auth_round_trips ... ok
+test file_format::commit_auth::tests::decode_commit_auth_rejects_oversized_key_count_before_allocating ... ok
+test file_format::current_header::tests::initialized_header_round_trips ... ok
+test file_format::commit_auth::tests::decode_commit_auth_rejects_oversized_key_before_allocating ... ok
+test file_format::commit_root::tests::commit_root_round_trips ... ok
+test file_format::commit_root::tests::commit_root_rejects_zero_toc_root ... ok
+test file_format::current_header::tests::recovery_magic_repair_preserves_checksums_and_rejects_other_damage ... ok
+test file_format::header_v2::tests::initial_region_has_one_valid_slot ... ok
+test file_format::authenticated_index::tests::independently_encoded_index_vectors_match_wire_bytes_and_identity_routes ... ok
+test file_format::authenticated_index::tests::bounded_decoding_rejects_truncation_lengths_context_and_invalid_child_graphs ... ok
+test file_format::header_v2::tests::torn_newest_slot_falls_back_to_prior_slot ... ok
+test file_format::indexed_frame::block_page::tests::block_page_rejects_invalid_manifest_and_rechecksummed_metadata_bombs ... ok
+test file_format::header_v2::tests::newest_valid_slot_wins ... ok
+test file_format::indexed_frame::tests::native_block_descriptor_rejects_unknown_fields_and_oversized_inputs ... ok
+test file_format::indexed_frame::block_page::tests::native_scanning_skips_embedded_legacy_records_and_keeps_following_pages ... ok
+test file_format::indexed_frame::block_page::tests::metadata_codec_skips_only_compression_that_cannot_save_padded_space ... ok
+test file_format::indexed_frame::block_page::tests::block_page_cached_reader_rejects_lost_padding_and_corrupt_recovery_data ... ok
+test file_format::indexed_frame::tests::native_blocks_reject_damage_and_ordinal_substitution_after_index_authentication ... ok
+test file_format::key_directory::tests::key_directory_header_numeric_fields_are_little_endian ... ok
+test file_format::key_directory::tests::key_directory_rejects_reserved_field_tampering ... ok
+test file_format::indexed_frame::block_page::tests::block_page_rejects_header_metadata_and_extent_corruption_before_use ... ok
+test file_format::indexed_frame::tests::native_block_direct_reads_reject_stale_sources_after_valid_data ... ok
+test file_format::authenticated_index::tests::read_key_holder_cannot_replace_owner_authorized_nodes_or_reinstate_deleted_records ... ok
+test file_format::page::tests::clear_text_page_uses_page_checksum_for_body_integrity ... ok
+test file_format::page::tests::page_rejects_public_header_checksum_tampering ... ok
+test file_format::page::tests::page_round_trips_objects_and_has_fixed_size ... ok
+test file_format::page::tests::page_rejects_tampering ... ok
+test file_format::page::tests::secure_payload_can_be_read_only_through_scoped_access ... ok
+test file_format::page_buffer::tests::byte_wiping_handles_empty_and_partial_allocations ... ok
+test file_format::authenticated_index::tests::signed_membership_recovers_intact_content_without_reading_damaged_neighbor ... ok
+test file_format::page_buffer::tests::wide_wiping_covers_unaligned_slices_without_touching_neighbours ... ok
+test file_format::payload::tests::compression_frame_manifest_is_stored_only_on_first_segment ... ok
+test file_format::payload::tests::compression_frame_segment_rejects_compressed_len_larger_than_frame_len ... ok
+test file_format::payload::tests::decoded_file_payload_rejects_tampered_traversal_path ... ok
+test file_format::page::tests::physical_length_recovery_preserves_checksum_and_rejects_other_damage ... ok
+test file_format::page_buffer::tests::spare_wiping_covers_uninitialized_and_unaligned_regions ... ok
+test file_format::page::tests::arithmetic_page_sizes_match_serialized_bodies_in_every_explicit_mode ... ok
+test file_format::publication_anchor::tests::independent_checksum_and_hmac_vectors_match_exact_bytes ... ok
+test file_format::indexed_frame::tests::native_block_descriptor_roundtrips_all_modes_and_bounds_physical_reads ... ok
+test file_format::publication_anchor::tests::damaged_roots_never_authorize_rollback_to_an_older_publication ... ok
+test file_format::indexed_frame::tests::native_partial_raw_reads_wipe_discarded_plaintext ... ok
+test file_format::publication_anchor::tests::owner_mode_archive_and_every_signed_field_are_pinned ... ok
+test file_format::indexed_frame::tests::native_block_file_extents_reject_later_damage_and_truncation_in_all_modes ... ok
+test file_format::publication_anchor::tests::mirrored_publications_round_trip_all_modes_and_ignore_prepared_tail_records ... ok
+test file_format::publication_anchor::tests::publication_process_child ... ok
+test file_format::publication_anchor::tests::slot_read_errors_do_not_authorize_selecting_the_other_generation ... ok
+test file_format::publication_anchor::tests::symmetric_authentication_rejects_wrong_keys_modified_fields_and_short_tags ... ok
+test file_format::recovery_commitment::tests::all_object_and_context_fields_and_proof_positions_are_bound ... ok
+test file_format::publication_anchor::tests::one_slot_can_be_lost_but_conflicting_or_unlinked_valid_slots_are_rejected ... ok
+test file_format::recovery_commitment::tests::independent_little_endian_vector_matches ... ok
+test file_format::recovery_commitment::tests::independent_proof_survives_unrelated_object_loss ... ok
+test file_format::recovery_commitment::tests::malformed_proofs_and_ambiguous_tables_are_rejected ... ok
+test file_format::indexed_frame::block_page::tests::block_page_roundtrips_recovery_manifest_and_padding_in_all_modes ... ok
+test file_format::recovery_commitment::tests::stale_deleted_and_unpublished_membership_do_not_match_selected_root ... ok
+test file_format::redaction_manifest::tests::adjacent_ranges_are_coalesced ... ok
+test file_format::redaction_manifest::tests::malformed_overlap_is_rejected_when_decoding ... ok
+test file_format::redaction_manifest::tests::manifest_page_round_trips ... ok
+test file_format::recovery_commitment::tests::replacements_match_full_rebuild_and_reject_identity_changes ... ok
+test file_format::publication_anchor::tests::preparation_signatures_cannot_be_reused_as_publication_authority ... ok
+test file_format::publication_anchor::tests::every_mutating_storage_failure_preserves_a_selected_complete_generation ... ok
+test file_format::authenticated_index::tests::insertion_and_publication_faults_select_only_complete_old_or_new_membership ... ok
+test file_format::recovery_commitment::tests::every_position_including_odd_trees_round_trips ... ok
+test file_format::authenticated_index::tests::padding_policy_preserves_constant_node_lengths_and_rejects_noncanonical_padding ... ok
+test file_format::indexed_frame::tests::native_block_packets_roundtrip_all_policies_and_single_pass_codec_output ... ok
+test file_format::page::tests::arithmetic_sizing_handles_shared_secure_payloads_and_physical_limits ... ok
+2048-entry replacement: nodes=11 reads=11 bytes_read=2224 bytes_appended=4450
+test file_format::authenticated_index::tests::file_reopen_all_modes_preserves_published_lifecycle_and_hides_preparation ... ok
+test file_format::publication_anchor::tests::publication_and_mirror_repair_survive_real_process_death ... ok
+test file_format::authenticated_index::tests::incremental_updates_share_subtrees_and_bound_reads_without_a_whole_index_clone ... ok
+test file_format::publication_anchor::tests::every_byte_prefix_of_a_torn_slot_keeps_an_old_or_new_authenticated_root ... ok
+test file_format::indexed_frame::tests::native_block_maximum_frames_preserve_incompressible_fallback ... ok
+test file_format::authenticated_index::tests::mixed_mutations_match_an_independent_map_and_maximum_records_round_trip ... ok
+test file_format::publication_anchor::tests::power_loss_and_failed_final_sync_do_not_grant_cleanup_early ... ok
+
+test result: ok. 73 passed; 0 failed; 1 ignored; 0 measured; 317 filtered out; finished in 1.91s
+
+
+COMMAND OUTPUT: /tmp/revault-index-native-tests.log
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running unittests src/lib.rs (target/debug/deps/revault_lockbox_api-7ee7a7c9cb4ba690)
+
+running 10 tests
+test file_format::authenticated_index::tests::authenticated_index_resource_observation ... ignored, 100,000-entry file-backed index resource observation; run explicitly in release mode
+test file_format::authenticated_index::tests::independently_encoded_index_vectors_match_wire_bytes_and_identity_routes ... ok
+test file_format::authenticated_index::tests::bounded_decoding_rejects_truncation_lengths_context_and_invalid_child_graphs ... ok
+test file_format::authenticated_index::tests::signed_membership_recovers_intact_content_without_reading_damaged_neighbor ... ok
+test file_format::authenticated_index::tests::read_key_holder_cannot_replace_owner_authorized_nodes_or_reinstate_deleted_records ... ok
+test file_format::authenticated_index::tests::insertion_and_publication_faults_select_only_complete_old_or_new_membership ... ok
+test file_format::authenticated_index::tests::padding_policy_preserves_constant_node_lengths_and_rejects_noncanonical_padding ... ok
+2048-entry replacement: nodes=11 reads=11 bytes_read=2224 bytes_appended=4450
+test file_format::authenticated_index::tests::file_reopen_all_modes_preserves_published_lifecycle_and_hides_preparation ... ok
+test file_format::authenticated_index::tests::incremental_updates_share_subtrees_and_bound_reads_without_a_whole_index_clone ... ok
+test file_format::authenticated_index::tests::mixed_mutations_match_an_independent_map_and_maximum_records_round_trip ... ok
+
+test result: ok. 9 passed; 0 failed; 1 ignored; 0 measured; 388 filtered out; finished in 1.70s
+
+
+Post-format validation: rustfmt expanded an assert macro and detached its safety comment from the unsafe argument. Moved the call to a local variable, retaining the exact operation. No benchmark behaviour changed.
+
+COMMAND OUTPUT: /tmp/revault-index-postcommit-tests.log
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.16s
+     Running unittests src/lib.rs (target/debug/deps/revault_lockbox_api-6184e1a0ad334063)
+
+running 74 tests
+test file_format::authenticated_index::tests::authenticated_index_resource_observation ... ignored, 100,000-entry file-backed index resource observation; run explicitly in release mode
+test file_format::commit_auth::tests::decode_commit_auth_rejects_oversized_key_before_allocating ... ok
+test file_format::authenticated_index::tests::bounded_decoding_rejects_truncation_lengths_context_and_invalid_child_graphs ... ok
+test file_format::commit_root::tests::commit_root_numeric_fields_are_little_endian ... ok
+test file_format::authenticated_index::tests::independently_encoded_index_vectors_match_wire_bytes_and_identity_routes ... ok
+test file_format::commit_auth::tests::commit_auth_round_trips ... ok
+test file_format::current_header::tests::initialized_header_round_trips ... ok
+test file_format::commit_root::tests::commit_root_rejects_zero_toc_root ... ok
+test file_format::commit_root::tests::commit_root_round_trips ... ok
+test file_format::commit_auth::tests::decode_commit_auth_rejects_oversized_key_count_before_allocating ... ok
+test file_format::header_v2::tests::newest_valid_slot_wins ... ok
+test file_format::current_header::tests::recovery_magic_repair_preserves_checksums_and_rejects_other_damage ... ok
+test file_format::header_v2::tests::initial_region_has_one_valid_slot ... ok
+test file_format::header_v2::tests::torn_newest_slot_falls_back_to_prior_slot ... ok
+test file_format::indexed_frame::block_page::tests::block_page_rejects_invalid_manifest_and_rechecksummed_metadata_bombs ... ok
+test file_format::indexed_frame::tests::native_block_descriptor_rejects_unknown_fields_and_oversized_inputs ... ok
+test file_format::indexed_frame::block_page::tests::native_scanning_skips_embedded_legacy_records_and_keeps_following_pages ... ok
+test file_format::indexed_frame::block_page::tests::block_page_rejects_header_metadata_and_extent_corruption_before_use ... ok
+test file_format::indexed_frame::block_page::tests::metadata_codec_skips_only_compression_that_cannot_save_padded_space ... ok
+test file_format::indexed_frame::block_page::tests::block_page_cached_reader_rejects_lost_padding_and_corrupt_recovery_data ... ok
+test file_format::key_directory::tests::key_directory_header_numeric_fields_are_little_endian ... ok
+test file_format::key_directory::tests::key_directory_rejects_reserved_field_tampering ... ok
+test file_format::indexed_frame::tests::native_blocks_reject_damage_and_ordinal_substitution_after_index_authentication ... ok
+test file_format::authenticated_index::tests::signed_membership_recovers_intact_content_without_reading_damaged_neighbor ... ok
+test file_format::page::tests::clear_text_page_uses_page_checksum_for_body_integrity ... ok
+test file_format::page::tests::page_rejects_public_header_checksum_tampering ... ok
+test file_format::page::tests::page_rejects_tampering ... ok
+test file_format::page::tests::page_round_trips_objects_and_has_fixed_size ... ok
+test file_format::indexed_frame::tests::native_block_direct_reads_reject_stale_sources_after_valid_data ... ok
+test file_format::page::tests::secure_payload_can_be_read_only_through_scoped_access ... ok
+test file_format::page_buffer::tests::byte_wiping_handles_empty_and_partial_allocations ... ok
+test file_format::authenticated_index::tests::read_key_holder_cannot_replace_owner_authorized_nodes_or_reinstate_deleted_records ... ok
+test file_format::page_buffer::tests::wide_wiping_covers_unaligned_slices_without_touching_neighbours ... ok
+test file_format::payload::tests::compression_frame_manifest_is_stored_only_on_first_segment ... ok
+test file_format::payload::tests::compression_frame_segment_rejects_compressed_len_larger_than_frame_len ... ok
+test file_format::payload::tests::decoded_file_payload_rejects_tampered_traversal_path ... ok
+test file_format::indexed_frame::tests::native_partial_raw_reads_wipe_discarded_plaintext ... ok
+test file_format::page::tests::physical_length_recovery_preserves_checksum_and_rejects_other_damage ... ok
+test file_format::page_buffer::tests::spare_wiping_covers_uninitialized_and_unaligned_regions ... ok
+test file_format::page::tests::arithmetic_page_sizes_match_serialized_bodies_in_every_explicit_mode ... ok
+test file_format::publication_anchor::tests::independent_checksum_and_hmac_vectors_match_exact_bytes ... ok
+test file_format::indexed_frame::tests::native_block_descriptor_roundtrips_all_modes_and_bounds_physical_reads ... ok
+test file_format::publication_anchor::tests::owner_mode_archive_and_every_signed_field_are_pinned ... ok
+test file_format::indexed_frame::tests::native_block_file_extents_reject_later_damage_and_truncation_in_all_modes ... ok
+test file_format::publication_anchor::tests::damaged_roots_never_authorize_rollback_to_an_older_publication ... ok
+test file_format::publication_anchor::tests::preparation_signatures_cannot_be_reused_as_publication_authority ... ok
+test file_format::publication_anchor::tests::publication_process_child ... ok
+test file_format::publication_anchor::tests::slot_read_errors_do_not_authorize_selecting_the_other_generation ... ok
+test file_format::publication_anchor::tests::symmetric_authentication_rejects_wrong_keys_modified_fields_and_short_tags ... ok
+test file_format::recovery_commitment::tests::all_object_and_context_fields_and_proof_positions_are_bound ... ok
+test file_format::indexed_frame::block_page::tests::block_page_roundtrips_recovery_manifest_and_padding_in_all_modes ... ok
+test file_format::recovery_commitment::tests::independent_little_endian_vector_matches ... ok
+test file_format::recovery_commitment::tests::independent_proof_survives_unrelated_object_loss ... ok
+test file_format::recovery_commitment::tests::malformed_proofs_and_ambiguous_tables_are_rejected ... ok
+test file_format::recovery_commitment::tests::replacements_match_full_rebuild_and_reject_identity_changes ... ok
+test file_format::recovery_commitment::tests::stale_deleted_and_unpublished_membership_do_not_match_selected_root ... ok
+test file_format::redaction_manifest::tests::adjacent_ranges_are_coalesced ... ok
+test file_format::redaction_manifest::tests::malformed_overlap_is_rejected_when_decoding ... ok
+test file_format::redaction_manifest::tests::manifest_page_round_trips ... ok
+test file_format::publication_anchor::tests::mirrored_publications_round_trip_all_modes_and_ignore_prepared_tail_records ... ok
+test file_format::publication_anchor::tests::one_slot_can_be_lost_but_conflicting_or_unlinked_valid_slots_are_rejected ... ok
+test file_format::publication_anchor::tests::every_mutating_storage_failure_preserves_a_selected_complete_generation ... ok
+test file_format::authenticated_index::tests::insertion_and_publication_faults_select_only_complete_old_or_new_membership ... ok
+test file_format::authenticated_index::tests::padding_policy_preserves_constant_node_lengths_and_rejects_noncanonical_padding ... ok
+test file_format::recovery_commitment::tests::every_position_including_odd_trees_round_trips ... ok
+test file_format::indexed_frame::tests::native_block_packets_roundtrip_all_policies_and_single_pass_codec_output ... ok
+test file_format::page::tests::arithmetic_sizing_handles_shared_secure_payloads_and_physical_limits ... ok
+test file_format::authenticated_index::tests::file_reopen_all_modes_preserves_published_lifecycle_and_hides_preparation ... ok
+test file_format::publication_anchor::tests::publication_and_mirror_repair_survive_real_process_death ... ok
+test file_format::authenticated_index::tests::incremental_updates_share_subtrees_and_bound_reads_without_a_whole_index_clone ... ok
+test file_format::publication_anchor::tests::every_byte_prefix_of_a_torn_slot_keeps_an_old_or_new_authenticated_root ... ok
+test file_format::publication_anchor::tests::power_loss_and_failed_final_sync_do_not_grant_cleanup_early ... ok
+test file_format::indexed_frame::tests::native_block_maximum_frames_preserve_incompressible_fallback ... ok
+test file_format::authenticated_index::tests::mixed_mutations_match_an_independent_map_and_maximum_records_round_trip ... ok
+
+test result: ok. 73 passed; 0 failed; 1 ignored; 0 measured; 317 filtered out; finished in 1.83s
+
+
+COMMAND OUTPUT: /tmp/revault-index-postcommit-clippy.log
+    Checking revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.29s
+
+COMMAND OUTPUT: /tmp/revault-index-postcommit-focused.log
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.61s
+     Running unittests src/lib.rs (target/debug/deps/revault_lockbox_api-6184e1a0ad334063)
+
+running 10 tests
+test file_format::authenticated_index::tests::authenticated_index_resource_observation ... ignored, 100,000-entry file-backed index resource observation; run explicitly in release mode
+test file_format::authenticated_index::tests::bounded_decoding_rejects_truncation_lengths_context_and_invalid_child_graphs ... ok
+test file_format::authenticated_index::tests::independently_encoded_index_vectors_match_wire_bytes_and_identity_routes ... ok
+test file_format::authenticated_index::tests::signed_membership_recovers_intact_content_without_reading_damaged_neighbor ... ok
+test file_format::authenticated_index::tests::read_key_holder_cannot_replace_owner_authorized_nodes_or_reinstate_deleted_records ... ok
+test file_format::authenticated_index::tests::insertion_and_publication_faults_select_only_complete_old_or_new_membership ... ok
+test file_format::authenticated_index::tests::padding_policy_preserves_constant_node_lengths_and_rejects_noncanonical_padding ... ok
+test file_format::authenticated_index::tests::file_reopen_all_modes_preserves_published_lifecycle_and_hides_preparation ... ok
+test file_format::authenticated_index::tests::incremental_updates_share_subtrees_and_bound_reads_without_a_whole_index_clone ... ok
+test file_format::authenticated_index::tests::mixed_mutations_match_an_independent_map_and_maximum_records_round_trip ... ok
+
+test result: ok. 9 passed; 0 failed; 1 ignored; 0 measured; 381 filtered out; finished in 1.68s
+

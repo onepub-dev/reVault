@@ -228,7 +228,7 @@ pub(crate) fn container(args: Container) -> Result {
         }
         return Ok(());
     }
-    let service_env = linux_secret_service_env()?;
+    let service_env = conformance_service_env()?;
     let results = std::env::temp_dir().join(format!("{}-results.tsv", args.language));
     let native = std::env::temp_dir().join(format!("{}-native.tsv", args.language));
     let root = PathBuf::from(std::env::var("REVAULT_E2E_NATIVE_ROOT")?);
@@ -246,7 +246,7 @@ pub(crate) fn container(args: Container) -> Result {
             let mut child = Command::new(&invocation.program);
             child
                 .args(server_args)
-                .envs(&service_env)
+                .envs(&service_env.env)
                 .envs(&invocation.env)
                 .env_remove("REVAULT_LIBRARY")
                 .stdout(std::process::Stdio::null())
@@ -258,7 +258,7 @@ pub(crate) fn container(args: Container) -> Result {
         let mut command = Command::new(&invocation.program);
         command
             .args(&invocation.args)
-            .envs(&service_env)
+            .envs(&service_env.env)
             .env_remove("REVAULT_LIBRARY");
         for (key, value) in invocation.env {
             command.env(key, value);
@@ -331,7 +331,7 @@ pub(crate) fn container(args: Container) -> Result {
         operations: PathBuf::from("bindings/e2e/operations.tsv"),
         results: vec![results, native],
     })?;
-    verify_loader_resolution(&args.language, &root, &file, &service_env)
+    verify_loader_resolution(&args.language, &root, &file, &service_env.env)
 }
 
 fn default_service_runtime_dir(process_id: u32) -> PathBuf {
@@ -707,7 +707,7 @@ fn native_conformance(args: NativeConformance) -> Result {
         }
         return Ok(());
     }
-    let service_env = linux_secret_service_env()?;
+    let service_env = conformance_service_env()?;
     fs::create_dir_all(&args.work)?;
     let work = PathBuf::from(crate::release::msvc_path(&args.work.canonicalize()?));
     let repository = PathBuf::from(crate::release::msvc_path(&args.repository.canonicalize()?));
@@ -763,7 +763,7 @@ fn native_conformance(args: NativeConformance) -> Result {
             command.env("PATH", std::env::join_paths(paths)?);
         }
         command.env_remove("REVAULT_LIBRARY");
-        command.envs(&service_env);
+        command.envs(&service_env.env);
         command.env("REVAULT_E2E_LANGUAGE", "c");
         command.env("REVAULT_E2E_ARTIFACT_DIR", work.join("artifacts"));
         let mut child = command.spawn()?;
@@ -821,35 +821,137 @@ fn native_conformance(args: NativeConformance) -> Result {
     })
 }
 
-fn linux_secret_service_env() -> Result<BTreeMap<String, String>> {
-    let mut service_env = BTreeMap::new();
-    if !cfg!(target_os = "linux") {
-        return Ok(service_env);
+struct ConformanceService {
+    env: BTreeMap<String, String>,
+    daemon: Option<Child>,
+    _private_state: Option<tempfile::TempDir>,
+}
+
+impl Drop for ConformanceService {
+    fn drop(&mut self) {
+        if let Some(child) = &mut self.daemon {
+            // This is our foreground fixture child, never a desktop service.
+            let _ = child.kill();
+            let _ = child.wait();
+        }
     }
-    let mut daemon = Command::new("gnome-keyring-daemon")
-        .args(["--daemonize", "--login", "--components=secrets"])
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()?;
-    daemon
+}
+
+fn conformance_service_env() -> Result<ConformanceService> {
+    // These fixtures exercise agent/cache operations, not suspend protection.
+    // Dedicated capability/refusal tests retain their independent policy.
+    let mut service = ConformanceService {
+        env: BTreeMap::from([
+            (
+                "LOCKBOX_AGENT_PREVENT_SLEEP".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "LOCKBOX_AGENT_TERMINATE_ON_SUSPEND".to_string(),
+                "false".to_string(),
+            ),
+        ]),
+        daemon: None,
+        _private_state: None,
+    };
+    if !cfg!(target_os = "linux") {
+        return Ok(service);
+    }
+    if secret_service_bus_query("NameHasOwner")? != "(false,)" {
+        return Err("conformance requires a session bus without an existing Secret Service".into());
+    }
+    let private_state = tempfile::Builder::new()
+        .prefix("revault-conformance-keyring-")
+        .tempdir()?;
+    for name in ["home", "data", "config", "cache", "runtime", "control"] {
+        fs::create_dir(private_state.path().join(name))?;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(private_state.path(), fs::Permissions::from_mode(0o700))?;
+        fs::set_permissions(
+            private_state.path().join("runtime"),
+            fs::Permissions::from_mode(0o700),
+        )?;
+    }
+    service._private_state = Some(private_state);
+    let private_root = service._private_state.as_ref().unwrap().path();
+    // --login alone waits for session initialization and does not register the
+    // Secret Service name. Own the foreground unlocked fixture instead, so
+    // D-Bus activation cannot race a second daemon against its control socket.
+    service.daemon = Some(
+        Command::new("gnome-keyring-daemon")
+            .args(["--foreground", "--unlock", "--components=secrets"])
+            .arg(format!(
+                "--control-directory={}",
+                private_root.join("control").display()
+            ))
+            .env("HOME", private_root.join("home"))
+            .env("XDG_DATA_HOME", private_root.join("data"))
+            .env("XDG_CONFIG_HOME", private_root.join("config"))
+            .env("XDG_CACHE_HOME", private_root.join("cache"))
+            .env("XDG_RUNTIME_DIR", private_root.join("runtime"))
+            .env_remove("GNOME_KEYRING_CONTROL")
+            .env_remove("GNOME_KEYRING_PID")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()?,
+    );
+    service
+        .daemon
+        .as_mut()
+        .unwrap()
         .stdin
         .take()
         .ok_or("gnome-keyring-daemon did not expose stdin")?
-        .write_all(b"\n")?;
-    let output = daemon.wait_with_output()?;
-    if !output.status.success() {
-        return Err(format!("gnome-keyring-daemon failed with {}", output.status).into());
-    }
-    for raw in String::from_utf8_lossy(&output.stdout).lines() {
-        let line = raw
-            .trim()
-            .trim_start_matches("export ")
-            .trim_end_matches(';');
-        if let Some((key, value)) = line.split_once('=') {
-            service_env.insert(key.to_string(), value.trim_matches(['\'', '"']).to_string());
+        .write_all(b"ordinary-public-conformance-keyring-password")?;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if let Some(status) = service.daemon.as_mut().unwrap().try_wait()? {
+            return Err(format!("owned Secret Service fixture exited with {status}").into());
         }
+        // Query the bus itself: NameHasOwner never activates a second service.
+        if secret_service_bus_query("NameHasOwner")? == "(true,)" {
+            let owner = secret_service_bus_query("GetConnectionUnixProcessID")?;
+            let expected = format!("(uint32 {},)", service.daemon.as_ref().unwrap().id());
+            if owner != expected {
+                return Err("Secret Service bus owner is not the owned fixture child".into());
+            }
+            return Ok(service);
+        }
+        if Instant::now() >= deadline {
+            return Err("owned Secret Service fixture readiness timed out".into());
+        }
+        thread::sleep(Duration::from_millis(50));
     }
-    Ok(service_env)
+}
+fn secret_service_bus_query(method: &str) -> Result<String> {
+    let output = Command::new("timeout")
+        .args([
+            "--kill-after=1s",
+            "2s",
+            "gdbus",
+            "call",
+            "--session",
+            "--dest",
+            "org.freedesktop.DBus",
+            "--object-path",
+            "/org/freedesktop/DBus",
+            "--method",
+        ])
+        .arg(format!("org.freedesktop.DBus.{method}"))
+        .arg("org.freedesktop.secrets")
+        .output()?;
+    if !output.status.success() {
+        return Err(format!(
+            "owned Secret Service bus query {method} failed with {}",
+            output.status
+        )
+        .into());
+    }
+    Ok(String::from_utf8(output.stdout)?.trim().to_string())
 }
 
 fn evidence(args: Evidence) -> Result {

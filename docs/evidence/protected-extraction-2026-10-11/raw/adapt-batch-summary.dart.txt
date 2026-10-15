@@ -1,0 +1,25 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const e='/home/bsutton/.cache/revault-protected-20261011-evidence';
+void main(){var s=File('$e/summarize-epochs.dart').readAsStringSync();
+ s=s.replaceFirst("['first','recovery'].contains(args.single)","['first','middle','final'].contains(args.single)");
+ s=s.replaceFirst("final interrupted=args.single=='first';", "final interrupted=args.single=='first';\n  final middle=args.single=='middle';");
+ s=s.replaceFirst(": ['random-1gib-compressed-encrypted','random-1gib-raw-encrypted','source-expanded-1gib-compressed-encrypted'];", ": middle ? ['source-expanded-1gib-compressed-encrypted'] : ['random-1gib-compressed-encrypted','random-1gib-raw-encrypted'];");
+ s=s.replaceFirst("interrupted?'balanced-buffered-batch':'recovery-buffered-batch'", "interrupted?'balanced-buffered-batch':middle?'recovery-buffered-batch':'final-buffered-batch'");
+ final marker="  }else{\n    paths.addAll(['\$root/identity-after.json','\$root/complete.json']);";
+ final replacement=r'''
+  }else if(middle){
+    paths.add('$root/identity-after.json');after=readObject(paths.last);
+    for(final key in [...stableKeys,'recovery_executable_manifest_sha256'])require(before[key]!=null && same(before[key],after[key]),'Middle-batch identity changed:\$key');
+    require(sha('$evidence/protocol.json')==before['protocol_sha256'] && sha('$evidence/physical-read-calibration.json')==before['calibration_sha256'],'Frozen inputs changed');
+    audits=[readObject('$root/source-expanded-1gib-compressed-encrypted/case-audit.json')];
+    complete={'complete':false,'interrupted':true,'eligible_complete_cases':expectedCases,'excluded_partial_case':'random-1gib-raw-encrypted','global_final_binary_audit_available':true,'eligibility':'complete16round percase audit and every sample binaryhash, plus stable full global source/executable finalaudit; interrupted on zero-residency admission before launching nextprocess'};
+  }else{
+    paths.addAll(['$root/identity-after.json','$root/complete.json']);''';
+ if(!s.contains(marker))throw StateError('Missing branch marker');s=s.replaceFirst(marker,replacement);
+ s=s.replaceFirst("for(final key in [...stableKeys,'recovery_executable_manifest_sha256'])require(before[key]!=null && same(before[key],after[key]),'Recovery identity changed:\$key');", "for(final key in [...stableKeys,'recovery_executable_manifest_sha256','final_admission_policy_sha256'])require(before[key]!=null && same(before[key],after[key]),'Recovery identity changed:\$key');");
+ s=s.replaceFirst("(interrupted || complete['sample_rows'] == allRows)","(interrupted || middle || complete['sample_rows'] == allRows)");
+ s=s.replaceFirst("'original_batch_complete': !interrupted", "'original_batch_complete': !interrupted && !middle");
+ s=s.replaceFirst("'epoch': interrupted ? 'retained-original-complete-cases' : 'rebuilt-recovery'", "'epoch': interrupted ? 'retained-original-complete-cases' : middle ? 'rebuilt-complete-case4' : 'same-rebuilt-binaries-final-admission'");
+ File('$e/summarize-batches.dart').writeAsStringSync(s);print(green('Prepared explicit3+1+2eligible-case validator.'));}

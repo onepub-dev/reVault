@@ -1,0 +1,2 @@
+cwd=rust
+command=PATH=/tmp/revault-flatc-25.2.10/bin:/tmp/revault-go-1.24.13/go/bin:$PATH timeout --kill-after=10s 300s target/debug/revault-tool bindings generate --repository ..

@@ -1,0 +1,203 @@
+    Checking zeroize v1.9.0
+    Checking cmov v0.5.4
+   Compiling libc v0.2.189
+    Checking ctutils v0.4.2
+    Checking cfg-if v1.0.4
+   Compiling getrandom v0.4.3
+    Checking rand_core v0.10.1
+    Checking typenum v1.20.1
+    Checking hybrid-array v0.4.15
+    Checking const-oid v0.10.2
+    Checking crypto-common v0.2.2
+    Checking block-buffer v0.12.1
+    Checking cpufeatures v0.3.1
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+    Checking digest v0.11.3
+   Compiling unicode-ident v1.0.24
+   Compiling semver v1.0.28
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling rustc_version v0.4.1
+   Compiling syn v2.0.119
+   Compiling curve25519-dalek v5.0.0
+    Checking inout v0.2.2
+    Checking keccak v0.2.2
+    Checking signature v3.0.0
+    Checking der v0.8.2
+   Compiling zmij v1.0.23
+    Checking base64ct v1.8.3
+    Checking subtle v2.6.1
+   Compiling serde_core v1.0.229
+    Checking phc v0.6.1
+    Checking spki v0.8.0
+    Checking module-lattice v0.2.3
+    Checking cipher v0.5.2
+    Checking universal-hash v0.6.1
+    Checking tinyvec_macros v0.1.1
+   Compiling curve25519-dalek-derive v0.1.1
+    Checking sponge-cursor v0.1.0
+   Compiling serde_json v1.0.151
+    Checking shake v0.1.0
+    Checking tinyvec v1.13.2
+    Checking poly1305 v0.9.1
+    Checking chacha20 v0.10.2
+    Checking pkcs8 v0.11.0
+    Checking password-hash v0.6.1
+    Checking ed25519 v3.0.0
+    Checking sha3 v0.11.0
+    Checking aead v0.6.1
+    Checking blake2 v0.11.0
+    Checking sha2 v0.11.0
+    Checking hmac v0.13.0
+    Checking kem v0.3.0
+    Checking twox-hash v2.1.4
+    Checking itoa v1.0.18
+    Checking memchr v2.8.3
+    Checking zstd-complete v0.2.0 (/tmp/rv-security-cli-isolated-20261013/source/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+    Checking ml-kem v0.3.2
+    Checking hkdf v0.13.0
+    Checking ed25519-dalek v3.0.0
+    Checking argon2 v0.6.0
+    Checking chacha20poly1305 v0.11.0
+    Checking x25519-dalek v3.0.0
+    Checking ml-dsa v0.1.1
+warning: method `len` is never used
+  --> vendor/zstd-complete/src/fixed_storage.rs:38:19
+   |
+23 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+38 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `zstd-complete` (lib) generated 21 warnings (run `cargo fix --lib -p zstd-complete` to apply 20 suggestions)
+    Checking unicode-normalization v0.1.25
+    Checking revault_page_api v0.0.34 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_page_api)
+ Documenting revault_archive_v3_reader v0.0.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_archive_v3/legacy)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.17s
+   Generated /tmp/rv-security-cli-isolated-20261013/target-doc-legacy-archive/doc/revault_lockbox_api/index.html

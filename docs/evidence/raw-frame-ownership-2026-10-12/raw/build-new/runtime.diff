@@ -1,0 +1,229 @@
+diff --git a/rust/revault_lockbox_api/src/compression.rs b/rust/revault_lockbox_api/src/compression.rs
+index c5e41f35..618ad4e4 100644
+--- a/rust/revault_lockbox_api/src/compression.rs
++++ b/rust/revault_lockbox_api/src/compression.rs
+@@ -8,7 +8,22 @@ use zstd_complete::encoding::{compress_to_vec, CompressionLevel};
+ mod decode_workspace;
+ mod encode_workspace;
+ pub(crate) use decode_workspace::scoped as with_decode_workspace;
+-pub(crate) use encode_workspace::{with_encoder, EncoderFrame};
++pub(crate) use encode_workspace::{with_frame_encoder, EncoderFrame};
++
++/// Raw output may reuse an owned input; compressed output owns wiped storage.
++pub(crate) enum FrameEncoding {
++    Raw,
++    Compressed(crate::page_buffer::ZeroizingBytes),
++}
++
++impl FrameEncoding {
++    fn into_encoded(self, input: &[u8]) -> (u8, Vec<u8>) {
++        match self {
++            Self::Raw => (COMPRESSION_NONE, input.to_vec()),
++            Self::Compressed(mut bytes) => (COMPRESSION_ZSTD, std::mem::take(&mut *bytes)),
++        }
++    }
++}
+ 
+ pub(crate) const COMPRESSION_NONE: u8 = 0;
+ pub(crate) const COMPRESSION_ZSTD: u8 = 1;
+@@ -118,14 +133,18 @@ pub(crate) fn encode_compression_frame(payload: &[u8]) -> (u8, Vec<u8>) {
+ }
+ 
+ pub(crate) fn encode_compression_frame_with_level(payload: &[u8], level: i32) -> (u8, Vec<u8>) {
++    encode_frame_outcome(payload, level).into_encoded(payload)
++}
++
++pub(crate) fn encode_frame_outcome(payload: &[u8], level: i32) -> FrameEncoding {
+     if looks_incompressible(payload) {
+-        return (COMPRESSION_NONE, payload.to_vec());
++        return FrameEncoding::Raw;
+     }
+-    let compressed = zstd_encode_compression_frame(payload, level);
++    let compressed = crate::page_buffer::ZeroizingBytes::new(zstd_encode_compression_frame(payload, level));
+     if compressed.len() < payload.len() {
+-        (COMPRESSION_ZSTD, compressed)
++        FrameEncoding::Compressed(compressed)
+     } else {
+-        (COMPRESSION_NONE, payload.to_vec())
++        FrameEncoding::Raw
+     }
+ }
+ 
+@@ -133,21 +152,27 @@ pub(crate) fn encode_with_compression(
+     payload: &[u8],
+     compression: crate::Compression,
+ ) -> (u8, Vec<u8>) {
++    encode_with_compression_outcome(payload, compression).into_encoded(payload)
++}
++
++pub(crate) fn encode_with_compression_outcome(
++    payload: &[u8],
++    compression: crate::Compression,
++) -> FrameEncoding {
+     match compression {
+-        crate::Compression::None => (COMPRESSION_NONE, payload.to_vec()),
++        crate::Compression::None => FrameEncoding::Raw,
+         crate::Compression::Zstd { level } => {
+             if looks_incompressible(payload) {
+-                return (COMPRESSION_NONE, payload.to_vec());
++                return FrameEncoding::Raw;
+             }
+-            // Keep the requested numeric encoder single-pass. Trying a second
+-            // complete encoder for a smaller result measurably slowed writes;
+-            // reader optimizations do not depend on that experiment.
+-            let compressed =
+-                zstd_complete::encoding::compress_slice_c_level(payload, i32::from(level.get()));
++            // Preserve the existing single-pass numeric encoder and decision.
++            let compressed = crate::page_buffer::ZeroizingBytes::new(
++                zstd_complete::encoding::compress_slice_c_level(payload, i32::from(level.get())),
++            );
+             if compressed.len() < payload.len() {
+-                (COMPRESSION_ZSTD, compressed)
++                FrameEncoding::Compressed(compressed)
+             } else {
+-                (COMPRESSION_NONE, payload.to_vec())
++                FrameEncoding::Raw
+             }
+         }
+     }
+diff --git a/rust/revault_lockbox_api/src/compression/encode_workspace.rs b/rust/revault_lockbox_api/src/compression/encode_workspace.rs
+index fb294fa9..6ca67086 100644
+--- a/rust/revault_lockbox_api/src/compression/encode_workspace.rs
++++ b/rust/revault_lockbox_api/src/compression/encode_workspace.rs
+@@ -71,15 +71,27 @@ impl EncoderFrame {
+     }
+ }
+ 
+-pub(crate) fn with_encoder<R>(
++#[cfg(test)]
++fn with_encoder<R>(
+     first_frame: EncoderFrame,
+     compression: Option<crate::Compression>,
+     default_level: i32,
+     operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> (u8, Vec<u8>)) -> R,
++) -> R {
++    with_frame_encoder(first_frame, compression, default_level, |encode| {
++        operation(&mut |input| encode(input).into_encoded(input))
++    })
++}
++
++pub(crate) fn with_frame_encoder<R>(
++    first_frame: EncoderFrame,
++    compression: Option<crate::Compression>,
++    default_level: i32,
++    operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> super::FrameEncoding) -> R,
+ ) -> R {
+     let mut fallback = |input: &[u8]| match compression {
+-        Some(compression) => super::encode_with_compression(input, compression),
+-        None => super::encode_compression_frame_with_level(input, default_level),
++        Some(compression) => super::encode_with_compression_outcome(input, compression),
++        None => super::encode_frame_outcome(input, default_level),
+     };
+     let Some(crate::Compression::Zstd { level }) = compression else {
+         return operation(&mut fallback);
+@@ -121,9 +133,9 @@ pub(crate) fn with_encoder<R>(
+         }
+         match encoder.encode_into(input, output) {
+             Ok(encoded) if encoded.len() < input.len() => {
+-                (super::COMPRESSION_ZSTD, encoded.to_vec())
++                super::FrameEncoding::Compressed(ZeroizingBytes::new(encoded.to_vec()))
+             }
+-            Ok(_) => (super::COMPRESSION_NONE, input.to_vec()),
++            Ok(_) => super::FrameEncoding::Raw,
+             Err(_) => fallback(input),
+         }
+     })
+diff --git a/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs b/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs
+index 72b7b8f5..5a1d0de7 100644
+--- a/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs
++++ b/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs
+@@ -1,14 +1,35 @@
+ use super::metric_timer::MetricTimer as Instant;
+ use std::borrow::Cow;
+-type FrameEncoder<'a> = dyn FnMut(&[u8]) -> (u8, Vec<u8>) + 'a;
++type FrameEncoder<'a> = dyn FnMut(&[u8]) -> crate::compression::FrameEncoding + 'a;
+ 
+ use crate::page_buffer::{zeroize_bytes, ZeroizingBytes};
+ 
+-use crate::compression::encode_compression_frame_with_level;
++use crate::compression::{encode_frame_outcome, FrameEncoding};
+ use crate::compression_frame_manifest::CompressionFrameSlice;
+ use crate::crypto::strong_checksum;
+ use crate::lockbox_path::LockboxPath;
+ 
++enum FrameInput<'a> {
++    Borrowed(&'a [u8]),
++    Owned(ZeroizingBytes),
++}
++
++impl FrameInput<'_> {
++    fn as_slice(&self) -> &[u8] {
++        match self {
++            Self::Borrowed(bytes) => bytes,
++            Self::Owned(bytes) => bytes.as_slice(),
++        }
++    }
++
++    fn into_raw(self) -> ZeroizingBytes {
++        match self {
++            Self::Borrowed(bytes) => ZeroizingBytes::new(bytes.to_vec()),
++            Self::Owned(bytes) => bytes,
++        }
++    }
++}
++
+ #[derive(Clone, Copy)]
+ pub(super) struct CompressionFrameWrite<'a> {
+     pub(super) path: &'a LockboxPath,
+@@ -127,9 +148,9 @@ impl FileImportPipeline {
+     pub(super) fn with_encoder<R>(
+         self,
+         first: crate::compression::EncoderFrame,
+-        operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> (u8, Vec<u8>)) -> R,
++        operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> FrameEncoding) -> R,
+     ) -> R {
+-        crate::compression::with_encoder(first, self.compression, self.zstd_level, operation)
++        crate::compression::with_frame_encoder(first, self.compression, self.zstd_level, operation)
+     }
+ 
+     pub(super) fn prepare_with_encoder(
+@@ -241,10 +262,10 @@ impl FileImportPipeline {
+         ParallelCompressionResult { index, frame }
+     }
+ 
+-    fn encode(self, payload: &[u8]) -> (u8, Vec<u8>) {
++    fn encode(self, payload: &[u8]) -> FrameEncoding {
+         match self.compression {
+-            Some(compression) => crate::compression::encode_with_compression(payload, compression),
+-            None => encode_compression_frame_with_level(payload, self.zstd_level),
++            Some(compression) => crate::compression::encode_with_compression_outcome(payload, compression),
++            None => encode_frame_outcome(payload, self.zstd_level),
+         }
+     }
+ 
+@@ -255,12 +276,19 @@ impl FileImportPipeline {
+         prepare_start: Instant,
+         encode: &mut FrameEncoder<'_>,
+     ) -> PreparedCompressionFrame {
+-        let compression_frame_len = payload.len() as u64;
+-        let (compression, stored) = encode(&payload);
+-        if let Cow::Owned(mut payload) = payload {
+-            zeroize_bytes(&mut payload);
+-        }
+-        let stored = ZeroizingBytes::new(stored);
++        // Own input under a wiping guard before calling an encoder that may unwind.
++        let payload = match payload {
++            Cow::Borrowed(bytes) => FrameInput::Borrowed(bytes),
++            Cow::Owned(bytes) => FrameInput::Owned(ZeroizingBytes::new(bytes)),
++        };
++        let compression_frame_len = payload.as_slice().len() as u64;
++        let (compression, stored) = match encode(payload.as_slice()) {
++            FrameEncoding::Raw => (crate::compression::COMPRESSION_NONE, payload.into_raw()),
++            FrameEncoding::Compressed(stored) => {
++                drop(payload);
++                (crate::compression::COMPRESSION_ZSTD, stored)
++            }
++        };
+         let integrity = if self.native_blocks {
+             PreparedFrameIntegrity::NativeBlocksPending
+         } else {

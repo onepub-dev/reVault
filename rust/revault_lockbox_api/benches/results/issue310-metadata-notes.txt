@@ -1,0 +1,45 @@
+Issue #310: reuse file metadata for native frame extent validation
+Base: 1aa29e5, 2026-09-22, Linux x86_64.
+
+Native frame open and subsequent extent checks previously validated archive
+identity and then separately fetched file length. On Unix, use the held-file
+metadata already fetched by identity validation for both purposes. Both path
+and handle metadata are still queried for every validation; post-read identity
+checks are unchanged. Other platforms retain their existing identity check and
+separate length query. External sources retain ensure_current followed by len,
+including failure latching. No archive format, authentication, cache or padding
+changes. Page metadata validation is unchanged.
+
+Three sequential before/after pairs, 15 samples per row, taskset -c 2:
+REVAULT_ZIP_READ_CASE=small REVAULT_ZIP_READ_MODE=plain
+REVAULT_ZIP_READ_SAMPLES=15; all other filters unset.
+512 files x 4096 bytes; fresh file handles, warm OS cache, exact byte verification.
+Before /tmp/issue310-stat-before built from 1aa29e5; after compiled with this patch.
+No builds or tests overlapped untraced timing runs. Full rows in companion CSV.
+
+Interactive stream median across the three reported run medians:
+raw:        16.282 -> 15.482 ms (4.9% reduction)
+compressed: 18.363 -> 17.429 ms (5.1% reduction)
+ZIP timings moved between runs; do not treat these as universal speedups.
+Native reads remain roughly 2.4x ZIP on this fixture. Random reads and ReadMostly
+also show noise; all observed rows retained without selecting favorable runs.
+
+Separate strace -c -e trace=newfstatat,fstat,statx runs, five samples, additionally
+COMPRESSION=false PROFILE=Interactive ACCESS=stream (same env prefix):
+                before   after
+statx            40524   35404
+fstat               23      23
+The process totals include fixture creation and ZIP baseline. 5120 statx calls
+removed, equivalent to two per file per sample. Traced timings are not used.
+
+Validation passed:
+- Native frame damage/truncation regression across encryption/signing/compression
+  combinations, now also checks replaced Unix paths on normal and empty reads
+  and frame opens. Replacement has original valid bytes and full length.
+- archive_locking: five tests with native/external features and five default.
+- external_source: fifteen tests with native/external features.
+- native_layout: public streaming/rewrite lifecycle across sixteen policies.
+- strict Clippy library/tests with native-block-layout,external-source.
+- default cargo check and native benchmark build.
+Windows fallback was not runtime-tested here. Known signed native recovery
+failures remain; this is a bounded performance improvement, not issue completion.

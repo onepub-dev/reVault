@@ -1,0 +1,128 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 659  of event 'cpu-clock:u'
+# Event count (approx.): 3311557375
+#
+# Overhead  Symbol                                                                                IPC   [IPC Coverage]
+# ........  ....................................................................................  ....................
+#
+    18.51%  [.] <twox_hash::xxhash64::Hasher as core::hash::Hasher>::write                        -      -            
+            |
+            ---<zstd_complete::decoding::frame_decoder::FrameDecoder as std::io::Read>::read
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::workspace::StaticDecoderWorkspace::decode_into
+               revault_lockbox_api::file_format::data_extent::Codec::load
+               <revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+               revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+    16.84%  [.] zstd_complete::decoding::sequence_section_decoder::decode_sequences               -      -            
+            |
+            ---zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::workspace::StaticDecoderWorkspace::decode_into
+               revault_lockbox_api::file_format::data_extent::Codec::load
+               <revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+               revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+    15.17%  [.] __memmove_avx_unaligned_erms                                                      -      -            
+            |          
+            |--6.68%--zstd_complete::decoding::ringbuffer::RingBuffer::extend_from_within_unchecked
+            |          zstd_complete::decoding::decode_buffer::DecodeBuffer::repeat
+            |          zstd_complete::decoding::sequence_execution::execute_sequences
+            |          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+            |          zstd_complete::decoding::workspace::StaticDecoderWorkspace::decode_into
+            |          revault_lockbox_api::file_format::data_extent::Codec::load
+            |          <revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+            |          revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+            |          
+            |--4.10%--<zstd_complete::decoding::frame_decoder::FrameDecoder as std::io::Read>::read
+            |          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+            |          zstd_complete::decoding::workspace::StaticDecoderWorkspace::decode_into
+            |          revault_lockbox_api::file_format::data_extent::Codec::load
+            |          <revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+            |          revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+            |          
+             --4.10%--<revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+                       revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+    10.62%  [.] zstd_complete::fse::fse_decoder::FSETable::build_decoding_table                   -      -            
+            |
+            ---zstd_complete::fse::fse_decoder::FSETable::build_decoder
+               zstd_complete::decoding::sequence_section_decoder::decode_sequences
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::workspace::StaticDecoderWorkspace::decode_into
+               revault_lockbox_api::file_format::data_extent::Codec::load
+               <revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+               revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+     8.95%  [.] zstd_complete::decoding::ringbuffer::RingBuffer::extend_from_within_unchecked     -      -            
+            |
+            ---zstd_complete::decoding::decode_buffer::DecodeBuffer::repeat
+               zstd_complete::decoding::sequence_execution::execute_sequences
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::workspace::StaticDecoderWorkspace::decode_into
+               revault_lockbox_api::file_format::data_extent::Codec::load
+               <revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+               revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+     6.53%  [.] zstd_complete::decoding::sequence_execution::execute_sequences                    -      -            
+            |
+            ---zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::workspace::StaticDecoderWorkspace::decode_into
+               revault_lockbox_api::file_format::data_extent::Codec::load
+               |          
+                --6.37%--<revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+                          revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+     5.16%  [.] zstd_complete::fse::fse_decoder::FSEDecoder::update_state                         -      -            
+            |
+            ---zstd_complete::decoding::sequence_section_decoder::decode_sequences
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::workspace::StaticDecoderWorkspace::decode_into
+               revault_lockbox_api::file_format::data_extent::Codec::load
+               <revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+               revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+     4.25%  [.] zstd_complete::decoding::decode_buffer::DecodeBuffer::repeat                      -      -            
+            |
+            ---zstd_complete::decoding::sequence_execution::execute_sequences
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::workspace::StaticDecoderWorkspace::decode_into
+               revault_lockbox_api::file_format::data_extent::Codec::load
+               <revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+               revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+     4.10%  [.] revault_lockbox_api::file_format::page_buffer::zeroize_bytes                      -      -            
+            |
+            ---<revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+               revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+     3.79%  [.] __memset_avx2_unaligned_erms                                                      -      -            
+            |          
+             --3.34%--<u8 as alloc::vec::spec_from_elem::SpecFromElem>::from_elem
+                       revault_lockbox_api::file_format::data_extent::Codec::load
+                       <revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+                       revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+     3.19%  [.] zstd_complete::bit_io::bit_reader_reverse::BitReaderReversed::refill              -      -            
+            |
+            ---zstd_complete::decoding::sequence_section_decoder::decode_sequences
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::workspace::StaticDecoderWorkspace::decode_into
+               revault_lockbox_api::file_format::data_extent::Codec::load
+               <revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+               revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+     1.37%  [.] sha2::sha256::x86_sha::compress                                                   -      -            
+            |          
+             --1.06%--revault_lockbox_api::file_format::data_extent::Codec::load
+                       <revault_lockbox_api::file_format::candidate_files::dense_image::Image<S> as revault_lockbox_api::file_format::candidate_files::resource_probe::ReadImage>::visit
+                       revault_lockbox_api::file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

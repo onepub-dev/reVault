@@ -1,0 +1,22 @@
+Lockbox
+  path: /home/bsutton/.cache/rv-memdiag-20261012/fixture0/c0-w0.lbox
+  size: 183.204MB
+  size padding: default
+  encryption: none
+  signing: none
+  compression: zstd (level 3)
+
+Configured access (public header)
+  pass phrase slots: 0
+  contact-key slots: 0
+
+Session
+  open: no
+
+Local vault
+  open: no
+  key-directory backup: not checked
+
+Encrypted content
+  state: healthy
+  description: not set

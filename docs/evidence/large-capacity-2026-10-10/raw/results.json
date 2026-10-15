@@ -1,0 +1,19 @@
+[
+  {
+    "name": "raw-random-1gib",
+    "root": "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib",
+    "exit_code": 101,
+    "files": 1,
+    "bytes_per_file": 1073741824,
+    "corpus_bytes": 1073741824,
+    "leftover_paths": [
+      "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/case.json",
+      "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/source",
+      "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/inventory.json",
+      "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/samples.jsonl",
+      "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/archive.zip",
+      "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/tree-staging.lbox",
+      "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/tree.lbox"
+    ]
+  }
+]

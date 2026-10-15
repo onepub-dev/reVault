@@ -1,0 +1,32 @@
+{
+  "candidate": "353ded7da454de970a075819add09073e4190e28",
+  "run_id": 38381172126,
+  "job_id": 115246857074,
+  "job_log_endpoint": "repos/onepub-dev/reVault/actions/jobs/115246857074/logs",
+  "suite": "revault_vault_api --test vault_api",
+  "passed": 22,
+  "failed": 3,
+  "ignored": 0,
+  "failures": [
+    {
+      "test": "unsigned_contact_backup_preserves_recipient_write_access",
+      "source_location": "rust/revault_vault_api/tests/vault_api.rs:698:32",
+      "diagnostic": "Os code 33: another process has locked a portion of the file",
+      "inspected_operation": "fs::read(&path).unwrap() after successful open_path_for_write"
+    },
+    {
+      "test": "vault_open_uses_key_directory_backup_when_embedded_directory_is_corrupt",
+      "source_location": "rust/revault_vault_api/tests/vault_api.rs:517:29",
+      "diagnostic": "Os code 33: another process has locked a portion of the file",
+      "inspected_operation": "fs::read(&path).unwrap() after successful vault open"
+    },
+    {
+      "test": "vault_password_create_and_open_cache_keys_outside_secure_read_access",
+      "source_location": "rust/revault_vault_api/tests/vault_api.rs:143:38",
+      "diagnostic": "PoisonError",
+      "inspected_operation": "ENV_LOCK.lock().unwrap()"
+    }
+  ],
+  "interpretation": "Two test assertions read an archive through a second file handle while the recovered writable archive remains locked. The shared ENV_LOCK poison is a consequent failure. Preserve production locking; close the uncommitted recovered handle before raw byte observation and reopen for mutation/commit.",
+  "qualification": "Diagnosis only; corrected tests still require validation, including actual Windows execution."
+}

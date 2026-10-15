@@ -1,0 +1,7 @@
+
+running 2 tests
+test compression::sensitive_encoder_tests::clear_only_encoding_keeps_existing_bytes_and_sensitive_none_stays_raw ... ok
+test compression::sensitive_encoder_tests::sensitive_frames_roundtrip_all_supported_levels_and_boundary_sizes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 722 filtered out; finished in 0.66s
+

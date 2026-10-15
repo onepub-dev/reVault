@@ -135,3 +135,79 @@ impl IntoIterator for PageTreeChildren {
         self.0.into_iter()
     }
 }
+
+/// Routing keys and authenticated children share one bounded wire envelope.
+pub(crate) struct AuthenticatedPageTreeChildren {
+    children: Vec<PageTreeChild>,
+    commitments: Vec<crate::file_format::page_commitment::PageCommitment>,
+}
+
+impl AuthenticatedPageTreeChildren {
+    pub(crate) fn new(
+        children: Vec<PageTreeChild>,
+        commitments: Vec<crate::file_format::page_commitment::PageCommitment>,
+    ) -> Self {
+        Self {
+            children,
+            commitments,
+        }
+    }
+
+    pub(crate) fn encode(self) -> Result<Vec<u8>> {
+        if self.children.len() != self.commitments.len() {
+            return Err(Error::CorruptRecord);
+        }
+        let routing = PageTreeChildren::new(self.children).encode();
+        let mut out = Vec::new();
+        let routing_len = u32::try_from(routing.len()).map_err(|_| Error::CorruptRecord)?;
+        out.extend_from_slice(&routing_len.to_le_bytes());
+        out.extend_from_slice(&routing);
+        for commitment in self.commitments {
+            out.extend_from_slice(&commitment.physical_len.to_le_bytes());
+            out.extend_from_slice(&commitment.digest);
+        }
+        Ok(out)
+    }
+
+    pub(crate) fn decode(
+        payload: &[u8],
+        validate_key: impl Fn(&str) -> Result<()>,
+    ) -> Result<Self> {
+        let encoded_len = payload.get(..4).ok_or(Error::CorruptRecord)?;
+        let routing_end = 4usize
+            .checked_add(read_u32_le(encoded_len)? as usize)
+            .ok_or(Error::CorruptRecord)?;
+        let routing = payload.get(4..routing_end).ok_or(Error::CorruptRecord)?;
+        let children: Vec<_> = PageTreeChildren::decode(routing, validate_key)?
+            .into_iter()
+            .collect();
+        let commitments = payload.get(routing_end..).ok_or(Error::CorruptRecord)?;
+        if commitments.len() != children.len().checked_mul(40).ok_or(Error::CorruptRecord)? {
+            return Err(Error::CorruptRecord);
+        }
+        let commitments = commitments
+            .chunks_exact(40)
+            .map(|bytes| {
+                Ok(crate::file_format::page_commitment::PageCommitment {
+                    physical_len: read_u64_le(&bytes[..8])?,
+                    digest: bytes[8..40].try_into().map_err(|_| Error::CorruptRecord)?,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self {
+            children,
+            commitments,
+        })
+    }
+
+    pub(crate) fn into_pairs(
+        self,
+    ) -> impl Iterator<
+        Item = (
+            PageTreeChild,
+            crate::file_format::page_commitment::PageCommitment,
+        ),
+    > {
+        self.children.into_iter().zip(self.commitments)
+    }
+}

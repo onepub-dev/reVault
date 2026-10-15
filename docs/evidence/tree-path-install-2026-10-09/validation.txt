@@ -1,0 +1,19 @@
+Focused install test command:
+cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib whole_tree_path_install -- --nocapture --test-threads=1
+Result: 1 passed, 5 failed, 637 filtered out, 1.82s. Failures: temporary-path replacement; process-death reopen (checkpoint 0/tree-created reopened byte 101 vs expected 71); stale-source/symlink; all-family writable reopen; returned errors. Four failures reported panic at tests/tree_tests/variables.rs:353: ordinary read overlaps a live, retired, or incompletely staged variable segment (0+3473408 or 0+983040). Child helper passed.
+
+Strict Clippy command:
+cargo +1.88.0 clippy -p revault_lockbox_api --features external-source --lib --tests --benches -- -D warnings
+Result: passed; Finished dev profile in 6.57s.
+
+Whole-tree compaction controls command:
+cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib whole_tree_compaction -- --nocapture --test-threads=1 --skip whole_tree_compaction_returned_failures_durably_discard_owned_destination --skip whole_tree_compaction_large_selected_state_file_store_all_modes
+Result: 6 passed, 0 failed, 637 filtered out, 47.34s.
+
+After fixture transfer fix, focused installation suite rerun:
+cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib whole_tree_path_install -- --nocapture --test-threads=1
+Result: 6 passed, 0 failed, 637 filtered out, 81.70s. Process-death cases: 96.
+
+Strict Clippy rerun:
+cargo +1.88.0 clippy -p revault_lockbox_api --features external-source --lib --tests --benches -- -D warnings
+Result: passed; Finished dev profile in 6.01s.

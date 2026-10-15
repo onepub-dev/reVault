@@ -1,0 +1,581 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection/c_fast.rs:212:6
+    |
+212 |     (ll_mode, ml_mode, of_mode, offset_history)
+    |      ^^^^^^^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+212 |     (ll_mode.expect("REASON"), ml_mode, of_mode, offset_history)
+    |             +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection/c_fast.rs:212:15
+    |
+212 |     (ll_mode, ml_mode, of_mode, offset_history)
+    |               ^^^^^^^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+212 |     (ll_mode, ml_mode.expect("REASON"), of_mode, offset_history)
+    |                      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection/c_fast.rs:212:24
+    |
+212 |     (ll_mode, ml_mode, of_mode, offset_history)
+    |                        ^^^^^^^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+212 |     (ll_mode, ml_mode, of_mode.expect("REASON"), offset_history)
+    |                               +++++++++++++++++
+
+error[E0308]: mismatched types
+    --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:364:25
+     |
+364  |         candidates.push(FseTableMode::Predefined(default_table));
+     |                    ---- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<FseTableMode<'_>, CapacityError>`, found `FseTableMode<'_>`
+     |                    |
+     |                    arguments to this method are incorrect
+     |
+     = note: expected enum `Result<FseTableMode<'_>, CapacityError>`
+                found enum `FseTableMode<'_>`
+note: method defined here
+    --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:2442:12
+     |
+2442 |     pub fn push(&mut self, value: T) {
+     |            ^^^^
+help: try wrapping the expression in `core::prelude::v1::Ok`
+     |
+364  |         candidates.push(core::prelude::v1::Ok(FseTableMode::Predefined(default_table)));
+     |                         ++++++++++++++++++++++                                       +
+
+error[E0308]: mismatched types
+    --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:373:29
+     |
+373  |             candidates.push(FseTableMode::RepeatLast(previous));
+     |                        ---- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<FseTableMode<'_>, CapacityError>`, found `FseTableMode<'_>`
+     |                        |
+     |                        arguments to this method are incorrect
+     |
+     = note: expected enum `Result<FseTableMode<'_>, CapacityError>`
+                found enum `FseTableMode<'_>`
+note: method defined here
+    --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:2442:12
+     |
+2442 |     pub fn push(&mut self, value: T) {
+     |            ^^^^
+help: try wrapping the expression in `core::prelude::v1::Ok`
+     |
+373  |             candidates.push(core::prelude::v1::Ok(FseTableMode::RepeatLast(previous)));
+     |                             ++++++++++++++++++++++                                  +
+
+error[E0308]: mismatched types
+    --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:379:29
+     |
+379  |             candidates.push(FseTableMode::Rle(first_code));
+     |                        ---- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<FseTableMode<'_>, CapacityError>`, found `FseTableMode<'_>`
+     |                        |
+     |                        arguments to this method are incorrect
+     |
+     = note: expected enum `Result<FseTableMode<'_>, CapacityError>`
+                found enum `FseTableMode<'_>`
+note: method defined here
+    --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:2442:12
+     |
+2442 |     pub fn push(&mut self, value: T) {
+     |            ^^^^
+help: try wrapping the expression in `core::prelude::v1::Ok`
+     |
+379  |             candidates.push(core::prelude::v1::Ok(FseTableMode::Rle(first_code)));
+     |                             ++++++++++++++++++++++                             +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:384:51
+    |
+384 |               candidates.push(FseTableMode::Encoded(build_sequence_table(
+    |  _____________________________---------------------_^
+    | |                             |
+    | |                             arguments to this enum variant are incorrect
+385 | |                 sequences,
+386 | |                 code,
+387 | |                 candidate_max_log,
+388 | |                 config.table_builder,
+389 | |             )));
+    | |_____________^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+    |
+    = note: expected struct `fse_encoder::table::FSETable`
+                 found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+note: tuple variant defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:31:5
+    |
+31  |     Encoded(FSETable),
+    |     ^^^^^^^
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+389 |             ).expect("REASON")));
+    |              +++++++++++++++++
+
+error[E0308]: mismatched types
+    --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:384:29
+     |
+384  |               candidates.push(FseTableMode::Encoded(build_sequence_table(
+     |  ________________________----_^
+     | |                        |
+     | |                        arguments to this method are incorrect
+385  | |                 sequences,
+386  | |                 code,
+387  | |                 candidate_max_log,
+388  | |                 config.table_builder,
+389  | |             )));
+     | |______________^ expected `Result<FseTableMode<'_>, CapacityError>`, found `FseTableMode<'_>`
+     |
+     = note: expected enum `Result<FseTableMode<'_>, CapacityError>`
+                found enum `FseTableMode<'_>`
+note: method defined here
+    --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:2442:12
+     |
+2442 |     pub fn push(&mut self, value: T) {
+     |            ^^^^
+help: try wrapping the expression in `core::prelude::v1::Ok`
+     |
+384  ~             candidates.push(core::prelude::v1::Ok(FseTableMode::Encoded(build_sequence_table(
+385  |                 sequences,
+ ...
+388  |                 config.table_builder,
+389  ~             ))));
+     |
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:393:5
+    |
+338 | ) -> Vec<FseTableMode<'a>> {
+    |      --------------------- expected `std::vec::Vec<FseTableMode<'a>>` because of return type
+...
+393 |     candidates
+    |     ^^^^^^^^^^ expected `Vec<FseTableMode<'_>>`, found `Vec<Result<FseTableMode<'_>, ...>>`
+    |
+    = note: expected struct `std::vec::Vec<FseTableMode<'a>>`
+               found struct `std::vec::Vec<Result<FseTableMode<'_>, CapacityError>>`
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:500:6
+    |
+500 |     (ll_mode, ml_mode, of_mode)
+    |      ^^^^^^^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+500 |     (ll_mode.expect("REASON"), ml_mode, of_mode)
+    |             +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:500:15
+    |
+500 |     (ll_mode, ml_mode, of_mode)
+    |               ^^^^^^^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+500 |     (ll_mode, ml_mode.expect("REASON"), of_mode)
+    |                      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:500:24
+    |
+500 |     (ll_mode, ml_mode, of_mode)
+    |                        ^^^^^^^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+500 |     (ll_mode, ml_mode, of_mode.expect("REASON"))
+    |                               +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:705:6
+    |
+705 |     (ll_mode, ml_mode, of_mode, offset_history)
+    |      ^^^^^^^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+705 |     (ll_mode.expect("REASON"), ml_mode, of_mode, offset_history)
+    |             +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:705:15
+    |
+705 |     (ll_mode, ml_mode, of_mode, offset_history)
+    |               ^^^^^^^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+705 |     (ll_mode, ml_mode.expect("REASON"), of_mode, offset_history)
+    |                      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:705:24
+    |
+705 |     (ll_mode, ml_mode, of_mode, offset_history)
+    |                        ^^^^^^^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+705 |     (ll_mode, ml_mode, of_mode.expect("REASON"), offset_history)
+    |                               +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:783:6
+    |
+783 |     (ll, ml, of)
+    |      ^^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+783 |     (ll.expect("REASON"), ml, of)
+    |        +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:783:10
+    |
+783 |     (ll, ml, of)
+    |          ^^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+783 |     (ll, ml.expect("REASON"), of)
+    |            +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:783:14
+    |
+783 |     (ll, ml, of)
+    |              ^^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+783 |     (ll, ml, of.expect("REASON"))
+    |                +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:832:9
+    |
+832 | /         choose_c_fast_table_from_sequences(
+833 | |             config.ll_previous,
+834 | |             config.ll_repeat_valid,
+835 | |             config.ll_default,
+...   |
+842 | |             table_builder,
+843 | |         ),
+    | |_________^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+843 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:844:9
+    |
+844 | /         choose_c_fast_table_from_sequences(
+845 | |             config.ml_previous,
+846 | |             config.ml_repeat_valid,
+847 | |             config.ml_default,
+...   |
+854 | |             table_builder,
+855 | |         ),
+    | |_________^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+855 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:856:9
+    |
+856 | /         choose_c_fast_table_from_sequences(
+857 | |             config.of_previous,
+858 | |             config.of_repeat_valid,
+859 | |             config.of_default,
+...   |
+866 | |             table_builder,
+867 | |         ),
+    | |_________^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+867 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:878:9
+    |
+878 | /         choose_c_cost_table_from_sequences(
+879 | |             config.ll_previous,
+880 | |             config.ll_default,
+881 | |             sequences,
+...   |
+884 | |             table_builder,
+885 | |         ),
+    | |_________^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+885 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:886:9
+    |
+886 | /         choose_c_cost_table_from_sequences(
+887 | |             config.ml_previous,
+888 | |             config.ml_default,
+889 | |             sequences,
+...   |
+892 | |             table_builder,
+893 | |         ),
+    | |_________^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+893 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:894:9
+    |
+894 | /         choose_c_cost_table_from_sequences(
+895 | |             config.of_previous,
+896 | |             config.of_default,
+897 | |             sequences,
+...   |
+900 | |             table_builder,
+901 | |         ),
+    | |_________^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+901 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:912:9
+    |
+912 | /         choose_legacy_table(
+913 | |             config.ll_previous,
+914 | |             config.ll_default,
+915 | |             sequences,
+...   |
+920 | |             table_builder,
+921 | |         ),
+    | |_________^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+921 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:922:9
+    |
+922 | /         choose_legacy_table(
+923 | |             config.ml_previous,
+924 | |             config.ml_default,
+925 | |             sequences,
+...   |
+930 | |             table_builder,
+931 | |         ),
+    | |_________^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+931 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:932:9
+    |
+932 | /         choose_legacy_table(
+933 | |             config.of_previous,
+934 | |             config.of_default,
+935 | |             sequences,
+...   |
+940 | |             table_builder,
+941 | |         ),
+    | |_________^ expected `FseTableMode<'_>`, found `Result<FseTableMode<'_>, CapacityError>`
+    |
+    = note: expected enum `FseTableMode<'a>`
+               found enum `Result<FseTableMode<'_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FseTableMode<'_>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+941 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+For more information about this error, try `rustc --explain E0308`.
+warning: `zstd-complete` (lib) generated 20 warnings
+error: could not compile `zstd-complete` (lib) due to 27 previous errors; 20 warnings emitted

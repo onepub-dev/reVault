@@ -1,0 +1,297 @@
+    Checking num-traits v0.2.19
+    Checking serde v1.0.229
+    Checking crossbeam-utils v0.8.23
+    Checking concurrent-queue v2.5.0
+   Compiling zvariant_utils v4.2.0
+    Checking module-lattice v0.2.3
+   Compiling zcheapstr v1.1.0
+   Compiling enumflags2 v0.7.12
+    Checking num-integer v0.1.47
+    Checking ml-kem v0.3.2
+   Compiling zvariant_derive v5.15.0
+    Checking async-io v2.6.0
+   Compiling zvariant v5.15.0
+    Checking ml-dsa v0.1.1
+    Checking async-channel v2.5.0
+   Compiling zbus_names v4.3.4
+    Checking async-signal v0.2.14
+    Checking curve25519-dalek v5.0.0
+    Checking num-bigint v0.4.8
+    Checking blocking v1.7.0
+    Checking async-process v2.5.0
+    Checking num-rational v0.4.2
+   Compiling zbus_macros v5.19.0
+    Checking async-executor v1.14.0
+    Checking num-iter v0.1.46
+    Checking num-complex v0.4.6
+    Checking num v0.4.3
+    Checking ed25519-dalek v3.0.0
+    Checking x25519-dalek v3.0.0
+    Checking smallvec v1.16.0
+    Checking revault_page_api v0.0.34 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_page_api)
+    Checking rand_core v0.6.4
+    Checking icu_normalizer v2.3.0
+    Checking icu_properties v2.3.0
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: method `len` is never used
+  --> vendor/zstd-complete/src/fixed_storage.rs:38:19
+   |
+23 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+38 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `zstd-complete` (lib) generated 21 warnings (run `cargo fix --lib -p zstd-complete` to apply 20 suggestions)
+    Checking socket2 v0.6.5
+    Checking http v1.5.0
+    Checking zbus v5.19.0
+    Checking password-hash v0.5.0
+    Checking blake2 v0.10.6
+    Checking argon2 v0.5.3
+   Compiling httparse v1.10.1
+    Checking percent-encoding v2.3.2
+    Checking keyring-core v1.0.0
+    Checking revault_page_api v0.0.4
+    Checking rustls-pki-types v1.15.1
+    Checking ring v0.17.14
+    Checking libdbus-sys v0.2.7
+    Checking form_urlencoded v1.2.2
+    Checking base64 v0.23.1
+    Checking dbus v0.9.12
+    Checking secret-service v5.1.0
+    Checking rustls-webpki v0.103.15
+    Checking zbus-secret-service-keyring-store v1.0.1
+    Checking keyring v4.2.0
+    Checking http-body v1.1.0
+    Checking idna_adapter v1.2.2
+    Checking ruzstd v0.8.3
+   Compiling tokio-macros v2.7.2
+    Checking mio v1.2.3
+    Checking idna v1.1.0
+    Checking tokio v1.53.1
+    Checking rustls v0.23.45
+    Checking curve25519-dalek v4.1.3
+    Checking revault_lockbox_api v0.0.41 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_lockbox_api)
+    Checking webpki-roots v1.0.9
+    Checking signature v2.2.0
+    Checking httpdate v1.0.3
+    Checking tower-service v0.3.3
+    Checking ed25519 v2.2.3
+   Compiling wasm-bindgen v0.2.128
+    Checking url v2.5.8
+    Checking ureq-proto v0.6.2
+    Checking revault_archive_v3_reader v0.0.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_archive_v3/legacy)
+warning: associated function `new` is never used
+  --> revault_lockbox_api/src/compression/encode_workspace.rs:63:19
+   |
+62 | impl EncoderFrame {
+   | ----------------- associated function in this implementation
+63 |     pub(crate) fn new(input: &[u8], probe: bool) -> Self {
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: function `encode_compression_frame_manifest` is never used
+  --> revault_lockbox_api/src/model/compression_frame_manifest.rs:49:15
+   |
+49 | pub(crate) fn encode_compression_frame_manifest(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `revault_lockbox_api` (lib) generated 2 warnings
+    Checking revault_migration_format v0.0.35 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migration_format)
+    Checking futures-channel v0.3.34
+    Checking utf8-zero v0.8.1
+    Checking sync_wrapper v1.0.2
+    Checking mime v0.3.17
+    Checking tower-layer v0.3.3
+    Checking ureq v3.4.1
+    Checking hyper v1.11.1
+    Checking revault_vault_v3_reader v0.0.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_archive_v3/legacy_vault)
+    Checking revault_vault_api v0.0.42 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_vault_api)
+    Checking ed25519-dalek v2.2.0
+   Compiling wasm-bindgen-macro v0.2.128
+    Checking x25519-dalek v2.0.1
+    Checking http-body-util v0.1.5
+    Checking revault_migration_format v0.0.4
+    Checking wasm-bindgen-shared v0.2.128
+    Checking zstd-complete v0.1.0
+    Checking tempfile v3.27.0
+    Checking sysinfo v0.38.4
+   Compiling flatbuffers v25.12.19
+    Checking revault_page_api v0.0.2
+    Checking ryu v1.0.23
+    Checking clap_builder v4.6.6
+    Checking revault_lockbox_api v0.0.9
+    Checking serde_urlencoded v0.7.1
+    Checking revault_lockbox_api v0.0.2
+    Checking axum-core v0.5.6
+    Checking hyper-util v0.1.20
+    Checking tower v0.5.3
+    Checking revault_lockbox_api v0.0.6
+    Checking email-encoding v0.4.2
+    Checking toml_parser v1.1.3+spec-1.1.0
+    Checking nom v8.0.0
+    Checking serde_path_to_error v0.1.20
+    Checking serde_spanned v1.1.1
+    Checking toml_datetime v1.1.1+spec-1.1.0
+    Checking hostname v0.4.2
+    Checking quoted_printable v0.5.2
+    Checking matchit v0.8.4
+    Checking toml_writer v1.1.2+spec-1.1.0
+    Checking email_address v0.2.9
+   Compiling revault_key_server v0.0.37 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_key_server)
+    Checking time-core v0.1.9
+    Checking deranged v0.5.8
+    Checking num-conv v0.2.2
+    Checking powerfmt v0.2.0
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+    Checking lettre v0.11.23
+    Checking axum v0.8.9
+    Checking time v0.3.55
+    Checking toml v1.1.5+spec-1.1.0
+    Checking revault_vault_api v0.0.6
+    Checking js-sys v0.3.105
+    Checking revault_vault_api v0.0.10
+    Checking revault_vault_api v0.0.2
+    Checking clap v4.6.6
+ Documenting revault_migrate_archive_v3 v0.0.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_archive_v3)
+    Checking revault_migrate_archive_v3 v0.0.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_archive_v3)
+    Checking revault_publish_protocol v0.0.35 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_publish_protocol)
+ Documenting revault_key_server v0.0.37 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_key_server)
+ Documenting revault_migrate_vault_v1 v0.0.34 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_vault_v1)
+ Documenting revault_wasm_bindings v0.0.24 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_wasm_bindings)
+ Documenting revault_bindings v0.2.23 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_bindings)
+ Documenting revault_migrate_vault_v2 v0.0.31 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_vault_v2)
+ Documenting revault_migrate_archive_v1 v0.0.35 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_archive_v1)
+ Documenting revault_migration v0.0.39 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migration)
+ Documenting revault_publish_protocol v0.0.35 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_publish_protocol)
+ Documenting revault_vault_api v0.0.42 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_vault_api)
+ Documenting revault_lockbox_api v0.0.41 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_lockbox_api)
+ Documenting revault_migration_format v0.0.35 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migration_format)
+ Documenting revault_page_api v0.0.34 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_page_api)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 31.27s
+   Generated /tmp/rv-security-cli-isolated-20261013/target-pinned-188-final/doc/revault_api/index.html and 13 other files

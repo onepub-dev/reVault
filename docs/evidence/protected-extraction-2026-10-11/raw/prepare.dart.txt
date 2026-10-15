@@ -1,0 +1,61 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const repo='/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance';
+const root='/home/bsutton/.cache/revault-protected-20261011';
+const evidence='/home/bsutton/.cache/revault-protected-20261011-evidence';
+const revision='6735f6dbf949915ed7b94f0b6b9bb5fb7895e231';
+String run(String exe,List<String> args,{String? cwd}) {final r=Process.runSync(exe,args,workingDirectory:cwd); if(r.exitCode!=0) throw StateError('$exe failed: ${r.stderr}'); return r.stdout as String;}
+void json(String path,Object value)=>File(path).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(value),flush:true);
+void main(List<String> args) {
+  final entries=run('git',['ls-tree','-r','-l',revision,'--','rust','bindings','cli'],cwd:repo).split('\n');
+  final selected=<Map<String,Object>>[];
+  for(final line in entries) {
+    final match=RegExp(r'^100644 blob ([0-9a-f]+)\s+(\d+)\t(.+)$').firstMatch(line);
+    if(match==null)continue;
+    final path=match[3]!;
+    if(!RegExp(r'\.(rs|dart|c|h|cpp|hpp|cs|go|java|kt|py|swift|ts)$').hasMatch(path))continue;
+    if(path.contains('/generated/')||path.contains('/fixtures/')||path.contains('/testdata/'))continue;
+    selected.add({'path':path,'blob':match[1]!,'bytes':int.parse(match[2]!)});
+  }
+  selected.sort((a,b)=>(a['path'] as String).compareTo(b['path'] as String));
+  final total=selected.fold<int>(0,(sum,e)=>sum+(e['bytes'] as int));
+  json('$evidence/corpus-plan.json',{'revision':revision,'files':selected.length,'source_bytes':total,'allowlist':'committed regular code files under rust/bindings/cli; generated/fixtures/testdata excluded','entries':selected});
+  print('Pinned ${selected.length} source files; $total bytes before framing.');
+  if(args.single=='inspect')return;
+  if(total<=0 || total>32*1024*1024)throw StateError('Corpus outside bounded size');
+  final free=int.parse(run('df',['-Pk',root]).trim().split('\n').last.trim().split(RegExp(r'\s+'))[3])*1024;
+  if(free<24*1024*1024*1024)throw StateError('Insufficient capacity');
+  // Resume retained source stream; never recreate existing source bytes.
+  if(!Directory(root).existsSync())throw StateError('Expected preserved failed setup root');
+
+  final size=File('$root/source-bundle.bin').lengthSync();
+  final cases=<Map<String,Object>>[];
+  for(final corpus in ['source-bundle','source-expanded-1gib','random-1gib']) {
+    for(final compressed in [false,true])for(final mode in ['plain','encrypted']) {
+      if(corpus=='random-1gib'&&mode=='plain')continue;
+      final name='$corpus-${compressed?'compressed':'raw'}-$mode';
+      final dir='$root/$name';Directory('$dir/source').createSync(recursive:true);
+      final source=corpus=='random-1gib'?'/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/source/file-000000.bin':'$root/$corpus.bin';
+      if(!File('$dir/source/file-000000.bin').existsSync())run('ln',[source,'$dir/source/file-000000.bin']);
+      final bytes=File(source).lengthSync();
+      json('$dir/case.json',{'files':1,'bytes':bytes,'corpus':corpus,'compressed':compressed,'mode':mode,'unpadded':false});
+      final hash=run('sha256sum',[source]).split(' ').first;
+      json('$dir/inventory.json',[{'path':'file-000000.bin','bytes':bytes,'sha256':hash}]);
+      if(File('$dir/archive.zip').existsSync()) {
+        final archive=File('$dir/archive.zip');
+        // Full source equality is required by native extraction smoke before timing.
+        // zip -T below independently checks existing archive CRC immediately.
+        run('zip',['-T',archive.path]);
+      }
+      final zip=Process.runSync('zip',['-q',compressed?'-6':'-0','$dir/archive.zip','file-000000.bin'],workingDirectory:'$dir/source');
+      json('$evidence/$name-zip-create.json',{'exit_code':zip.exitCode,'stderr':zip.stderr,'stdout':zip.stdout,'command':['zip','-q',compressed?'-6':'-0','archive.zip','file-000000.bin'],'version':run('zip',['-v'])});
+      if(zip.exitCode!=0)throw StateError('ZIP create failed');
+      cases.add({'name':name,'bytes':bytes,'root':dir,'primary':corpus!='source-bundle'});
+    }
+  }
+  json('$evidence/cases.json',cases);
+  json('$evidence/corpus-ready.json',{'bundle_bytes':size,'bundle_sha256':run('sha256sum',['$root/source-bundle.bin']).split(' ').first,'expanded_bytes':1073741824,'expanded_sha256':run('sha256sum',['$root/source-expanded-1gib.bin']).split(' ').first,'full_repetitions':1073741824~/size,'tail_bytes':1073741824%size,'not_unique_real_world_gib':true});
+  print(green('Fixtures prepared; archive construction pending.'));
+}

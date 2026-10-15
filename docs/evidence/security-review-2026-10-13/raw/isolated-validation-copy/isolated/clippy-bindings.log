@@ -1,0 +1,319 @@
+   Compiling libc v0.2.189
+   Compiling syn v3.0.5
+    Checking zeroize v1.9.0
+    Checking getrandom v0.4.3
+    Checking hybrid-array v0.4.15
+    Checking crypto-common v0.2.2
+    Checking block-buffer v0.12.1
+   Compiling serde_core v1.0.229
+   Compiling serde_derive v1.0.229
+    Checking digest v0.11.3
+    Checking unicode-ident v1.0.24
+    Checking subtle v2.6.1
+   Compiling synstructure v0.13.2
+    Checking parking v2.2.1
+   Compiling serde v1.0.229
+   Compiling winnow v1.0.4
+   Compiling zerofrom-derive v0.1.7
+    Checking proc-macro2 v1.0.107
+   Compiling find-msvc-tools v0.1.12
+   Compiling cc v1.4.5
+    Checking zerofrom v0.1.8
+    Checking quote v1.0.47
+   Compiling toml_parser v1.1.3+spec-1.1.0
+   Compiling yoke-derive v0.8.2
+    Checking stable_deref_trait v1.2.1
+   Compiling toml_edit v0.25.13+spec-1.1.0
+    Checking yoke v0.8.3
+   Compiling enumflags2_derive v0.7.12
+    Checking futures-io v0.3.34
+   Compiling proc-macro-crate v3.5.0
+   Compiling zvariant_utils v4.2.0
+    Checking event-listener v5.4.2
+    Checking concurrent-queue v2.5.0
+   Compiling zerovec-derive v0.11.6
+    Checking getrandom v0.2.17
+    Checking slab v0.4.12
+   Compiling zvariant_derive v5.15.0
+    Checking event-listener-strategy v0.5.4
+    Checking serde_json v1.0.151
+    Checking zerovec v0.11.8
+    Checking futures-lite v2.6.1
+   Compiling displaydoc v0.2.7
+   Compiling io-lifetimes v3.0.1
+   Compiling io-lifetimes v2.0.4
+   Compiling io-extras v0.19.0
+   Compiling enumflags2 v0.7.12
+   Compiling zcheapstr v1.1.0
+    Checking sha2 v0.11.0
+    Checking block-buffer v0.10.4
+    Checking block-padding v0.3.3
+    Checking num-integer v0.1.47
+    Checking polling v3.11.0
+    Checking inout v0.2.2
+    Checking errno v0.3.14
+   Compiling cap-primitives v4.0.3
+    Checking async-task v4.7.1
+   Compiling endi v1.1.1
+   Compiling wasm-bindgen-shared v0.2.128
+   Compiling zvariant v5.15.0
+    Checking signal-hook-registry v1.4.8
+    Checking async-io v2.6.0
+    Checking inout v0.1.4
+    Checking digest v0.10.7
+    Checking fs-set-times v0.20.3
+    Checking tinystr v0.8.4
+    Checking async-channel v2.5.0
+   Compiling ring v0.17.14
+    Checking rustix-linux-procfs v0.1.1
+    Checking signature v3.0.0
+    Checking der v0.8.2
+    Checking ipnet v2.12.2
+    Checking writeable v0.6.4
+   Compiling cap-std v4.0.3
+    Checking ambient-authority v0.0.2
+    Checking utf8parse v0.2.2
+    Checking litemap v0.8.3
+    Checking atomic-waker v1.1.2
+    Checking maybe-owned v0.3.4
+    Checking icu_locale_core v2.3.0
+    Checking piper v0.2.5
+    Checking anstyle-parse v1.0.0
+    Checking spki v0.8.0
+    Checking phc v0.6.1
+    Checking curve25519-dalek v5.0.0
+   Compiling zbus_names v4.3.4
+    Checking cipher v0.4.4
+    Checking async-signal v0.2.14
+    Checking cipher v0.5.2
+    Checking num-bigint v0.4.8
+    Checking zerotrie v0.2.5
+    Checking potential_utf v0.1.6
+    Checking async-lock v3.4.2
+    Checking module-lattice v0.2.3
+    Checking tracing-core v0.1.36
+   Compiling futures-macro v0.3.34
+    Checking universal-hash v0.6.1
+   Compiling tracing-attributes v0.1.31
+   Compiling icu_normalizer_data v2.3.0
+    Checking anstyle-query v1.1.5
+    Checking futures-task v0.3.34
+    Checking utf8_iter v1.0.4
+    Checking anstyle v1.0.14
+   Compiling crc32fast v1.5.1
+   Compiling cap-fs-ext v4.0.3
+    Checking is_terminal_polyfill v1.70.2
+   Compiling icu_properties_data v2.3.0
+   Compiling rustversion v1.0.23
+    Checking cpufeatures v0.2.17
+    Checking colorchoice v1.0.5
+    Checking anstream v1.0.0
+    Checking shake v0.1.0
+    Checking tracing v0.1.44
+    Checking icu_collections v2.3.0
+    Checking futures-util v0.3.34
+    Checking poly1305 v0.9.1
+    Checking async-process v2.5.0
+    Checking icu_provider v2.3.1
+    Checking num-rational v0.4.2
+    Checking chacha20 v0.10.2
+   Compiling zbus_macros v5.19.0
+    Checking password-hash v0.6.1
+    Checking pkcs8 v0.11.0
+    Checking blocking v1.7.0
+    Checking ed25519 v3.0.0
+    Checking hmac v0.12.1
+    Checking async-executor v1.14.0
+    Checking sha3 v0.11.0
+    Checking aead v0.6.1
+    Checking num-iter v0.1.46
+    Checking async-broadcast v0.7.2
+    Checking ordered-stream v0.2.0
+    Checking num-complex v0.4.6
+    Checking hmac v0.13.0
+    Checking blake2 v0.11.0
+    Checking uuid v1.26.0
+   Compiling async-trait v0.1.92
+   Compiling serde_repr v0.1.21
+    Checking kem v0.3.0
+   Compiling async-recursion v1.1.1
+    Checking rustls-pki-types v1.15.1
+    Checking untrusted v0.9.0
+   Compiling crossbeam-epoch v0.9.21
+   Compiling zerocopy v0.8.57
+    Checking clap_lex v1.1.0
+   Compiling httparse v1.10.1
+    Checking hex v0.4.3
+   Compiling cfg_aliases v0.2.2
+   Compiling unicase v2.9.0
+    Checking strsim v0.11.1
+    Checking simd-adler32 v0.3.10
+   Compiling heck v0.5.0
+   Compiling mime_guess v2.0.5
+   Compiling clap_derive v4.6.4
+    Checking clap_builder v4.6.6
+   Compiling nix v0.31.3
+    Checking zbus v5.19.0
+    Checking zstd-complete v0.2.0 (/tmp/rv-security-cli-isolated-20261013/source/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+    Checking ml-kem v0.3.2
+warning: method `len` is never used
+  --> vendor/zstd-complete/src/fixed_storage.rs:38:19
+   |
+23 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+38 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `zstd-complete` (lib) generated 21 warnings (run `cargo clippy --fix --lib -p zstd-complete` to apply 20 suggestions)
+    Checking argon2 v0.6.0
+    Checking hkdf v0.13.0
+    Checking num v0.4.3
+    Checking chacha20poly1305 v0.11.0
+    Checking hkdf v0.12.4
+    Checking ed25519-dalek v3.0.0
+    Checking ml-dsa v0.1.1
+    Checking sha2 v0.10.9
+    Checking aes v0.8.4
+    Checking cbc v0.1.2
+    Checking x25519-dalek v3.0.0
+    Checking revault_page_api v0.0.34 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_page_api)
+   Compiling zerocopy-derive v0.8.57
+error: this block may be rewritten with the `?` operator
+  --> revault_page_api/src/arena.rs:49:9
+   |
+49 | /         if self.memory.is_none() {
+50 | |             return None;
+51 | |         }
+   | |_________^ help: replace it with: `self.memory.as_ref()?;`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#question_mark
+   = note: `-D clippy::question-mark` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::question_mark)]`
+
+error: could not compile `revault_page_api` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

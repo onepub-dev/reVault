@@ -1,0 +1,5 @@
+create_profile,compressed,corpus,before_ms,after_ms,speedup
+Interactive,false,pattern,85.971,79.037,1.088
+Interactive,false,random,101.872,104.089,0.979
+Interactive,true,pattern,38.274,44.692,0.856
+Interactive,true,random,70.667,69.950,1.010

@@ -1,0 +1,1 @@
+/usr/bin/g++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Werror -I../bindings/cpp -I../bindings/cpp/generated/flatbuffers -Irevault_bindings -I/tmp/revault-flatbuffers-25.2.10/include ../bindings/cpp/revault_api.cpp ../bindings/e2e/cpp/conformance.cpp -Ltarget/release -Wl,-rpath,<worktree>/rust/target/release -lrevault_api -o /tmp/rv-cpp-freshabi-20261013/conformance-cpp

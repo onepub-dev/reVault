@@ -1,0 +1,7 @@
+/usr/lib/python3/dist-packages/apt/__init__.py:37: Warning: W:Unable to read /etc/apt/apt.conf.d/99-ubuntu-mirror-esp - open (13: Permission denied)
+  apt_pkg.init_config()
+Traceback (most recent call last):
+  File "/tmp/revault-wipe-cost/run.py", line 51, in <module>
+    "host": os.uname()._asdict(), "load_before": os.getloadavg(),
+            ^^^^^^^^^^^^^^^^^^
+AttributeError: 'posix.uname_result' object has no attribute '_asdict'

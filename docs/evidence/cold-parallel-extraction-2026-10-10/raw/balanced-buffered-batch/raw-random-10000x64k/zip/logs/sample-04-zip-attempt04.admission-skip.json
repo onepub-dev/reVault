@@ -1,0 +1,74 @@
+{
+  "case": "raw-random-10000x64k",
+  "round": 4,
+  "warmup": false,
+  "backend": "zip",
+  "worker_count": null,
+  "input_path": "/home/bsutton/.cache/revault-performance-20261010-large/parallel-v3/raw-random-10000x64k/archive.zip",
+  "output_path": "/home/bsutton/.cache/revault-performance-20261010-large/parallel-v3/raw-random-10000x64k/extract-output/parallel/sample-04-zip-attempt04",
+  "affinity": "0,1,2,3,4",
+  "durable": false,
+  "requested_reader_tid_parity": 0,
+  "admission_attempt": 4,
+  "command": [
+    "taskset",
+    "-c",
+    "0,1,2,3,4",
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "900",
+    "/tmp/revault-parallel-20261010/balanced-bin/archive_evaluation",
+    "extract-zip",
+    "/home/bsutton/.cache/revault-performance-20261010-large/parallel-v3/raw-random-10000x64k",
+    "/home/bsutton/.cache/revault-performance-20261010-large/parallel-v3/raw-random-10000x64k/extract-output/parallel/sample-04-zip-attempt04"
+  ],
+  "environment": {
+    "REVAULT_EXTRACT_DURABLE": "0",
+    "REVAULT_EXTRACT_TID_PARITY": "0",
+    "REVAULT_EXTRACT_PID_NAMESPACE": "pid:[4026531836]",
+    "REVAULT_EXTRACT_BLOCK_DEVICES": "nvme0n1,nvme1n1"
+  },
+  "executable": "/tmp/revault-parallel-20261010/balanced-bin/archive_evaluation",
+  "executable_sha256_before": "b07e1c264501ed0f3c72bcf433d14f218593903acdd3f3abcfbd421a23631c3f",
+  "cache_gate": {
+    "sync_exit_code": 0,
+    "sync_stderr": "",
+    "fadvise_exit_code": 0,
+    "fadvise_stdout": "",
+    "fadvise_stderr": "",
+    "fincore_exit_code": 0,
+    "fincore_stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 656420022,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-performance-20261010-large/parallel-v3/raw-random-10000x64k/archive.zip\"\n      }\n   ]\n}\n",
+    "fincore_stderr": "",
+    "resident_bytes_after_dontneed": 0,
+    "required_resident_bytes": 0,
+    "success": true
+  },
+  "sample": {
+    "archive_opened": false,
+    "backend": "zip",
+    "kind": "extraction_admission_skip",
+    "output_created": false,
+    "reader_identity": {
+      "namespace_tids": [
+        2020603
+      ],
+      "pid_namespace": "pid:[4026531836]",
+      "process_id": 2020603,
+      "reader_tid": 2020603,
+      "reader_tid_parity": 1,
+      "scope": "IDs visible in this procfs mount; not proof of host-kernel task ID or physical mirror"
+    },
+    "reason": "reader_tid_parity_mismatch",
+    "requested_reader_tid_parity": 0,
+    "verified": false
+  },
+  "exit_code": 0,
+  "executable_sha256_after": "b07e1c264501ed0f3c72bcf433d14f218593903acdd3f3abcfbd421a23631c3f",
+  "excluded_from_timing": true,
+  "retry_pid_allocation": {
+    "policy": "alternate zero/one harmless child per skipped-attempt transition; identity-based only",
+    "requested_child_count": 0,
+    "children": []
+  }
+}

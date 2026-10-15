@@ -1,0 +1,20 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+error[E0599]: no method named `read_file` found for struct `lockbox::Lockbox<lockbox::ReadOnly>` in the current scope
+    --> revault_lockbox_api/src/api_tests.rs:4889:62
+     |
+4889 |         assert_eq!(opened.open_bytes(bytes.clone()).unwrap().read_file(&p("/data")).unwrap(), b"candidate data");
+     |                                                              ^^^^^^^^^
+     |
+    ::: revault_lockbox_api/src/lockbox.rs:170:1
+     |
+170  | pub struct Lockbox<State = Writable> {
+     | ------------------------------------ method `read_file` not found for this struct
+     |
+help: there is a method `read_file_range` with a similar name, but with different arguments
+    --> revault_lockbox_api/src/lockbox/files.rs:1054:5
+     |
+1054 |     pub fn read_file_range(&self, path: &LockboxPath, offset: u64, len: u64) -> Result<Vec<u8>> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `revault_lockbox_api` (lib test) due to 1 previous error

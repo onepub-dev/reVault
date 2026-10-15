@@ -1,0 +1,4 @@
+HEAD=e08a1000a54b912e7050054469f7ce899ef979d7
+Expected source delta: revault_page_api/src/arena.rs and revault_page_api/src/secure_heap.rs only.
+Preserved dependency lock: rust/Cargo.lock; isolated Cargo manifests retain explicit [workspace].
+Dependency-resolution gate is cargo tree --locked --offline -e normal in each isolated copy; do not build if getrandom, zeroize, or libc versions differ.

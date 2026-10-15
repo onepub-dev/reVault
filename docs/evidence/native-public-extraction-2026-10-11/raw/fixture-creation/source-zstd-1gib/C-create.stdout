@@ -1,0 +1,7 @@
+
+running 1 test
+CANDIDATE_SAMPLE {"archive_bytes":231211008,"archive_sha256":"a06159c4d85e389e2a920a220f41f0939c38ae3a0e69c0f26abb201b3bf26470","codec_census":{"encoded_bytes":219532636,"logical_bytes":1073741824,"raw_chunks":0,"zstd_chunks":16384},"kind":"typed_tree_fixture","layout":"shared-control-typed-tree","scope":"fresh direct typed export; construction and authenticated descriptor census are not timed samples","verified":true}
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 703 filtered out; finished in 23.94s
+

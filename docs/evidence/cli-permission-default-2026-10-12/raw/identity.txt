@@ -1,0 +1,5 @@
+Command: timeout --kill-after=20s 300s cargo +1.88.0 test --locked --offline --release -p revault_cli --test mirror_cli extraction_restores_stored_permissions_by_default_with_opt_out -- --exact --nocapture --test-threads=1
+Working directory: rust
+1efb6b866a219bca850258649826dbf7a032e1a0
+ca3133bacde9abe9495d792ec568ac6a8f203b320cab0e5704aa2b55dd2e7ad2  rust/revault_cli/tests/mirror_cli.rs
+2edcc3a65dbcb93102d21d5b3c7ebcb0ce5693d2b02410dd54be8c1b91713a4f  rust/revault_cli/src/commands/files.rs

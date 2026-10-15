@@ -1,0 +1,10 @@
+--- ../docs/evidence/security-review-2026-10-12/raw/security-binding-focused/tooling-batch1/Cargo.lock.before	2026-10-13 09:50:27.416127996 +1100
++++ ../docs/evidence/security-review-2026-10-12/raw/security-binding-focused/tooling-batch1/Cargo.lock.after	2026-10-13 09:50:51.658433840 +1100
+@@ -2721,6 +2721,7 @@
+  "serde",
+  "serde_json",
+  "sha2 0.11.0",
++ "syn 2.0.119",
+  "tar",
+  "tempfile",
+  "toml_edit",

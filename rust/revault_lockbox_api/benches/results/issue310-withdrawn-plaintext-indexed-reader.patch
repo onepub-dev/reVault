@@ -1,0 +1,604 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/indexed_frame.rs b/rust/revault_lockbox_api/src/file_format/indexed_frame.rs
+index 11fd9ec..b5d25c4 100644
+--- a/rust/revault_lockbox_api/src/file_format/indexed_frame.rs
++++ b/rust/revault_lockbox_api/src/file_format/indexed_frame.rs
+@@ -1,9 +1,10 @@
+-//! Bounded, committed block index for a future native raw-frame encoding.
++//! Bounded, committed block index for the native v4 indexed raw-frame reader.
+ //!
+ //! The caller must obtain `commitment` from authenticated committed metadata,
+ //! not from the same untrusted frame. Index verification precedes block I/O.
+ //! A successful partial read authenticates every touched block, not untouched
+-//! blocks. Existing v4 whole-frame validation semantics remain unchanged.
++//! blocks. Existing non-indexed frames retain whole-frame validation.
++//! Writer and recovery activation are separate from this reader integration.
+ 
+ use crate::crypto::strong_checksum;
+ use crate::page_buffer::ZeroizingBytes;
+@@ -18,6 +19,13 @@ const HEADER_BYTES: usize = 32;
+ const DIGEST_BYTES: usize = 32;
+ const MAGIC: &[u8; 8] = b"LBXBLK01";
+ 
++#[cfg(test)]
++pub(crate) fn encoded_index_for_test(frame_id: u64, bytes: &[u8]) -> Vec<u8> {
++    AuthenticatedBlockIndex::build(frame_id, bytes)
++        .unwrap()
++        .encode()
++}
++
+ /// The index is small (at most 8,224 bytes) and independent of requested range.
+ /// Including frame identity and logical size prevents swapping a block or index
+ /// between different frames even if they contain identical data.
+@@ -28,6 +36,7 @@ struct AuthenticatedBlockIndex {
+ }
+ 
+ impl AuthenticatedBlockIndex {
++    #[cfg(test)]
+     fn build(frame_id: u64, bytes: &[u8]) -> Result<Self> {
+         Self::index_len(bytes.len())?;
+         Ok(Self {
+@@ -48,6 +57,7 @@ impl AuthenticatedBlockIndex {
+         Ok(HEADER_BYTES + logical_len.div_ceil(BLOCK_BYTES) * DIGEST_BYTES)
+     }
+ 
++    #[cfg(test)]
+     fn encode(&self) -> Vec<u8> {
+         let mut out = Vec::with_capacity(HEADER_BYTES + self.hashes.len() * DIGEST_BYTES);
+         out.extend_from_slice(MAGIC);
+@@ -139,6 +149,71 @@ impl AuthenticatedBlockIndex {
+     }
+ }
+ 
++/// Validate the committed owning extent before performing any storage I/O.
++pub(crate) fn indexed_location(chunk: &crate::file_chunk::FileChunk) -> Result<u64> {
++    let descriptor = chunk.indexed_raw.as_ref().ok_or(Error::CorruptRecord)?;
++    let [segment] = chunk.segments.as_slice() else {
++        return Err(Error::CorruptRecord);
++    };
++    let logical_len =
++        usize::try_from(chunk.compression_frame_len).map_err(|_| Error::CorruptRecord)?;
++    let index_len = AuthenticatedBlockIndex::index_len(logical_len)? as u64;
++    if chunk.compression != crate::compression::COMPRESSION_NONE
++        || chunk.compressed_len != chunk.compression_frame_len
++        || segment.segment_offset != 0
++        || segment.segment_len != chunk.compressed_len
++        || descriptor.index_in_page < super::page::PAGE_HEADER_LEN as u64
++        || chunk
++            .compression_frame_offset
++            .checked_add(chunk.len)
++            .is_none_or(|end| end > chunk.compression_frame_len)
++    {
++        return Err(Error::CorruptRecord);
++    }
++    let end = descriptor
++        .index_in_page
++        .checked_add(index_len)
++        .and_then(|offset| offset.checked_add(chunk.compression_frame_len))
++        .ok_or(Error::CorruptRecord)?;
++    // Leave the page's integrity trailer outside the indexed data extent.
++    if end > segment.page_len.saturating_sub(32) {
++        return Err(Error::CorruptRecord);
++    }
++    segment
++        .page_offset
++        .checked_add(segment.page_len)
++        .ok_or(Error::CorruptRecord)?;
++    segment
++        .page_offset
++        .checked_add(descriptor.index_in_page)
++        .ok_or(Error::CorruptRecord)
++}
++
++pub(crate) fn read_chunk_range(
++    storage: &impl Storage,
++    chunk: &crate::file_chunk::FileChunk,
++    range: Range<u64>,
++) -> Result<Vec<u8>> {
++    if range.start > range.end || range.end > chunk.len {
++        return Err(Error::CorruptRecord);
++    }
++    let offset = indexed_location(chunk)?;
++    let descriptor = chunk.indexed_raw.as_ref().ok_or(Error::CorruptRecord)?;
++    let index = AuthenticatedBlockIndex::load(
++        storage,
++        offset,
++        chunk.compression_frame_id,
++        chunk.compression_frame_len as usize,
++        &descriptor.index_digest,
++    )?;
++    let start = usize::try_from(chunk.compression_frame_offset + range.start)
++        .map_err(|_| Error::CorruptRecord)?;
++    let end = usize::try_from(chunk.compression_frame_offset + range.end)
++        .map_err(|_| Error::CorruptRecord)?;
++    let mut bytes = index.read_range(storage, offset, start..end)?;
++    Ok(std::mem::take(&mut *bytes))
++}
++
+ fn block_digest(frame_id: u64, ordinal: usize, data: &[u8]) -> [u8; 32] {
+     let mut digest = Sha256::new();
+     digest.update(b"reVault indexed raw block v1\0");
+@@ -230,6 +305,76 @@ mod tests {
+         );
+     }
+ 
++    #[test]
++    fn committed_chunk_reader_checks_owning_page_before_io() {
++        use crate::file_chunk::{CompressionFrameSegment, FileChunk, IndexedRawFrame};
++        let payload: Vec<_> = (0..BLOCK_BYTES * 3 + 13).map(|n| (n % 251) as u8).collect();
++        let index = AuthenticatedBlockIndex::build(17, &payload)
++            .unwrap()
++            .encode();
++        let mut stored = vec![0; 4096 + 256];
++        stored.extend_from_slice(&index);
++        stored.extend_from_slice(&payload);
++        stored.extend_from_slice(&[0; 32]);
++        let chunk = FileChunk {
++            stored_path: crate::LockboxPath::new("/range").unwrap(),
++            file_offset: 0,
++            len: 9000,
++            compression_frame_offset: 16000,
++            compression_frame_len: payload.len() as u64,
++            compressed_len: payload.len() as u64,
++            compression: 0,
++            compression_frame_id: 17,
++            compression_frame_digest: strong_checksum(&payload),
++            indexed_raw: Some(IndexedRawFrame {
++                index_in_page: 256,
++                index_digest: strong_checksum(&index),
++            }),
++            segments: vec![CompressionFrameSegment {
++                page_offset: 4096,
++                page_len: (stored.len() - 4096) as u64,
++                object_id: 18,
++                segment_offset: 0,
++                segment_len: payload.len() as u64,
++            }],
++        };
++        let storage = ObservedStorage {
++            inner: StorageBackend::memory(stored),
++            reads: Arc::default(),
++        };
++        assert_eq!(
++            read_chunk_range(&storage, &chunk, 123..8000).unwrap(),
++            payload[16123..24000]
++        );
++        assert_eq!(
++            *storage.reads.lock().unwrap(),
++            [
++                (4352, index.len()),
++                (4352 + index.len() as u64, BLOCK_BYTES * 2),
++            ]
++        );
++        for invalid in 0..6 {
++            let mut bad = chunk.clone();
++            match invalid {
++                0 => bad.segments[0].page_len = 128,
++                1 => bad.segments[0].page_offset = u64::MAX,
++                2 => bad.indexed_raw.as_mut().unwrap().index_in_page = 0,
++                3 => bad.compression_frame_offset = u64::MAX,
++                4 => bad.compression = 1,
++                5 => bad.segments.push(bad.segments[0].clone()),
++                _ => unreachable!(),
++            }
++            storage.reads.lock().unwrap().clear();
++            assert!(read_chunk_range(&storage, &bad, 0..1).is_err());
++            assert!(storage.reads.lock().unwrap().is_empty());
++        }
++        let mut bad = chunk;
++        bad.indexed_raw.as_mut().unwrap().index_digest[0] ^= 1;
++        storage.reads.lock().unwrap().clear();
++        assert!(read_chunk_range(&storage, &bad, 0..1).is_err());
++        assert_eq!(*storage.reads.lock().unwrap(), [(4352, index.len())]);
++    }
++
+     #[test]
+     fn noncanonical_header_fields_are_rejected_even_with_matching_commitment() {
+         let payload = vec![7; BLOCK_BYTES];
+diff --git a/rust/revault_lockbox_api/src/file_format/mod.rs b/rust/revault_lockbox_api/src/file_format/mod.rs
+index 056ae13..4bae74c 100644
+--- a/rust/revault_lockbox_api/src/file_format/mod.rs
++++ b/rust/revault_lockbox_api/src/file_format/mod.rs
+@@ -2,10 +2,8 @@ pub(crate) mod commit_auth;
+ pub(crate) mod commit_root;
+ pub(crate) mod current_header;
+ pub(crate) mod header_v2;
+-// Staged native-layout implementation. Keep it out of archive writers until
+-// the new format discriminator, migration and publication paths are wired.
+-#[cfg(test)]
+-mod indexed_frame;
++// Reader and committed TOC support precede writer/publication activation.
++pub(crate) mod indexed_frame;
+ pub(crate) mod key_directory;
+ pub(crate) mod page;
+ pub(crate) mod page_buffer;
+diff --git a/rust/revault_lockbox_api/src/fixture_artifact_tests.rs b/rust/revault_lockbox_api/src/fixture_artifact_tests.rs
+index a7a6a08..1715ed3 100644
+--- a/rust/revault_lockbox_api/src/fixture_artifact_tests.rs
++++ b/rust/revault_lockbox_api/src/fixture_artifact_tests.rs
+@@ -219,6 +219,7 @@ fn shared_frame_chunk() -> FileChunk {
+         compression: 1,
+         compression_frame_id: 7,
+         compression_frame_digest: [9; 32],
++        indexed_raw: None,
+         segments: vec![CompressionFrameSegment {
+             page_offset: 4096,
+             page_len: 4096,
+diff --git a/rust/revault_lockbox_api/src/index.rs b/rust/revault_lockbox_api/src/index.rs
+index fd1fcaf..5249558 100644
+--- a/rust/revault_lockbox_api/src/index.rs
++++ b/rust/revault_lockbox_api/src/index.rs
+@@ -38,6 +38,7 @@ pub(crate) fn decode_index_records(record: &DecodedRecord) -> Result<Vec<TocEntr
+                             compression: decoded.compression,
+                             compression_frame_id: decoded.compression_frame_id,
+                             compression_frame_digest: decoded.compression_frame_digest,
++                            indexed_raw: None,
+                             segments: vec![CompressionFrameSegment {
+                                 page_offset: record.offset,
+                                 page_len: record.header.total_len,
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index f935bca..738bf95 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -89,6 +89,64 @@ fn validate_frame_segment(
+ mod range_integrity_tests {
+     use super::*;
+ 
++    #[test]
++    fn indexed_chunk_routes_through_range_reader_only_for_unsigned_plaintext() {
++        // Reader unit fixture, not CLI E2E: indexed writer activation is a
++        // separate step, so the public CLI cannot yet create this encoding.
++        use crate::file_chunk::IndexedRawFrame;
++        let mut lb = Lockbox::create(b"indexed reader test");
++        let payload: Vec<_> = (0..40000).map(|n| (n % 251) as u8).collect();
++        let index = crate::file_format::indexed_frame::encoded_index_for_test(17, &payload);
++        let mut stored = vec![0; 256];
++        stored.extend_from_slice(&index);
++        stored.extend_from_slice(&payload);
++        stored.extend_from_slice(&[0; 32]);
++        let chunk = FileChunk {
++            stored_path: LockboxPath::new("/indexed").unwrap(),
++            file_offset: 0,
++            len: payload.len() as u64,
++            compression_frame_offset: 0,
++            compression_frame_len: payload.len() as u64,
++            compressed_len: payload.len() as u64,
++            compression: COMPRESSION_NONE,
++            compression_frame_id: 17,
++            compression_frame_digest: strong_checksum(&payload),
++            indexed_raw: Some(IndexedRawFrame {
++                index_in_page: 256,
++                index_digest: strong_checksum(&index),
++            }),
++            segments: vec![CompressionFrameSegment {
++                page_offset: 0,
++                page_len: stored.len() as u64,
++                object_id: 18,
++                segment_offset: 0,
++                segment_len: payload.len() as u64,
++            }],
++        };
++        lb.storage = crate::storage::StorageBackend::memory(stored);
++        for mode in [4, 5, 6] {
++            // encrypted/signed, plaintext/signed, encrypted/unsigned
++            lb.format_mode = crate::creation_options::FormatMode::parse(mode).unwrap();
++            assert!(lb
++                .read_file_chunk_range(chunk.len, &chunk, 123..17000)
++                .is_err());
++        }
++        lb.format_mode = crate::creation_options::FormatMode::parse(7).unwrap();
++        assert_eq!(
++            lb.read_file_chunk_range(chunk.len, &chunk, 123..17000)
++                .unwrap(),
++            payload[123..17000]
++        );
++        assert_eq!(
++            lb.read_file_chunk_compression_frame(chunk.len, &chunk)
++                .unwrap(),
++            payload
++        );
++        assert!(lb
++            .read_file_chunk_range(chunk.len - 1, &chunk, 0..1)
++            .is_err());
++    }
++
+     #[test]
+     fn partial_frame_read_checks_bytes_outside_the_requested_range() {
+         let lb = Lockbox::create(b"range integrity test");
+@@ -103,6 +161,7 @@ mod range_integrity_tests {
+             compression: COMPRESSION_NONE,
+             compression_frame_id: 1,
+             compression_frame_digest: strong_checksum(&stored),
++            indexed_raw: None,
+             segments: Vec::new(),
+         };
+         assert_eq!(
+@@ -921,7 +980,10 @@ impl<State> Lockbox<State> {
+         }) else {
+             return Ok(None);
+         };
+-        if chunk.compression != COMPRESSION_NONE || chunk.segments.len() != 1 {
++        if chunk.indexed_raw.is_some()
++            || chunk.compression != COMPRESSION_NONE
++            || chunk.segments.len() != 1
++        {
+             return Ok(None);
+         }
+         let segment = &chunk.segments[0];
+@@ -985,6 +1047,24 @@ impl<State> Lockbox<State> {
+         if range.start > range.end || range.end > chunk.len {
+             return Err(Error::CorruptRecord);
+         }
++        if chunk.indexed_raw.is_some() {
++            // Initial indexed encoding is restricted to unsigned plaintext.
++            // Never apply plaintext block commitments to encrypted pages.
++            if !self.format_mode.plaintext()
++                || self.format_mode.signed()
++                || chunk
++                    .file_offset
++                    .checked_add(chunk.len)
++                    .is_none_or(|end| end > expected_total_len)
++            {
++                return Err(Error::CorruptRecord);
++            }
++            return crate::file_format::indexed_frame::read_chunk_range(
++                &self.storage,
++                chunk,
++                range,
++            );
++        }
+         if self.format_mode.0 != 0
+             && self.format_mode.options().compression == crate::Compression::None
+             && chunk.compression != COMPRESSION_NONE
+@@ -1895,6 +1975,7 @@ impl<'a, State> FilePageWriter<'a, State> {
+                 compression: manifest.compression,
+                 compression_frame_id,
+                 compression_frame_digest: manifest.compression_frame_digest,
++                indexed_raw: None,
+                 segments: Vec::new(),
+             });
+             chunk_indices.push(chunk_index);
+diff --git a/rust/revault_lockbox_api/src/model/file_chunk.rs b/rust/revault_lockbox_api/src/model/file_chunk.rs
+index 1488f7b..d43377c 100644
+--- a/rust/revault_lockbox_api/src/model/file_chunk.rs
++++ b/rust/revault_lockbox_api/src/model/file_chunk.rs
+@@ -2,6 +2,15 @@ use std::sync::Arc;
+ 
+ use crate::LockboxPath;
+ 
++/// Committed location and digest of a bounded raw-frame block index. The
++/// offset is relative to the owning segment's page, not an arbitrary file
++/// address. Block digests stay out of the eagerly loaded TOC.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub(crate) struct IndexedRawFrame {
++    pub(crate) index_in_page: u64,
++    pub(crate) index_digest: [u8; 32],
++}
++
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub(crate) struct CompressionFrameSegment {
+     pub(crate) page_offset: u64,
+@@ -22,6 +31,7 @@ pub(crate) struct FileChunk {
+     pub(crate) compression: u8,
+     pub(crate) compression_frame_id: u64,
+     pub(crate) compression_frame_digest: [u8; 32],
++    pub(crate) indexed_raw: Option<IndexedRawFrame>,
+     pub(crate) segments: Vec<CompressionFrameSegment>,
+ }
+ 
+diff --git a/rust/revault_lockbox_api/src/toc/toc_codec.rs b/rust/revault_lockbox_api/src/toc/toc_codec.rs
+index 264ad51..7d06c99 100644
+--- a/rust/revault_lockbox_api/src/toc/toc_codec.rs
++++ b/rust/revault_lockbox_api/src/toc/toc_codec.rs
+@@ -2,7 +2,7 @@ use crate::compression::validate_compression_frame_lengths;
+ use crate::constants::{
+     DEFAULT_DIRECTORY_PERMISSIONS, DEFAULT_FILE_PERMISSIONS, DEFAULT_SYMLINK_PERMISSIONS,
+ };
+-use crate::file_chunk::{CompressionFrameSegment, FileChunk};
++use crate::file_chunk::{CompressionFrameSegment, FileChunk, IndexedRawFrame};
+ use crate::node_kind::NodeKind;
+ use crate::security::validate_permissions;
+ use crate::toc_entry::TocEntry;
+@@ -13,6 +13,10 @@ const ENTRY_FLAG_DELETED: u8 = 0x01;
+ const ENTRY_FLAG_SYMLINK: u8 = 0x02;
+ const ENTRY_FLAG_CUSTOM_PERMISSIONS: u8 = 0x04;
+ const ENTRY_FLAG_DIRECTORY: u8 = 0x08;
++// An extended compression descriptor, not a new compression algorithm.
++// Old descriptors keep their exact byte representation. Older readers reject
++// this flag because their descriptor field is restricted to u8.
++const FRAME_INDEXED_RAW: u64 = 0x100;
+ 
+ #[cfg(test)]
+ pub(crate) fn encode_toc(
+@@ -325,7 +329,7 @@ impl<'a> TocDecoder<'a> {
+                 let descriptor = descriptors
+                     .get(descriptor_index)
+                     .ok_or(Error::CorruptRecord)?;
+-                chunks.push(FileChunk {
++                let chunk = FileChunk {
+                     stored_path,
+                     file_offset,
+                     len: chunk_len,
+@@ -335,8 +339,13 @@ impl<'a> TocDecoder<'a> {
+                     compression: descriptor.compression,
+                     compression_frame_id: descriptor.compression_frame_id,
+                     compression_frame_digest: descriptor.compression_frame_digest,
++                    indexed_raw: descriptor.indexed_raw.clone(),
+                     segments: descriptor.segments.clone(),
+-                });
++                };
++                if chunk.indexed_raw.is_some() {
++                    crate::file_format::indexed_frame::indexed_location(&chunk)?;
++                }
++                chunks.push(chunk);
+             }
+             match node_kind {
+                 NodeKind::Symlink
+@@ -441,6 +450,7 @@ struct FrameDescriptor {
+     compression_frame_len: u64,
+     compressed_len: u64,
+     compression_frame_digest: [u8; 32],
++    indexed_raw: Option<IndexedRawFrame>,
+     segments: Vec<CompressionFrameSegment>,
+ }
+ 
+@@ -452,6 +462,7 @@ impl FrameDescriptor {
+             compression_frame_len: chunk.compression_frame_len,
+             compressed_len: chunk.compressed_len,
+             compression_frame_digest: chunk.compression_frame_digest,
++            indexed_raw: chunk.indexed_raw.clone(),
+             segments: chunk.segments.clone(),
+         }
+     }
+@@ -462,6 +473,7 @@ impl FrameDescriptor {
+             && self.compression_frame_len == chunk.compression_frame_len
+             && self.compressed_len == chunk.compressed_len
+             && self.compression_frame_digest == chunk.compression_frame_digest
++            && self.indexed_raw == chunk.indexed_raw
+             && self.segments == chunk.segments
+     }
+ }
+@@ -486,10 +498,22 @@ fn frame_descriptor_index(descriptors: &[FrameDescriptor], chunk: &FileChunk) ->
+ 
+ fn encode_frame_descriptor(descriptor: &FrameDescriptor, out: &mut Vec<u8>) {
+     put_varint(descriptor.compression_frame_id, out);
+-    put_varint(descriptor.compression as u64, out);
++    put_varint(
++        descriptor.compression as u64
++            | if descriptor.indexed_raw.is_some() {
++                FRAME_INDEXED_RAW
++            } else {
++                0
++            },
++        out,
++    );
+     put_varint(descriptor.compression_frame_len, out);
+     put_varint(descriptor.compressed_len, out);
+     out.extend_from_slice(&descriptor.compression_frame_digest);
++    if let Some(index) = &descriptor.indexed_raw {
++        put_varint(index.index_in_page, out);
++        out.extend_from_slice(&index.index_digest);
++    }
+     put_varint(descriptor.segments.len() as u64, out);
+     for segment in &descriptor.segments {
+         put_varint(segment.page_offset, out);
+@@ -502,8 +526,11 @@ fn encode_frame_descriptor(descriptor: &FrameDescriptor, out: &mut Vec<u8>) {
+ 
+ fn decode_frame_descriptor(payload: &[u8], offset: &mut usize) -> Result<FrameDescriptor> {
+     let compression_frame_id = take_varint(payload, offset)?;
+-    let compression =
+-        u8::try_from(take_varint(payload, offset)?).map_err(|_| Error::CorruptRecord)?;
++    let flags = take_varint(payload, offset)?;
++    if flags & !(FRAME_INDEXED_RAW | 0xff) != 0 {
++        return Err(Error::CorruptRecord);
++    }
++    let compression = (flags & 0xff) as u8;
+     let compression_frame_len = take_varint(payload, offset)?;
+     let compressed_len = take_varint(payload, offset)?;
+     validate_compression_frame_lengths(compression_frame_len, compressed_len)?;
+@@ -513,6 +540,19 @@ fn decode_frame_descriptor(payload: &[u8], offset: &mut usize) -> Result<FrameDe
+     let mut compression_frame_digest = [0u8; 32];
+     compression_frame_digest.copy_from_slice(&payload[*offset..*offset + 32]);
+     *offset += 32;
++    let indexed_raw = if flags & FRAME_INDEXED_RAW != 0 {
++        let index_in_page = take_varint(payload, offset)?;
++        let end = offset.checked_add(32).ok_or(Error::CorruptRecord)?;
++        let digest = payload.get(*offset..end).ok_or(Error::CorruptRecord)?;
++        let index_digest = digest.try_into().map_err(|_| Error::CorruptRecord)?;
++        *offset = end;
++        Some(IndexedRawFrame {
++            index_in_page,
++            index_digest,
++        })
++    } else {
++        None
++    };
+     let segment_count =
+         usize::try_from(take_varint(payload, offset)?).map_err(|_| Error::CorruptRecord)?;
+     if segment_count > payload.len().saturating_sub(*offset) {
+@@ -545,16 +585,28 @@ fn decode_frame_descriptor(payload: &[u8], offset: &mut usize) -> Result<FrameDe
+         compression_frame_len,
+         compressed_len,
+         compression_frame_digest,
++        indexed_raw,
+         segments,
+     })
+ }
+ 
+ fn encoded_descriptor_len(descriptor: &FrameDescriptor) -> usize {
+     varint_len(descriptor.compression_frame_id)
+-        + varint_len(descriptor.compression as u64)
++        + varint_len(
++            descriptor.compression as u64
++                | if descriptor.indexed_raw.is_some() {
++                    FRAME_INDEXED_RAW
++                } else {
++                    0
++                },
++        )
+         + varint_len(descriptor.compression_frame_len)
+         + varint_len(descriptor.compressed_len)
+         + 32
++        + descriptor
++            .indexed_raw
++            .as_ref()
++            .map_or(0, |index| varint_len(index.index_in_page) + 32)
+         + varint_len(descriptor.segments.len() as u64)
+         + descriptor
+             .segments
+@@ -892,6 +944,7 @@ mod tests {
+             compression: 1,
+             compression_frame_id: 7,
+             compression_frame_digest: [9; 32],
++            indexed_raw: None,
+             segments: vec![CompressionFrameSegment {
+                 page_offset: 4096,
+                 page_len: 4096,
+@@ -901,4 +954,48 @@ mod tests {
+             }],
+         }
+     }
++
++    #[test]
++    fn indexed_descriptors_roundtrip_and_bind_extent_and_commitment() {
++        let mut chunk = shared_frame_chunk(0);
++        chunk.compression = 0;
++        chunk.compressed_len = chunk.compression_frame_len;
++        chunk.segments[0].segment_len = chunk.compressed_len;
++        chunk.indexed_raw = Some(IndexedRawFrame {
++            index_in_page: 256,
++            index_digest: [71; 32],
++        });
++        let mut second = chunk.clone();
++        second.indexed_raw.as_mut().unwrap().index_digest[0] ^= 1;
++        let mut third = chunk.clone();
++        third.indexed_raw.as_mut().unwrap().index_in_page += 16;
++        let entry = TocEntry {
++            path: chunk.stored_path.clone(),
++            len: 384,
++            record_offset: 4096,
++            record_len: 4096,
++            record_object_id: 10,
++            deleted: false,
++            node_kind: NodeKind::File,
++            permissions: DEFAULT_FILE_PERMISSIONS,
++            chunks: vec![chunk, second, third],
++        };
++        let encoder = TocEncoder::new([&entry]);
++        assert_eq!(encoder.descriptors.len(), 3);
++        let encoded = encoder.encode();
++        assert_eq!(encoder.encoded_len(), encoded.len());
++        let decoded = decode_toc_entries(&encoded).unwrap();
++        assert_eq!(decoded[0].chunks, entry.chunks);
++        for end in 0..encoded.len() {
++            assert!(decode_toc_entries(&encoded[..end]).is_err());
++        }
++        for bad_offset in [0, 95, 4000, u64::MAX] {
++            let mut bad = entry.clone();
++            bad.chunks[0].indexed_raw.as_mut().unwrap().index_in_page = bad_offset;
++            assert!(decode_toc_entries(&TocEncoder::new([&bad]).encode()).is_err());
++        }
++        let mut bad = entry;
++        bad.chunks[0].compression = 1;
++        assert!(decode_toc_entries(&TocEncoder::new([&bad]).encode()).is_err());
++    }
+ }

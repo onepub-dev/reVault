@@ -1,0 +1,8 @@
+{
+  "retained": false,
+  "failed_gate": "compressed Interactive median RSS 1.0143882008737124 > .95; compressed Bulk maximum RSS 1.066077619007356 > 1.05",
+  "runtime_restored_to": "574ebafc6687278f6ecdfef9c2abc7c1fe8ef8a9",
+  "runtime_and_bindings_diff_empty": true,
+  "additional_tests_or_wasm_build": false,
+  "remaining_usage_percent": 61
+}

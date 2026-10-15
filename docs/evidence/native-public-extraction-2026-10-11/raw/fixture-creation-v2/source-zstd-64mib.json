@@ -1,0 +1,22 @@
+{
+  "case": "source-zstd-64mib",
+  "actual_candidate_codec_census": {
+    "encoded_bytes": 13675264,
+    "logical_bytes": 67108864,
+    "raw_chunks": 0,
+    "zstd_chunks": 1024
+  },
+  "candidate_tree_sha256": "f54a57b4c57ec2de4d324f0eef4285aba619e8abe67357fa362c33647a668a77",
+  "candidate_public_sha256": "3803dc511727ee040d3dfec85c81d7ee30eaab433e566c0e2e90e27965294941",
+  "A_archive_sha256": "bbf301fa245c06bdddf073a5f334e64dff21637b66b6c664ace236feb9e6a000",
+  "B_archive_sha256": "0d5018fe6ab5657971f43668e97c98d254216648a70f01dda550c00484401c31",
+  "ZIP_archive_sha256": "3498c1486fcd0147610e6252ed624e6af0b37e5619acaef1d9e9185bacc17aaa",
+  "archive_sizes": {
+    "A": 11769216,
+    "B": 11819392,
+    "C": 14811136,
+    "ZIP": 11344003
+  },
+  "source_hashes_identical": true,
+  "verified": true
+}

@@ -1,0 +1,23 @@
+{
+  "focused_test_executions": 51,
+  "overlapping_filters": true,
+  "full_suite_rerun": false,
+  "native_build": "passed",
+  "wasm_build_generated_artifacts": "passed",
+  "dart_analyzer_and_lifecycle": "passed",
+  "javascript_lifecycle": "passed corrected harness; original full failure stderr overwritten",
+  "portable_wasm_setter_and_password_lifecycle": "passed; no cache-stat accessor",
+  "c_cxx_syntax_python_syntax_java22_compile": "passed",
+  "binding_checker": "same39-name baseline mismatch; later gates not reached",
+  "unavailable_runtime_validation": [
+    "Go",
+    "C#",
+    "PHP",
+    "Ruby",
+    "Lua",
+    "Swift"
+  ],
+  "gradle": "7.6 plugin API mismatch; direct javac passed",
+  "source_snapshot": "pre-format, final tracked Rust formatting hook applies later",
+  "source_files": 54
+}

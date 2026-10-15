@@ -1,0 +1,60 @@
+{
+  "exit_code": 0,
+  "success": true,
+  "sample": {
+    "access": "stream",
+    "backend": "lockbox",
+    "baseline_peak_rss_kib": 6188,
+    "candidate_scope": "file-read component with explicit keys; no full-format, write or CLI RSS qualification",
+    "candidate_test_executable_sha256": "c3d55a2c59453263e348f986414e784fe03396a8c025f20358742399d89df868",
+    "extent_unit": 65536,
+    "first_byte_seconds": 0.00074844,
+    "kind": "sample",
+    "layout": "shared-control-typed-tree",
+    "logical_bytes_read": 1073741824,
+    "open_resources": {
+      "cpu_seconds": 0.0004600000000000001,
+      "major_faults": 0,
+      "system_seconds": 0.0,
+      "user_seconds": 0.0004600000000000001
+    },
+    "open_seconds": 0.000459326,
+    "passes": 1,
+    "peak_rss_kib": 10156,
+    "probe_overhead_seconds": 0.0000011100000000263677,
+    "read_resources": {
+      "cpu_seconds": 0.653032,
+      "major_faults": 0,
+      "system_seconds": 0.068025,
+      "user_seconds": 0.5850069999999999
+    },
+    "read_seconds": 0.65312233,
+    "resources": {
+      "cpu_seconds": 0.653492,
+      "major_faults": 0,
+      "system_seconds": 0.068025,
+      "user_seconds": 0.585467
+    },
+    "total_seconds": 0.653582766,
+    "verified": true
+  },
+  "source_inventory_after": {
+    "inventory_sha256": "de96aec9691a38fb23dc9b565a1e03a197ad579a7d46863810c502164aa47b06",
+    "file_count": "1",
+    "aggregate_manifest_sha256": "cb4133c072d9731c1adf4df31b5da4762af25eeb0de5de13ffbd806337be0ec2"
+  },
+  "archive_zip_sha256_after": "f6d5258ad27006cde6bd8dcf3000c49905056cb1edcf9456421bc082b6489ab0",
+  "candidate_sha256_after": "c3d55a2c59453263e348f986414e784fe03396a8c025f20358742399d89df868",
+  "source_stable": true,
+  "archive_stable": true,
+  "candidate_stable": true,
+  "owned_output_files_and_bytes": {
+    "raw-random-1gib/tree.lbox": 1083703296,
+    "raw-random-1gib/tree.public": 2000
+  },
+  "owned_output_files_total_bytes": 1083705296,
+  "apparent_logical_artifact_bytes_below_old_root": 6289871752,
+  "owned_output_cap_bytes": 21474836480,
+  "remaining_owned_output_cap_bytes": 15184964728,
+  "log": "/tmp/revault-scale-20261010/raw-random-1gib/tree-sample-2026-10-10T103322391801Z.log"
+}

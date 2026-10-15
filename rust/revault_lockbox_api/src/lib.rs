@@ -47,11 +47,11 @@ mod error;
 pub mod external_source;
 mod fast_hash;
 mod file_format;
-mod index;
 mod keys;
 mod lockbox;
 mod model;
 mod paths;
+#[cfg(test)]
 mod scan;
 mod security;
 mod storage;
@@ -71,10 +71,12 @@ pub(crate) use file_format::{
     payload,
 };
 pub(crate) use keys::{crypto, key_derivation, key_slot, key_wrap, secret_vec, signing};
+#[cfg(test)]
+pub(crate) use model::record;
 pub(crate) use model::{
     compression_frame_manifest, entry, extract_policy, file_chunk, form, list_options, lockbox_id,
-    node_kind, page_object_packer, record, recovery_report, recovery_report_options,
-    transaction_recovery, variable_name, variable_sensitivity,
+    node_kind, page_object_packer, recovery_report, recovery_report_options, transaction_recovery,
+    variable_name, variable_sensitivity,
 };
 pub(crate) use paths::{host_path, lockbox_glob, lockbox_path};
 pub(crate) use storage::{cache_options, file_lock, free_index, free_slot, page_cache};
@@ -85,7 +87,7 @@ pub(crate) use toc::{
 pub use cache_options::{CacheLimit, CacheStats, LockboxOptions, WorkerPolicy, WorkloadProfile};
 pub use creation_options::{
     Compression, Encryption, EncryptionMode, LockboxCreateOptions, LockboxFormatOptions, Signing,
-    SigningMode, ZstdLevel,
+    SigningMode, SizePadding, ZstdLevel,
 };
 pub use entry::{LockboxEntry, LockboxEntryKind};
 pub use error::{ArtifactKind, Error, Result};
@@ -100,6 +102,9 @@ pub use form::{
 pub use key_slot::{
     LockboxKeySlot, LockboxKeySlotAlgorithm, LockboxKeySlotProtection, MAX_KEY_SLOT_NAME_BYTES,
 };
+mod password_work;
+pub use password_work::{PasswordWorkBudget, DEFAULT_PASSWORD_SLOT_BUDGET};
+
 pub use key_wrap::{ContactKeyPair, ContactPublicKey, ContactWrappedKey};
 pub use list_options::ListOptions;
 #[cfg(feature = "test-support")]

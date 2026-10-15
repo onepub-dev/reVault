@@ -1,0 +1,24 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const e='/home/bsutton/.cache/revault-protected-20261011-evidence';
+const rust='/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust';
+String hash(String p){final r=Process.runSync('sha256sum',[p]);if(r.exitCode!=0)throw StateError('hash failed:$p');return '${r.stdout}'.split(' ').first;}
+void main(){
+ final before=jsonDecode(File('$e/balanced-buffered-batch/identity-before.json').readAsStringSync()) as Map;
+ final original=before['source_hashes'] as Map;
+ final actual={for(final path in original.keys)path:hash('$rust/$path')};
+ final changed=[for(final path in original.keys)if(original[path]!=actual[path])path];
+ final inputs=<Map<String,dynamic>>[];
+ final cases=jsonDecode(File('$e/cases.json').readAsStringSync()) as List;
+ for(final c in cases){final root=c['root'] as String;final inventory=jsonDecode(File('$root/inventory.json').readAsStringSync()) as List;
+ final source=[for(final row in inventory){'path':row['path'],'bytes':File('$root/source/${row['path']}').lengthSync(),'sha256':hash('$root/source/${row['path']}'),'expected_sha256':row['sha256']}];
+ final identities={for(final path in ['case.json','inventory.json','archive.zip','tree.lbox','tree.public'])path:hash('$root/$path')};
+ inputs.add({'case':c['name'],'identities':identities,'source_files':source,'source_matches_inventory':source.every((r)=>r['sha256']==r['expected_sha256'])});}
+ final bins={for(final key in ['tree_test_executable','zip_runner_executable'])key:{'path':before[key],'exists':File(before[key] as String).existsSync(),'expected_sha256':before['${key}_sha256']}};
+ final result={'captured_utc':DateTime.now().toUtc().toIso8601String(),'original_before_identity_sha256':hash('$e/balanced-buffered-batch/identity-before.json'),'source_hashes':actual,'changed_native_sources':changed,'native_sources_stable':changed.isEmpty,'runner_sha256':hash('$e/run.dart'),'runner_matches_before':hash('$e/run.dart')==before['runner_sha256'],'protocol_sha256':hash('$e/protocol.json'),'calibration_sha256':hash('$e/physical-read-calibration.json'),'binaries':bins,'cases':inputs,'worktree_status':'${Process.runSync('git',['status','--short'],workingDirectory:rust).stdout}','boundary':'This is a transparent post-interruption source/input audit, not a successful full-batch final executable identity. Last successful sample in each completed case retained its before/after binary hashes. Missing executable stop remains failure.'};
+ File('$e/interruption-audit.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(result),flush:true);
+ if(changed.isNotEmpty||result['runner_matches_before']!=true||inputs.any((c)=>c['source_matches_inventory']!=true))throw StateError('Interruption source identity failed');
+ print(green('Audited stable native source, runner and all10fixtures; missing binaries explicitly recorded.'));
+}

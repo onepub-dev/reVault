@@ -1,0 +1,30 @@
+Native command: cargo build --release --locked -p revault_bindings
+WASM command: cargo build --release --locked -p revault_wasm_bindings --target wasm32-unknown-unknown
+Generator: wasm-bindgen 0.2.128 --target nodejs; copied JS output to tracked .cjs name per package contract
+rustc 1.88.0 (6b00bc388 2025-06-23)
+wasm-bindgen 0.2.128
+
+Source hashes:
+c2f9e9ce9b8fe9ea54c6781ce39d696ae88d7972d886342d03299cff60ce6dd8  rust/Cargo.lock
+28f46f7a64ed0eb9e13abf0a5596385c16e6773f2d505f4ae385f697cb4aacc6  rust/Cargo.toml
+153202072e59a7e8eb87d90c23f0e454292f17e33a3a84d6b4bc51f9ab850bbe  rust/revault_bindings/src/lib.rs
+81aafca5f787c46a17fadf5ed483c9629703947af9fd550f5eb2f3d65990bec6  rust/revault_bindings/revault_api.h
+c85c5f1096942f7fc6034c5c02e2ff31191527c21ad9b248b0379b1337946fc5  rust/revault_wasm_bindings/src/lib.rs
+2ee4609b301e84ec38d214d6dd87cf4e013f5b6ab186ae978a5f72d726f45dc8  rust/revault_wasm_bindings/operations.tsv
+3215b74be78844b43358a7b676b50f4591345aca1e6c581073ba188ebc56a3e5  rust/revault_lockbox_api/src/storage/page_cache.rs
+4f42c38cf68cfbbe3e965cd5b817fef3ab016a08371cd30edc276eebb6529175  rust/revault_lockbox_api/src/lockbox.rs
+87f71b94c0dc4b05e49ef8e1b28e9e5c172f38967614ef021cc03226a22f6bfb  bindings/dart/lib/src/revault_native.dart
+f48f2804fa8c1f96c10701e40758927ee251e2291e7d62669b2a855b51a32eeb  bindings/dart/lib/src/binding_operations.dart
+174003eb4b004750ae4755188e573db260256db2d2693ea9c7196f108bbfba72  bindings/dart/lib/src/lockbox.dart
+47b00bc736a9151feef651cec0514cf7ab875272a1ca19e458219b2580ad0d06  bindings/javascript/native.js
+81e0a3ec4b69bf3f03627ece043406b65435ac4d5b549e4300eaa708795ba9d5  bindings/javascript/index.js
+d551c8b38cb2b5f46ad76600aea2b8ff19fe9a56e25c99308ddfddeb0dcac524  bindings/java/src/com/onepub/revault/BindingOperations.java
+aa9d18a12296c8822be289c889851154e391006f57a80804e6a14febf296e714  bindings/java/src/com/onepub/revault/RevaultNativeApi.java
+
+Built/generated artifact hashes:
+ef44d1d0c960db6574fc6e086c918847e0241e4cf757dae0ccb348ee48cf26fa  rust/target/release/librevault_api.so
+20a3ecc58a2bdd66428d27d4ce6f2734a2862ffe861803a740f9f61e3cd3e3a7  rust/target/wasm32-unknown-unknown/release/revault_wasm_bindings.wasm
+cde13d011aa0ff040e541ef5b2ac467efadb79eecd49c8b2871b3ac004349694  bindings/wasm/generated/revault_wasm_bindings.cjs
+0662dc7c435bd6cb63ad3a33f9f8dc986ad9fdc54705a8928f955138edc6156b  bindings/wasm/generated/revault_wasm_bindings.d.ts
+df0fbe9459599d093e4eed502f89ef8e4db9c893b35fa0e450f7174d151fdbdc  bindings/wasm/generated/revault_wasm_bindings_bg.wasm
+7e0b3f32a4de0794a23eddb9f843d8e19b7a7b61f85f32760b2234194c24ed58  bindings/wasm/generated/revault_wasm_bindings_bg.wasm.d.ts

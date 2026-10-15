@@ -1,0 +1,8 @@
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe has been running for over 60 seconds
+CANDIDATE_SAMPLE {"backend":"typed-tree","configured_cpu_workers":4,"directory_syncs":2,"durability":"sync_all each file, output directory and its parent; included in timer","file_syncs":10000,"files":10000,"kind":"filesystem_extraction","logical_bytes_written":655360000,"max_queued_chunks":32,"mib_per_second":9.457408872229543,"open_seconds":0.002043758,"parallel_min_requested_bytes":131072,"resources":{"cpu":{"cpu_seconds":7.796984999999999,"major_faults":0,"system_seconds":6.788677,"user_seconds":1.008308},"peak_rss_kib":10248},"scope":"synthetic regular-file component; excludes CLI startup and permission restoration","single_chunk_serial_fallback":true,"storage_io":{"cancelled_write_bytes":0,"read_bytes":677986304,"source":"/proc/self/io; process-accounted storage I/O, not logical bytes","write_bytes":1318617088},"total_seconds":66.085754401,"verified":true,"worker_threads":4}
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 678 filtered out; finished in 73.17s
+

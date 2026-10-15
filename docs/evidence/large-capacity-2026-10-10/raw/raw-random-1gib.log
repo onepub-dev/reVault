@@ -1,0 +1,49 @@
+
+thread 'main' panicked at revault_lockbox_api/benches/evaluation/runner.rs:417:5:
+worker failed: 
+thread 'main' panicked at /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/benches/evaluation/candidate_driver.rs:47:5:
+candidate failed:
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... FAILED
+
+failures:
+
+failures:
+    file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 668 filtered out; finished in 5.10s
+
+
+
+thread 'file_format::candidate_files::resource_probe::candidate_file_resource_probe' panicked at revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs:87:10:
+called `Result::unwrap()` on an `Err` value: SecurityLimitExceeded("cost model: at most 4096 fragments")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+Command exited with non-zero status 101
+	Command being timed: "timeout 900 /tmp/revault-journal-buffer-20261010/bin/archive_evaluation run /home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib 1 1073741824 random raw plain 1 stream 1 default /tmp/revault-journal-buffer-20261010/bin/adapter_after /tmp/revault-journal-buffer-20261010/bin/adapter_after"
+	User time (seconds): 10.35
+	System time (seconds): 5.45
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:15.90
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 20196
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 4311
+	Voluntary context switches: 3503
+	Involuntary context switches: 204
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 6319520
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 101

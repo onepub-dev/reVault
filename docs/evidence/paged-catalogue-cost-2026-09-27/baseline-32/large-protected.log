@@ -1,0 +1,7 @@
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... CANDIDATE_SAMPLE {"authenticated_owner_or_mac_bytes":5379,"candidate_scope":"file-only shared private packs; no public record/access integration","candidate_test_executable_sha256":"501ec0baad29607bcdf6ce86eef23e10f708ddd460b2421b69b1b6f87f0f51ec","embedded_root_capacity":2016,"embedded_root_start":6144,"extent_unit":262144,"file_adapter_version":2,"file_leaf_pages":1,"flat_catalogue_encoded_bytes":1456,"frame_roundtrips_verified":true,"initial_root_required_bytes":233,"inline_geometry_fits":true,"kind":"paged_catalogue_cost_model","largest_edited_root_required_bytes":242,"largest_staged_leaf_bytes_per_bank":1536,"layout":"candidate-262144","leaf_pages":2,"live_leaf_bytes_per_bank":1792,"max_leaf_decoded_bytes":16384,"max_records_per_leaf":32,"metadata_allocation_quantum":256,"pack_leaf_pages":1,"payload_allocation_bytes":65536,"peak_leaf_bytes_per_bank":3328,"private_pool_bytes_per_bank":49152,"private_pool_headroom_bytes":45824,"projected_fresh_and_single_edit_bytes":196608,"publication_auth_end":5699,"publication_auth_fits_before_root":true,"scope":"one-level file-only cost model; tests one permission change in every leaf, not arbitrary updates or a persisted format","source_unchanged":true}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 513 filtered out; finished in 0.04s
+

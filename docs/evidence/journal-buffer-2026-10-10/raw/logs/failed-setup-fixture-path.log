@@ -1,0 +1,5 @@
+Command: env PATH="/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin:$PATH" CI=true ./run-fixed-batch.dart
+Result: exited before creating the measurement directory or starting any comparison sample.
+Error: Bad state: Missing required unique fixture path other/source/file-000000.bin in small512-mixed-compressed
+Cause: the original fixture inventory enumerated root/source but did not separately enumerate the symlinked other/source tree.
+Excluded from timing. The runner now inventories both trees under distinct relative paths.

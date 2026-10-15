@@ -1,0 +1,35 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const repo='/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance';
+const evidence='/home/bsutton/.cache/revault-protected-20261011-evidence';
+String run(String exe,List<String> args,{String? cwd}) {final r=Process.runSync(exe,args,workingDirectory:cwd);if(r.exitCode!=0)throw StateError('$exe: ${r.stderr}');return r.stdout as String;}
+String sha(String path)=>run('sha256sum',[path]).split(' ').first;
+void main(){
+ final identity=jsonDecode(File('/tmp/revault-parallel-20261010/balanced-buffered-batch/identity-after.json').readAsStringSync()) as Map<String,dynamic>;
+ final root='$evidence/provenance-reconstruction';
+ if(Directory(root).existsSync())throw StateError('Refuse existing reconstruction');
+ Directory(root).createSync();
+ final archive=Process.runSync('git',['archive',identity['source_revision'] as String,'rust'],workingDirectory:repo,stdoutEncoding:null);
+ if(archive.exitCode!=0)throw StateError('git archive failed');
+ final tar='$evidence/provenance-source.tar';File(tar).writeAsBytesSync(archive.stdout as List<int>);
+ run('tar',['-xf',tar,'-C',root]);
+ final raw='$repo/docs/evidence/cold-parallel-extraction-2026-10-10/raw';
+ run('git',['apply','$raw/source.patch'],cwd:root);
+ final restores={
+ 'reader-parallel.rs.txt':'file_format/candidate_files/tree_image/reader/parallel.rs',
+ 'tests-parallel.rs.txt':'file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs',
+ 'benchmark-observation.rs.txt':'benchmark_observation.rs'};
+ for(final e in restores.entries){final target=File('$root/rust/revault_lockbox_api/src/${e.value}');target.parent.createSync(recursive:true);File('$raw/source/${e.key}').copySync(target.path);}
+ final differences=<String>[];final mismatches=<String>[];
+ final hashes=identity['source_hashes'] as Map<String,dynamic>;
+ for(final e in hashes.entries){final original='$root/rust/${e.key}';if(sha(original)!=e.value)throw StateError('Reconstructed hash mismatch:${e.key}');final current='$repo/rust/${e.key}';if(sha(current)!=e.value){differences.add(e.key);if(File(original).readAsStringSync().replaceAll(RegExp(r'\s+'),'')!=File(current).readAsStringSync().replaceAll(RegExp(r'\s+'),''))mismatches.add(e.key);}}
+ final binaries=<String,Object>{};for(final pair in [['tree_test_executable','tree_test_executable_sha256'],['zip_runner_executable','zip_runner_executable_sha256']]){final path=identity[pair[0]] as String;final actual=sha(path);if(actual!=identity[pair[1]])throw StateError('Binary mismatch:$path');binaries[path]=actual;}
+ final report={'base_revision':identity['source_revision'],'current_revision':run('git',['rev-parse','HEAD'],cwd:repo).trim(),'verified_source_files':hashes.length,'differing_files':differences,'not_whitespace_only':mismatches,'binaries':binaries,'method':'Reconstruct exact source from retained base+patch+new modules; require every recorded SHA256; compare current bytes after whitespace removal. Raw diff retained for manual review.'};
+ File('$evidence/provenance-review.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(report));
+ // The checkout contains build links and unrelated files; restrict manual diff to changed recorded source.
+ final out=StringBuffer();for(final file in differences){final d=Process.runSync('diff',['-u','$root/rust/$file','$repo/rust/$file']);out.write(d.stdout);}
+ File('$evidence/provenance-formatting.diff').writeAsStringSync(out.toString());
+ print(jsonEncode(report));if(mismatches.isNotEmpty)throw StateError('Non-whitespace source delta requires review');
+}

@@ -1,0 +1,7 @@
+workspace::tests::arena_layout_accepts_every_start_alignment: test
+workspace::tests::caller_owned_reusable_vec_survives_lease_recovery_and_drops_values: test
+workspace::tests::owned_reusable_vec_returns_its_allocation_after_lease_recovery: test
+workspace::tests::scalar_layout_transfer_preserves_storage_ownership_and_contents: test
+workspace::tests::transferred_workspace_facade_preserves_borrowed_identity_on_early_return: test
+
+5 tests, 0 benchmarks

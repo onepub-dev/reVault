@@ -1,0 +1,4 @@
+Captured 2026-10-02 16:21:40 UTC before final-source paired batch.
+Command `uptime` output: 02:22:10 up 20 days, 14:17, 1 user, load average: 1.67, 1.90, 1.90
+Filtered process scan: lbx __agent was the only non-scan matching process; no Cargo, rustc, candidate-driver, shared runner, or HMB workload.
+Frozen hashes: fse resource 17b9f7143f566012a82e2dd75454b63f601613384d6c71b33c096f0985578e26; fse driver 41a94e672015ffa3d8a27c9e2cf00f3f908a8f67133c73e3f25839e177c57ee9; final resource 2441740f3a35d34f3d6a9a36bc8af48268a9af7c08f61bd15c4d7c334da6423a; final driver becd79078211df14aca78ab467dc02186906b884901709a9d7d4d01e66467b13; common runner b404f4bb15ac98eba941831a9d2e063d339eefc0e16ae0073bfca827179bf4fc.

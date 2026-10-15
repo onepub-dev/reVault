@@ -1,0 +1,69 @@
+Issue #310: encrypted compressed write diagnostics
+Production source f4b1d91; preceding evidence checkpoint 8dc9f85.
+No production changes. Native remains opt-in and its write gate still fails.
+Default protection_gate SHA256:
+0e150f89ab8717e8d4e69144840ec6562746b84fb026832c9ff8190697e94a41
+Native protection_gate SHA256:
+791178ff9a9de09314f4fe6cc4bdaff89c54d0c0fb8fdbf066866ed8f6c019a3
+
+Each layout ran 500 encrypted-only compressed 8 MiB pattern writes with default
+padding and independent persisted byte comparison after every write. Synthetic
+keys, no password KDF. CPU 2, warm OS caches, no owned build/test overlap.
+The two profiles ran sequentially, not paired: their elapsed times and stage
+medians are diagnostic, not a new comparative performance estimate.
+Command per layout (BIN is the matching protection_gate binary):
+TMPDIR=$PWD/target/issue310-sign-tmp REVAULT_GATE_CASE=encrypted/true/write \
+REVAULT_GATE_WRITE_PROFILE=1 perf record -F 499 -e cycles:u \
+--call-graph dwarf,8192 -o target/issue310-encrypted-profile-LAYOUT.data \
+-- taskset -c 2 BIN write ROOT 8388608 pattern 500
+Stdout is the matching CSV; stderr is the stages TXT. Both runs exited zero.
+Perf reports include setup, verification reads and destruction, not only the
+timed write. No lost samples were reported. Raw perf data remains local under
+target; text reports and complete stage observations are retained here.
+
+Stage summary excludes sample 0 and uses the median of 499 observations per
+layout. add_minus_prepare_us is calculated per observation before taking its
+median. Counters overlap; do not add their medians into a synthetic total.
+Native add median 8036.888 us vs default 4465.835 us; prepare 4082.591 vs
+3796.675 us. Native page_write median 2249.742 us vs default 22.130 us, but these
+measure different work: write_prepared_native_frame encodes and immediately
+flushes a native page; the legacy path stages segments for later encoding.
+Commit medians are native 7793.125 us and default 8886.981 us. Comparing add or
+page_write alone is not a layout performance comparison. host_read is zero
+because both use the retained direct slice input path.
+
+Native zeroize_bytes accounts for 8.17% self samples across the entire process.
+Caller breakdown includes 4.26% through read-only PageCache destruction,
+2.12% through prepared-frame writing, and 1.23% through range reading.
+Thus a substantial part of the observed wiping belongs to verification.
+Earlier encrypted-signed profiles use a different workload; do not claim a
+same-workload before/after improvement from these percentages.
+
+Separate strace -c runs each completed 20 writes and persisted comparisons:
+TMPDIR=$PWD/target/issue310-sign-tmp REVAULT_GATE_CASE=encrypted/true/write \
+strace -c -o target/issue310-encrypted-syscalls-LAYOUT.txt \
+BIN write ROOT 8388608 pattern 20
+These runs were not CPU pinned and tracing overhead distorts elapsed time.
+Both layouts made 200 fdatasync and 20 fsync calls. Native/default totals:
+statx 1782/1102, pread64 982/702, write 221/161, pwrite64 160/160,
+lseek 382/322, mprotect 1838/1398, brk 158/22. Counts include setup and
+verification; do not attribute their differences solely to writes.
+Equal sync counts do not rule out differing sync latency or placement, but
+provide no evidence for an extra-sync-per-native-frame explanation.
+
+Code inspection: begin_preparation returns once preparation is active;
+flush_discardable_pages therefore does not republish preparation on every
+frame. FileStore append/write_at do not individually call sync. The native
+page_write counter includes encoding, allocation, staging, preparation and
+flushing, so it cannot isolate the remaining source of overhead.
+Next useful measurement: split native encoding/allocation/flush diagnostics
+within the write path, or obtain write-only allocation/syscall attribution,
+before altering flush publication or recovery behavior. Retain transaction,
+authentication and source validation semantics. The rejected preparation
+batching experiment is not evidence that changing flush frequency is safe.
+
+No correctness suite rerun is claimed for this evidence-only checkpoint.
+Current source validation and the two known native recovery failures are
+recorded in the preceding f4b1d91/layout-gate notes. Broad ZIP read parity,
+protected write gates, cold I/O, CLI lifecycles, signed recovery and release
+requirements remain open.

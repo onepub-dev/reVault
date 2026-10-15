@@ -1,0 +1,96 @@
+   Compiling libc v0.2.186
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.45
+   Compiling zerocopy v0.8.49
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling serde_core v1.0.228
+   Compiling crossbeam-utils v0.8.21
+   Compiling pkg-config v0.3.33
+   Compiling zmij v1.0.21
+   Compiling serde v1.0.228
+   Compiling either v1.16.0
+   Compiling serde_json v1.0.150
+   Compiling memchr v2.8.1
+   Compiling zstd-safe v7.2.4
+   Compiling regex-syntax v0.8.10
+   Compiling itertools v0.10.5
+   Compiling clap_builder v4.6.0
+   Compiling once_cell v1.21.4
+   Compiling twox-hash v2.1.2
+   Compiling crossbeam-epoch v0.9.18
+   Compiling syn v2.0.117
+   Compiling crossbeam-deque v0.8.6
+   Compiling rayon-core v1.13.0
+   Compiling regex-automata v0.4.14
+   Compiling jobserver v0.1.34
+   Compiling getrandom v0.2.17
+   Compiling criterion-plot v0.5.0
+   Compiling is-terminal v0.4.17
+   Compiling cc v1.2.62
+   Compiling rand_core v0.6.4
+   Compiling rayon v1.12.0
+   Compiling clap v4.6.1
+   Compiling regex v1.12.3
+   Compiling zstd-sys v2.0.16+zstd.1.5.7
+   Compiling zerocopy-derive v0.8.49
+   Compiling serde_derive v1.0.228
+   Compiling tinytemplate v1.2.1
+   Compiling half v2.7.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling ciborium-ll v0.2.2
+   Compiling rand_chacha v0.3.1
+   Compiling ciborium v0.2.2
+   Compiling rand v0.8.6
+   Compiling criterion v0.5.1
+   Compiling zstd v0.13.3
+   Compiling zstd-complete v0.2.0 (/tmp/revault-typed-read-20261002/source/rust/vendor/zstd-complete)
+error: couldn't read `src/encoding/levels/c_port/../../../../decodecorpus_files/z000021`: No such file or directory (os error 2)
+   --> src/encoding/levels/c_port/strategy_frame_tests.rs:166:21
+    |
+166 |     let level_one = include_bytes!("../../../../decodecorpus_files/z000021");
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: couldn't read `src/encoding/levels/c_port/../../../../decodecorpus_files/z000033`: No such file or directory (os error 2)
+   --> src/encoding/levels/c_port/strategy_frame_tests.rs:167:22
+    |
+167 |     let level_five = include_bytes!("../../../../decodecorpus_files/z000033");
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: couldn't read `src/encoding/levels/c_port/../../../../decodecorpus_files/z000040`: No such file or directory (os error 2)
+   --> src/encoding/levels/c_port/strategy_frame_tests.rs:168:19
+    |
+168 |     let z000040 = include_bytes!("../../../../decodecorpus_files/z000040");
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: couldn't read `src/tests/../../decodecorpus_files/abc.txt.zst`: No such file or directory (os error 2)
+   --> src/tests/mod.rs:396:9
+    |
+396 |         include_bytes!("../../decodecorpus_files/abc.txt.zst").as_slice();
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: couldn't read `src/tests/../../decodecorpus_files/z000089.zst`: No such file or directory (os error 2)
+   --> src/tests/mod.rs:514:29
+    |
+514 |     input.extend_from_slice(include_bytes!("../../decodecorpus_files/z000089.zst"));
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: couldn't read `src/tests/../../decodecorpus_files/z000089`: No such file or directory (os error 2)
+   --> src/tests/mod.rs:515:32
+    |
+515 |     original.extend_from_slice(include_bytes!("../../decodecorpus_files/z000089"));
+    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: couldn't read `src/tests/../../decodecorpus_files/z000090.zst`: No such file or directory (os error 2)
+   --> src/tests/mod.rs:517:29
+    |
+517 |     input.extend_from_slice(include_bytes!("../../decodecorpus_files/z000090.zst"));
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: couldn't read `src/tests/../../decodecorpus_files/z000090`: No such file or directory (os error 2)
+   --> src/tests/mod.rs:518:32
+    |
+518 |     original.extend_from_slice(include_bytes!("../../decodecorpus_files/z000090"));
+    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: could not compile `zstd-complete` (lib test) due to 8 previous errors

@@ -1,0 +1,15 @@
+SecureVec arena reclamation: isolated natural-pressure profile protocol
+
+Authorization and boundaries
+Parent/root authorized isolated release builds and exactly one old/new natural-pressure profile run. This run does not start hot timing. The issue-310 worktree remains at HEAD e08a1000a54b912e7050054469f7ce899ef979d7 with only the existing arena.rs and secure_heap.rs change; no checkout source swapping, policy/limit changes, tests, formatting, or unrelated workloads.
+
+Isolation and build
+Two standalone copies of revault_page_api are created under ignored rust/target/secure-arena-reclamation-20261012/old and /new. The old copy takes arena.rs and secure_heap.rs from HEAD; the new copy takes those current working-tree files. All other crate source is copied identically. Each copy has the same explicit [workspace] resolver = "2" scaffold, copied Cargo.lock and LICENSE at the required relative location, the exact same probe example, and its own CARGO_TARGET_DIR. Both dependency trees are captured with Rust 1.88.0, --locked --offline; they must match, including getrandom, zeroize, and libc. Each release example is built once, locked/offline, with a 300-second cap and healthy TMPDIR.
+
+Natural-pressure profile
+Each variant runs once in its own fresh process, sequentially old then new, with an unchanged 8,388,608-byte soft/hard RLIMIT_MEMLOCK, weakened allocation policy false, allocation_chunk_bytes 65,536, and host page size verified as 4,096. The probe refuses to begin unless baseline VmLck is zero. It tries 64 capacities 8,192 + i*4,096, i=0..63 (maximum 266,240), across two passes, keeping one SecureVec live at a time. Each request uses a deterministic nonzero byte based on pass/index; exact length and complete scoped byte equality are checked. VmLck and VmRSS are recorded before, while live, and after drop; VmLck above the unchanged limit is fatal. Public API capacity is not exposed, so capacity is labeled source-inferred.
+
+The source-derived arena estimate is round_up(max(65,536, requested + 32 canary bytes), 4,096) per class. Across 64 classes this totals 9,416,704 bytes, above the unchanged 8 MiB memlock limit. The first estimated cumulative crossing is index 60: request 253,952 bytes, projected new backing 258,048 bytes, prior cumulative 8,359,936 bytes. These figures are estimates only; actual outcome/resource samples are recorded. The old run accepts only the exact typed Error::WeakAllocationDisabled as expected refusal; any other error fails. The new run must complete exactly 128 allocations. Each profile run is capped at 30 seconds. No retry is allowed after either run.
+
+Hot-reuse screen
+Not part of this authorized execution. No hot-reuse timing is launched here.

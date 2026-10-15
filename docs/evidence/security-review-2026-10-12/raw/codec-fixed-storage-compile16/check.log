@@ -1,0 +1,383 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+error[E0277]: the `?` operator can only be used in a function that returns `Result` or `Option` (or another type that implements `FromResidual`)
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_bitstream.rs:100:60
+    |
+77  | / pub(super) fn apply_fse_table_update_with_scratch(
+78  | |     previous: &mut Option<SharedFSETable>,
+79  | |     repeat_valid: &mut bool,
+80  | |     update: FseTableUpdate,
+81  | |     mut scratch: Option<&mut FSETableBuildScratch>,
+82  | | ) {
+    | |_- this function should return `Result` or `Option` to accept `?`
+...
+100 |                   Some(scratch) => scratch.share_table(table)?,
+    |                                                              ^ cannot use the `?` operator in a function that returns `()`
+    |
+help: consider adding return type
+    |
+82  | ) -> Result<(), Box<dyn std::error::Error>> {
+    |   +++++++++++++++++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_sections.rs:59:13
+   |
+59 |           ll: build_sequence_table(
+   |  _____________^
+60 | |             &encoded_sequences,
+61 | |             |seq| literal_length_code(seq.ll),
+62 | |             9,
+63 | |             TableBuilder::Full,
+64 | |         ),
+   | |_________^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+   |
+   = note: expected struct `fse_encoder::table::FSETable`
+                found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+help: use the `?` operator to extract the `Result<fse_encoder::table::FSETable, CapacityError>` value, propagating a `Result::Err` value to the caller
+   |
+64 |         )?,
+   |          +
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_sections.rs:65:13
+   |
+65 |           ml: build_sequence_table(
+   |  _____________^
+66 | |             &encoded_sequences,
+67 | |             |seq| match_length_code(seq.ml),
+68 | |             9,
+69 | |             TableBuilder::Full,
+70 | |         ),
+   | |_________^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+   |
+   = note: expected struct `fse_encoder::table::FSETable`
+                found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+help: use the `?` operator to extract the `Result<fse_encoder::table::FSETable, CapacityError>` value, propagating a `Result::Err` value to the caller
+   |
+70 |         )?,
+   |          +
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_sections.rs:71:13
+   |
+71 |           of: build_sequence_table(
+   |  _____________^
+72 | |             &encoded_sequences,
+73 | |             |seq| offset_code(seq.of),
+74 | |             8,
+75 | |             TableBuilder::Full,
+76 | |         ),
+   | |_________^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+   |
+   = note: expected struct `fse_encoder::table::FSETable`
+                found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+help: use the `?` operator to extract the `Result<fse_encoder::table::FSETable, CapacityError>` value, propagating a `Result::Err` value to the caller
+   |
+76 |         )?,
+   |          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection/c_fast.rs:269:26
+    |
+269 |           Some(scratch) => build_c_fast_sequence_table_from_u32_counts_with_scratch(
+    |  __________________________^
+270 | |             counts,
+271 | |             stats.total,
+272 | |             stats.max_symbol,
+...   |
+276 | |             scratch,
+277 | |         ),
+    | |_________^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+    |
+    = note: expected struct `fse_encoder::table::FSETable`
+                 found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+277 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection/policy.rs:128:26
+    |
+128 |           Some(scratch) => build_sequence_table_from_counts_with_scratch(
+    |  __________________________^
+129 | |             counts,
+130 | |             last_code,
+131 | |             max_log,
+132 | |             table_builder,
+133 | |             scratch,
+134 | |         ),
+    | |_________^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+    |
+    = note: expected struct `fse_encoder::table::FSETable`
+                 found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+134 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection/policy.rs:185:27
+    |
+185 |     FseTableMode::Encoded(encoded_table)
+    |     --------------------- ^^^^^^^^^^^^^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+    |     |
+    |     arguments to this enum variant are incorrect
+    |
+    = note: expected struct `fse_encoder::table::FSETable`
+                 found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+note: tuple variant defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:31:5
+    |
+31  |     Encoded(FSETable),
+    |     ^^^^^^^
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+185 |     FseTableMode::Encoded(encoded_table.expect("REASON"))
+    |                                        +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection/policy.rs:249:27
+    |
+249 |     FseTableMode::Encoded(encoded_table)
+    |     --------------------- ^^^^^^^^^^^^^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+    |     |
+    |     arguments to this enum variant are incorrect
+    |
+    = note: expected struct `fse_encoder::table::FSETable`
+                 found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+note: tuple variant defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:31:5
+    |
+31  |     Encoded(FSETable),
+    |     ^^^^^^^
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+249 |     FseTableMode::Encoded(encoded_table.expect("REASON"))
+    |                                        +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:172:27
+    |
+172 |       FseTableMode::Encoded(build_sequence_table(
+    |  _____---------------------_^
+    | |     |
+    | |     arguments to this enum variant are incorrect
+173 | |         sequences,
+174 | |         code,
+175 | |         max_log,
+176 | |         table_builder,
+177 | |     ))
+    | |_____^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+    |
+    = note: expected struct `fse_encoder::table::FSETable`
+                 found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+note: tuple variant defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:31:5
+    |
+31  |     Encoded(FSETable),
+    |     ^^^^^^^
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+177 |     ).expect("REASON"))
+    |      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:323:27
+    |
+323 |       FseTableMode::Encoded(build_sequence_table_from_counts(
+    |  _____---------------------_^
+    | |     |
+    | |     arguments to this enum variant are incorrect
+324 | |         counts,
+325 | |         last_code,
+326 | |         max_log,
+327 | |         table_builder,
+328 | |     ))
+    | |_____^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+    |
+    = note: expected struct `fse_encoder::table::FSETable`
+                 found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+note: tuple variant defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:31:5
+    |
+31  |     Encoded(FSETable),
+    |     ^^^^^^^
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+328 |     ).expect("REASON"))
+    |      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs:384:51
+    |
+384 |               candidates.push(FseTableMode::Encoded(build_sequence_table(
+    |  _____________________________---------------------_^
+    | |                             |
+    | |                             arguments to this enum variant are incorrect
+385 | |                 sequences,
+386 | |                 code,
+387 | |                 candidate_max_log,
+388 | |                 config.table_builder,
+389 | |             )));
+    | |_____________^ expected `FSETable`, found `Result<FSETable, CapacityError>`
+    |
+    = note: expected struct `fse_encoder::table::FSETable`
+                 found enum `Result<fse_encoder::table::FSETable, CapacityError>`
+note: tuple variant defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:31:5
+    |
+31  |     Encoded(FSETable),
+    |     ^^^^^^^
+help: consider using `Result::expect` to unwrap the `Result<fse_encoder::table::FSETable, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+389 |             ).expect("REASON")));
+    |              +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs:333:5
+    |
+327 |   ) -> usize {
+    |        ----- expected `usize` because of return type
+...
+333 | /     estimate_prepared_block_size_with_sequences(
+334 | |         context.config.for_c_block_split_estimate(),
+335 | |         chunk.prepared,
+336 | |         context.fse_tables,
+...   |
+340 | |         scratch,
+341 | |     )
+    | |_____^ expected `usize`, found `Result<usize, CapacityError>`
+    |
+    = note: expected type `usize`
+               found enum `Result<usize, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<usize, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+341 |     ).expect("REASON")
+    |      +++++++++++++++++
+
+Some errors have detailed explanations: E0277, E0308.
+For more information about an error, try `rustc --explain E0277`.
+warning: `zstd-complete` (lib) generated 20 warnings
+error: could not compile `zstd-complete` (lib) due to 12 previous errors; 20 warnings emitted

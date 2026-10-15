@@ -120,6 +120,14 @@ struct ProfileHistory;
 struct ProfileHistoryBuilder;
 struct ProfileHistoryT;
 
+struct LockboxAlias;
+struct LockboxAliasBuilder;
+struct LockboxAliasT;
+
+struct LockboxAliasList;
+struct LockboxAliasListBuilder;
+struct LockboxAliasListT;
+
 struct KnownLockbox;
 struct KnownLockboxBuilder;
 struct KnownLockboxT;
@@ -2707,6 +2715,150 @@ inline ::flatbuffers::Offset<ProfileHistory> CreateProfileHistoryDirect(
 
 ::flatbuffers::Offset<ProfileHistory> CreateProfileHistory(::flatbuffers::FlatBufferBuilder &_fbb, const ProfileHistoryT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct LockboxAliasT : public ::flatbuffers::NativeTable {
+  typedef LockboxAlias TableType;
+  std::string name{};
+  std::vector<uint8_t> lockbox_id{};
+};
+
+struct LockboxAlias FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef LockboxAliasT NativeTableType;
+  typedef LockboxAliasBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_NAME = 4,
+    VT_LOCKBOX_ID = 6
+  };
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  const ::flatbuffers::Vector<uint8_t> *lockbox_id() const {
+    return GetPointer<const ::flatbuffers::Vector<uint8_t> *>(VT_LOCKBOX_ID);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyOffset(verifier, VT_LOCKBOX_ID) &&
+           verifier.VerifyVector(lockbox_id()) &&
+           verifier.EndTable();
+  }
+  LockboxAliasT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(LockboxAliasT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<LockboxAlias> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const LockboxAliasT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct LockboxAliasBuilder {
+  typedef LockboxAlias Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(LockboxAlias::VT_NAME, name);
+  }
+  void add_lockbox_id(::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> lockbox_id) {
+    fbb_.AddOffset(LockboxAlias::VT_LOCKBOX_ID, lockbox_id);
+  }
+  explicit LockboxAliasBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<LockboxAlias> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<LockboxAlias>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<LockboxAlias> CreateLockboxAlias(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> lockbox_id = 0) {
+  LockboxAliasBuilder builder_(_fbb);
+  builder_.add_lockbox_id(lockbox_id);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<LockboxAlias> CreateLockboxAliasDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *name = nullptr,
+    const std::vector<uint8_t> *lockbox_id = nullptr) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto lockbox_id__ = lockbox_id ? _fbb.CreateVector<uint8_t>(*lockbox_id) : 0;
+  return revault::internal::CreateLockboxAlias(
+      _fbb,
+      name__,
+      lockbox_id__);
+}
+
+::flatbuffers::Offset<LockboxAlias> CreateLockboxAlias(::flatbuffers::FlatBufferBuilder &_fbb, const LockboxAliasT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct LockboxAliasListT : public ::flatbuffers::NativeTable {
+  typedef LockboxAliasList TableType;
+  std::vector<std::unique_ptr<revault::internal::LockboxAliasT>> values{};
+  LockboxAliasListT() = default;
+  LockboxAliasListT(const LockboxAliasListT &o);
+  LockboxAliasListT(LockboxAliasListT&&) FLATBUFFERS_NOEXCEPT = default;
+  LockboxAliasListT &operator=(LockboxAliasListT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct LockboxAliasList FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef LockboxAliasListT NativeTableType;
+  typedef LockboxAliasListBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_VALUES = 4
+  };
+  const ::flatbuffers::Vector<::flatbuffers::Offset<revault::internal::LockboxAlias>> *values() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<revault::internal::LockboxAlias>> *>(VT_VALUES);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_VALUES) &&
+           verifier.VerifyVector(values()) &&
+           verifier.VerifyVectorOfTables(values()) &&
+           verifier.EndTable();
+  }
+  LockboxAliasListT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(LockboxAliasListT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<LockboxAliasList> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const LockboxAliasListT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct LockboxAliasListBuilder {
+  typedef LockboxAliasList Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_values(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<revault::internal::LockboxAlias>>> values) {
+    fbb_.AddOffset(LockboxAliasList::VT_VALUES, values);
+  }
+  explicit LockboxAliasListBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<LockboxAliasList> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<LockboxAliasList>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<LockboxAliasList> CreateLockboxAliasList(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<revault::internal::LockboxAlias>>> values = 0) {
+  LockboxAliasListBuilder builder_(_fbb);
+  builder_.add_values(values);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<LockboxAliasList> CreateLockboxAliasListDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<::flatbuffers::Offset<revault::internal::LockboxAlias>> *values = nullptr) {
+  auto values__ = values ? _fbb.CreateVector<::flatbuffers::Offset<revault::internal::LockboxAlias>>(*values) : 0;
+  return revault::internal::CreateLockboxAliasList(
+      _fbb,
+      values__);
+}
+
+::flatbuffers::Offset<LockboxAliasList> CreateLockboxAliasList(::flatbuffers::FlatBufferBuilder &_fbb, const LockboxAliasListT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 struct KnownLockboxT : public ::flatbuffers::NativeTable {
   typedef KnownLockbox TableType;
   std::vector<uint8_t> lockbox_id{};
@@ -3974,6 +4126,7 @@ struct SleepSupportT : public ::flatbuffers::NativeTable {
   bool suspend_notifications = false;
   bool sleep_inhibition = false;
   bool supported = false;
+  bool cache_clearing_active = false;
 };
 
 struct SleepSupport FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -3982,7 +4135,8 @@ struct SleepSupport FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SUSPEND_NOTIFICATIONS = 4,
     VT_SLEEP_INHIBITION = 6,
-    VT_SUPPORTED = 8
+    VT_SUPPORTED = 8,
+    VT_CACHE_CLEARING_ACTIVE = 10
   };
   bool suspend_notifications() const {
     return GetField<uint8_t>(VT_SUSPEND_NOTIFICATIONS, 0) != 0;
@@ -3993,11 +4147,15 @@ struct SleepSupport FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool supported() const {
     return GetField<uint8_t>(VT_SUPPORTED, 0) != 0;
   }
+  bool cache_clearing_active() const {
+    return GetField<uint8_t>(VT_CACHE_CLEARING_ACTIVE, 0) != 0;
+  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_SUSPEND_NOTIFICATIONS, 1) &&
            VerifyField<uint8_t>(verifier, VT_SLEEP_INHIBITION, 1) &&
            VerifyField<uint8_t>(verifier, VT_SUPPORTED, 1) &&
+           VerifyField<uint8_t>(verifier, VT_CACHE_CLEARING_ACTIVE, 1) &&
            verifier.EndTable();
   }
   SleepSupportT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -4018,6 +4176,9 @@ struct SleepSupportBuilder {
   void add_supported(bool supported) {
     fbb_.AddElement<uint8_t>(SleepSupport::VT_SUPPORTED, static_cast<uint8_t>(supported), 0);
   }
+  void add_cache_clearing_active(bool cache_clearing_active) {
+    fbb_.AddElement<uint8_t>(SleepSupport::VT_CACHE_CLEARING_ACTIVE, static_cast<uint8_t>(cache_clearing_active), 0);
+  }
   explicit SleepSupportBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -4033,8 +4194,10 @@ inline ::flatbuffers::Offset<SleepSupport> CreateSleepSupport(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     bool suspend_notifications = false,
     bool sleep_inhibition = false,
-    bool supported = false) {
+    bool supported = false,
+    bool cache_clearing_active = false) {
   SleepSupportBuilder builder_(_fbb);
+  builder_.add_cache_clearing_active(cache_clearing_active);
   builder_.add_supported(supported);
   builder_.add_sleep_inhibition(sleep_inhibition);
   builder_.add_suspend_notifications(suspend_notifications);
@@ -5551,6 +5714,71 @@ inline ::flatbuffers::Offset<ProfileHistory> CreateProfileHistory(::flatbuffers:
       _generations);
 }
 
+inline LockboxAliasT *LockboxAlias::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::unique_ptr<LockboxAliasT>(new LockboxAliasT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void LockboxAlias::UnPackTo(LockboxAliasT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = name(); if (_e) _o->name = _e->str(); }
+  { auto _e = lockbox_id(); if (_e) { _o->lockbox_id.resize(_e->size()); std::copy(_e->begin(), _e->end(), _o->lockbox_id.begin()); } }
+}
+
+inline ::flatbuffers::Offset<LockboxAlias> LockboxAlias::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const LockboxAliasT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateLockboxAlias(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<LockboxAlias> CreateLockboxAlias(::flatbuffers::FlatBufferBuilder &_fbb, const LockboxAliasT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const LockboxAliasT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _name = _o->name.empty() ? 0 : _fbb.CreateString(_o->name);
+  auto _lockbox_id = _o->lockbox_id.size() ? _fbb.CreateVector(_o->lockbox_id) : 0;
+  return revault::internal::CreateLockboxAlias(
+      _fbb,
+      _name,
+      _lockbox_id);
+}
+
+inline LockboxAliasListT::LockboxAliasListT(const LockboxAliasListT &o) {
+  values.reserve(o.values.size());
+  for (const auto &values_ : o.values) { values.emplace_back((values_) ? new revault::internal::LockboxAliasT(*values_) : nullptr); }
+}
+
+inline LockboxAliasListT &LockboxAliasListT::operator=(LockboxAliasListT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(values, o.values);
+  return *this;
+}
+
+inline LockboxAliasListT *LockboxAliasList::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::unique_ptr<LockboxAliasListT>(new LockboxAliasListT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void LockboxAliasList::UnPackTo(LockboxAliasListT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = values(); if (_e) { _o->values.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->values[_i]) { _e->Get(_i)->UnPackTo(_o->values[_i].get(), _resolver); } else { _o->values[_i] = std::unique_ptr<revault::internal::LockboxAliasT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->values.resize(0); } }
+}
+
+inline ::flatbuffers::Offset<LockboxAliasList> LockboxAliasList::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const LockboxAliasListT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateLockboxAliasList(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<LockboxAliasList> CreateLockboxAliasList(::flatbuffers::FlatBufferBuilder &_fbb, const LockboxAliasListT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const LockboxAliasListT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _values = _o->values.size() ? _fbb.CreateVector<::flatbuffers::Offset<revault::internal::LockboxAlias>> (_o->values.size(), [](size_t i, _VectorArgs *__va) { return CreateLockboxAlias(*__va->__fbb, __va->__o->values[i].get(), __va->__rehasher); }, &_va ) : 0;
+  return revault::internal::CreateLockboxAliasList(
+      _fbb,
+      _values);
+}
+
 inline KnownLockboxT *KnownLockbox::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
   auto _o = std::unique_ptr<KnownLockboxT>(new KnownLockboxT());
   UnPackTo(_o.get(), _resolver);
@@ -6100,6 +6328,7 @@ inline void SleepSupport::UnPackTo(SleepSupportT *_o, const ::flatbuffers::resol
   { auto _e = suspend_notifications(); _o->suspend_notifications = _e; }
   { auto _e = sleep_inhibition(); _o->sleep_inhibition = _e; }
   { auto _e = supported(); _o->supported = _e; }
+  { auto _e = cache_clearing_active(); _o->cache_clearing_active = _e; }
 }
 
 inline ::flatbuffers::Offset<SleepSupport> SleepSupport::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const SleepSupportT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -6113,11 +6342,13 @@ inline ::flatbuffers::Offset<SleepSupport> CreateSleepSupport(::flatbuffers::Fla
   auto _suspend_notifications = _o->suspend_notifications;
   auto _sleep_inhibition = _o->sleep_inhibition;
   auto _supported = _o->supported;
+  auto _cache_clearing_active = _o->cache_clearing_active;
   return revault::internal::CreateSleepSupport(
       _fbb,
       _suspend_notifications,
       _sleep_inhibition,
-      _supported);
+      _supported,
+      _cache_clearing_active);
 }
 
 inline PlatformStatusT *PlatformStatus::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {

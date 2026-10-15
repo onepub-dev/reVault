@@ -1,0 +1,336 @@
+{
+  "status": "passed",
+  "source_revision": "ed4d6c0f3b3c543f0a6c9ef05a4f074b285db43c",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "worktree_status_before": "",
+  "fixed_protocol": {
+    "cases": 6,
+    "paired_samples_per_backend": 30,
+    "warmup_pairs": 3,
+    "passes": 1,
+    "workers": 1,
+    "taskset_cpu": 2,
+    "affinity_command_present": true
+  },
+  "sample_audit": {
+    "small512-mixed-compressed-stream": {
+      "expected_logical_bytes_read": 2097152,
+      "sample_rows": 99,
+      "backends": {
+        "zip": {
+          "layout": "default",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "2097152": 33
+          },
+          "expected_logical_bytes_read": 2097152
+        },
+        "c_default": {
+          "layout": "candidate-262144",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "2097152": 33
+          },
+          "expected_logical_bytes_read": 2097152
+        },
+        "typed_tree": {
+          "layout": "shared-control-typed-tree",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "2097152": 33
+          },
+          "expected_logical_bytes_read": 2097152
+        }
+      },
+      "retained_input_check": {
+        "archives_and_sources_unchanged": true,
+        "kind": "retained_inputs_verified"
+      },
+      "passed": true
+    },
+    "raw8m-random-stream": {
+      "expected_logical_bytes_read": 8388608,
+      "sample_rows": 99,
+      "backends": {
+        "zip": {
+          "layout": "default",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "8388608": 33
+          },
+          "expected_logical_bytes_read": 8388608
+        },
+        "c_default": {
+          "layout": "candidate-65536",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "8388608": 33
+          },
+          "expected_logical_bytes_read": 8388608
+        },
+        "typed_tree": {
+          "layout": "shared-control-typed-tree",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "8388608": 33
+          },
+          "expected_logical_bytes_read": 8388608
+        }
+      },
+      "retained_input_check": {
+        "archives_and_sources_unchanged": true,
+        "kind": "retained_inputs_verified"
+      },
+      "passed": true
+    },
+    "compressed8m-pattern-stream": {
+      "expected_logical_bytes_read": 8388608,
+      "sample_rows": 99,
+      "backends": {
+        "zip": {
+          "layout": "default",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "8388608": 33
+          },
+          "expected_logical_bytes_read": 8388608
+        },
+        "c_default": {
+          "layout": "candidate-262144",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "8388608": 33
+          },
+          "expected_logical_bytes_read": 8388608
+        },
+        "typed_tree": {
+          "layout": "shared-control-typed-tree",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "8388608": 33
+          },
+          "expected_logical_bytes_read": 8388608
+        }
+      },
+      "retained_input_check": {
+        "archives_and_sources_unchanged": true,
+        "kind": "retained_inputs_verified"
+      },
+      "passed": true
+    },
+    "raw8m-random-range": {
+      "expected_logical_bytes_read": 8388608,
+      "sample_rows": 99,
+      "backends": {
+        "zip": {
+          "layout": "default",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "4096": 33
+          },
+          "expected_logical_bytes_read": 4096
+        },
+        "c_default": {
+          "layout": "candidate-65536",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "4096": 33
+          },
+          "expected_logical_bytes_read": 4096
+        },
+        "typed_tree": {
+          "layout": "shared-control-typed-tree",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "4096": 33
+          },
+          "expected_logical_bytes_read": 4096
+        }
+      },
+      "retained_input_check": {
+        "archives_and_sources_unchanged": true,
+        "kind": "retained_inputs_verified"
+      },
+      "passed": true
+    },
+    "raw64m-random-stream": {
+      "expected_logical_bytes_read": 67108864,
+      "sample_rows": 99,
+      "backends": {
+        "zip": {
+          "layout": "default",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "67108864": 33
+          },
+          "expected_logical_bytes_read": 67108864
+        },
+        "c_default": {
+          "layout": "candidate-65536",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "67108864": 33
+          },
+          "expected_logical_bytes_read": 67108864
+        },
+        "typed_tree": {
+          "layout": "shared-control-typed-tree",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "67108864": 33
+          },
+          "expected_logical_bytes_read": 67108864
+        }
+      },
+      "retained_input_check": {
+        "archives_and_sources_unchanged": true,
+        "kind": "retained_inputs_verified"
+      },
+      "passed": true
+    },
+    "raw64m-random-range": {
+      "expected_logical_bytes_read": 67108864,
+      "sample_rows": 99,
+      "backends": {
+        "zip": {
+          "layout": "default",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "4096": 33
+          },
+          "expected_logical_bytes_read": 4096
+        },
+        "c_default": {
+          "layout": "candidate-65536",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "4096": 33
+          },
+          "expected_logical_bytes_read": 4096
+        },
+        "typed_tree": {
+          "layout": "shared-control-typed-tree",
+          "samples": 33,
+          "measured": 30,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read_counts": {
+            "4096": 33
+          },
+          "expected_logical_bytes_read": 4096
+        }
+      },
+      "retained_input_check": {
+        "archives_and_sources_unchanged": true,
+        "kind": "retained_inputs_verified"
+      },
+      "passed": true
+    }
+  },
+  "retained_input_and_source_fixture_hashes_stable": true,
+  "binary_sha256_audit": {
+    "core_test_binary": {
+      "path": "/tmp/revault-tree-read-combined-corrected-20261010/bin/revault_lockbox_api_tests",
+      "sha256_actual": "aac92888e8c0498fa9c618c8331af2febc20972a38612eac1d0edf43539cf202",
+      "sha256_before": "aac92888e8c0498fa9c618c8331af2febc20972a38612eac1d0edf43539cf202",
+      "sha256_after": "aac92888e8c0498fa9c618c8331af2febc20972a38612eac1d0edf43539cf202",
+      "matches_before_after": true
+    },
+    "archive_evaluation_runner": {
+      "path": "/tmp/revault-tree-read-combined-corrected-20261010/bin/archive_evaluation",
+      "sha256_actual": "fc8c419adfc158f44512416b2bd6acf06cf374640f45d90e54a420315a2a879e",
+      "sha256_before": "fc8c419adfc158f44512416b2bd6acf06cf374640f45d90e54a420315a2a879e",
+      "sha256_after": "fc8c419adfc158f44512416b2bd6acf06cf374640f45d90e54a420315a2a879e",
+      "matches_before_after": true
+    },
+    "packed_adapter": {
+      "path": "/tmp/revault-tree-read-combined-corrected-20261010/bin/adapter_packed",
+      "sha256_actual": "7af17d91031d529223d83697e0819f3a23cba5770a1e6169a412b86aac460c8b",
+      "sha256_before": "7af17d91031d529223d83697e0819f3a23cba5770a1e6169a412b86aac460c8b",
+      "sha256_after": "7af17d91031d529223d83697e0819f3a23cba5770a1e6169a412b86aac460c8b",
+      "matches_before_after": true
+    },
+    "tree_adapter": {
+      "path": "/tmp/revault-tree-read-combined-corrected-20261010/bin/adapter_tree",
+      "sha256_actual": "2bbd7108fc959c025d7df8898e550b385740ce7e135dc734890c7d40056e0036",
+      "sha256_before": "2bbd7108fc959c025d7df8898e550b385740ce7e135dc734890c7d40056e0036",
+      "sha256_after": "2bbd7108fc959c025d7df8898e550b385740ce7e135dc734890c7d40056e0036",
+      "matches_before_after": true
+    }
+  },
+  "host_context_before": {
+    "cpu_model": "model name\t: AMD Ryzen 7 3700X 8-Core Processor",
+    "kernel": "7.0.0-38-generic",
+    "allowed_cpus": "Cpus_allowed_list:\t0-15",
+    "measurement_cpu": 2,
+    "loadavg": "3.87 3.29 3.15 9/3779 1030143"
+  },
+  "paired_interval_method": {
+    "method": "fixed-seed bootstrap of paired log-ratios",
+    "seed_hex": "0x7a1286436bde910f",
+    "resamples": 10000,
+    "interval": "percentiles 2.5 and 97.5"
+  },
+  "primary_adapter_equivalence": "The primary is the candidate_driver default C path (neither FROZEN_DENSE nor FROZEN_TREE); it receives phase=sample and reads candidate.lbox/public. This is the same default C invocation represented by the prior control layout candidate-<unit>; binary hashes differ because the frozen test executable/commit and build output context differ.",
+  "excluded_setup_observations": "The prior dense-adapter attempt and corrected one-case smoke are retained but excluded; no pooling.",
+  "postformat_test_and_clippy_logs": "/tmp/revault-tree-read-combined-20261010/logs/{fragment-join,traversal,credential,clippy}.log",
+  "build_and_audit_scripts": [
+    "/tmp/revault-tree-read-combined-corrected-20261010/bootstrap.dart",
+    "/tmp/revault-tree-read-combined-corrected-20261010/prepare-corrected.dart",
+    "/tmp/revault-tree-read-combined-corrected-20261010/finalize-corrected-setup.dart",
+    "/tmp/revault-tree-read-combined-corrected-20261010/run-fixed-batch.dart",
+    "/tmp/revault-tree-read-combined-corrected-20261010/final-audit.dart"
+  ],
+  "case_fixtures_root": "/tmp/revault-tree-read-20261010-final/cases"
+}

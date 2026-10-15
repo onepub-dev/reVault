@@ -1,0 +1,44 @@
+Pre-commit validation (2026-09-27 local date)
+
+cargo test -p revault_lockbox_api --features native-block-layout,external-source --lib file_format:: -- --nocapture
+89 passed, 0 failed, 2 ignored (manual resource probes), 328 filtered out.
+Includes 1,456 power-loss cases, 48 cleanup-checkpoint power-loss cases,
+66 real-file process-death cases and 1,000 abandoned-operation cycles.
+
+cargo clippy -p revault_lockbox_api --all-targets --features native-block-layout,external-source -- -D warnings
+Passed.
+
+Earlier default release journal suite (before later vector/process/checkpoint tests):
+7 passed, 0 failed, 1 ignored. This executable supplied resource measurements.
+The completed final checks above include those later tests.
+
+Resource series: 396 successful fresh children, 3 warmup + 30 measured for
+12 cases. All reopened and compared original content, wiped data and file length.
+No retained additional bytes. SHA256SUMS records measured inputs and raw results.
+
+Documentation relative links and whitespace: 22 passed.
+
+Two test assertion defects were corrected during development: the malformed-count
+vector now sets a count above the documented cap, and the checkpoint I/O assertion
+includes checkpoint regeneration and mirror repair. The journal algorithm did not
+change in response. Final tests above pass with those corrections.
+
+The full production native API suite was not rerun for this test-only component.
+Its two previously recorded recovery failures remain unresolved; no claim of
+production recovery, whole-archive performance, or release readiness is made.
+
+Post-hook validation:
+cargo test -p revault_lockbox_api --lib file_format:: -- --nocapture
+89 passed, 0 failed, 2 ignored, 317 filtered out (default layout).
+
+cargo clippy -p revault_lockbox_api --all-targets --features native-block-layout,external-source -- -D warnings
+Passed after formatting.
+
+The hook-formatted standalone resource runner compiled successfully with rustc.
+SHA256SUMS: all six artifact checks passed. The hook formatted run_series.rs;
+measured-run-series.rs.txt preserves the original measured source, and both have
+separate recorded checksums.
+
+Toolchain: rustc 1.88.0 (6b00bc388 2025-06-23), cargo 1.88.0
+(873a06493 2025-05-10), x86_64-unknown-linux-gnu, LLVM 20.1.5.
+Host: Linux 7.0.0-31-generic x86_64 GNU/Linux. CPU 2 affinity for measurements.

@@ -1,0 +1,1111 @@
+   Compiling proc-macro2 v1.0.106
+   Compiling libc v0.2.186
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling zerocopy v0.8.49
+   Compiling cfg-if v1.0.4
+   Compiling find-msvc-tools v0.1.9
+   Compiling serde_core v1.0.228
+   Compiling crossbeam-utils v0.8.21
+   Compiling shlex v1.3.0
+   Compiling pkg-config v0.3.33
+   Compiling zmij v1.0.21
+   Compiling serde v1.0.228
+   Compiling autocfg v1.5.1
+   Compiling either v1.16.0
+   Compiling serde_json v1.0.150
+   Compiling rayon-core v1.13.0
+   Compiling anstyle v1.0.14
+   Compiling memchr v2.8.1
+   Compiling ciborium-io v0.2.2
+   Compiling regex-syntax v0.8.10
+   Compiling clap_lex v1.1.0
+   Compiling zstd-safe v7.2.4
+   Compiling plotters-backend v0.3.7
+   Compiling itoa v1.0.18
+   Compiling itertools v0.10.5
+   Compiling cast v0.3.0
+   Compiling num-traits v0.2.19
+   Compiling clap_builder v4.6.0
+   Compiling same-file v1.0.6
+   Compiling anes v0.1.6
+   Compiling plotters-svg v0.3.7
+   Compiling walkdir v2.5.0
+   Compiling once_cell v1.21.4
+   Compiling oorandom v11.1.5
+   Compiling twox-hash v2.1.2
+   Compiling crossbeam-epoch v0.9.18
+   Compiling crossbeam-deque v0.8.6
+   Compiling syn v2.0.117
+   Compiling jobserver v0.1.34
+   Compiling getrandom v0.2.17
+   Compiling is-terminal v0.4.17
+   Compiling plotters v0.3.7
+   Compiling criterion-plot v0.5.0
+   Compiling rayon v1.12.0
+   Compiling rand_core v0.6.4
+   Compiling regex-automata v0.4.14
+   Compiling cc v1.2.62
+   Compiling clap v4.6.1
+   Compiling zstd-sys v2.0.16+zstd.1.5.7
+   Compiling regex v1.12.3
+   Compiling zerocopy-derive v0.8.49
+   Compiling serde_derive v1.0.228
+   Compiling zstd v0.13.3
+   Compiling tinytemplate v1.2.1
+   Compiling half v2.7.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling ciborium-ll v0.2.2
+   Compiling rand_chacha v0.3.1
+   Compiling ciborium v0.2.2
+   Compiling rand v0.8.6
+   Compiling criterion v0.5.1
+   Compiling zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+error: cannot find macro `vec` in this scope
+   --> src/workspace.rs:636:45
+    |
+636 |         let owned = ReusableVec::from_owned(vec![[2_u32, 4, 6, 8]]);
+    |                                             ^^^
+    |
+    = note: macro `crate::encoding::streaming_encoder::tests::c_port::fast::tests::vec` exists but is inaccessible
+help: consider importing one of these macros
+    |
+538 +     use std::vec;
+    |
+538 +     use alloc::vec;
+    |
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/block_emit.rs:420:23
+    |
+420 |             literals: block.clone(),
+    |                       ^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/block_emit.rs:421:24
+    |
+421 |             sequences: Vec::new(),
+    |                        ^^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<_>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/block_emit.rs:483:23
+    |
+483 |             literals: block.clone(),
+    |                       ^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/block_emit.rs:484:24
+    |
+484 |             sequences: Vec::new(),
+    |                        ^^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<_>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/opt_encode/target_preference.rs:110:27
+    |
+110 |                 literals: Vec::new(),
+    |                           ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/opt_encode/target_preference.rs:111:28
+    |
+111 |                   sequences: vec![PreparedSequence {
+    |  ____________________________^
+112 | |                     ll: 0,
+113 | |                     ml: 5,
+114 | |                     raw_offset: 9,
+115 | |                     encoded_offset_value: 12,
+116 | |                 }],
+    | |__________________^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<compressed::PreparedSequence>`
+    = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split.rs:545:13
+    |
+545 |             bytes,
+    |             ^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split.rs:550:13
+    |
+550 |             bytes,
+    |             ^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+ --> src/encoding/levels/c_port/post_split/tests.rs:9:19
+  |
+9 |         literals: b"aabbtail".to_vec(),
+  |                   ^^^^^^^^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+  |
+  = note: expected struct `workspace::ReusableVec<u8>`
+             found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/post_split/tests.rs:10:20
+   |
+10 |           sequences: vec![
+   |  ____________________^
+11 | |             PreparedSequence {
+12 | |                 ll: 2,
+13 | |                 ml: 3,
+...  |
+22 | |             },
+23 | |         ],
+   | |_________^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+   |
+   = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+              found struct `std::vec::Vec<compressed::PreparedSequence>`
+   = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/post_split/tests.rs:42:19
+   |
+42 |         literals: b"a".to_vec(),
+   |                   ^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+   |
+   = note: expected struct `workspace::ReusableVec<u8>`
+              found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/post_split/tests.rs:43:20
+   |
+43 |           sequences: vec![PreparedSequence {
+   |  ____________________^
+44 | |             ll: 1,
+45 | |             ml: 3,
+46 | |             raw_offset: 4,
+47 | |             encoded_offset_value: OffBase::offset_to_c_value(4),
+48 | |         }],
+   | |__________^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+   |
+   = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+              found struct `std::vec::Vec<compressed::PreparedSequence>`
+   = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/post_split/tests.rs:51:19
+   |
+51 |         literals: b"b".to_vec(),
+   |                   ^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+   |
+   = note: expected struct `workspace::ReusableVec<u8>`
+              found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/post_split/tests.rs:52:20
+   |
+52 |           sequences: vec![PreparedSequence {
+   |  ____________________^
+53 | |             ll: 1,
+54 | |             ml: 3,
+55 | |             raw_offset: 4,
+56 | |             encoded_offset_value: 1,
+57 | |         }],
+   | |__________^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+   |
+   = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+              found struct `std::vec::Vec<compressed::PreparedSequence>`
+   = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/post_split/tests.rs:88:19
+   |
+88 |         literals: b"a".to_vec(),
+   |                   ^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+   |
+   = note: expected struct `workspace::ReusableVec<u8>`
+              found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/post_split/tests.rs:89:20
+   |
+89 |           sequences: vec![PreparedSequence {
+   |  ____________________^
+90 | |             ll: 1,
+91 | |             ml: 3,
+92 | |             raw_offset: 4,
+93 | |             encoded_offset_value: OffBase::offset_to_c_value(4),
+94 | |         }],
+   | |__________^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+   |
+   = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+              found struct `std::vec::Vec<compressed::PreparedSequence>`
+   = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split/tests.rs:113:19
+    |
+113 |         literals: vec![b'a'; 8],
+    |                   ^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+    = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split/tests.rs:114:20
+    |
+114 |           sequences: vec![
+    |  ____________________^
+115 | |             PreparedSequence {
+116 | |                 ll: 1,
+117 | |                 ml: 3,
+...   |
+121 | |             4
+122 | |         ],
+    | |_________^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<compressed::PreparedSequence>`
+    = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split/tests.rs:169:9
+    |
+169 |         literals,
+    |         ^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split/tests.rs:170:9
+    |
+170 |         sequences,
+    |         ^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<compressed::PreparedSequence>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split/tests.rs:197:19
+    |
+197 |         literals: block.to_vec(),
+    |                   ^^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<{integer}>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<{integer}>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split/tests.rs:198:20
+    |
+198 |         sequences: Vec::new(),
+    |                    ^^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<_>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split/tests.rs:224:19
+    |
+224 |         literals: block.to_vec(),
+    |                   ^^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<{integer}>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<{integer}>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split/tests.rs:225:20
+    |
+225 |         sequences: Vec::new(),
+    |                    ^^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<_>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split/tests.rs:258:19
+    |
+258 |         literals: block.clone(),
+    |                   ^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split/tests.rs:259:20
+    |
+259 |         sequences: Vec::new(),
+    |                    ^^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<_>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split/tests.rs:301:19
+    |
+301 |         literals: block.to_vec(),
+    |                   ^^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<{integer}>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<{integer}>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split/tests.rs:302:20
+    |
+302 |         sequences: Vec::new(),
+    |                    ^^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<_>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:524:23
+    |
+524 |             literals: data.to_vec(),
+    |                       ^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<{integer}>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<{integer}>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:525:24
+    |
+525 |             sequences: Vec::new(),
+    |                        ^^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<_>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:545:9
+    |
+530 |     let encoded = encode_target_block_with_superblock_fallback(
+    |                   -------------------------------------------- arguments to this function are incorrect
+...
+545 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:565:23
+    |
+565 |             literals: data.clone(),
+    |                       ^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<{integer}>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<{integer}>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:566:24
+    |
+566 |             sequences: Vec::new(),
+    |                        ^^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<_>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:586:9
+    |
+571 |     let encoded = encode_target_block_with_superblock_fallback(
+    |                   -------------------------------------------- arguments to this function are incorrect
+...
+586 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:603:23
+    |
+603 |             literals: data.to_vec(),
+    |                       ^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:604:24
+    |
+604 |             sequences: Vec::new(),
+    |                        ^^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<_>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:624:9
+    |
+609 |     let encoded = encode_target_block_with_superblock_fallback(
+    |                   -------------------------------------------- arguments to this function are incorrect
+...
+624 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:659:23
+    |
+659 |             literals: b"abc".to_vec(),
+    |                       ^^^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:660:13
+    |
+660 |             sequences,
+    |             ^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<compressed::PreparedSequence>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:682:9
+    |
+667 |     let encoded = encode_target_block_with_superblock_fallback(
+    |                   -------------------------------------------- arguments to this function are incorrect
+...
+682 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:698:23
+    |
+698 |             literals: Vec::from([0x07]),
+    |                       ^^^^^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<{integer}>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<{integer}>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:699:24
+    |
+699 |               sequences: Vec::from([PreparedSequence {
+    |  ________________________^
+700 | |                 ll: 1,
+701 | |                 ml: 1270,
+702 | |                 raw_offset: 1,
+703 | |                 encoded_offset_value: 1,
+704 | |             }]),
+    | |_______________^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<compressed::PreparedSequence>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:726:9
+    |
+711 |     let encoded = encode_target_block_with_superblock_fallback(
+    |                   -------------------------------------------- arguments to this function are incorrect
+...
+726 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:760:13
+    |
+760 |             literals,
+    |             ^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:761:13
+    |
+761 |             sequences,
+    |             ^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<compressed::PreparedSequence>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:783:9
+    |
+768 |     let encoded = encode_target_block_with_superblock_fallback(
+    |                   -------------------------------------------- arguments to this function are incorrect
+...
+783 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+
+error: trivial numeric cast: `u8` as `u8`
+   --> src/encoding/levels/c_port/greedy_tests.rs:744:20
+    |
+744 |             b'a' + (idx % 20) as u8,
+    |                    ^^^^^^^^^^^^^^^^
+    |
+    = help: cast can be replaced by coercion; this might require a temporary variable
+note: the lint level is defined here
+   --> src/lib.rs:16:24
+    |
+16  | #![deny(trivial_casts, trivial_numeric_casts, rust_2018_idioms)]
+    |                        ^^^^^^^^^^^^^^^^^^^^^
+
+error: trivial numeric cast: `u8` as `u8`
+   --> src/encoding/levels/c_port/greedy_tests.rs:745:20
+    |
+745 |             b'A' + (idx % 20) as u8,
+    |                    ^^^^^^^^^^^^^^^^
+    |
+    = help: cast can be replaced by coercion; this might require a temporary variable
+
+error: trivial numeric cast: `u8` as `u8`
+   --> src/encoding/levels/c_port/greedy_tests.rs:746:20
+    |
+746 |             b'0' + (idx % 10) as u8,
+    |                    ^^^^^^^^^^^^^^^^
+    |
+    = help: cast can be replaced by coercion; this might require a temporary variable
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:817:23
+    |
+817 |             literals: b"abc".to_vec(),
+    |                       ^^^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:818:13
+    |
+818 |             sequences,
+    |             ^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<compressed::PreparedSequence>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_tests.rs:843:9
+    |
+828 |     let encoded = encode_target_block_with_superblock_fallback(
+    |                   -------------------------------------------- arguments to this function are incorrect
+...
+843 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/sequence_store_tests.rs:42:19
+   |
+42 |         literals: vec![1, 2, 3, 4],
+   |                   ^^^^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<{integer}>`
+   |
+   = note: expected struct `workspace::ReusableVec<u8>`
+              found struct `std::vec::Vec<{integer}>`
+   = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/sequence_store_tests.rs:43:20
+   |
+43 |           sequences: vec![PreparedSequence {
+   |  ____________________^
+44 | |             ll: 4,
+45 | |             ml: 7,
+46 | |             raw_offset: 11,
+47 | |             encoded_offset_value: 14,
+48 | |         }],
+   | |__________^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+   |
+   = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+              found struct `std::vec::Vec<compressed::PreparedSequence>`
+   = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/target_block_fixtures.rs:41:17
+   |
+41 |                 literals,
+   |                 ^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+   |
+   = note: expected struct `workspace::ReusableVec<u8>`
+              found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/target_block_fixtures.rs:42:17
+   |
+42 |                 sequences,
+   |                 ^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+   |
+   = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+              found struct `std::vec::Vec<compressed::PreparedSequence>`
+
+error: trivial numeric cast: `u8` as `u8`
+  --> src/encoding/levels/c_port/target_block_fixtures.rs:21:20
+   |
+21 |             b'a' + (idx % 4) as u8,
+   |                    ^^^^^^^^^^^^^^^
+   |
+   = help: cast can be replaced by coercion; this might require a temporary variable
+
+error: trivial numeric cast: `u8` as `u8`
+  --> src/encoding/levels/c_port/target_block_fixtures.rs:22:20
+   |
+22 |             b'a' + ((idx + 1) % 4) as u8,
+   |                    ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: cast can be replaced by coercion; this might require a temporary variable
+
+error: trivial numeric cast: `u8` as `u8`
+  --> src/encoding/levels/c_port/target_block_fixtures.rs:23:20
+   |
+23 |             b'0' + (idx % 2) as u8,
+   |                    ^^^^^^^^^^^^^^^
+   |
+   = help: cast can be replaced by coercion; this might require a temporary variable
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/target_block_fixtures.rs:74:17
+   |
+74 |                 literals,
+   |                 ^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+   |
+   = note: expected struct `workspace::ReusableVec<u8>`
+              found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/target_block_fixtures.rs:75:17
+   |
+75 |                 sequences,
+   |                 ^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+   |
+   = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+              found struct `std::vec::Vec<compressed::PreparedSequence>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_fixtures.rs:111:17
+    |
+111 |                 literals,
+    |                 ^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_fixtures.rs:112:17
+    |
+112 |                 sequences,
+    |                 ^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<compressed::PreparedSequence>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_fixtures.rs:152:27
+    |
+152 |                 literals: base.to_vec(),
+    |                           ^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_fixtures.rs:153:17
+    |
+153 |                 sequences,
+    |                 ^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<compressed::PreparedSequence>`
+
+error: trivial numeric cast: `u32` as `u32`
+   --> src/encoding/levels/c_port/target_block_fixtures.rs:136:25
+    |
+136 |         let match_len = (idx % 8 + 3) as u32;
+    |                         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: cast can be replaced by coercion; this might require a temporary variable
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_fixtures.rs:195:17
+    |
+195 |                 literals,
+    |                 ^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_fixtures.rs:196:17
+    |
+196 |                 sequences,
+    |                 ^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<compressed::PreparedSequence>`
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/target_block_tests.rs:50:9
+   |
+35 |     let encoded = encode_target_block_with_superblock_fallback(
+   |                   -------------------------------------------- arguments to this function are incorrect
+...
+50 |         Vec::new(),
+   |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+   |
+   = note: expected struct `workspace::ReusableVec<u8>`
+              found struct `std::vec::Vec<_>`
+note: function defined here
+  --> src/encoding/levels/c_port/target_block.rs:42:15
+   |
+42 | pub(super) fn encode_target_block_with_superblock_fallback(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48 |     bytes: crate::workspace::ReusableVec<u8>,
+   |     ----------------------------------------
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/target_block_tests.rs:84:9
+   |
+69 |     let encoded = encode_target_block_with_superblock_fallback(
+   |                   -------------------------------------------- arguments to this function are incorrect
+...
+84 |         Vec::new(),
+   |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+   |
+   = note: expected struct `workspace::ReusableVec<u8>`
+              found struct `std::vec::Vec<_>`
+note: function defined here
+  --> src/encoding/levels/c_port/target_block.rs:42:15
+   |
+42 | pub(super) fn encode_target_block_with_superblock_fallback(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48 |     bytes: crate::workspace::ReusableVec<u8>,
+   |     ----------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_tests.rs:119:9
+    |
+104 |     let encoded = encode_target_block_with_superblock_fallback(
+    |                   -------------------------------------------- arguments to this function are incorrect
+...
+119 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_tests.rs:161:9
+    |
+146 |     let encoded = encode_target_block_with_superblock_fallback(
+    |                   -------------------------------------------- arguments to this function are incorrect
+...
+161 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_tests.rs:200:9
+    |
+185 |     let encoded = encode_target_block_with_superblock_fallback(
+    |                   -------------------------------------------- arguments to this function are incorrect
+...
+200 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_tests.rs:264:9
+    |
+249 |     let encoded = encode_target_block_with_superblock_fallback(
+    |                   -------------------------------------------- arguments to this function are incorrect
+...
+264 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_tests.rs:282:23
+    |
+282 |             literals: vec![0x5A],
+    |                       ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<{integer}>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<{integer}>`
+    = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_tests.rs:283:24
+    |
+283 |               sequences: vec![PreparedSequence {
+    |  ________________________^
+284 | |                 ll: 1,
+285 | |                 ml: 63,
+286 | |                 raw_offset: 1,
+287 | |                 encoded_offset_value: 0,
+288 | |             }],
+    | |______________^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<compressed::PreparedSequence>`
+    = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_tests.rs:310:9
+    |
+295 |     let encoded = encode_target_block_with_superblock_fallback(
+    |                   -------------------------------------------- arguments to this function are incorrect
+...
+310 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_tests.rs:327:23
+    |
+327 |             literals: data.to_vec(),
+    |                       ^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<{integer}>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<{integer}>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_tests.rs:328:24
+    |
+328 |             sequences: Vec::new(),
+    |                        ^^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<_>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_tests.rs:350:9
+    |
+335 |     let encoded = encode_target_block_with_superblock_fallback(
+    |                   -------------------------------------------- arguments to this function are incorrect
+...
+350 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_block_tests.rs:369:16
+    |
+369 |         bytes: vec![0; data.len()],
+    |                ^^^^^^^^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<{integer}>`
+    |
+    = note: expected struct `workspace::ReusableVec<u8>`
+               found struct `std::vec::Vec<{integer}>`
+    = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/fastest/tests.rs:11:19
+   |
+11 |         literals: vec![0; 103],
+   |                   ^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<{integer}>`
+   |
+   = note: expected struct `workspace::ReusableVec<u8>`
+              found struct `std::vec::Vec<{integer}>`
+   = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/fastest/tests.rs:12:20
+   |
+12 |           sequences: vec![
+   |  ____________________^
+13 | |             PreparedSequence {
+14 | |                 ll: 100,
+15 | |                 ml: 100,
+...  |
+36 | |             },
+37 | |         ],
+   | |_________^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+   |
+   = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+              found struct `std::vec::Vec<compressed::PreparedSequence>`
+   = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/fastest/tests.rs:46:19
+   |
+46 |         literals: vec![0; 8],
+   |                   ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<{integer}>`
+   |
+   = note: expected struct `workspace::ReusableVec<u8>`
+              found struct `std::vec::Vec<{integer}>`
+   = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/fastest/tests.rs:47:20
+   |
+47 |           sequences: vec![
+   |  ____________________^
+48 | |             PreparedSequence {
+49 | |                 ll: 2,
+50 | |                 ml: 2,
+...  |
+71 | |             },
+72 | |         ],
+   | |_________^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+   |
+   = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+              found struct `std::vec::Vec<compressed::PreparedSequence>`
+   = note: this error originates in the macro `vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/fastest/tests.rs:97:9
+   |
+97 |         literals,
+   |         ^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+   |
+   = note: expected struct `workspace::ReusableVec<u8>`
+              found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/fastest/tests.rs:98:9
+   |
+98 |         sequences,
+   |         ^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+   |
+   = note: expected struct `workspace::ReusableVec<compressed::PreparedSequence>`
+              found struct `std::vec::Vec<compressed::PreparedSequence>`
+
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `zstd-complete` (lib test) due to 88 previous errors

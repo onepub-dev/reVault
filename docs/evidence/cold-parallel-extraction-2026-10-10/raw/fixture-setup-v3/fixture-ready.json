@@ -1,0 +1,39 @@
+{
+  "generator": "Exact benches/evaluation/runner.rs Case::payload SplitMix64 expression; Dart VM signed64 wrapping and unsigned >>>; low byte; one 65,536-byte write per file",
+  "native_reference_check": {
+    "verified": true,
+    "reference": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/source/file-000000.bin",
+    "file_index": 0,
+    "offsets": [
+      0,
+      65529,
+      1048589,
+      1073737728
+    ],
+    "bytes_per_offset": 4096,
+    "remaining_indices_validation": "native ZIP create verifier checks every generated file byte"
+  },
+  "preserved_failed_root": "/home/bsutton/.cache/revault-performance-20261010-large/parallel-v2/raw-random-10000x64k",
+  "file_count": 10000,
+  "bytes_each": 65536,
+  "payload_bytes": 655360000,
+  "new_root": "/home/bsutton/.cache/revault-performance-20261010-large/parallel-v3/raw-random-10000x64k",
+  "archive_evaluation_sha256_before": "c9e0a6d4cee1510149531e17640b7577b9059b43d6572a34dfc97d8368c0a38d",
+  "artifact_cap_bytes": 21474836480,
+  "apparent_bytes_before": 8266550363,
+  "projected_new_bytes": 3276800000,
+  "available_bytes_before": 1552362520576,
+  "source_inventory": {
+    "inventory_sha256": "93a9865249fec863507123e1a14e79f198e840add17d8e629a23ba608e9b90bd",
+    "file_count": 10000,
+    "unique_file_hashes": 10000,
+    "aggregate_manifest_sha256": "0299e196bbad97589d6e94938701f0e3738afa61582b5c786ba0f092100c445a"
+  },
+  "archive_zip_sha256": "cb4b71302ebfd3fba6dc43ebedcd9710d870cdbeb5215b9be5328c84365aec81",
+  "archive_evaluation_sha256_after": "c9e0a6d4cee1510149531e17640b7577b9059b43d6572a34dfc97d8368c0a38d",
+  "binary_stable": true,
+  "apparent_bytes_after_source_and_zip": 9579740510,
+  "within_artifact_cap": true,
+  "tree_archive_created": false,
+  "scope": "fixture setup only; no tree candidate or extraction measurements run"
+}

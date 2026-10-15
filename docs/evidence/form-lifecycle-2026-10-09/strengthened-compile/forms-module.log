@@ -1,0 +1,39 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+error[E0277]: `DeliveryStore` doesn't implement `Debug`
+  --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/lifecycle.rs:64:18
+   |
+64 | impl Storage for DeliveryStore{
+   |                  ^^^^^^^^^^^^^ `DeliveryStore` cannot be formatted using `{:?}`
+   |
+   = help: the trait `Debug` is not implemented for `DeliveryStore`
+   = note: add `#[derive(Debug)]` to `DeliveryStore` or manually `impl Debug for DeliveryStore`
+note: required by a bound in `storage::Storage`
+  --> revault_lockbox_api/src/storage/mod.rs:22:35
+   |
+22 | pub(crate) trait Storage: Clone + std::fmt::Debug {
+   |                                   ^^^^^^^^^^^^^^^ required by this bound in `Storage`
+help: consider annotating `DeliveryStore` with `#[derive(Debug)]`
+   |
+63 + #[derive(Debug)]
+64 | struct DeliveryStore{inner:std::cell::RefCell<Guarded<StorageBackend>>,fail:std::cell::Cell<Option<(u64,u64)>>}
+   |
+
+error[E0277]: the trait bound `DeliveryStore: Clone` is not satisfied
+  --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/lifecycle.rs:64:18
+   |
+64 | impl Storage for DeliveryStore{
+   |                  ^^^^^^^^^^^^^ the trait `Clone` is not implemented for `DeliveryStore`
+   |
+note: required by a bound in `storage::Storage`
+  --> revault_lockbox_api/src/storage/mod.rs:22:27
+   |
+22 | pub(crate) trait Storage: Clone + std::fmt::Debug {
+   |                           ^^^^^ required by this bound in `Storage`
+help: consider annotating `DeliveryStore` with `#[derive(Clone)]`
+   |
+63 + #[derive(Clone)]
+64 | struct DeliveryStore{inner:std::cell::RefCell<Guarded<StorageBackend>>,fail:std::cell::Cell<Option<(u64,u64)>>}
+   |
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `revault_lockbox_api` (lib test) due to 2 previous errors

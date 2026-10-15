@@ -1,0 +1,15 @@
+javascript_files_checked=53
+node: unavailable
+php: unavailable
+ruby: unavailable
+go: unavailable
+swift: unavailable
+g++: /usr/bin/g++
+clang++: unavailable
+cmake: unavailable
+gradle: /opt/gradle/latest/bin/gradle
+java: /usr/bin/java
+javac: /usr/bin/javac
+gcc: /usr/bin/gcc
+
+Unavailable requested checks: PHP lint (php executable absent), Ruby syntax (ruby absent), Go compile (go absent), Swift compile (swift absent). C++ compiler available as g++; no clang++ or cmake. Node is not on PATH, but the installed runtime at /home/bsutton/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node was used for --check.

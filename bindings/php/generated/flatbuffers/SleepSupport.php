@@ -60,24 +60,34 @@ class SleepSupport extends Table
     }
 
     /**
+     * @return bool
+     */
+    public function getCacheClearingActive()
+    {
+        $o = $this->__offset(10);
+        return $o != 0 ? $this->bb->getBool($o + $this->bb_pos) : false;
+    }
+
+    /**
      * @param FlatbufferBuilder $builder
      * @return void
      */
     public static function startSleepSupport(FlatbufferBuilder $builder)
     {
-        $builder->StartObject(3);
+        $builder->StartObject(4);
     }
 
     /**
      * @param FlatbufferBuilder $builder
      * @return SleepSupport
      */
-    public static function createSleepSupport(FlatbufferBuilder $builder, $suspend_notifications, $sleep_inhibition, $supported)
+    public static function createSleepSupport(FlatbufferBuilder $builder, $suspend_notifications, $sleep_inhibition, $supported, $cache_clearing_active)
     {
-        $builder->startObject(3);
+        $builder->startObject(4);
         self::addSuspendNotifications($builder, $suspend_notifications);
         self::addSleepInhibition($builder, $sleep_inhibition);
         self::addSupported($builder, $supported);
+        self::addCacheClearingActive($builder, $cache_clearing_active);
         $o = $builder->endObject();
         return $o;
     }
@@ -110,6 +120,16 @@ class SleepSupport extends Table
     public static function addSupported(FlatbufferBuilder $builder, $supported)
     {
         $builder->addBoolX(2, $supported, false);
+    }
+
+    /**
+     * @param FlatbufferBuilder $builder
+     * @param bool
+     * @return void
+     */
+    public static function addCacheClearingActive(FlatbufferBuilder $builder, $cacheClearingActive)
+    {
+        $builder->addBoolX(3, $cacheClearingActive, false);
     }
 
     /**

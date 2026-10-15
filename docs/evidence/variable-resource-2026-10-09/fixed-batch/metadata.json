@@ -1,0 +1,57 @@
+{
+  "started_utc": "2026-10-08T15:33:13Z",
+  "runner_sha256": "510818b5c7bb265454fce48ae5216deb2293e85fdb1ae0af7093eae37ce7fe07",
+  "analysis_sha256": "28e032e93781d6b2986e23667c6cd51932f859acbfca20f1abb28f6063fa5ffc",
+  "cross_reader_sha256": "df307e90779c0094336884f722ea8686282a5e16b72c39e66999094527ec5cce",
+  "binaries": {
+    "control": {
+      "path": "/tmp/revault-variable-resource-2026-10-09/control/revault_lockbox_api-tests",
+      "sha256": "2dbd1a1502fe3f356eafbd009d991d6b4f3cdb12bb5d76fc69d21ca77fdc5796"
+    },
+    "candidate": {
+      "path": "/tmp/revault-variable-resource-2026-10-09/candidate/revault_lockbox_api-tests",
+      "sha256": "377372f7ac9efd75384dcf62c1804b1e00b9b58ecd78c40754bbfdf6cf3a1a54"
+    }
+  },
+  "host": {
+    "sysname": "Linux",
+    "nodename": "slayer4",
+    "release": "7.0.0-38-generic",
+    "version": "#38-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 09:10:14 UTC 2026",
+    "machine": "x86_64"
+  },
+  "memlock_bytes": [
+    8388608,
+    8388608
+  ],
+  "inherited_cpu_affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "python": "3.14.4 (main, Aug 20 2026, 10:41:58) [GCC 15.2.0]",
+  "protocol": {
+    "modes": 16,
+    "warmups_per_variant_mode": 1,
+    "pairs_per_mode": 30,
+    "pair_order": "control first for even pair; candidate first for odd pair",
+    "retries": 0
+  },
+  "corpus_sha256": {
+    "a": "9bc1b2a288b26af7257a36277ae3816a7d4f16e89c1e7e77d0a5c48bad62b360",
+    "b": "e56ec8dc1862be6c09c53620cbc0f00f639de2a51c882745fbbc4e144714b3c2"
+  }
+}

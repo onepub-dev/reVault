@@ -1,0 +1,17 @@
+ M docs/archive_v4_evaluation.md
+ M docs/archive_v4_history.md
+ M docs/archive_v4_plan.md
+ M rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs
+ M rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs
+ M rust/revault_lockbox_api/src/file_format/candidate_files/dense_image.rs
+ M rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests.rs
+ M rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs
+ M rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs
+ M rust/revault_lockbox_api/src/file_format/mod.rs
+?? docs/evidence/typed-forms-2026-10-09/
+?? rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs
+?? rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
+?? rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/
+?? rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms.rs
+?? rust/revault_lockbox_api/src/file_format/form_segments.rs
+?? rust/revault_lockbox_api/src/file_format/form_segments/

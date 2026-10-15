@@ -1,0 +1,24 @@
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+   Compiling revault_cli v0.5.0-dev.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli)
+    Finished `release` profile [optimized] target(s) in 4.90s
+     Running tests/cli_flow.rs (target/release/deps/cli_flow-a494ce2937cf1fad)
+
+running 1 test
+test read_only_archive_supports_cli_listing_and_byte_exact_extraction ... CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464514
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464514 elapsed=778.421918ms status=exit status: 0
+CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464524
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464524 elapsed=1.355967568s status=exit status: 0
+CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464528
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464528 elapsed=401.539261ms status=exit status: 0
+CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464531
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464531 elapsed=404.215945ms status=exit status: 0
+CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464534
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464534 elapsed=402.174808ms status=exit status: 0
+CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464557
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464557 elapsed=427.306278ms status=exit status: 1
+CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464560
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=464560 elapsed=402.33961ms status=exit status: 0
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 77 filtered out; finished in 4.18s
+

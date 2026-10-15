@@ -1,0 +1,6 @@
+ M rust/revault_lockbox_api/benches/evaluation/runner.rs
+ M rust/revault_lockbox_api/src/api_tests.rs
+ M rust/revault_lockbox_api/src/lockbox/key_management.rs
+?? docs/evidence/credential-open-2026-10-12/
+?? tools/credential-open.dart
+?? tools/summarize-credential-open.dart

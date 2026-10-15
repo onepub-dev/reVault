@@ -1,0 +1,2 @@
+sha256sum_check_exit=0
+mismatch_lines=0

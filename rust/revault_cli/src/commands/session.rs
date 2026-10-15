@@ -79,11 +79,21 @@ fn set_default_lockbox(lockbox_path: &str) -> CliResult<()> {
 fn list_sessions(format: super::output::OutputFormat) -> CliResult<()> {
     let agent_enabled = agent_enabled();
     let agent_running = revault_vault_api::is_running();
+    let cache_monitor = revault_vault_api::suspend_cache_clearing_active()
+        .map(|active| yes_no(active).to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
     let auto_open = platform_secret_store_status()?;
     let vault_pass_phrase_stored = platform_vault_pass_phrase_stored();
     if !matches!(format, super::output::OutputFormat::Table) {
         let default = default_lockbox_path_value()?;
         let mut rows = Vec::new();
+        rows.push(vec![
+            "agent".to_string(),
+            "cache suspend clearing".to_string(),
+            cache_monitor.clone(),
+            String::new(),
+            String::new(),
+        ]);
         rows.push(vec![
             "agent".to_string(),
             "enabled".to_string(),
@@ -140,6 +150,7 @@ fn list_sessions(format: super::output::OutputFormat) -> CliResult<()> {
     println!("Session Agent:");
     println!("  enabled: {}", yes_no(agent_enabled));
     println!("  running: {}", yes_no(agent_running));
+    println!("  cache suspend clearing active: {cache_monitor}");
     println!();
     println!("Auto-open:");
     println!("  scope: {}", auto_open.scope.as_str());

@@ -1,0 +1,7 @@
+Planned backing calculation (4096-byte host pages; source-derived/inferred capacities):
+For requests 8192..61440, 14 arenas each use max(65536, request+32), rounded to 4096 = 65536 bytes.
+For 65536, round_up(65536+32,4096)=69632 bytes.
+For 69632, round_up(69632+32,4096)=73728 bytes.
+Total = 14*65536 + 69632 + 73728 = 1060864 bytes (<2097152-byte cap).
+Arena data pages are mlocked; guard pages are mapped separately and are not included as locked backing.
+The public API has no capacity getter; allocator capacity values in JSONL are source-derived/inferred.

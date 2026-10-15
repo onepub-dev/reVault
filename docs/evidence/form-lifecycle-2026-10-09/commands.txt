@@ -1,0 +1,18 @@
+All Cargo commands run from the archive worktree rust/ directory with pinned Rust 1.88.0 and system GCC15.2.0. Tests delegated to validation agent; no cargo fmt/rustfmt before checks.
+
+Initial and strengthened source variants (hash manifests in respective folders):
+cargo test -p revault_lockbox_api --release --features external-source --lib typed_form_delete_and_stream_salvage_all_modes -- --nocapture --test-threads=1
+cargo test -p revault_lockbox_api --release --features external-source --lib stored_form_validation_preserves_operational_errors -- --nocapture --test-threads=1
+cargo test -p revault_lockbox_api --release --features external-source --lib form_salvage_only_marks_stored_corruption_unavailable -- --nocapture --test-threads=1
+cargo test -p revault_lockbox_api --release --features external-source --lib typed_form_deletion_guarded_atomic_recovery_faults -- --nocapture --test-threads=1
+
+Strengthened module/segment checks:
+cargo test -p revault_lockbox_api --release --features external-source --lib tree_tests::forms:: -- --nocapture --test-threads=1
+cargo test -p revault_lockbox_api --release --features external-source --lib form_segments:: -- --nocapture --test-threads=1
+cargo clippy -p revault_lockbox_api --features external-source --lib --tests --benches -- -D warnings
+
+Final two fixture borrow removals additionally checked using:
+cargo test -p revault_lockbox_api --release --features external-source --lib typed_form_stream_delivery_errors_are_fatal_after_partial_events -- --nocapture --test-threads=1
+(normal all-mode lifecycle and strict Clippy commands above repeated)
+
+Aggregate: exactly one invocation of the frozen release unit-test binary per mode 0..15, with typed_form_aggregate_guarded_snapshot_probe --ignored --nocapture --test-threads=1, REVAULT_FORM_MODE and distinct absolute REVAULT_FORM_IMAGE paths. No retries, no timing comparisons, inherited worker/affinity/memlock policy unchanged. Probe results/metadata identify actual binary and source variant.

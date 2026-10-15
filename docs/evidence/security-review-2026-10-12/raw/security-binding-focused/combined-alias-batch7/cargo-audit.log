@@ -1,0 +1,4 @@
+    Fetching advisory database from `https://github.com/RustSec/advisory-db.git`
+      Loaded 1307 security advisories (from /home/bsutton/.cargo/advisory-db)
+    Updating crates.io index
+    Scanning rust/Cargo.lock for vulnerabilities (423 crate dependencies)

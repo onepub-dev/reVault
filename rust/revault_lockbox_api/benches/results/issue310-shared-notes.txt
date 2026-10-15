@@ -1,0 +1,84 @@
+Issue #310: share verified native frame slices during extraction
+
+Production baseline: a767143 (same production code as 4be2063).
+Baseline benchmark SHA256:
+a397b16a3a449b7f31b4c71ecaace6bbb8a6676e95534e7fe9e4cb39c6de5f53
+Candidate benchmark SHA256 (before comment-only edits and commit formatting):
+abf0dc4b06fe78ab04f0c2786eff0de010ffa7ff68d1148c392a0b655f2699ae
+Both are release zip_read builds with native-block-layout and identical PASSES
+support. Native layout remains opt-in. No format or public API change.
+
+Extraction now retains an Arc to a verified decoded frame and writes its
+validated slice directly to the output writer. Cold reads transfer decoded
+ownership into the cache; warm reads borrow the cached allocation. This removes
+the temporary per-chunk Vec copy between the decoded cache and assembled output.
+Vec-returning APIs still copy shared slices as required by their ownership API.
+Decoded-cache admission, limits and eviction policy are unchanged. Returning
+an Arc from insertion supplies ownership even when admission is refused.
+The zeroizing frame allocation survives eviction while an output writer uses it.
+Cache-hit extent/revision checks remain after copying for Vec APIs and before
+writing for shared extraction. Metadata, manifests and block hashes are still
+validated. There is no weakening of signed recovery or integrity checks.
+
+Benchmark matrices (all rows verify every returned byte):
+- issue310-shared-reads.csv: 192 rows, four alternating-order baseline/candidate
+  runs, five samples per row, four 8 MiB files, Interactive creation, plain mode,
+  pattern/random corpora, compression=false/true, Interactive/ReadMostly reads,
+  ACCESS=whole and PASSES=1,2,5. Each sample opens a fresh archive; repeated passes
+  share that archive handle. OS caches warm. Compression requested on random
+  input falls back to raw native frames.
+- issue310-shared-small-controls.csv: 96 rows, three before/after runs (baseline
+  first), five samples per row, 512 files of 4096 bytes, plain mode,
+  Interactive/BulkImport creation, both corpora, both requested compression
+  settings and both read profiles. ACCESS=random (public Read handles), PASSES=1.
+- issue310-shared-small-repeat.csv: 128 rows, eight alternating-order runs,
+  nine samples per row, Interactive creation only; other small-case settings
+  unchanged. This checks apparent small-file regressions in the first controls.
+
+Summary methodology: group by creation profile or pass count, compression,
+read profile and corpus; take the median per-phase lockbox_ms. For an even
+number of runs, average the two middle values. Speedup is before/after; values
+above 1 improve. ZIP comparison is the median of candidate lockbox_over_zip.
+The CSV prefix records the pass count or creation profile and run number.
+
+Results: all 24 large-file groups improve. Single-pass speedups are 1.055-1.105x,
+two-pass speedups 1.026-1.114x and five-pass speedups 1.118-1.179x. This preserves
+the repeated-read benefit that the rejected delayed-admission prototype lost.
+First reads remain approximately 1.74-4.13x ZIP time, depending on compression
+and corpus; these measurements do not establish broad ZIP parity.
+
+Small controls are noisy. In the repeat, raw groups take 1.7-6.1% longer and
+compressed-request groups range from 1.1% slower to 5.2% faster. The largest
+initial slowdown (ReadMostly/raw/pattern) shrinks from 18.5% to 1.9%.
+Independent ZIP times also vary: raw/pattern Interactive ZIP changes from
+7.887 to 8.554 ms (+8.5%) while Lockbox changes from 10.319 to 10.951 (+6.1%).
+For raw/random Interactive, ZIP is +2.6% and Lockbox +4.5%. These controls do not
+prove every small-file difference is noise, nor a repeatable material regression.
+Retain the implementation for the consistent first/repeated large-read gains;
+keep the small-case data visible rather than claiming an across-the-board gain.
+
+Validation:
+- Default API tests: 340 unit tests passed, 5 ignored; all executed integration
+  and documentation suites passed.
+- Native API unit tests: 347 passed, 2 known recovery failures, 5 ignored.
+  Integration/doc tests were not reached in that run after unit-test failure.
+- Clippy, all targets with native-block-layout and external-source, -D warnings:
+  passed.
+- New extraction regression: encrypted/plain, signed/unsigned, raw/compressed,
+  cold/warm frames, short writer calls and injected output failure. A neighboring
+  public get_file read evicts the borrowed frame during output; emitted bytes
+  and a subsequent independent read are verified exactly. The internal cache
+  budget/eviction assertion is a unit-test setup, not a CLI E2E exception.
+- Both benchmark runs and the repeat completed successfully; their row counts
+  are checked before writing the result files.
+
+Known native failures remain:
+api_tests::recovery_skips_truncated_tail_and_keeps_prior_intact_files
+lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes
+They concern missing signed tail authentication and signed intact-neighbor
+recovery, respectively. This change does not resolve them.
+
+Limits: timings cover plain-mode warm-OS-cache reads only. They do not establish
+encrypted/signed throughput, cold-storage behavior, write lifecycle performance,
+or release readiness. Native activation, migration/binding release gates and
+the full read/write optimisation objective remain incomplete.

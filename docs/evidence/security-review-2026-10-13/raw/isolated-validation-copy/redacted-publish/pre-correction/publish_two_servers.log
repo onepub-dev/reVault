@@ -1,0 +1,1 @@
+Sanitized evidence: raw CLI stdout/stderr was replaced because vault-init emitted synthetic private-key material. Test: cli_publish_and_receive_with_two_servers. Outcome: 0 passed, 1 failed before test source correction, exit 101; stderr was Session Agent startup refusal. Full raw output is not retained.

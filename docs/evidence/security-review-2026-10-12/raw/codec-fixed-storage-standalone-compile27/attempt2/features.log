@@ -1,0 +1,183 @@
+    Checking twox-hash v2.1.2
+    Checking fastrand v2.4.1
+    Checking zstd-complete v0.2.0 (/tmp/revault-codec-fixed-storage-compile27/crate)
+warning: unused import: `alloc::vec::Vec`
+  --> src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+    --> src/dictionary/mod.rs:184:30
+     |
+184  |     output.extend_from_slice(&writer.dump());
+     |            ----------------- ^^^^^^^^^^^^^^ expected `&[u8]`, found `&Result<Vec<u8>, CapacityError>`
+     |            |
+     |            arguments to this method are incorrect
+     |
+     = note: expected reference `&[u8]`
+                found reference `&Result<std::vec::Vec<u8>, CapacityError>`
+note: method defined here
+    --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:3066:12
+     |
+3066 |     pub fn extend_from_slice(&mut self, other: &[T]) {
+     |            ^^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> src/fse/mod.rs:136:47
+    |
+136 |     let table_bytes = dec_table.build_decoder(&encoded, acc_log).unwrap();
+    |                                 ------------- ^^^^^^^^ expected `&[u8]`, found `&Result<Vec<u8>, CapacityError>`
+    |                                 |
+    |                                 arguments to this method are incorrect
+    |
+    = note: expected reference `&[u8]`
+               found reference `&Result<std::vec::Vec<u8>, CapacityError>`
+note: method defined here
+   --> src/fse/fse_decoder.rs:150:12
+    |
+150 |     pub fn build_decoder(&mut self, source: &[u8], max_log: u8) -> Result<usize, FSETableError> {
+    |            ^^^^^^^^^^^^^            -------------
+
+error[E0608]: cannot index into a value of type `Result<std::vec::Vec<u8>, CapacityError>`
+   --> src/fse/mod.rs:137:27
+    |
+137 |     let encoded = &encoded[table_bytes..];
+    |                           ^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> src/huff0/mod.rs:32:51
+    |
+32  |     let table_bytes = decoder_table.build_decoder(&encoded).unwrap();
+    |                                     ------------- ^^^^^^^^ expected `&[u8]`, found `&Result<Vec<u8>, CapacityError>`
+    |                                     |
+    |                                     arguments to this method are incorrect
+    |
+    = note: expected reference `&[u8]`
+               found reference `&Result<std::vec::Vec<u8>, CapacityError>`
+note: method defined here
+   --> src/huff0/huff0_decoder.rs:155:12
+    |
+155 |     pub fn build_decoder(&mut self, source: &[u8]) -> Result<u32, HuffmanTableError> {
+    |            ^^^^^^^^^^^^^            -------------
+
+error[E0608]: cannot index into a value of type `Result<std::vec::Vec<u8>, CapacityError>`
+  --> src/huff0/mod.rs:35:49
+   |
+35 |     let mut br = BitReaderReversed::new(&encoded[table_bytes as usize..]);
+   |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some errors have detailed explanations: E0308, E0608.
+For more information about an error, try `rustc --explain E0308`.
+warning: `zstd-complete` (lib) generated 19 warnings
+error: could not compile `zstd-complete` (lib) due to 5 previous errors; 19 warnings emitted

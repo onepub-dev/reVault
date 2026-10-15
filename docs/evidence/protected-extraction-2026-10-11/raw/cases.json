@@ -1,0 +1,62 @@
+[
+  {
+    "name": "source-bundle-raw-plain",
+    "bytes": 14341790,
+    "root": "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain",
+    "primary": false
+  },
+  {
+    "name": "source-bundle-raw-encrypted",
+    "bytes": 14341790,
+    "root": "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted",
+    "primary": false
+  },
+  {
+    "name": "source-bundle-compressed-plain",
+    "bytes": 14341790,
+    "root": "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain",
+    "primary": false
+  },
+  {
+    "name": "source-bundle-compressed-encrypted",
+    "bytes": 14341790,
+    "root": "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted",
+    "primary": false
+  },
+  {
+    "name": "source-expanded-1gib-raw-plain",
+    "bytes": 1073741824,
+    "root": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain",
+    "primary": true
+  },
+  {
+    "name": "source-expanded-1gib-raw-encrypted",
+    "bytes": 1073741824,
+    "root": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted",
+    "primary": true
+  },
+  {
+    "name": "source-expanded-1gib-compressed-plain",
+    "bytes": 1073741824,
+    "root": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain",
+    "primary": true
+  },
+  {
+    "name": "source-expanded-1gib-compressed-encrypted",
+    "bytes": 1073741824,
+    "root": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted",
+    "primary": true
+  },
+  {
+    "name": "random-1gib-raw-encrypted",
+    "bytes": 1073741824,
+    "root": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted",
+    "primary": true
+  },
+  {
+    "name": "random-1gib-compressed-encrypted",
+    "bytes": 1073741824,
+    "root": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted",
+    "primary": true
+  }
+]

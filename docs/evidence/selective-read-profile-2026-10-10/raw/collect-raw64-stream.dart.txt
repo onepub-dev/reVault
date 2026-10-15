@@ -1,0 +1,75 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const root = '/tmp/revault-selective-profile-20261010';
+const fixture = '/tmp/revault-selective-read-20261010/fixtures/raw64m-random/other';
+const binary = '$root/bin/diagnostic';
+const rust = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust';
+
+double median(List<double> values) {
+  final sorted = [...values]..sort();
+  final middle = sorted.length ~/ 2;
+  return sorted.length.isOdd ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+void main() {
+  final env = {...Platform.environment,
+    'REVAULT_CANDIDATE_PHASE': 'tree-sample',
+    'REVAULT_CANDIDATE_ROOT': fixture,
+    'REVAULT_SELECTIVE_DIAGNOSTIC': '20',
+    'REVAULT_CANDIDATE_ACCESS': 'stream',
+    'REVAULT_CANDIDATE_UNIT': '65536',
+    'REVAULT_CANDIDATE_PASSES': '1',
+  };
+  final result = Process.runSync('taskset', [
+    '-c', '2', binary, '--ignored', '--exact',
+    'file_format::candidate_files::resource_probe::candidate_file_resource_probe',
+    '--nocapture', '--test-threads=1',
+  ], environment: env, workingDirectory: rust);
+  final output = '${result.stdout}${result.stderr}';
+  File('$root/logs/raw64m-random-stream.log').writeAsStringSync(output, flush: true);
+  if (result.exitCode != 0) throw StateError('raw64m stream diagnostic failed: ${result.exitCode}');
+  const marker = 'SELECTIVE_DIAGNOSTIC ';
+  final start = output.indexOf(marker);
+  if (start < 0) throw StateError('raw64m stream diagnostic JSON missing');
+  final jsonStart = start + marker.length;
+  final jsonEnd = output.indexOf('\n', jsonStart);
+  final payload = jsonDecode(output.substring(jsonStart, jsonEnd < 0 ? output.length : jsonEnd)) as Map<String, dynamic>;
+  final observations = (payload['observations'] as List).cast<Map<String, dynamic>>();
+  final phases = <String, dynamic>{};
+  for (final phase in observations.first.keys) {
+    final rows = observations.map((row) => row[phase] as Map<String, dynamic>).toList();
+    final functionNames = <String>{};
+    for (final row in rows) functionNames.addAll((row['functions'] as Map<String, dynamic>).keys);
+    final functions = <String, dynamic>{};
+    for (final name in functionNames) {
+      final entries = rows.map((row) => (row['functions'] as Map<String, dynamic>)[name] as Map<String, dynamic>).toList();
+      functions[name] = {
+        'median_seconds': median(entries.map((entry) => (entry['seconds'] as num).toDouble()).toList()),
+        'median_calls': median(entries.map((entry) => (entry['calls'] as num).toDouble()).toList()),
+        'median_failures': median(entries.map((entry) => (entry['failures'] as num).toDouble()).toList()),
+      };
+    }
+    phases[phase] = {
+      'median_seconds': median(rows.map((row) => (row['seconds'] as num).toDouble()).toList()),
+      'functions': functions,
+      'median_storage': {
+        for (final key in (rows.first['storage'] as Map<String, dynamic>).keys)
+          key: median(rows.map((row) => ((row['storage'] as Map<String, dynamic>)[key] as num).toDouble()).toList()),
+      },
+      if (rows.first.containsKey('received')) 'received_bytes': rows.first['received'],
+    };
+  }
+  final summary = {
+    'case': 'raw64m-random-stream',
+    'access': 'stream',
+    'repeat_opens': observations.length,
+    'verified': payload['verified'],
+    'archive_sha256': payload['archive_sha256'],
+    'phases': phases,
+  };
+  File('$root/raw64m-stream-summary.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(summary), flush: true);
+  print('DIAGNOSTIC_OK raw64m-random-stream repeats=20 verified=${payload['verified']} archive=${payload['archive_sha256']}');
+}

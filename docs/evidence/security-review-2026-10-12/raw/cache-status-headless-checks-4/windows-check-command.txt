@@ -1,0 +1,1 @@
+cargo +1.88.0 check --locked --offline -p revault_vault_api --tests --target x86_64-pc-windows-gnu

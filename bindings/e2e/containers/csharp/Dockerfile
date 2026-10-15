@@ -2,7 +2,7 @@ FROM revault-e2e-native:local AS native
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    dbus-x11 gnome-keyring libsecret-tools libdbus-1-3 python3 \
+    dbus-x11 gnome-keyring libsecret-tools libglib2.0-bin libdbus-1-3 python3 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 COPY . .

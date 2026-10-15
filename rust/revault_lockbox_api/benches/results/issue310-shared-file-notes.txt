@@ -1,0 +1,49 @@
+Shared-layout file-backed follow-up, 2026-09-13
+=============================================
+The SAME descriptor, table schema, Reader and protection operations now work
+over a bounded ByteSource rather than requiring the complete packet in memory.
+FileSource reads a bounded extent in a fixture file. Unit tests exercise a
+nonzero offset with neighboring prefix/suffix bytes, all eight protection and
+compression combinations, exact data-read ranges, short index/data reads and
+truncation after opening the reader. All six shared-layout tests pass; clippy
+passes for the bench and its test wrapper.
+
+Observed I/O assertions:
+- Unsigned open reads only the bounded committed index, in both encryption modes.
+- Signed open reads the index and whole stored frame to preserve eager damage
+  detection; it does not silently become lazy signature verification.
+- A raw range inside one verification block reads exactly that block (plus its
+  AEAD tag if encrypted), not the complete packet or neighboring page bytes.
+- Compressed ranges read the complete encoded frame; there is no false promise
+  that a stored-byte index adds arbitrary Zstd restart positions.
+- Malformed short reads return errors rather than indexing/panicking; failed
+  reads wipe their partial output. A shortened extent fails even after the
+  index has already been loaded.
+
+FileSource uses a mutex/seek/read-exact adapter for portability in this probe.
+It is NOT the production Storage integration: archive locking, same-length
+source revision detection and sticky external-source failure/cancellation still
+need the existing production backend. Do not deploy this adapter as-is.
+
+Measurements: release, CPU 2, five samples after one discarded warmup; 4 MiB
+pattern and deterministic random data, plus 128-byte pattern; 16/64/256 KiB
+blocks; all eight mode combinations; whole and midpoint up-to-8 KiB range
+outputs byte-checked outside timers. Per-case fixture files are create_new,
+written and sync_all'd; only those generated files are removed after checks.
+Write timing includes file creation/write/sync. Open timing measures Reader
+index verification on an already-open file descriptor, NOT complete OS handle
+creation or archive TOC loading. Reads use warm filesystem cache. Trusted
+descriptor/signature, archive padding/allocation and recovery are excluded.
+Cases have fixed ordering, not randomized paired confidence intervals.
+
+4 MiB random, uncompressed/unsigned median microseconds:
+block KiB    plain whole / 8KiB-range    encrypted whole / 8KiB-range
+16           4133 / 43                  6967 / 46
+64           4418 / 126                 6970 / 169
+256          4148 / 353                 7040 / 612
+This supports investigating small verification blocks for random access in
+BOTH encryption modes. It does not prove production ZIP or write/open parity.
+
+Reproduce: shared_layout SIZE EXISTING_FIXTURE_DIRECTORY pattern|random.
+Use '-' as directory for in-memory mode. Frame size is bounded to 4 MiB.
+Raw results committed beside this note. No new archive writer is active.

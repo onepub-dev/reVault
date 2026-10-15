@@ -1,0 +1,11 @@
+
+running 6 tests
+test compression::decode_workspace::tests::checksum_failure_returns_no_decoded_content_and_releases_scoped_scratch ... ok
+test compression::decode_workspace::tests::decoding_from_a_later_thread_local_destructor_falls_back ... ok
+test compression::decode_workspace::tests::declared_length_mismatch_fails_before_transferring_decoded_output ... ok
+test compression::decode_workspace::tests::oversized_history_keeps_the_original_decoder_fallback ... ok
+test compression::decode_workspace::tests::scoped_scratch_reuses_allocation_and_cleans_up_nested_and_panicking_calls ... ok
+test compression::decode_workspace::tests::scoped_decoder_matches_fresh_decoder_for_sizes_corruption_and_concatenation ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 719 filtered out; finished in 0.06s
+

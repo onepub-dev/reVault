@@ -1,0 +1,59 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const root='/tmp/revault-tree-read-combined-corrected-20261010';
+const rust='/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust';
+const fixtureRoot='/tmp/revault-tree-read-20261010-final/cases';
+String sha(String path) => '${Process.runSync('sha256sum',[path]).stdout}'.trim().split(RegExp(r'\s+')).first;
+Map<String,dynamic> readJson(String p)=>jsonDecode(File(p).readAsStringSync()) as Map<String,dynamic>;
+void main(){
+ final cases=<String,int>{'small512-mixed-compressed-stream':2097152,'raw8m-random-stream':8388608,'compressed8m-pattern-stream':8388608,'raw8m-random-range':8388608,'raw64m-random-stream':67108864,'raw64m-random-range':67108864};
+ final perCase=<String,Object?>{}; var allGood=true;
+ for(final e in cases.entries){
+   final expectedRead=e.key.endsWith('-range')?4096:e.value;
+   final lines=File('$root/measure/${e.key}/samples.jsonl').readAsLinesSync().where((x)=>x.trim().isNotEmpty).map((x)=>jsonDecode(x) as Map<String,dynamic>).toList();
+   final samples=lines.where((x)=>x['kind']=='sample').toList();
+   final counts=<String,Object?>{};
+   final layouts=<String,String>{'zip':'default','c_default':'candidate-${e.key.contains('raw8m')||e.key.contains('raw64m')?'65536':'262144'}','typed_tree':'shared-control-typed-tree'};
+   for(final group in layouts.entries){
+     final matching=samples.where((x)=>x['layout']==group.value).toList();
+     final measured=matching.where((x)=>x['warmup']==false).toList();
+     final warmups=matching.where((x)=>x['warmup']==true).toList();
+     final byteCounts=<String,int>{};
+     for(final r in matching){final b='${r['logical_bytes_read']}';byteCounts[b]=(byteCounts[b]??0)+1;}
+     counts[group.key]={'layout':group.value,'samples':matching.length,'measured':measured.length,'warmups':warmups.length,'verified':matching.where((x)=>x['verified']==true).length,'logical_bytes_read_counts':byteCounts,'expected_logical_bytes_read':expectedRead};
+   }
+   final retained=lines.where((x)=>x['kind']=='retained_inputs_verified').toList();
+   final ok=samples.length==99 && layouts.values.every((l)=>samples.where((x)=>x['layout']==l).length==33 && samples.where((x)=>x['layout']==l && x['warmup']==false).length==30 && samples.where((x)=>x['layout']==l && x['warmup']==true).length==3 && samples.where((x)=>x['layout']==l).every((x)=>x['verified']==true && x['logical_bytes_read']==expectedRead)) && retained.length==1 && retained.single['archives_and_sources_unchanged']==true;
+   allGood=allGood&&ok;
+   perCase[e.key]={'expected_logical_bytes_read':e.value,'sample_rows':samples.length,'backends':counts,'retained_input_check':retained.isNotEmpty?retained.single:null,'passed':ok};
+ }
+ final before=readJson('$root/hash-before.json'); final after=readJson('$root/hash-after.json');
+ final beforeS=before['sha256'] as Map<String,dynamic>; final afterS=after['sha256'] as Map<String,dynamic>;
+ final binaries=<String,String>{'core_test_binary':'$root/bin/revault_lockbox_api_tests','archive_evaluation_runner':'$root/bin/archive_evaluation','packed_adapter':'$root/bin/adapter_packed','tree_adapter':'$root/bin/adapter_tree'};
+ final binaryHashes=<String,Object?>{};
+ for(final e in binaries.entries){final actual=sha(e.value); final recorded=beforeS[e.key]; binaryHashes[e.key]={'path':e.value,'sha256_actual':actual,'sha256_before':recorded,'sha256_after':afterS[e.key],'matches_before_after':actual==recorded && actual==afterS[e.key]}; if(actual!=recorded||actual!=afterS[e.key]) allGood=false;}
+ final host=readJson('$root/host-before.json');
+ final runScript=File('$root/run-fixed-batch.dart').readAsStringSync();
+ final audit=<String,Object?>{
+   'status':allGood?'passed':'failed',
+   'source_revision':before['source_revision'],
+   'rustc':before['rustc'],
+   'worktree_status_before':before['worktree_status'],
+   'fixed_protocol':{'cases':6,'paired_samples_per_backend':30,'warmup_pairs':3,'passes':1,'workers':1,'taskset_cpu':2,'affinity_command_present':runScript.contains("'-c', '2'")},
+   'sample_audit':perCase,
+   'retained_input_and_source_fixture_hashes_stable':after['stable'],
+   'binary_sha256_audit':binaryHashes,
+   'host_context_before':{'cpu_model':host['cpu_model'],'kernel':host['kernel'],'allowed_cpus':host['allowed_cpus'],'measurement_cpu':2,'loadavg':host['loadavg']},
+   'paired_interval_method':{'method':'fixed-seed bootstrap of paired log-ratios','seed_hex':'0x7a1286436bde910f','resamples':10000,'interval':'percentiles 2.5 and 97.5'},
+   'primary_adapter_equivalence':'The primary is the candidate_driver default C path (neither FROZEN_DENSE nor FROZEN_TREE); it receives phase=sample and reads candidate.lbox/public. This is the same default C invocation represented by the prior control layout candidate-<unit>; binary hashes differ because the frozen test executable/commit and build output context differ.',
+   'excluded_setup_observations':'The prior dense-adapter attempt and corrected one-case smoke are retained but excluded; no pooling.',
+   'postformat_test_and_clippy_logs':'/tmp/revault-tree-read-combined-20261010/logs/{fragment-join,traversal,credential,clippy}.log',
+   'build_and_audit_scripts':['/tmp/revault-tree-read-combined-corrected-20261010/bootstrap.dart','/tmp/revault-tree-read-combined-corrected-20261010/prepare-corrected.dart','/tmp/revault-tree-read-combined-corrected-20261010/finalize-corrected-setup.dart','/tmp/revault-tree-read-combined-corrected-20261010/run-fixed-batch.dart','/tmp/revault-tree-read-combined-corrected-20261010/final-audit.dart'],
+   'case_fixtures_root':fixtureRoot,
+ };
+ File('$root/final-audit.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(audit));
+ if(!allGood) throw StateError('Final audit failed; see $root/final-audit.json');
+ print('FINAL_AUDIT_OK cases=${cases.length} binaries=${binaryHashes.length}');
+}

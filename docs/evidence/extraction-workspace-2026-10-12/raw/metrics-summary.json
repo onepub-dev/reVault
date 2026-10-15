@@ -1,0 +1,343 @@
+{
+  "accepted": 112,
+  "measured": 96,
+  "preparation": 16,
+  "retain": true,
+  "all_nonregression_gates": true,
+  "both_large_median_memory_gates": true,
+  "results": [
+    {
+      "case": "256-files-64mib",
+      "aggregate": {
+        "geometric_mean_ratio": 0.907891764388697,
+        "low95": 0.8566614562783399,
+        "high95": 0.9672726345051105,
+        "pairs": 12,
+        "blocks": 6,
+        "replicates": 10000,
+        "seed": 2637701995
+      },
+      "round_strata": [
+        {
+          "geometric_mean_ratio": 0.8938502645012677,
+          "low95": 0.8434021429168185,
+          "high95": 0.9541882426141176,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 1511448488
+        },
+        {
+          "geometric_mean_ratio": 0.9221538422934061,
+          "low95": 0.8604221413802361,
+          "high95": 0.9994607948859512,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 1528226107
+        }
+      ],
+      "variants": {
+        "old": {
+          "median_seconds": 0.63,
+          "minimum_seconds": 0.54,
+          "maximum_seconds": 0.67,
+          "median_rss_bytes": 211605504.0,
+          "maximum_rss_bytes": 212680704.0,
+          "maximum_including_preparation_rss_bytes": 212680704.0,
+          "every_rss_bytes": [
+            210165760.0,
+            210227200.0,
+            210751488.0,
+            210771968.0,
+            210845696.0,
+            211222528.0,
+            211988480.0,
+            212049920.0,
+            212099072.0,
+            212135936.0,
+            212230144.0,
+            212680704.0
+          ]
+        },
+        "new": {
+          "median_seconds": 0.545,
+          "minimum_seconds": 0.52,
+          "maximum_seconds": 0.6,
+          "median_rss_bytes": 59535360.0,
+          "maximum_rss_bytes": 59748352.0,
+          "maximum_including_preparation_rss_bytes": 59748352.0,
+          "every_rss_bytes": [
+            59265024.0,
+            59314176.0,
+            59506688.0,
+            59527168.0,
+            59531264.0,
+            59531264.0,
+            59539456.0,
+            59543552.0,
+            59678720.0,
+            59678720.0,
+            59691008.0,
+            59748352.0
+          ]
+        }
+      },
+      "archive_bytes": 67419520.0,
+      "maximum_rss_ratio": 0.2809298205068947,
+      "median_rss_ratio": 0.281350715716733,
+      "nonregression_gate": true
+    },
+    {
+      "case": "1024-files-1gib",
+      "aggregate": {
+        "geometric_mean_ratio": 0.9345529867966296,
+        "low95": 0.8953726237499826,
+        "high95": 0.9996646171523116,
+        "pairs": 12,
+        "blocks": 6,
+        "replicates": 10000,
+        "seed": 3521477284
+      },
+      "round_strata": [
+        {
+          "geometric_mean_ratio": 0.9791837609783399,
+          "low95": 0.8882034649761774,
+          "high95": 1.0848422472210264,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 1794368393
+        },
+        {
+          "geometric_mean_ratio": 0.8919564640837842,
+          "low95": 0.8056101543944529,
+          "high95": 0.9765133922015012,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 1777590774
+        }
+      ],
+      "variants": {
+        "old": {
+          "median_seconds": 3.705,
+          "minimum_seconds": 3.28,
+          "maximum_seconds": 4.35,
+          "median_rss_bytes": 253923328.0,
+          "maximum_rss_bytes": 254320640.0,
+          "maximum_including_preparation_rss_bytes": 254320640.0,
+          "every_rss_bytes": [
+            253661184.0,
+            253693952.0,
+            253734912.0,
+            253755392.0,
+            253845504.0,
+            253874176.0,
+            253972480.0,
+            254066688.0,
+            254087168.0,
+            254128128.0,
+            254132224.0,
+            254320640.0
+          ]
+        },
+        "new": {
+          "median_seconds": 3.35,
+          "minimum_seconds": 3.1,
+          "maximum_seconds": 4.04,
+          "median_rss_bytes": 67352576.0,
+          "maximum_rss_bytes": 68296704.0,
+          "maximum_including_preparation_rss_bytes": 68296704.0,
+          "every_rss_bytes": [
+            66953216.0,
+            67076096.0,
+            67178496.0,
+            67268608.0,
+            67289088.0,
+            67346432.0,
+            67358720.0,
+            67371008.0,
+            67407872.0,
+            67477504.0,
+            67829760.0,
+            68296704.0
+          ]
+        }
+      },
+      "archive_bytes": 1074367872.0,
+      "maximum_rss_ratio": 0.2685456595264938,
+      "median_rss_ratio": 0.2652476892552385,
+      "nonregression_gate": true
+    },
+    {
+      "case": "256-source-files-64mib",
+      "aggregate": {
+        "geometric_mean_ratio": 0.897078423712107,
+        "low95": 0.8098715254319355,
+        "high95": 1.0036898793669125,
+        "pairs": 12,
+        "blocks": 6,
+        "replicates": 10000,
+        "seed": 3888311341
+      },
+      "round_strata": [
+        {
+          "geometric_mean_ratio": 0.8801104837731973,
+          "low95": 0.7423864474715633,
+          "high95": 1.0452216485274182,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 896127070
+        },
+        {
+          "geometric_mean_ratio": 0.9143734941546053,
+          "low95": 0.8247735624547939,
+          "high95": 1.009045438569856,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 912904689
+        }
+      ],
+      "variants": {
+        "old": {
+          "median_seconds": 0.455,
+          "minimum_seconds": 0.42,
+          "maximum_seconds": 0.5,
+          "median_rss_bytes": 118679552.0,
+          "maximum_rss_bytes": 119685120.0,
+          "maximum_including_preparation_rss_bytes": 119685120.0,
+          "every_rss_bytes": [
+            114696192.0,
+            116719616.0,
+            117100544.0,
+            117829632.0,
+            117854208.0,
+            118382592.0,
+            118976512.0,
+            119042048.0,
+            119111680.0,
+            119189504.0,
+            119365632.0,
+            119685120.0
+          ]
+        },
+        "new": {
+          "median_seconds": 0.4,
+          "minimum_seconds": 0.32,
+          "maximum_seconds": 0.51,
+          "median_rss_bytes": 42700800.0,
+          "maximum_rss_bytes": 43356160.0,
+          "maximum_including_preparation_rss_bytes": 43384832.0,
+          "every_rss_bytes": [
+            42094592.0,
+            42250240.0,
+            42356736.0,
+            42442752.0,
+            42487808.0,
+            42692608.0,
+            42708992.0,
+            42790912.0,
+            42840064.0,
+            42856448.0,
+            43188224.0,
+            43356160.0
+          ]
+        }
+      },
+      "archive_bytes": 11779456.0,
+      "maximum_rss_ratio": 0.36225188227241617,
+      "median_rss_ratio": 0.35979913372103056,
+      "nonregression_gate": true
+    },
+    {
+      "case": "1024-source-files-1gib",
+      "aggregate": {
+        "geometric_mean_ratio": 1.0268898478352373,
+        "low95": 0.9977923561494548,
+        "high95": 1.049868929748485,
+        "pairs": 12,
+        "blocks": 6,
+        "replicates": 10000,
+        "seed": 3817158658
+      },
+      "round_strata": [
+        {
+          "geometric_mean_ratio": 1.0270154868032222,
+          "low95": 0.9902803812524325,
+          "high95": 1.0617865617462154,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 423346531
+        },
+        {
+          "geometric_mean_ratio": 1.0267642242371768,
+          "low95": 0.9913101354223972,
+          "high95": 1.0551959307206622,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 406568912
+        }
+      ],
+      "variants": {
+        "old": {
+          "median_seconds": 1.475,
+          "minimum_seconds": 1.44,
+          "maximum_seconds": 1.58,
+          "median_rss_bytes": 234557440.0,
+          "maximum_rss_bytes": 237486080.0,
+          "maximum_including_preparation_rss_bytes": 237486080.0,
+          "every_rss_bytes": [
+            232824832.0,
+            234205184.0,
+            234291200.0,
+            234352640.0,
+            234512384.0,
+            234520576.0,
+            234594304.0,
+            234901504.0,
+            236748800.0,
+            236969984.0,
+            237109248.0,
+            237486080.0
+          ]
+        },
+        "new": {
+          "median_seconds": 1.55,
+          "minimum_seconds": 1.44,
+          "maximum_seconds": 1.57,
+          "median_rss_bytes": 48248832.0,
+          "maximum_rss_bytes": 48906240.0,
+          "maximum_including_preparation_rss_bytes": 48906240.0,
+          "every_rss_bytes": [
+            47964160.0,
+            47988736.0,
+            48025600.0,
+            48033792.0,
+            48136192.0,
+            48214016.0,
+            48283648.0,
+            48394240.0,
+            48513024.0,
+            48664576.0,
+            48893952.0,
+            48906240.0
+          ]
+        }
+      },
+      "archive_bytes": 183300480.0,
+      "maximum_rss_ratio": 0.20593308037254227,
+      "median_rss_ratio": 0.2057015629092814,
+      "nonregression_gate": true
+    }
+  ],
+  "samples_sha256": "b80577d85d426b3df2d230a0668936d22c8ffef632abf3d5178a141d7fa9b96e",
+  "identities_sha256": "58bcc49c81ebe88d21a22ccd8f09de6e4234dee70ec76c6efc7cdc546c2066d6",
+  "analysis_script_sha256": "516bdc1a93650b1cf3217aceef2165cb6fcdda710b8847f8a4b149d7f6175271",
+  "statistics_helper_sha256": "44a33381aaa2e00a4c8913e9b5cb0c264dada5b67c3be0157f4861a40b6e89fb",
+  "scope": "Plaintext many-file extraction, CLI process RSS retention gate; agent-inclusive bounds separately recorded; preparation reported separately; no universal100MB claim."
+}

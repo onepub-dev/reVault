@@ -471,44 +471,267 @@ fn vault_directory_rejects_newer_structure_versions() {
 #[test]
 fn vault_open_uses_key_directory_backup_when_embedded_directory_is_corrupt() {
     let _env_guard = ENV_LOCK.lock().unwrap();
-    let path = unique_path("backup-fallback");
-    let vault_root = unique_dir("backup-fallback-vault");
-    let _ = fs::remove_file(&path);
-    let _ = fs::remove_dir_all(&vault_root);
-
-    let password = SecretString::try_from_bytes(b"shared password".to_vec()).unwrap();
-    let mut lockbox = Lockbox::create_file(
-        &path,
-        LockboxProtection::Password(&password),
-        &signing_key(),
-    )
-    .expect("create password lockbox");
-    lockbox
-        .add_file(&p("/secret.txt"), b"bravo", false)
-        .unwrap();
-    lockbox.commit().unwrap();
-    let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
-    VaultDirectory::open_or_create(&vault_root, &vault_password)
-        .unwrap()
-        .store_key_directory_backup(
-            lockbox.lockbox_id(),
-            &VaultOpen::export_key_directory_backup(&lockbox).unwrap(),
+    for signed in [false, true] {
+        let path = unique_path("backup-fallback");
+        let vault_root = unique_dir("backup-fallback-vault");
+        let owner = signing_key();
+        let password = SecretString::try_from_bytes(b"shared password".to_vec()).unwrap();
+        let mut archive = Lockbox::create_file_with_options(
+            &path,
+            revault_lockbox_api::LockboxCreateOptions::new(
+                revault_lockbox_api::Encryption::Encrypted(LockboxProtection::Password(&password)),
+                if signed {
+                    revault_lockbox_api::Signing::Owner(&owner)
+                } else {
+                    revault_lockbox_api::Signing::None
+                },
+            ),
         )
         .unwrap();
-
-    drop(lockbox);
-    corrupt_key_directories(&path);
-
-    let _vault_dir_guard = EnvVarGuard::set("LOCKBOX_VAULT_DIR", &vault_root);
-    let _vault_password_guard = EnvVarGuard::set("LOCKBOX_VAULT_PASSWORD", "vault-password");
-    let vault = Vault::new(MemoryStore::default());
-    let opened = vault
-        .open_lockbox_with(&path, LockboxOpen::Password(&password))
+        archive
+            .add_file(&p("/secret.txt"), b"bravo", false)
+            .unwrap();
+        archive.commit().unwrap();
+        let backup = VaultOpen::export_key_directory_backup(&archive).unwrap();
+        let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+        VaultDirectory::open_or_create(&vault_root, &vault_password)
+            .unwrap()
+            .store_key_directory_backup(archive.lockbox_id(), &backup)
+            .unwrap();
+        drop(archive);
+        // No public operation deliberately damages embedded copies. This
+        // fixture-only mutation exercises the documented backup recovery path.
+        corrupt_key_directories(&path);
+        let damaged = fs::read(&path).unwrap();
+        let _directory = EnvVarGuard::set("LOCKBOX_VAULT_DIR", &vault_root);
+        let _password = EnvVarGuard::set("LOCKBOX_VAULT_PASSWORD", "vault-password");
+        let vault = Vault::new(MemoryStore::default());
+        let opened = if signed {
+            vault.open_lockbox_with_signing_key(&path, LockboxOpen::Password(&password), &owner)
+        } else {
+            vault.open_lockbox_with(&path, LockboxOpen::Password(&password))
+        }
         .unwrap();
-    assert_eq!(opened.get_file(&p("/secret.txt")).unwrap(), b"bravo");
+        assert_eq!(opened.get_file(&p("/secret.txt")).unwrap(), b"bravo");
+        // Windows enforces the writable archive's file lock against a second
+        // reader. Drop without committing before observing persisted bytes.
+        drop(opened);
+        assert_eq!(
+            fs::read(&path).unwrap(),
+            damaged,
+            "opening must not publish repairs"
+        );
+        let mut opened = if signed {
+            vault.open_lockbox_with_signing_key(&path, LockboxOpen::Password(&password), &owner)
+        } else {
+            vault.open_lockbox_with(&path, LockboxOpen::Password(&password))
+        }
+        .unwrap();
+        opened.commit().unwrap();
+        drop(opened);
+        // The repaired archive must reopen without access to the Vault backup.
+        let reopened = Lockbox::open(&path, LockboxOpen::Password(&password)).unwrap();
+        assert_eq!(reopened.get_file(&p("/secret.txt")).unwrap(), b"bravo");
+        drop(reopened);
+        vault.close_all().unwrap();
+        fs::remove_file(&path).unwrap();
+        fs::remove_dir_all(&vault_root).unwrap();
+    }
+}
 
-    let _ = fs::remove_file(path);
-    let _ = fs::remove_dir_all(vault_root);
+#[test]
+fn backup_directory_must_match_the_latest_authenticated_access_state() {
+    let _env_guard = ENV_LOCK.lock().unwrap();
+    let vault_root = unique_dir("backup-admission-vault");
+    let path = unique_path("backup-commitment");
+    let other_path = unique_path("backup-other-id");
+    let owner = signing_key();
+    let password = SecretString::try_from_bytes(b"backup commitment password".to_vec()).unwrap();
+    let next_password =
+        SecretString::try_from_bytes(b"additional legitimate password".to_vec()).unwrap();
+    let contact = ContactKeyPair::generate().unwrap();
+    let mut archive =
+        Lockbox::create_file(&path, LockboxProtection::Password(&password), &owner).unwrap();
+    archive
+        .add_file(&p("/data"), b"authenticated backup data", false)
+        .unwrap();
+    archive.commit().unwrap();
+    let stale = VaultOpen::export_key_directory_backup(&archive).unwrap();
+    archive.add_password(&next_password).unwrap();
+    archive.commit().unwrap();
+    archive.add_contact(&contact.public_key()).unwrap();
+    archive.commit().unwrap();
+    let current = VaultOpen::export_key_directory_backup(&archive).unwrap();
+    let same_key = VaultOpen::key_directory_backup_with_password(&current, &password)
+        .unwrap()
+        .try_clone_key()
+        .unwrap();
+    let mut other =
+        Lockbox::create_file(&other_path, LockboxProtection::ContentKey(same_key), &owner).unwrap();
+    other.add_password(&password).unwrap();
+    other.commit().unwrap();
+    let wrong_identity = VaultOpen::export_key_directory_backup(&other).unwrap();
+    drop(other);
+    drop(archive);
+    // The test-only corruption helper is needed because the public API never
+    // deliberately removes both committed access-directory copies.
+    corrupt_key_directories(&path);
+    let damaged = fs::read(&path).unwrap();
+    for rejected in [&stale, &wrong_identity] {
+        let opened = VaultOpen::key_directory_backup_with_password(rejected, &password).unwrap();
+        assert!(matches!(opened.open_path(&path), Err(Error::CorruptRecord)));
+        assert_eq!(fs::read(&path).unwrap(), damaged);
+    }
+    let opened = VaultOpen::key_directory_backup_with_password(&current, &password)
+        .unwrap()
+        .open_path(&path)
+        .unwrap();
+    assert_eq!(
+        opened.get_file(&p("/data")).unwrap(),
+        b"authenticated backup data"
+    );
+    drop(opened);
+    assert_eq!(
+        fs::read(&path).unwrap(),
+        damaged,
+        "read-only recovery never repairs storage"
+    );
+    let wrong_owner = signing_key();
+    let contact_open = VaultOpen::key_directory_backup_with_contact(&current, &contact).unwrap();
+    assert!(matches!(
+        contact_open.open_path_for_write(&path, &wrong_owner),
+        Err(Error::InvalidOperation(_))
+    ));
+    assert_eq!(
+        fs::read(&path).unwrap(),
+        damaged,
+        "refused recipient writes never repair storage"
+    );
+    let vault_password = SecretString::try_from_bytes(b"backup admission vault".to_vec()).unwrap();
+    let directory = VaultDirectory::open_or_create(&vault_root, &vault_password).unwrap();
+    let id = VaultOpen::read_lockbox_id(&path).unwrap();
+    directory.store_key_directory_backup(id, &stale).unwrap();
+    drop(directory); // The following public open acquires its own Vault lock.
+    let _directory = EnvVarGuard::set("LOCKBOX_VAULT_DIR", &vault_root);
+    let _password = EnvVarGuard::set("LOCKBOX_VAULT_PASSWORD", "backup admission vault");
+    let vault = Vault::new(MemoryStore::default());
+    let Err(refusal) =
+        vault.open_lockbox_with_signing_key(&path, LockboxOpen::Password(&password), &owner)
+    else {
+        panic!("a stale access-directory backup must be refused");
+    };
+    assert!(
+        matches!(refusal, Error::CorruptRecord),
+        "unexpected refusal kind: {:?}",
+        std::mem::discriminant(&refusal)
+    );
+    assert!(
+        vault.store().keys.borrow().is_empty(),
+        "failed backup must not publish a cached key"
+    );
+    VaultDirectory::open_or_create(&vault_root, &vault_password)
+        .unwrap()
+        .store_key_directory_backup(id, &current)
+        .unwrap();
+    assert!(matches!(
+        vault.open_lockbox_with_signing_key(&path, LockboxOpen::Password(&password), &wrong_owner),
+        Err(Error::InvalidKeyMaterial(_))
+    ));
+    assert!(
+        vault.store().keys.borrow().is_empty(),
+        "wrong password-open owner must not publish a cached key"
+    );
+    assert_eq!(fs::read(&path).unwrap(), damaged);
+    assert!(matches!(
+        vault.open_lockbox_with_signing_key(
+            &path,
+            LockboxOpen::ContactKeyPair(
+                ContactKeyPair::from_private_key_record(contact.private_key_record().unwrap())
+                    .unwrap()
+            ),
+            &wrong_owner
+        ),
+        Err(Error::InvalidOperation(_))
+    ));
+    assert!(
+        vault.store().keys.borrow().is_empty(),
+        "refused owner must not publish a cached key"
+    );
+    assert_eq!(fs::read(&path).unwrap(), damaged);
+    let mut repaired = vault
+        .open_lockbox_with_signing_key(&path, LockboxOpen::ContactKeyPair(contact), &owner)
+        .unwrap();
+    assert!(!vault.store().keys.borrow().is_empty());
+    repaired.commit().unwrap();
+    drop(repaired);
+    let reopened = Lockbox::open(&path, LockboxOpen::Password(&next_password)).unwrap();
+    assert_eq!(
+        reopened.get_file(&p("/data")).unwrap(),
+        b"authenticated backup data"
+    );
+    drop(reopened);
+    fs::remove_file(path).unwrap();
+    fs::remove_file(other_path).unwrap();
+    vault.close_all().unwrap();
+    fs::remove_dir_all(vault_root).unwrap();
+}
+
+#[test]
+fn unsigned_contact_backup_preserves_recipient_write_access() {
+    let path = unique_path("unsigned-contact-backup");
+    let contact = ContactKeyPair::generate().unwrap();
+    let mut archive = Lockbox::create_file_with_options(
+        &path,
+        revault_lockbox_api::LockboxCreateOptions::new(
+            revault_lockbox_api::Encryption::Encrypted(LockboxProtection::ContactPublicKey {
+                name: None,
+                contact: contact.public_key(),
+            }),
+            revault_lockbox_api::Signing::None,
+        ),
+    )
+    .unwrap();
+    archive
+        .add_file(&p("/data"), b"unsigned recipient content", false)
+        .unwrap();
+    archive.commit().unwrap();
+    let backup = VaultOpen::export_key_directory_backup(&archive).unwrap();
+    drop(archive);
+    // No public API deliberately damages committed directory copies.
+    corrupt_key_directories(&path);
+    let damaged = fs::read(&path).unwrap();
+    let restored = VaultOpen::key_directory_backup_with_contact(&backup, &contact)
+        .unwrap()
+        .open_path_for_write(&path, revault_lockbox_api::Signing::None)
+        .unwrap();
+    assert_eq!(
+        restored.get_file(&p("/data")).unwrap(),
+        b"unsigned recipient content"
+    );
+    // Observe storage after releasing the mandatory Windows writer lock; this
+    // first recovered handle is deliberately dropped without a commit.
+    drop(restored);
+    assert_eq!(fs::read(&path).unwrap(), damaged);
+    let mut restored = VaultOpen::key_directory_backup_with_contact(&backup, &contact)
+        .unwrap()
+        .open_path_for_write(&path, revault_lockbox_api::Signing::None)
+        .unwrap();
+    restored
+        .add_file(&p("/added"), b"recipient addition", false)
+        .unwrap();
+    restored.commit().unwrap();
+    drop(restored);
+    let reopened = Lockbox::open(&path, LockboxOpen::ContactKeyPair(contact)).unwrap();
+    assert_eq!(
+        reopened.get_file(&p("/data")).unwrap(),
+        b"unsigned recipient content"
+    );
+    assert_eq!(
+        reopened.get_file(&p("/added")).unwrap(),
+        b"recipient addition"
+    );
+    drop(reopened);
+    fs::remove_file(path).unwrap();
 }
 
 #[test]

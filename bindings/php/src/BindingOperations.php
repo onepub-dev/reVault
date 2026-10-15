@@ -163,6 +163,11 @@ final class BindingOperations
         return $this->withBytes($archive, fn(CData $archivePointer, int $archiveLength) => $this->withBytes($key, fn(CData $keyPointer, int $keyLength) => $this->requireHandle($this->ffi->lockbox_open_with_options($archivePointer, $archiveLength, $keyPointer, $keyLength, $cacheMode, strlen($cacheMode), $cacheBytes, $workload, strlen($workload), $worker, strlen($worker), $jobs))));
     }
 
+    public function lockboxOpenPasswordWithBudget(string $archive, string $password, int $maxDerivations): CData
+    {
+        if ($maxDerivations < 0 || $maxDerivations > 0xffffffff) { throw new \InvalidArgumentException('maxDerivations must be an unsigned 32-bit integer'); }
+        return $this->withBytes($archive, fn(CData $archivePointer, int $archiveLength) => $this->withBytes($password, fn(CData $passwordPointer, int $passwordLength) => $this->requireHandle($this->ffi->lockbox_open_password_with_budget($archivePointer, $archiveLength, $passwordPointer, $passwordLength, $maxDerivations))));
+    }
     public function lockboxOpenPassword(string $archive, string $password): CData
     {
         return $this->withBytes($archive, fn(CData $archivePointer, int $archiveLength) => $this->withBytes($password, fn(CData $passwordPointer, int $passwordLength) => $this->requireHandle($this->ffi->lockbox_open_password($archivePointer, $archiveLength, $passwordPointer, $passwordLength))));
@@ -188,6 +193,10 @@ final class BindingOperations
         return $this->take($this->ffi->lockbox_get_file($handle, $path, strlen($path)));
     }
 
+    public function lockboxExtractFileWithPolicy(CData $handle, string $source, string $destination, int $maxFileBytes, int $maxTotalBytes, int $maxFiles, bool $restorePermissions, bool $overwrite): bool
+    {
+        return $this->requireBool((bool) ($this->ffi->lockbox_extract_file_with_policy($handle, $source, strlen($source), $destination, strlen($destination), $maxFileBytes, $maxTotalBytes, $maxFiles, $restorePermissions, $overwrite)));
+    }
     public function lockboxExtractFile(CData $handle, string $source, string $destination, bool $replace): bool
     {
         return $this->requireBool((bool) ($this->ffi->lockbox_extract_file($handle, $source, strlen($source), $destination, strlen($destination), $replace)));
@@ -251,6 +260,11 @@ final class BindingOperations
     public function lockboxSetWorkloadProfile(CData $handle, string $profile): bool
     {
         return $this->requireBool((bool) ($this->ffi->lockbox_set_workload_profile($handle, $profile, strlen($profile))));
+    }
+
+    public function lockboxSetCacheLimit(CData $handle, string $mode, int $bytes): bool
+    {
+        return $this->requireBool((bool) ($this->ffi->lockbox_set_cache_limit($handle, $mode, strlen($mode), $bytes)));
     }
 
     public function lockboxSetWorkerPolicy(CData $handle, string $mode, int $jobs): bool
@@ -861,6 +875,36 @@ final class BindingOperations
     public function vaultDirectoryRememberLockbox(CData $handle, string $id, string $path): bool
     {
         return $this->withBytes($id, fn(CData $idPointer, int $idLength) => $this->requireBool((bool) ($this->ffi->vault_directory_remember_lockbox($handle, $idPointer, $idLength, $path, strlen($path)))));
+    }
+
+    public function vaultDirectorySetLockboxAlias(CData $handle, string $name, string $id): bool
+    {
+        return $this->withBytes($id, fn(CData $idPointer, int $idLength) => $this->requireBool((bool) ($this->ffi->vault_directory_set_lockbox_alias($handle, $name, strlen($name), $idPointer, $idLength))));
+    }
+
+    public function vaultDirectoryListLockboxAliases(CData $handle): \Revault\LockboxAliasList
+    {
+        return $this->decode(\Revault\LockboxAliasList::class, $this->ffi->vault_directory_list_lockbox_aliases($handle));
+    }
+
+    public function vaultDirectoryRemoveLockboxAlias(CData $handle, string $name): bool
+    {
+        return $this->requireBool((bool) ($this->ffi->vault_directory_remove_lockbox_alias($handle, $name, strlen($name))));
+    }
+
+    public function vaultDirectoryResolveLockboxAlias(CData $handle, string $name): \Revault\KnownLockbox
+    {
+        return $this->decode(\Revault\KnownLockbox::class, $this->ffi->vault_directory_resolve_lockbox_alias($handle, $name, strlen($name)));
+    }
+
+    public function vaultReadOnlyListLockboxAliases(CData $handle): \Revault\LockboxAliasList
+    {
+        return $this->decode(\Revault\LockboxAliasList::class, $this->ffi->vault_read_only_list_lockbox_aliases($handle));
+    }
+
+    public function vaultReadOnlyResolveLockboxAlias(CData $handle, string $name): \Revault\KnownLockbox
+    {
+        return $this->decode(\Revault\KnownLockbox::class, $this->ffi->vault_read_only_resolve_lockbox_alias($handle, $name, strlen($name)));
     }
 
     public function vaultDirectoryListKnownLockboxes(CData $handle): \Revault\KnownLockboxList

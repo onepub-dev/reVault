@@ -1,0 +1,74 @@
+Issue #310: compressed native file-handle cache reuse
+
+Baseline production revision: 3e640c6.
+Before binary SHA256: a8948e32d92b8a126652c7899e52dd218a5fc1667a1fe7e0ba630be8cfec60ba
+After binary SHA256: 81fe97a50e216388dbf4f58e4278440922ff596a31128f6c0bde6b4e00b1d3b9
+Release zip_read benchmark, native-block-layout enabled. Binary hashes are
+before the formatting-only pre-commit hook. Feature remains unreleased/opt-in.
+
+The native-broad-read-current CSV is the BEFORE baseline (336 rows), despite
+its historical filename. Three runs, five samples per row, plain mode,
+pattern/random corpora, both compression settings and read profiles. Small:
+512 x 4096 bytes, Interactive/BulkImport creation. Large: 4 x 1 MiB and
+4 x 8 MiB, Interactive creation. Access: stream, random (Read handles),
+whole (get_file), plus range for large files. Fresh archive handles, warm OS
+caches. Every returned byte is checked. ZIP deflate ranges decode the prefix;
+they do not validate the whole entry CRC. This is not a cold-storage gate.
+
+This exposed repeated full compressed-frame decoding for separate handles of
+packed files. Native compressed handles now enter the existing bounded,
+verified decoded-frame cache on first read, retain only their file slice,
+and check live storage identity/extent/revision/failure state on window hits.
+Raw partial reads retain their bounded block reader; no eager raw-frame read.
+The shared cache honors existing budgets and disabled-cache configuration.
+No wire format, public API, default feature or cache budget changes.
+
+The handle-cache-reads CSV contains 96 rows: three interleaved before/after
+runs, five samples, plain mode, small case, both creation profiles, corpora,
+compression settings and read profiles, ACCESS=random. Each phase verifies
+480 MiB of returned bytes across independent reopened archive handles.
+The compressed flag denotes the requested policy: incompressible corpus
+falls back to raw frames, so those rows do NOT exercise the new compressed path.
+
+Per-case medians across three runs: speedup=before/after lockbox total time;
+after/ZIP=after lockbox/ZIP total time (lower is better).
+BulkImport false Interactive pattern: speedup 1.037, after/ZIP 12.024
+BulkImport false Interactive random: speedup 1.041, after/ZIP 12.273
+BulkImport false ReadMostly pattern: speedup 1.041, after/ZIP 12.003
+BulkImport false ReadMostly random: speedup 1.037, after/ZIP 12.227
+BulkImport true Interactive pattern: speedup 211.069, after/ZIP 1.206
+BulkImport true Interactive random: speedup 1.036, after/ZIP 13.627
+BulkImport true ReadMostly pattern: speedup 209.380, after/ZIP 1.216
+BulkImport true ReadMostly random: speedup 1.041, after/ZIP 13.509
+Interactive false Interactive pattern: speedup 1.004, after/ZIP 2.429
+Interactive false Interactive random: speedup 1.015, after/ZIP 2.353
+Interactive false ReadMostly pattern: speedup 0.999, after/ZIP 2.432
+Interactive false ReadMostly random: speedup 1.014, after/ZIP 2.355
+Interactive true Interactive pattern: speedup 1.859, after/ZIP 1.270
+Interactive true Interactive random: speedup 1.001, after/ZIP 2.278
+Interactive true ReadMostly pattern: speedup 1.866, after/ZIP 1.222
+Interactive true ReadMostly random: speedup 1.010, after/ZIP 2.264
+
+Compressible packed handles improve about 209-211x, but still take 1.21x ZIP.
+Interactive compressible handles improve 1.86x, remaining 1.22-1.27x ZIP.
+Raw fallback and raw handles remain roughly 2.3-13.6x ZIP; they need metadata/
+index reuse without expanding bounded raw range reads. Large-file baseline
+also remains well short of parity (roughly 4.4-6.6x ZIP median whole reads).
+These measurements do not establish broad parity, write lifecycle completion,
+cold-storage performance, signed/encrypted speedup, or release readiness.
+
+The external-source regression reads a neighboring compressed file through a
+new public Read handle, checks every returned byte, and asserts zero additional
+source reads. Existing all-mode tests cover raw bounds, seeks, retained-window
+truncation/overwrite rejection, cancellation and sticky terminal failures.
+
+Validation:
+- Native-focused tests: 28 passed, 1 known signed-neighbor recovery failure.
+- Full native + external-source unit suite: 344 passed, 5 ignored, the same
+  two known failures: recovery_skips_truncated_tail_and_keeps_prior_intact_files;
+  native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+  Native integration/doc tests were not reached after the unit failures.
+- Default-feature suite: 339 unit tests passed, 5 ignored; all executed
+  integration and documentation tests passed.
+- Native + external-source all-targets Clippy with -D warnings passed.
+- Release benchmark build and all 96 paired benchmark rows passed byte checks.

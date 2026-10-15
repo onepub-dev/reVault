@@ -1,0 +1,39 @@
+{
+  "fixed_before_primary": true,
+  "primary_cases": [
+    "source-expanded-1gib-raw-plain",
+    "source-expanded-1gib-raw-encrypted",
+    "source-expanded-1gib-compressed-plain",
+    "source-expanded-1gib-compressed-encrypted",
+    "random-1gib-raw-encrypted",
+    "random-1gib-compressed-encrypted"
+  ],
+  "variants_each": [
+    "zip",
+    "typed-tree-1",
+    "typed-tree-2",
+    "typed-tree-4"
+  ],
+  "primary_rounds": 16,
+  "excluded_preparatory_rounds": 4,
+  "measured_rounds": 12,
+  "primary_extractions": 384,
+  "measured_extractions": 288,
+  "smokes": {
+    "unexpanded_source": 16,
+    "primary_gib_preflight": 24
+  },
+  "archive_cache_gate": "sync-d, per-file fadvise DONTNEED, fincore resident bytes exactly zero before every admission attempt",
+  "storage_gate": "process extraction read_bytes >= ceil(minimum of two independent whole-archive cold Dart read_bytes deltas /2); calibration scans within10%; positive physical traffic; zero fincore before each; frozen before primary; corroboration not exact physical-byte accounting",
+  "reader_parity": "round modulo two, six measured samples each parity, sixteen identity-only admission retries maximum",
+  "completion": "buffered write/flush/close; source/output byte verification outside timing; separate scoped output sync drain before cleanup, excluded from extraction timing",
+  "cpu_affinity": "0,1,2,3,4 for every variant; one-worker default remains unchanged",
+  "zip": "Info-ZIP external encoder -0 stored or -6 deflate; native existing ZIP extraction reaches EOF and CRC; no encryption or cryptographic authentication",
+  "tree": "existing test-only selective reader; None or default Zstd numeric level3 with raw fallback; plain or ChaCha20Poly1305; unsigned; default size padding; 65536-byte units",
+  "comparisons": "within-case paired round ZIP and worker comparisons; separate mode batches are descriptive controls only, not randomized paired causal mode-cost estimates",
+  "budget": "24GiB apparent artifact cap including duplicated hardlink lengths; single largest active output projection; no sudo or cache policy changes",
+  "source": "920 pinned committed allowlisted code blobs at6735f6db; 14284673 original bytes; 14341790-byte path/length-framed bundle; expanded stream cycles bundle to1073741824 bytes; explicitly repeated synthetic stream, not unique real-world GiB",
+  "boundary": "archive construction and independent verification excluded from read timing; no public CLI startup, passphrase derivation, recipients, owner signatures, or production activation",
+  "epoch": "v2 after failed stat-based preflight; no primary v1 samples",
+  "retained_v1_failure": "first small-source stored ZIP had3,223,552 physical read bytes vs14,344,192 stat allocated; stat counts logical allocation on compressed Btrfs; native output verified; v1 sample rejected and retained"
+}

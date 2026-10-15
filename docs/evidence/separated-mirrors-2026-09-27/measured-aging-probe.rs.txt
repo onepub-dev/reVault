@@ -1,0 +1,120 @@
+fn allocation_aging_resource_probe() {
+    fn usage() -> (i64, i64) {
+        let mut value = std::mem::MaybeUninit::<libc::rusage>::uninit();
+        // SAFETY: getrusage initializes the output on success, checked below.
+        let status = unsafe { libc::getrusage(libc::RUSAGE_SELF, value.as_mut_ptr()) };
+        assert_eq!(status, 0);
+        // SAFETY: the successful call above initialized every field.
+        let value = unsafe { value.assume_init() };
+        (
+            value.ru_utime.tv_sec * 1_000_000
+                + value.ru_utime.tv_usec
+                + value.ru_stime.tv_sec * 1_000_000
+                + value.ru_stime.tv_usec,
+            value.ru_maxrss,
+        )
+    }
+    struct Cleanup(std::path::PathBuf);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.0);
+        }
+    }
+    let cycles: usize = std::env::var("REVAULT_ALLOCATION_CYCLES")
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!((100..=1000).contains(&cycles));
+    let encrypted = std::env::var("REVAULT_ALLOCATION_ENCRYPTED").unwrap() == "1";
+    let signed = std::env::var("REVAULT_ALLOCATION_SIGNED").unwrap() == "1";
+    let padded = std::env::var("REVAULT_ALLOCATION_PADDED").unwrap() == "1";
+    let mode = mode(encrypted, signed, padded);
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let authority = authority(mode, &public);
+    let signer = signed.then_some(&owner);
+    let cleanup = Cleanup(std::env::temp_dir().join(format!(
+        "revault-allocation-aging-{}.candidate",
+        std::process::id()
+    )));
+    assert!(!cleanup.0.exists());
+    let mut storage = StorageBackend::create_file(&cleanup.0, &[]).unwrap();
+    let mut anchor =
+        create_empty(&mut storage, archive(), mode, &authority, signer, key(mode)).unwrap();
+    let mut expected: BTreeMap<Vec<u8>, (Vec<u8>, Extent)> = BTreeMap::new();
+    let mut total_cpu = 0;
+    let mut total_wall = 0;
+    let mut max_len = 0;
+    for cycle in 0..cycles {
+        let before_len = storage.len().unwrap();
+        let before_generation = anchor.generation;
+        let start_cpu = usage().0;
+        let start = std::time::Instant::now();
+        let mut tx = Transaction::begin(storage, archive(), mode, &authority, key(mode)).unwrap();
+        let no_change = matches!(cycle % 8, 1 | 7);
+        match cycle % 8 {
+            0 | 2 | 3 => {
+                let len = match cycle % 8 {
+                    0 => 4096,
+                    2 => 12289,
+                    _ => 31,
+                };
+                let plain = vec![(cycle % 251) as u8; len];
+                let extent = tx.append_encoded_extent(&stored(mode, &plain)).unwrap();
+                tx.put(1, b"/item", b"data", &[extent]).unwrap();
+                expected.insert(b"/item".to_vec(), (plain, extent));
+            }
+            1 => {
+                tx.put(1, b"/item", b"data", &[expected[b"/item".as_slice()].1])
+                    .unwrap();
+            }
+            4 => {
+                let shared = expected[b"/item".as_slice()].clone();
+                tx.put(1, b"/alias", b"data", &[shared.1]).unwrap();
+                expected.insert(b"/alias".to_vec(), shared);
+                tx.put_key_record(1, b"recipient", &cycle.to_le_bytes(), &[])
+                    .unwrap();
+            }
+            5 => {
+                tx.remove(1, b"/item").unwrap();
+                expected.remove(b"/item".as_slice());
+            }
+            6 | 7 => {
+                tx.remove(1, b"/alias").unwrap();
+                expected.remove(b"/alias".as_slice());
+            }
+            _ => unreachable!(),
+        }
+        let (completed, next) = tx.commit(&authority, signer).unwrap();
+        let wall_us = start.elapsed().as_micros() as u64;
+        let cpu_us = usage().0 - start_cpu;
+        total_wall += wall_us;
+        total_cpu += cpu_us;
+        drop(completed);
+        // Persisted bytes are verified using an independent file handle on every
+        // cycle. No archive-sized clone is used by setup, mutation or verification.
+        storage = StorageBackend::file_for_write(&cleanup.0).unwrap();
+        anchor = recover(&mut storage, archive(), mode, &authority, key(mode)).unwrap();
+        assert_eq!(anchor, next);
+        let accounting = audit(&storage, &anchor);
+        max_len = max_len.max(accounting.total);
+        for name in [b"/item".as_slice(), b"/alias".as_slice()] {
+            assert_eq!(
+                content(&storage, &anchor, name),
+                expected.get(name).map(|(bytes, _)| bytes.clone())
+            );
+        }
+        if no_change {
+            assert_eq!(anchor.generation, before_generation);
+            assert_eq!(accounting.total, before_len);
+        }
+        println!(
+            "ALLOCATION_CYCLE {}",
+            serde_json::json!({"cycle":cycle,"encrypted":encrypted,"signed":signed,"padded_index":padded,"generation":anchor.generation,"no_change":no_change,"cpu_us":cpu_us,"wall_us":wall_us,"rss_kib":usage().1,"fixed":accounting.fixed,"payload":accounting.payload,"index":accounting.index,"keys":accounting.keys,"allocation":accounting.allocation,"reserve":accounting.reserve,"free":accounting.free,"pending":accounting.pending,"file_bytes":accounting.total})
+        );
+    }
+    println!(
+        "ALLOCATION_TOTAL {}",
+        serde_json::json!({"cycles":cycles,"encrypted":encrypted,"signed":signed,"padded_index":padded,"cpu_us":total_cpu,"wall_us":total_wall,"rss_kib":usage().1,"max_file_bytes":max_len,"final_file_bytes":storage.len().unwrap()})
+    );
+}

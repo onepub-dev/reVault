@@ -83,7 +83,7 @@ for name in base:
 list_types = {
     "StreamChunkList": "StreamChunk", "PageInspectionList": "PageInspection", "LockboxEntryList": "LockboxEntry",
     "VariableList": "Variable", "KeySlotList": "KeySlot", "FormDefinitionList": "FormDefinition",
-    "FormRecordList": "FormRecord", "ContactList": "Contact", "KnownLockboxList": "KnownLockbox",
+    "FormRecordList": "FormRecord", "ContactList": "Contact", "LockboxAliasList": "LockboxAlias", "KnownLockboxList": "KnownLockbox",
     "AccessSlotLabelList": "AccessSlotLabel", "AgentEntryList": "AgentEntry", "ProfileHistoryList": "ProfileHistory",
 }
 for wrapper, item in list_types.items():

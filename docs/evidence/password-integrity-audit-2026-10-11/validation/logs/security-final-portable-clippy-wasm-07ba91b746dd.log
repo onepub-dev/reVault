@@ -1,0 +1,57 @@
+    Checking revault_page_api v0.0.34 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_page_api)
+    Checking revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+error: call to `std::mem::drop` with a value that does not implement `Drop`. Dropping such a type only extends its contained lifetimes
+   --> revault_lockbox_api/src/lockbox/extraction.rs:422:13
+    |
+422 |             drop(out);
+    |             ^^^^^^^^^
+    |
+note: argument has type `std::fs::File`
+   --> revault_lockbox_api/src/lockbox/extraction.rs:422:18
+    |
+422 |             drop(out);
+    |                  ^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#drop_non_drop
+    = note: `-D clippy::drop-non-drop` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::drop_non_drop)]`
+
+error: call to `std::mem::drop` with a value that does not implement `Drop`. Dropping such a type only extends its contained lifetimes
+   --> revault_lockbox_api/src/lockbox/extraction.rs:437:13
+    |
+437 |             drop(out);
+    |             ^^^^^^^^^
+    |
+note: argument has type `std::fs::File`
+   --> revault_lockbox_api/src/lockbox/extraction.rs:437:18
+    |
+437 |             drop(out);
+    |                  ^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#drop_non_drop
+
+error: call to `std::mem::drop` with a value that does not implement `Drop`. Dropping such a type only extends its contained lifetimes
+   --> revault_lockbox_api/src/lockbox/extraction.rs:448:9
+    |
+448 |         drop(temp_file);
+    |         ^^^^^^^^^^^^^^^
+    |
+note: argument has type `std::fs::File`
+   --> revault_lockbox_api/src/lockbox/extraction.rs:448:14
+    |
+448 |         drop(temp_file);
+    |              ^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#drop_non_drop
+
+error: call to `std::mem::drop` with a value that does not implement `Drop`. Dropping such a type only extends its contained lifetimes
+    --> revault_lockbox_api/src/lockbox/files.rs:1006:9
+     |
+1006 |         drop(temp_file);
+     |         ^^^^^^^^^^^^^^^
+     |
+note: argument has type `std::fs::File`
+    --> revault_lockbox_api/src/lockbox/files.rs:1006:14
+     |
+1006 |         drop(temp_file);
+     |              ^^^^^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#drop_non_drop
+
+error: could not compile `revault_lockbox_api` (lib) due to 4 previous errors

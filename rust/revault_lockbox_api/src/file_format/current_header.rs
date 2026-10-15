@@ -70,6 +70,65 @@ pub(crate) fn write_header(
     .expect("header initialization buffer is valid");
 }
 
+/// Authenticate the initial empty state using the same header domain as every
+/// later publication. Sequence zero is a real state, never an authentication opt-out.
+pub(crate) fn authenticated_initial_header(
+    lockbox_id: LockboxId,
+    key: &crate::SecretVec,
+) -> Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    write_header(&mut bytes, 0, 0, 0, lockbox_id, 0);
+    let tag = key.with_bytes(|key| crate::crypto::metadata_auth_tag(key, &bytes[..128]))?;
+    bytes[128..152].copy_from_slice(&tag);
+    let digest = strong_checksum(&bytes[..160]);
+    bytes[160..192].copy_from_slice(&digest);
+    Ok(bytes)
+}
+
+/// Recovery-only repair of damaged slot magics. All remaining bytes, including
+/// checksums and authentication tags, are preserved. A checksum-valid candidate
+/// still requires normal publication/owner authentication before it is trusted.
+pub(crate) fn recover_header_magic(bytes: &[u8]) -> Option<[u8; HEADER_LEN]> {
+    let mut header: [u8; HEADER_LEN] = bytes.get(..HEADER_LEN)?.try_into().ok()?;
+    for slot in header.chunks_exact_mut(header_v2::SLOT_LEN) {
+        slot[..8].copy_from_slice(header_v2::MAGIC);
+    }
+    read_header(&header).ok()?;
+    Some(header)
+}
+
+/// Construct a recovery candidate for a lost root pointer. Preserve the original
+/// metadata authentication tag: normal open must authenticate the restored bytes
+/// before any entry is trusted. This does not authorize the supplied pointer.
+pub(crate) fn recover_header_root_pointer(
+    bytes: &[u8],
+    commit_root_offset: u64,
+) -> Option<[u8; HEADER_LEN]> {
+    let selected = read_header(bytes).ok()?;
+    if selected.commit_root_offset != 0 || commit_root_offset == 0 {
+        return None;
+    }
+    let mut header: [u8; HEADER_LEN] = bytes.get(..HEADER_LEN)?.try_into().ok()?;
+    let start = selected.slot_index * header_v2::SLOT_LEN;
+    let slot = &mut header[start..start + header_v2::SLOT_LEN];
+    slot[24..32].copy_from_slice(&commit_root_offset.to_le_bytes());
+    let checksum_start = header_v2::SLOT_LEN - 32;
+    let checksum = strong_checksum(&slot[..checksum_start]);
+    slot[checksum_start..].copy_from_slice(&checksum);
+    read_header(&header).ok()?;
+    Some(header)
+}
+
+pub(crate) fn read_header_for_scan(bytes: &[u8]) -> Result<LockboxHeader> {
+    let header = read_header(bytes);
+    if header.is_err() {
+        if let Some(repaired) = recover_header_magic(bytes) {
+            return read_header(&repaired);
+        }
+    }
+    header
+}
+
 pub(crate) fn read_header(bytes: &[u8]) -> Result<LockboxHeader> {
     if bytes
         .get(..8)
@@ -179,5 +238,21 @@ mod tests {
         assert_eq!(header.cleanup_sequence, 4);
         assert_eq!(header.lockbox_id, id);
         assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 4);
+    }
+
+    #[test]
+    fn recovery_magic_repair_preserves_checksums_and_rejects_other_damage() {
+        let mut bytes = Vec::new();
+        write_header(&mut bytes, 100, 4, 200, LockboxId::from_bytes([7; 16]), 300);
+        let expected = read_header(&bytes).unwrap();
+        bytes[0] ^= 0xff;
+        assert!(read_header(&bytes).is_err());
+        let unchanged = bytes.clone();
+        assert_eq!(read_header_for_scan(&bytes).unwrap(), expected);
+        assert_eq!(bytes, unchanged, "repair never changes source storage");
+        bytes[32] ^= 1;
+        assert!(recover_header_magic(&bytes).is_none());
+        assert!(recover_header_magic(&bytes[..HEADER_LEN - 1]).is_none());
+        assert!(recover_header_magic(&vec![0; HEADER_LEN]).is_none());
     }
 }

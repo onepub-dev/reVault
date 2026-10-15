@@ -1,0 +1,943 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:102:67
+    |
+102 |     let prepared = prepare_from_dfast_output(src, repeat_offsets, &output);
+    |                    -------------------------                      ^^^^^^^ expected `&DFastBlockOutput`, found `&Result<DFastBlockOutput, CapacityError>`
+    |                    |
+    |                    arguments to this function are incorrect
+    |
+    = note: expected reference `&DFastBlockOutput`
+               found reference `&Result<DFastBlockOutput, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:639:4
+    |
+639 | fn prepare_from_dfast_output(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+642 |     output: &DFastBlockOutput,
+    |     -------------------------
+
+error[E0609]: no field `repeat_offsets` on type `Result<DFastBlockOutput, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:106:32
+    |
+106 |         repeat_offsets: output.repeat_offsets,
+    |                                ^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+106 |         repeat_offsets: output.unwrap().repeat_offsets,
+    |                                +++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:164:72
+    |
+164 |     let prepared = prepare_from_dfast_output_in(block, repeat_offsets, &output, reuse);
+    |                    ----------------------------                        ^^^^^^^ expected `&DFastBlockOutput`, found `&Result<DFastBlockOutput, CapacityError>`
+    |                    |
+    |                    arguments to this function are incorrect
+    |
+    = note: expected reference `&DFastBlockOutput`
+               found reference `&Result<DFastBlockOutput, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:652:4
+    |
+652 | fn prepare_from_dfast_output_in(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+655 |     output: &DFastBlockOutput,
+    |     -------------------------
+
+error[E0609]: no field `repeat_offsets` on type `Result<DFastBlockOutput, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:165:40
+    |
+165 |     let output_repeat_offsets = output.repeat_offsets;
+    |                                        ^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+165 |     let output_repeat_offsets = output.unwrap().repeat_offsets;
+    |                                        +++++++++
+
+error[E0609]: no field `sequences` on type `Result<DFastBlockOutput, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:166:62
+    |
+166 |     state.recycle_sequence_store(core::mem::take(&mut output.sequences));
+    |                                                              ^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+166 |     state.recycle_sequence_store(core::mem::take(&mut output.unwrap().sequences));
+    |                                                              +++++++++
+
+error[E0609]: no field `sequences` on type `Result<DFastBlockOutput, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:194:25
+    |
+194 |         &matcher_output.sequences,
+    |                         ^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+194 |         &matcher_output.unwrap().sequences,
+    |                         +++++++++
+
+error[E0609]: no field `last_literals` on type `Result<DFastBlockOutput, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:195:24
+    |
+195 |         matcher_output.last_literals,
+    |                        ^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+195 |         matcher_output.unwrap().last_literals,
+    |                        +++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:199:9
+    |
+199 |         literals,
+    |         ^^^^^^^^ expected `PreparedStoreWords`, found `Result<PreparedStoreWords, ...>`
+    |
+    = note: expected struct `PreparedStoreWords`
+                 found enum `Result<PreparedStoreWords, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<PreparedStoreWords, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+199 |         literals: literals.expect("REASON"),
+    |                 +++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:200:9
+    |
+200 |         matcher_output,
+    |         ^^^^^^^^^^^^^^ expected `DFastBlockOutput`, found `Result<DFastBlockOutput, CapacityError>`
+    |
+    = note: expected struct `DFastBlockOutput`
+                 found enum `Result<DFastBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<DFastBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+200 |         matcher_output: matcher_output.expect("REASON"),
+    |                       +++++++++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:265:9
+    |
+265 |         literals,
+    |         ^^^^^^^^ expected `PreparedStoreWords`, found `Result<PreparedStoreWords, ...>`
+    |
+    = note: expected struct `PreparedStoreWords`
+                 found enum `Result<PreparedStoreWords, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<PreparedStoreWords, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+265 |         literals: literals.expect("REASON"),
+    |                 +++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:644:5
+    |
+643 |   ) -> PreparedBlock {
+    |        ------------- expected `compressed::PreparedBlock` because of return type
+644 | /     prepare_stored_sequences(
+645 | |         src,
+646 | |         initial_repeat_offsets,
+647 | |         &output.sequences,
+648 | |         output.last_literals,
+649 | |     )
+    | |_____^ expected `PreparedBlock`, found `Result<PreparedBlock, CapacityError>`
+    |
+    = note: expected struct `compressed::PreparedBlock`
+                 found enum `Result<compressed::PreparedBlock, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<compressed::PreparedBlock, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+649 |     ).expect("REASON")
+    |      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:658:5
+    |
+657 |   ) -> PreparedStoreWords {
+    |        ------------------ expected `PreparedStoreWords` because of return type
+658 | /     prepare_stored_sequence_words_in(
+659 | |         src,
+660 | |         initial_repeat_offsets,
+661 | |         &output.sequences,
+662 | |         output.last_literals,
+663 | |         reuse,
+664 | |     )
+    | |_____^ expected `PreparedStoreWords`, found `Result<PreparedStoreWords, ...>`
+    |
+    = note: expected struct `PreparedStoreWords`
+                 found enum `Result<PreparedStoreWords, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<PreparedStoreWords, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+664 |     ).expect("REASON")
+    |      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_ext.rs:110:16
+    |
+85  |   ) -> DFastBlockOutput {
+    |        ---------------- expected `DFastBlockOutput` because of return type
+...
+110 |           return compress_block_double_fast_no_dict_with_state_and_loaded_dict(
+    |  ________________^
+111 | |             src,
+112 | |             block_range,
+113 | |             params,
+...   |
+116 | |             0,
+117 | |         );
+    | |_________^ expected `DFastBlockOutput`, found `Result<DFastBlockOutput, CapacityError>`
+    |
+    = note: expected struct `DFastBlockOutput`
+                 found enum `Result<DFastBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<DFastBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+117 |         ).expect("REASON");
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:101:66
+    |
+101 |     let prepared = prepare_from_fast_output(src, repeat_offsets, &output);
+    |                    ------------------------                      ^^^^^^^ expected `&FastBlockOutput`, found `&Result<FastBlockOutput, CapacityError>`
+    |                    |
+    |                    arguments to this function are incorrect
+    |
+    = note: expected reference `&FastBlockOutput`
+               found reference `&Result<FastBlockOutput, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:633:4
+    |
+633 | fn prepare_from_fast_output(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+636 |     output: &FastBlockOutput,
+    |     ------------------------
+
+error[E0609]: no field `repeat_offsets` on type `Result<FastBlockOutput, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:105:32
+    |
+105 |         repeat_offsets: output.repeat_offsets,
+    |                                ^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+105 |         repeat_offsets: output.unwrap().repeat_offsets,
+    |                                +++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:163:71
+    |
+163 |     let prepared = prepare_from_fast_output_in(block, repeat_offsets, &output, reuse);
+    |                    ---------------------------                        ^^^^^^^ expected `&FastBlockOutput`, found `&Result<FastBlockOutput, CapacityError>`
+    |                    |
+    |                    arguments to this function are incorrect
+    |
+    = note: expected reference `&FastBlockOutput`
+               found reference `&Result<FastBlockOutput, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:646:4
+    |
+646 | fn prepare_from_fast_output_in(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+649 |     output: &FastBlockOutput,
+    |     ------------------------
+
+error[E0609]: no field `repeat_offsets` on type `Result<FastBlockOutput, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:167:32
+    |
+167 |         repeat_offsets: output.repeat_offsets,
+    |                                ^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+167 |         repeat_offsets: output.unwrap().repeat_offsets,
+    |                                +++++++++
+
+error[E0609]: no field `sequences` on type `Result<FastBlockOutput, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:191:25
+    |
+191 |         &matcher_output.sequences,
+    |                         ^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+191 |         &matcher_output.unwrap().sequences,
+    |                         +++++++++
+
+error[E0609]: no field `last_literals` on type `Result<FastBlockOutput, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:192:24
+    |
+192 |         matcher_output.last_literals,
+    |                        ^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+192 |         matcher_output.unwrap().last_literals,
+    |                        +++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:196:9
+    |
+196 |         literals,
+    |         ^^^^^^^^ expected `PreparedStoreWords`, found `Result<PreparedStoreWords, ...>`
+    |
+    = note: expected struct `PreparedStoreWords`
+                 found enum `Result<PreparedStoreWords, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<PreparedStoreWords, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+196 |         literals: literals.expect("REASON"),
+    |                 +++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:197:9
+    |
+197 |         matcher_output,
+    |         ^^^^^^^^^^^^^^ expected `FastBlockOutput`, found `Result<FastBlockOutput, CapacityError>`
+    |
+    = note: expected struct `FastBlockOutput`
+                 found enum `Result<FastBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FastBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+197 |         matcher_output: matcher_output.expect("REASON"),
+    |                       +++++++++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:227:71
+    |
+227 |     let prepared = prepare_from_fast_output_in(block, repeat_offsets, &output, reuse);
+    |                    ---------------------------                        ^^^^^^^ expected `&FastBlockOutput`, found `&Result<FastBlockOutput, CapacityError>`
+    |                    |
+    |                    arguments to this function are incorrect
+    |
+    = note: expected reference `&FastBlockOutput`
+               found reference `&Result<FastBlockOutput, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:646:4
+    |
+646 | fn prepare_from_fast_output_in(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+649 |     output: &FastBlockOutput,
+    |     ------------------------
+
+error[E0609]: no field `repeat_offsets` on type `Result<FastBlockOutput, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:231:32
+    |
+231 |         repeat_offsets: output.repeat_offsets,
+    |                                ^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+231 |         repeat_offsets: output.unwrap().repeat_offsets,
+    |                                +++++++++
+
+error[E0609]: no field `sequences` on type `Result<FastBlockOutput, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:254:25
+    |
+254 |         &matcher_output.sequences,
+    |                         ^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+254 |         &matcher_output.unwrap().sequences,
+    |                         +++++++++
+
+error[E0609]: no field `last_literals` on type `Result<FastBlockOutput, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:255:24
+    |
+255 |         matcher_output.last_literals,
+    |                        ^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+255 |         matcher_output.unwrap().last_literals,
+    |                        +++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:259:9
+    |
+259 |         literals,
+    |         ^^^^^^^^ expected `PreparedStoreWords`, found `Result<PreparedStoreWords, ...>`
+    |
+    = note: expected struct `PreparedStoreWords`
+                 found enum `Result<PreparedStoreWords, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<PreparedStoreWords, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+259 |         literals: literals.expect("REASON"),
+    |                 +++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:260:9
+    |
+260 |         matcher_output,
+    |         ^^^^^^^^^^^^^^ expected `FastBlockOutput`, found `Result<FastBlockOutput, CapacityError>`
+    |
+    = note: expected struct `FastBlockOutput`
+                 found enum `Result<FastBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FastBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+260 |         matcher_output: matcher_output.expect("REASON"),
+    |                       +++++++++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:638:5
+    |
+637 |   ) -> PreparedBlock {
+    |        ------------- expected `compressed::PreparedBlock` because of return type
+638 | /     prepare_stored_sequences(
+639 | |         src,
+640 | |         initial_repeat_offsets,
+641 | |         &output.sequences,
+642 | |         output.last_literals,
+643 | |     )
+    | |_____^ expected `PreparedBlock`, found `Result<PreparedBlock, CapacityError>`
+    |
+    = note: expected struct `compressed::PreparedBlock`
+                 found enum `Result<compressed::PreparedBlock, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<compressed::PreparedBlock, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+643 |     ).expect("REASON")
+    |      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:652:5
+    |
+651 |   ) -> PreparedStoreWords {
+    |        ------------------ expected `PreparedStoreWords` because of return type
+652 | /     prepare_stored_sequence_words_in(
+653 | |         src,
+654 | |         initial_repeat_offsets,
+655 | |         &output.sequences,
+656 | |         output.last_literals,
+657 | |         reuse,
+658 | |     )
+    | |_____^ expected `PreparedStoreWords`, found `Result<PreparedStoreWords, ...>`
+    |
+    = note: expected struct `PreparedStoreWords`
+                 found enum `Result<PreparedStoreWords, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<PreparedStoreWords, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+658 |     ).expect("REASON")
+    |      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:112:19
+    |
+112 |           return Ok(compress_block_fast_no_dict_with_state_and_loaded_dict(
+    |  ________________--_^
+    | |                |
+    | |                arguments to this enum variant are incorrect
+113 | |             src,
+114 | |             block_range,
+115 | |             params,
+...   |
+118 | |             0,
+119 | |         ));
+    | |_________^ expected `FastBlockOutput`, found `Result<FastBlockOutput, CapacityError>`
+    |
+    = note: expected struct `FastBlockOutput`
+                 found enum `Result<FastBlockOutput, CapacityError>`
+help: the type constructed contains `Result<FastBlockOutput, CapacityError>` due to the type of the argument passed
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:112:16
+    |
+112 |            return Ok(compress_block_fast_no_dict_with_state_and_loaded_dict(
+    |   ________________^  -
+    |  |___________________|
+113 | ||             src,
+114 | ||             block_range,
+115 | ||             params,
+...   ||
+118 | ||             0,
+119 | ||         ));
+    | ||_________-^
+    | |__________|
+    |            this argument influences the type of `Ok`
+note: tuple variant defined here
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/result.rs:552:5
+    |
+552 |     Ok(#[stable(feature = "rust1", since = "1.0.0")] T),
+    |     ^^
+help: use the `?` operator to extract the `Result<FastBlockOutput, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+119 |         )?);
+    |          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy.rs:167:5
+    |
+166 |   ) -> GreedyBlockOutput {
+    |        ----------------- expected `GreedyBlockOutput` because of return type
+167 | /     lazy::compress_block_lazy_generic_no_dict_with_state::<SEARCH_BINARY_TREE, 2>(
+168 | |         src,
+169 | |         block_range,
+170 | |         params,
+...   |
+173 | |         loaded_dict_end,
+174 | |     )
+    | |_____^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+    |
+    = note: expected struct `GreedyBlockOutput`
+                 found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+174 |     ).expect("REASON")
+    |      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy.rs:184:5
+    |
+183 |   ) -> GreedyBlockOutput {
+    |        ----------------- expected `GreedyBlockOutput` because of return type
+184 | /     lazy::compress_block_lazy_generic_no_dict_with_state::<SEARCH_HASH_CHAIN, DEPTH>(
+185 | |         src,
+186 | |         block_range,
+187 | |         params,
+...   |
+190 | |         0,
+191 | |     )
+    | |_____^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+    |
+    = note: expected struct `GreedyBlockOutput`
+                 found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+191 |     ).expect("REASON")
+    |      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy.rs:203:9
+    |
+201 |   ) -> GreedyBlockOutput {
+    |        ----------------- expected `GreedyBlockOutput` because of return type
+202 |       if row_match_finder_enabled(params) {
+203 | /         lazy::compress_block_lazy_generic_no_dict_with_state::<SEARCH_ROW_HASH, DEPTH>(
+204 | |             src,
+205 | |             block_range,
+206 | |             params,
+...   |
+209 | |             loaded_dict_end,
+210 | |         )
+    | |_________^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+    |
+    = note: expected struct `GreedyBlockOutput`
+                 found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+210 |         ).expect("REASON")
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy.rs:212:9
+    |
+201 |   ) -> GreedyBlockOutput {
+    |        ----------------- expected `GreedyBlockOutput` because of return type
+...
+212 | /         lazy::compress_block_lazy_generic_no_dict_with_state::<SEARCH_HASH_CHAIN, DEPTH>(
+213 | |             src,
+214 | |             block_range,
+215 | |             params,
+...   |
+218 | |             loaded_dict_end,
+219 | |         )
+    | |_________^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+    |
+    = note: expected struct `GreedyBlockOutput`
+                 found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+219 |         ).expect("REASON")
+    |          +++++++++++++++++
+
+error[E0609]: no field `literals` on type `Result<PreparedStoreWords, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:464:38
+    |
+464 |             literals: &literal_store.literals,
+    |                                      ^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+464 |             literals: &literal_store.unwrap().literals,
+    |                                      +++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:476:40
+    |
+476 |     match_state.recycle_prepared_store(literal_store);
+    |                 ---------------------- ^^^^^^^^^^^^^ expected `PreparedStoreWords`, found `Result<PreparedStoreWords, ...>`
+    |                 |
+    |                 arguments to this method are incorrect
+    |
+    = note: expected struct `PreparedStoreWords`
+                 found enum `Result<PreparedStoreWords, CapacityError>`
+note: method defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_state.rs:207:19
+    |
+207 |     pub(super) fn recycle_prepared_store(&mut self, mut prepared: PreparedStoreWords) {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^            --------------------------------
+help: use the `?` operator to extract the `Result<PreparedStoreWords, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+476 |     match_state.recycle_prepared_store(literal_store?);
+    |                                                     +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:556:31
+    |
+556 |       prepared_words_into_block(prepare_stored_sequence_words_in(
+    |  _____-------------------------_^
+    | |     |
+    | |     arguments to this function are incorrect
+557 | |         src,
+558 | |         initial_repeat_offsets,
+559 | |         &output.sequences,
+560 | |         output.last_literals,
+561 | |         prepared_block_into_words(prepared),
+562 | |     ))
+    | |_____^ expected `PreparedStoreWords`, found `Result<PreparedStoreWords, ...>`
+    |
+    = note: expected struct `PreparedStoreWords`
+                 found enum `Result<PreparedStoreWords, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/sequence_store.rs:298:15
+    |
+298 | pub(crate) fn prepared_words_into_block(prepared: PreparedStoreWords) -> PreparedBlock {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^ ----------------------------
+help: consider using `Result::expect` to unwrap the `Result<PreparedStoreWords, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+562 |     ).expect("REASON"))
+    |      +++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext.rs:87:5
+   |
+86 |   ) -> GreedyBlockOutput {
+   |        ----------------- expected `GreedyBlockOutput` because of return type
+87 | /     compress_block_lazy_generic_with_state::<SEARCH_BINARY_TREE, 2>(
+88 | |         src,
+89 | |         block_range.clone(),
+90 | |         params,
+...  |
+93 | |         LazyDictionaryBounds::ext_dict(block_range.end, dict_limit, params, loaded_dict_end),
+94 | |     )
+   | |_____^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+   |
+   = note: expected struct `GreedyBlockOutput`
+                found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+94 |     ).expect("REASON")
+   |      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext.rs:141:5
+    |
+139 |   ) -> GreedyBlockOutput {
+    |        ----------------- expected `GreedyBlockOutput` because of return type
+140 |       debug_assert!(row_match_finder_enabled(params));
+141 | /     compress_block_lazy_generic_with_state_and_attached::<SEARCH_ROW_HASH, DEPTH>(
+142 | |         src,
+143 | |         block_range.clone(),
+144 | |         params,
+...   |
+155 | |         },
+156 | |     )
+    | |_____^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+    |
+    = note: expected struct `GreedyBlockOutput`
+                 found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+156 |     ).expect("REASON")
+    |      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext.rs:174:5
+    |
+172 |   ) -> GreedyBlockOutput {
+    |        ----------------- expected `GreedyBlockOutput` because of return type
+173 |       debug_assert!(!row_match_finder_enabled(params));
+174 | /     compress_block_lazy_generic_with_state_and_attached::<SEARCH_BINARY_TREE, 2>(
+175 | |         src,
+176 | |         block_range.clone(),
+177 | |         params,
+...   |
+188 | |         },
+189 | |     )
+    | |_____^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+    |
+    = note: expected struct `GreedyBlockOutput`
+                 found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+189 |     ).expect("REASON")
+    |      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext.rs:205:9
+    |
+201 |   ) -> GreedyBlockOutput {
+    |        ----------------- expected `GreedyBlockOutput` because of return type
+...
+205 | /         compress_block_lazy_generic_with_state::<SEARCH_ROW_HASH, DEPTH>(
+206 | |             src,
+207 | |             block_range,
+208 | |             params,
+...   |
+211 | |             bounds,
+212 | |         )
+    | |_________^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+    |
+    = note: expected struct `GreedyBlockOutput`
+                 found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+212 |         ).expect("REASON")
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext.rs:214:9
+    |
+201 |   ) -> GreedyBlockOutput {
+    |        ----------------- expected `GreedyBlockOutput` because of return type
+...
+214 | /         compress_block_lazy_generic_with_state::<SEARCH_HASH_CHAIN, DEPTH>(
+215 | |             src,
+216 | |             block_range,
+217 | |             params,
+...   |
+220 | |             bounds,
+221 | |         )
+    | |_________^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+    |
+    = note: expected struct `GreedyBlockOutput`
+                 found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+221 |         ).expect("REASON")
+    |          +++++++++++++++++
+
+error[E0277]: cannot add-assign `Result<usize, CapacityError>` to `{integer}`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/ldm/sequence.rs:144:27
+    |
+144 |             last_literals += chunk_last_literals;
+    |                           ^^ no implementation for `{integer} += Result<usize, CapacityError>`
+    |
+    = help: the trait `AddAssign<Result<usize, CapacityError>>` is not implemented for `{integer}`
+    = help: the following other types implement trait `AddAssign<Rhs>`:
+              `f128` implements `AddAssign<&f128>`
+              `f128` implements `AddAssign`
+              `f16` implements `AddAssign<&f16>`
+              `f16` implements `AddAssign`
+              `f32` implements `AddAssign<&f32>`
+              `f32` implements `AddAssign`
+              `f64` implements `AddAssign<&f64>`
+              `f64` implements `AddAssign`
+            and 24 others
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/ldm/sequence.rs:147:29
+    |
+121 |     let mut last_literals = 0;
+    |                             - expected due to this value
+...
+147 |             last_literals = chunk_last_literals;
+    |                             ^^^^^^^^^^^^^^^^^^^ expected `usize`, found `Result<usize, CapacityError>`
+    |
+    = note: expected type `usize`
+               found enum `Result<usize, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<usize, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+147 |             last_literals = chunk_last_literals.expect("REASON");
+    |                                                +++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/opt_block.rs:28:5
+   |
+26 |   ) -> GreedyBlockOutput {
+   |        ----------------- expected `GreedyBlockOutput` because of return type
+27 |       let mut state = OptBlockState::new();
+28 | /     compress_block_opt_no_dict_with_state(
+29 | |         src,
+30 | |         0..src.len(),
+31 | |         params,
+...  |
+34 | |         OptParserStrategy::BtUltra,
+35 | |     )
+   | |_____^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+   |
+   = note: expected struct `GreedyBlockOutput`
+                found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+35 |     ).expect("REASON")
+   |      +++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/opt_block.rs:45:5
+   |
+44 |   ) -> GreedyBlockOutput {
+   |        ----------------- expected `GreedyBlockOutput` because of return type
+45 | /     compress_block_opt_no_dict_with_state(
+46 | |         src,
+47 | |         block_range,
+48 | |         params,
+...  |
+51 | |         OptParserStrategy::BtOpt,
+52 | |     )
+   | |_____^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+   |
+   = note: expected struct `GreedyBlockOutput`
+                found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+52 |     ).expect("REASON")
+   |      +++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/opt_block.rs:62:5
+   |
+61 |   ) -> GreedyBlockOutput {
+   |        ----------------- expected `GreedyBlockOutput` because of return type
+62 | /     compress_block_opt_no_dict_with_state(
+63 | |         src,
+64 | |         block_range,
+65 | |         params,
+...  |
+68 | |         OptParserStrategy::BtUltra,
+69 | |     )
+   | |_____^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+   |
+   = note: expected struct `GreedyBlockOutput`
+                found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+69 |     ).expect("REASON")
+   |      +++++++++++++++++
+
+Some errors have detailed explanations: E0277, E0308, E0609.
+For more information about an error, try `rustc --explain E0277`.
+warning: `zstd-complete` (lib) generated 20 warnings
+error: could not compile `zstd-complete` (lib) due to 47 previous errors; 20 warnings emitted

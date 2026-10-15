@@ -1,0 +1,212 @@
+R!R"b
+R#R$R%R&R'R(R)R*R+R,R-R.R/R0R1R2R3R4R5R6R7R8/
+R	R=b
+R!RIb
+R#RJR%RKR'RLR)RMR+RNR-ROR/RPR1RQR3RRR5RSR7RT/
+zCUser-facing descriptions shared by generated binding domain models.
+LockboxEntryzLMetadata for one file, directory, or symbolic link stored at a lockbox path.
+PathMovezRA source and destination pair used to rename a variable or form record atomically.
+	FormFieldz`One named input in a reusable form definition, including its display label and sensitivity kind.
+FormDefinitionzSA versioned form schema used to validate and label structured records in a lockbox.
+	FormValuezQThe current value and sensitivity metadata for one field in a stored form record.
+FormRecordzZA named structured record stored at a lockbox path and tied to a form-definition revision.
+RecoveryReportz\The files and metadata recovered, or found damaged, while inspecting or salvaging a lockbox.
+KeySlotzIOne password or contact credential that can unlock a lockbox content key.
+CacheStatszNCurrent capacity, occupancy, hit, and miss counters for an open lockbox cache.
+ImportStatszZTime spent reading host files and preparing encrypted pages during the latest import work.
+PageObjectzGOne logical object recorded inside an inspected encrypted lockbox page.
+PageInspectionzKLayout and utilization details for one encrypted page in a lockbox archive.
+FileInspectionzhHeader, owner-signature, and key-slot information read from a lockbox file without opening its contents.
+ProfileGenerationzXOne active or retired generation of the contact keys belonging to a named vault profile.
+ProfileHistoryzEThe active generation and rotation history for a named vault profile.
+LockboxAliaszpA local Vault alias mapping a normalized name to a stable lockbox identity; resolution does not open the target.
+KnownLockboxzUA lockbox identifier and host path remembered by the local vault for later discovery.
+AccessSlotLabelzAA local human-readable label attached to one lockbox access slot.
+StreamChunkzQA logical or physical byte range emitted while walking the contents of a lockbox.
+RuntimeOptionszFThe workload and worker policies currently applied to an open lockbox.
+VariablezJThe name and sensitivity classification of a variable stored in a lockbox.
+OwnerInspectionzSWhether a lockbox is owner-signed and, when available, the signing-key fingerprint.
+ContactzDA named recipient public key stored in the local vault address book.
+AgentEntryzXA lockbox key currently held by the local Session Agent, identified by lockbox and path.
+SleepSupportzNThe host capabilities used to protect cached secrets across suspend and sleep.
+PlatformStatusz^Availability and configuration of the platform credential store used for the Vault passphrase.
+VaultBackupManifestzQThe version, size, checksum, and creation time of an exported local-vault backup.
+ErrorDetailsz`Structured category, version, guidance, and artifact context for the most recent native failure.zQfinal entry = lockbox.stat('/notes.txt');
+if (entry != null) print(entry.length);zTlockbox.moveVariables([
+  PathMove(source: 'old-name', destination: 'new-name'),
+]);zffinal field = FormField(
+  id: 'password',
+  label: 'Password',
+  kind: 'secret',
+  required: true,
+);zLfinal definition = lockbox.resolveForm('login');
+print(definition.revision);zvfinal value = lockbox.getFormField('/alice.form', 'username');
+if (value != null && !value.secret) print(value.value);z\final record = lockbox.getFormRecord('/alice.form');
+if (record != null) print(record.name);zGfinal report = lockbox.recoveryReport();
+print(report.intactFileCount);zYfor (final slot in lockbox.listKeySlots()) {
+  print('${slot.id}: ${slot.protection}');
+}zTfinal stats = lockbox.cacheStats();
+print('${stats.usedBytes}/${stats.limitBytes}');z@final stats = lockbox.importStats();
+print(stats.hostReadNanos);zifor (final page in lockbox.pageInspection()) {
+  for (final object in page.objects) print(object.kind);
+}zkfor (final page in lockbox.pageInspection()) {
+  print('${page.pageId}: ${page.unusedBytes} bytes free');
+}zkfinal inspection = revault.inspectLockboxFile(path);
+if (!inspection.headerReadable) reportDamagedHeader();z^final history = vault.listProfileGenerations('alice');
+print(history.generations.last.status);zWfinal history = vault.listProfileGenerations('alice');
+print(history.activeGeneration);zHfor (final alias in vault.listLockboxAliases()) {
+  print(alias.name);
+}zHfor (final known in vault.listKnownLockboxes()) {
+  print(known.path);
+}zTfor (final label in vault.listAccessSlotLabels(lockbox.id)) {
+  print(label.name);
+}zjfor (final chunk in lockbox.streamContent()) {
+  processRange(chunk.path, chunk.fileOffset, chunk.data);
+}zIfinal options = lockbox.runtimeOptions();
+print(options.workloadProfile);zifor (final variable in lockbox.listVariables()) {
+  print('${variable.name}: ${variable.sensitivity}');
+}zTfinal owner = lockbox.ownerInspection();
+if (owner.signed) print(owner.fingerprint);zFfor (final contact in vault.listContacts()) {
+  print(contact.name);
+}zGfor (final entry in agent.listOpenLockboxes()) {
+  print(entry.path);
+}z]final support = agent.sleepSupport();
+if (!support.supported) showReducedProtectionWarning();zGfinal status = Vault.platformCredentialStatus();
+print(status.backend);zNfinal manifest = Vault.backupDefault(backupPath);
+print(manifest.vaultSha256);zvon RevaultException catch (error) {
+  final details = error.details;
+  if (details != null) print(details.guidance);
+name
+return
+str)
+formats
+2/tmp/.tmpyWp8sH/bindings/flatbuffers/model_docs.py
+__annotate__r'
+z:Return the concrete public description for a domain model.)
+DESCRIPTIONS
+descriptionr,
+z;Return a Dart example showing where a domain model is used.)
+EXAMPLESr+
+exampler0
+z*Absolute lockbox path of the stored entry.z3Filesystem kind: file, directory, or symbolic link.z3Logical file length in bytes; zero for directories.z4Portable Unix permission bits stored with the entry.z5Existing variable name or form-record path to rename.z&New variable name or form-record path.z>Stable field identifier used when reading and writing records.z9Human-readable label presented to a person entering data.z:Field kind that determines validation and secret handling.z5Whether a record must provide a value for this field.z=Stable identifier shared by every revision of this form type.z5Short name used to resolve the current form revision.z)Monotonically increasing revision number.z(Human-readable name shown for this form.z0Explanation shown to people completing the form.z.Ordered inputs accepted by this form revision.z2Identifier of the form field that owns this value.z.Display label captured from the form revision.z+Field kind captured from the form revision.z9Plain value, or an empty string when the field is secret.z@Whether the value must be read through a scoped secret callback.z1Absolute lockbox path that identifies the record.z,Human-readable name assigned to this record.z,Stable identifier of the record's form type.z0Alias of the form definition used by the record.z9Exact form revision against which the record was created.z-Ordered non-secret field metadata and values.z1Files whose complete contents remain recoverable.z'Number of completely recoverable files.z;Number of files for which only some content is recoverable.z3Number of encrypted records that failed validation.z1Whether a usable table of contents was recovered.z(Whether variable metadata was recovered.z
+Number of recovered variables.z4Whether form definitions and records were recovered.z%Number of recovered form definitions.z!Number of recovered form records.z=Stable slot identifier used when removing this access method.z/Access method, such as password or contact key.z3Cryptographic algorithm protecting the content key.z4Maximum decoded-page memory permitted for the cache.z0Decoded-page memory currently held by the cache.z)Number of decoded pages currently cached.z(Reads served by an already decoded page.z*Reads that required decoding another page.zDNanoseconds spent reading host filesystem metadata, as decimal text.z=Nanoseconds spent reading host file content, as decimal text.z?Nanoseconds spent preparing encrypted records, as decimal text.z;Nanoseconds spent writing encrypted pages, as decimal text.z1Object identifier recorded in the encrypted page.z*Kind of logical object stored in the page.z)Encrypted object payload length in bytes.z4Byte offset at which the page begins in the archive.z%Identifier stored in the page header.z%Commit sequence that wrote this page.z!Total encoded page size in bytes.z
+Encrypted body length in bytes.z&Unused capacity remaining in the page.z-Number of logical objects stored in the page.z'Logical objects discovered in the page.z6Stable binary identifier read from the lockbox header.z8Whether the archive header passed structural validation.z0Latest readable access-key directory generation.z2Number of readable redundant key-directory copies.z+Whether commits require an owner signature.z8Password and contact access methods found in the header.z3Generation number used to address this key version.z+Lifecycle state, such as active or retired.z4Fingerprint of this generation's contact public key.z#Creation time in Unix milliseconds.z2Retirement time in Unix milliseconds when retired.z%Whether a retirement time is present.z0Vault profile name whose generations are listed.z7Generation number currently used for new access grants.z+Active and retired contact-key generations.z)Case-sensitive normalized NFC alias name.zHStable binary target identity; verify it when opening the resolved path.z3Stable binary identifier of the remembered lockbox.z/Last known host filesystem path of the lockbox.z2Most recent observation time in Unix milliseconds.z&Lockbox whose access slot is labelled.z.Stable identifier of the labelled access slot.z/Local human-readable label for the access slot.z,Last label update time in Unix milliseconds.z3Lockbox file path to which this byte range belongs.z$Logical byte offset within the file.z
+Logical range length in bytes.z:Archive byte offset, when physical streaming is requested.z9Whether the range represents a sparse zero-filled extent.z)File bytes for a populated logical range.z-I/O workload policy used to tune page access.z3Worker scheduling policy and effective parallelism.z1Name used to address the variable in the lockbox.z9Whether the value is ordinary text or a protected secret.z2Whether the lockbox requires owner-signed commits.z5Owner signing-key fingerprint when one is configured.z*Whether an owner fingerprint is available.z'Local address-book name of the contact.z;Serialized contact public key used to grant lockbox access.z-Stable lockbox identifier for the cached key.z1Host path associated with the cached lockbox key.z?Whether suspend notification support is compiled for this host.z;Whether sleep inhibition support is compiled for this host.zXWhether this build includes the host integration; this is not runtime watcher readiness.z
+Whether the current compatible Session Agent reports an active suspend cache watcher; false when absent or unavailable. Notification delivery is platform-dependent.z2Whether a usable platform credential store exists.z@Whether the user disabled platform credential store integration.z?Application-specific scope used to isolate the stored password.z)Platform credential store backend in use.z)Credential item name used by the backend.z Backup container format version.z*Backup creation time in Unix milliseconds.z-Metadata-vault filename stored in the backup.z&Encrypted vault payload size in bytes.z8Lowercase SHA-256 digest of the encrypted vault payload.z9Stable error category suitable for programmatic handling.z:Kind of archive or vault artifact involved in the failure.z.Format version read from the failing artifact.z0Newest format version supported by this library.z*Human-readable explanation of the failure.z3Suggested corrective action for the caller or user.c
+fieldr"
+z:Return the user-facing meaning of one public domain field.)
+FIELD_DESCRIPTIONS)
+&&r&
+field_descriptionr5
+zKDescribe collection and optional result containers without transport terms.
+LockboxEntryListz5Ordered lockbox entries selected by a list operation.
+StringListz@Ordered names or identifiers returned by a vault list operation.
+PathMoveListzDAtomic variable or form-record renames supplied to a move operation.
+FormFieldListz8Ordered field definitions supplied when defining a form.
+OptionalLockboxEntryzKThe metadata found for a lockbox path, or no value when the path is absent.
+OptionalFormRecordzAThe form record found at a lockbox path, or no value when absent.
+OptionalFormValuezJThe requested non-secret form value, or no value when the field is absent.
+OptionalStringzFA text lookup that distinguishes an absent value from an empty string.
+StringValuez+One text result returned by the native API.
+Listz
+Ordered z5 values returned by the corresponding list operation.)
+removesuffix)
+explicit
+items
+&  r&
+wrapper_descriptionrE
+path)
+kind)
+length)
+permissions)
+source)
+destination)
+label)
+required)
+type_id)
+alias)
+revision)
+fields)
+field_id)
+value)
+secret)
+definition_alias)
+definition_revision)
+values)
+intact_files)
+intact_file_count)
+partial_files)
+corrupt_records)
+toc_recovered)
+variables_recovered)
+variable_count)
+forms_recovered)
+form_definition_count)
+form_record_count)
+protection)
+	algorithm)
+limit_bytes)
+used_bytes)
+entries)
+hits)
+misses)
+host_stat_nanos)
+host_read_nanos)
+frame_prepare_nanos)
+page_write_nanos)
+payload_len)
+offset)
+page_id)
+sequence)
+	page_size)
+encrypted_body_len)
+unused_bytes)
+object_count)
+objects)
+lockbox_id)
+header_readable)
+key_directory_generation)
+key_directory_copy_count)
+owner_signed)
+	key_slots)
+index)
+status)
+contact_fingerprint)
+created_at_unix_ms)
+retired_at_unix_ms)
+has_retired_at)
+active_generation)
+generations)
+last_seen_unix_ms)
+slot_id)
+updated_at_unix_ms)
+file_offset)
+physical_offset)
+sparse)
+data)
+workload_profile)
+worker_policy)
+sensitivity)
+signed)
+fingerprint)
+has_fingerprint)
+key)
+suspend_notifications)
+sleep_inhibition)
+	supported)
+cache_clearing_active)
+disabled)
+scope)
+backend)
+format_version)
+vault_file_name)
+vault_size)
+vault_sha256)
+category)
+artifact_kind)
+found_version)
+supported_version)
+message)
+guidance)
+__doc__r*
+<module>r

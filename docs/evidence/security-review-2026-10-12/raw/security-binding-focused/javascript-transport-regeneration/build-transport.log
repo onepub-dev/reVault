@@ -1,0 +1,6 @@
+npm notice run @onepub-dev/revault-api@0.2.0 build:transport
+npm notice run esbuild generated/flatbuffers/revault/internal.ts --bundle --format=esm --platform=node --outfile=generated/flatbuffers.js
+
+  generated/flatbuffers.js  181.0kb
+
+⚡ Done in 8ms

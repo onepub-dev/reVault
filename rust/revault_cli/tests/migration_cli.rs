@@ -154,8 +154,6 @@ fn vault_migration_commands_and_options_execute_end_to_end() {
         "vault",
         "--output",
         path(&direct_output),
-        "--exporter",
-        "unused-for-current-format",
     ]);
     assert_current_vault(&direct_output);
 
@@ -224,6 +222,16 @@ fn archive_migration_commands_and_options_execute_end_to_end() {
     let fixture = Fixture::new("migration-archive-e2e");
     fixture.init_current_vault();
     let advanced_source = fixture.create_archive("advanced.lbox");
+    let payload = b"ordinary migration persisted content";
+    let input = fixture.root.join("input.txt");
+    std::fs::write(&input, payload).unwrap();
+    fixture.success(&[
+        path(&advanced_source),
+        "add",
+        path(&input),
+        "--to",
+        "/content.txt",
+    ]);
 
     let artifact = fixture.root.join("archive-export.migration");
     let exported = fixture.run_with_stdin(
@@ -265,9 +273,40 @@ fn archive_migration_commands_and_options_execute_end_to_end() {
         "--output",
         path(&imported),
     ]);
-    Lockbox::inspect_file(&imported).unwrap();
+    assert_eq!(
+        fixture
+            .success(&[path(&imported), "cat", "/content.txt"])
+            .stdout,
+        payload
+    );
 
     let direct_source = fixture.create_archive("direct.lbox");
+    fixture.success(&[
+        path(&direct_source),
+        "add",
+        path(&input),
+        "--to",
+        "/content.txt",
+    ]);
+    let missing_exporter = fixture.root.join("missing-exporter");
+    let refused_output = fixture.root.join("refused-migration.lbox");
+    let source_before = std::fs::read(&direct_source).unwrap();
+    let refused = fixture.run(&[
+        "doctor",
+        "migrate",
+        "lockbox",
+        path(&direct_source),
+        "--output",
+        path(&refused_output),
+        "--exporter",
+        path(&missing_exporter),
+    ]);
+    assert!(
+        !refused.status.success(),
+        "an explicit missing exporter must not be ignored"
+    );
+    assert!(!refused_output.exists());
+    assert_eq!(std::fs::read(&direct_source).unwrap(), source_before);
     let direct_output = fixture.root.join("direct-migrated.lbox");
     fixture.success(&[
         "doctor",
@@ -276,12 +315,22 @@ fn archive_migration_commands_and_options_execute_end_to_end() {
         path(&direct_source),
         "--output",
         path(&direct_output),
-        "--exporter",
-        "unused-for-current-format",
     ]);
-    Lockbox::inspect_file(&direct_output).unwrap();
+    assert_eq!(
+        fixture
+            .success(&[path(&direct_output), "cat", "/content.txt"])
+            .stdout,
+        payload
+    );
 
     let replace_source = fixture.create_archive("replace.lbox");
+    fixture.success(&[
+        path(&replace_source),
+        "add",
+        path(&input),
+        "--to",
+        "/content.txt",
+    ]);
     let already_current = fixture.run(&[
         "doctor",
         "migrate",
@@ -291,7 +340,12 @@ fn archive_migration_commands_and_options_execute_end_to_end() {
     ]);
     assert_success(&already_current);
     assert!(String::from_utf8_lossy(&already_current.stdout).contains("No migration needed"));
-    Lockbox::inspect_file(&replace_source).unwrap();
+    assert_eq!(
+        fixture
+            .success(&[path(&replace_source), "cat", "/content.txt"])
+            .stdout,
+        payload
+    );
     assert!(!fixture
         .root
         .join(format!(
@@ -378,19 +432,7 @@ fn vault_v2_replace_preserves_profile_keys_and_supports_password_profiles() {
     );
     assert!(!report.contains("migrate lockbox"), "{report}");
     assert_eq!(std::fs::read(&container).unwrap(), before_bytes);
-    let status = Command::new("cargo")
-        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap())
-        .args(["build", "--offline", "-p", "revault_migrate_vault_v2"])
-        .status()
-        .unwrap();
-    assert!(status.success());
-    let exporter = Path::new(env!("CARGO_BIN_EXE_lockbox"))
-        .parent()
-        .unwrap()
-        .join(format!(
-            "revault-migrate-vault-v2{}",
-            std::env::consts::EXE_SUFFIX
-        ));
+    let exporter = build_selected_exporter("revault_migrate_vault_v2", "revault-migrate-vault-v2");
     fixture.success(&[
         "doctor",
         "migrate",
@@ -662,6 +704,7 @@ fn automatic_historical_exporter_install_hides_cargo_output() {
 }
 
 struct Fixture {
+    _agent_guard: common::TestAgentGuard,
     _temp: TestTempDir,
     root: PathBuf,
     vault: PathBuf,
@@ -672,9 +715,13 @@ impl Fixture {
     fn new(prefix: &str) -> Self {
         let temp = TestTempDir::new(prefix);
         let root = temp.path().canonicalize().unwrap();
+        let vault = root.join("vault");
+        let agent = common::agent_socket_dir(&root.join("agent"));
+        let agent_guard = common::TestAgentGuard::new(&agent, Some(&vault));
         Self {
-            vault: root.join("vault"),
-            agent: common::agent_socket_dir(&root.join("agent")),
+            _agent_guard: agent_guard,
+            vault,
+            agent,
             _temp: temp,
             root,
         }
@@ -752,6 +799,55 @@ impl Fixture {
     }
 }
 
+fn build_selected_exporter(package: &str, binary: &str) -> PathBuf {
+    // Release verification can run this same persisted-content lifecycle with
+    // binaries installed from crates.io, without substituting workspace builds.
+    if let Some(root) = std::env::var_os("REVAULT_TEST_INSTALLED_EXPORTERS") {
+        let path = PathBuf::from(root).join(format!("{binary}{}", std::env::consts::EXE_SUFFIX));
+        assert!(
+            path.is_file(),
+            "installed exporter missing: {}",
+            path.display()
+        );
+        return path;
+    }
+    // Cargo's actual artifact path is authoritative for debug/release and
+    // CARGO_TARGET_DIR; the test executable's sibling directory is not.
+    let output = Command::new(env!("CARGO"))
+        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap())
+        .args([
+            "build",
+            "--locked",
+            "--offline",
+            "-p",
+            package,
+            "--bin",
+            binary,
+            "--message-format=json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "exporter build failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let artifacts: Vec<PathBuf> = String::from_utf8(output.stdout)
+        .unwrap()
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter(|value| value["reason"] == "compiler-artifact" && value["target"]["name"] == binary)
+        .filter_map(|value| value["executable"].as_str().map(PathBuf::from))
+        .collect();
+    assert_eq!(
+        artifacts.len(),
+        1,
+        "expected one selected exporter executable"
+    );
+    assert!(artifacts[0].is_file());
+    artifacts.into_iter().next().unwrap()
+}
+
 fn build_historical_vault_exporter() -> PathBuf {
     let status = Command::new(env!("CARGO"))
         .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join(".."))
@@ -811,22 +907,67 @@ fn build_fake_cargo(output_dir: &Path) -> PathBuf {
 }
 
 fn assert_current_vault(root: &Path) {
-    assert!(root.join("local-vault.lbox").is_file());
-    let password =
-        revault_vault_api::SecretString::try_from_slice(VAULT_PASSWORD.as_bytes()).unwrap();
-    let vault = VaultDirectory::open_or_create(root, &password).unwrap();
-    assert_eq!(
-        vault.structure_version().unwrap(),
+    let verification = TestTempDir::new("migration-public-verification");
+    let agent = common::agent_socket_dir(&verification.path().join("agent"));
+    let _agent_guard = common::TestAgentGuard::new(&agent, None);
+    let run = |args: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_lockbox"))
+            .args(args)
+            .env("LOCKBOX_VAULT_DIR", root)
+            .env("LOCKBOX_VAULT_PASSWORD", VAULT_PASSWORD)
+            .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+            .env("LOCKBOX_SESSION_AGENT_DIR", &agent)
+            .test_output()
+            .unwrap();
+        assert_success(&output);
+        output
+    };
+    let before = std::fs::read(root.join("local-vault.lbox")).unwrap();
+    let current = run(&["doctor", "migrate", "vault", "--replace"]);
+    assert!(String::from_utf8_lossy(&current.stdout).contains(&format!(
+        "Vault already uses format version {}. No migration needed.",
         revault_vault_api::CURRENT_VAULT_STRUCTURE_VERSION
+    )));
+    assert_eq!(
+        std::fs::read(root.join("local-vault.lbox")).unwrap(),
+        before
     );
+    let listed = run(&["vault", "profile", "list", "--format", "json"]);
+    assert!(String::from_utf8_lossy(&listed.stdout)
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+        .any(|value| value["name"] == "default"));
+    let first = verification.path().join("first.pub");
+    let second = verification.path().join("second.pub");
+    run(&[
+        "vault",
+        "profile",
+        "export",
+        path(&first),
+        "--format",
+        "raw",
+    ]);
+    run(&[
+        "vault",
+        "profile",
+        "export",
+        path(&second),
+        "--format",
+        "raw",
+    ]);
+    let public = std::fs::read(first).unwrap();
+    assert!(!public.is_empty());
+    assert_eq!(std::fs::read(second).unwrap(), public);
 }
 
 fn assert_success(output: &Output) {
     assert!(
         output.status.success(),
-        "command failed\nstdout:\n{}\nstderr:\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        "command failed: status={}, stdout_bytes={}, stderr_bytes={}",
+        output.status,
+        output.stdout.len(),
+        output.stderr.len()
     );
 }
 
@@ -837,7 +978,12 @@ fn assert_failure_contains(output: &Output, expected: &str) {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(rendered.contains(expected), "output was:\n{rendered}");
+    assert!(
+        rendered.contains(expected),
+        "expected diagnostic absent; status={}, output_bytes={}",
+        output.status,
+        rendered.len()
+    );
 }
 
 fn path(value: &Path) -> &str {
@@ -1064,7 +1210,7 @@ fn all_migration_reports_partial_failures_and_can_be_repeated() {
         b"bulk historical payload"
     );
     assert_eq!(
-        std::fs::read(source.with_file_name("historical.lbox.v2-v3.pre-migration")).unwrap(),
+        std::fs::read(source.with_file_name("historical.lbox.v2-v4.pre-migration")).unwrap(),
         original
     );
     assert_eq!(std::fs::read(&current).unwrap(), current_bytes);
@@ -1094,8 +1240,9 @@ fn all_migration_recovers_interrupted_replacements_before_missing_path_checks() 
         };
         let output = fixture.root.join("pending-output");
         let backup = source.with_file_name(format!(
-            "{}.v2-v3.pre-migration",
-            source.file_name().unwrap().to_str().unwrap()
+            "{}.v2-v{}.pre-migration",
+            source.file_name().unwrap().to_str().unwrap(),
+            if kind == ArtifactKind::Vault { 3 } else { 4 }
         ));
         // No CLI can stop exactly between replacement renames. Construct only
         // that crash boundary and its authenticated journal; all content was
@@ -1119,7 +1266,7 @@ fn all_migration_recovers_interrupted_replacements_before_missing_path_checks() 
             source_path: source.clone(),
             source_format_version: 2,
             source_fingerprint: [2; 32],
-            target_format_version: 3,
+            target_format_version: if kind == ArtifactKind::Vault { 3 } else { 4 },
             current_stage: MigrationStage::Replace,
             temporary_paths: vec![output],
             exporter_version: None,
@@ -1253,7 +1400,7 @@ fn closed_format_two_archive_migrates_without_normal_open_or_auto_open() {
         assert_success(&result);
         assert_eq!(result.stdout, payload);
         assert_eq!(
-            std::fs::read(source.with_file_name("closed.lbox.v2-v3.pre-migration")).unwrap(),
+            std::fs::read(source.with_file_name("closed.lbox.v2-v4.pre-migration")).unwrap(),
             original
         );
         assert_success(&run(&[
@@ -1454,4 +1601,117 @@ fn doctor_reports_vault_versions_and_future_vault_errors_identify_the_path() {
         assert!(!selected.contains("credential names"), "{selected}");
         assert_eq!(std::fs::read(&container).unwrap(), future);
     }
+}
+
+#[test]
+fn vault_v3_container_upgrade_preserves_profiles_and_enables_compaction() {
+    let fixture = Fixture::new("migration-v3-container-v4");
+    // Exception: only the frozen reader can create a historical container.
+    // All migration, compaction, and persisted verification use the public CLI.
+    let password = vault_v3::SecretString::try_from_slice(VAULT_PASSWORD.as_bytes()).unwrap();
+    let vault = vault_v3::VaultDirectory::replace(&fixture.vault, &password).unwrap();
+    let key = archive_v3::ContactKeyPair::generate().unwrap();
+    let original_public = key.public_key().to_bytes();
+    vault.store_private_key("default", &key).unwrap();
+    let profile_password =
+        vault_v3::SecretString::try_from_slice(b"retained profile password").unwrap();
+    vault
+        .store_password_profile("password-profile", &profile_password, false)
+        .unwrap();
+    vault
+        .store_private_key(
+            "archive-owner",
+            &archive_v3::ContactKeyPair::generate().unwrap(),
+        )
+        .unwrap();
+    let archive = fixture.root.join("legacy-owned.lbox");
+    let signer = vault.load_owner_signing_key("archive-owner").unwrap();
+    let mut legacy = archive_v3::Lockbox::create_file(
+        &archive,
+        archive_v3::LockboxProtection::ContentKey(
+            archive_v3::SecretVec::try_from_slice(b"migration-test-content-key").unwrap(),
+        ),
+        &signer,
+    )
+    .unwrap();
+    legacy.add_contact(&key.public_key()).unwrap();
+    legacy.commit().unwrap();
+    legacy
+        .add_file(
+            &archive_v3::LockboxPath::new("/notes.txt").unwrap(),
+            b"migration content",
+            false,
+        )
+        .unwrap();
+    legacy.commit().unwrap();
+    drop(legacy);
+    let original_archive = std::fs::read(&archive).unwrap();
+    drop(vault);
+    let original = std::fs::read(fixture.vault.join("local-vault.lbox")).unwrap();
+    let exporter =
+        build_selected_exporter("revault_migrate_archive_v3", "revault-migrate-vault-v3");
+    fixture.success(&[
+        "doctor",
+        "migrate",
+        "vault",
+        "--replace",
+        "--exporter",
+        path(&exporter),
+    ]);
+    let backup = fixture.vault.with_file_name("vault.v3-v3.pre-migration");
+    assert_eq!(
+        std::fs::read(backup.join("local-vault.lbox")).unwrap(),
+        original
+    );
+    fixture.success(&[
+        "vault",
+        "profile",
+        "export",
+        path(&fixture.root.join("profile.pub")),
+        "--format",
+        "raw",
+    ]);
+    assert_eq!(
+        revault_vault_api::import_public_key(
+            &std::fs::read(fixture.root.join("profile.pub")).unwrap()
+        )
+        .unwrap()
+        .to_bytes(),
+        original_public
+    );
+    let profiles = fixture.success(&["vault", "profile", "list"]);
+    assert!(String::from_utf8_lossy(&profiles.stdout).contains("password-profile"));
+    let credential = fixture.root.join("retained-password");
+    fixture.success(&[
+        "vault",
+        "profile",
+        "password",
+        "password-profile",
+        "--output",
+        path(&credential),
+    ]);
+    assert_eq!(
+        std::fs::read(credential).unwrap(),
+        b"retained profile password"
+    );
+    let archive_exporter =
+        build_selected_exporter("revault_migrate_archive_v3", "revault-migrate-archive-v3");
+    fixture.success(&[
+        "doctor",
+        "migrate",
+        "lockbox",
+        path(&archive),
+        "--replace",
+        "--exporter",
+        path(&archive_exporter),
+    ]);
+    assert_eq!(
+        std::fs::read(archive.with_file_name("legacy-owned.lbox.v3-v4.pre-migration")).unwrap(),
+        original_archive
+    );
+    fixture.success(&[path(&archive), "doctor", "compact"]);
+    let content = fixture.success(&[path(&archive), "cat", "/notes.txt"]);
+    assert_eq!(content.stdout, b"migration content");
+    fixture.success(&[path(&archive), "doctor", "--deep"]);
+    fixture.success(&["doctor", "migrate", "vault", "--replace"]);
 }

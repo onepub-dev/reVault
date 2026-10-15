@@ -3772,6 +3772,235 @@ class ProfileHistoryObjectBuilder extends fb.ObjectBuilder {
   }
 }
 
+class LockboxAlias {
+  LockboxAlias._(this._bc, this._bcOffset);
+  factory LockboxAlias(List<int> bytes) {
+    final rootRef = fb.BufferContext.fromBytes(bytes);
+    return reader.read(rootRef, 0);
+  }
+
+  static const fb.Reader<LockboxAlias> reader = _LockboxAliasReader();
+
+  final fb.BufferContext _bc;
+  final int _bcOffset;
+
+  String? get name =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  List<int>? get lockboxId =>
+      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 6);
+
+  @override
+  String toString() {
+    return 'LockboxAlias{name: ${name}, lockboxId: ${lockboxId}}';
+  }
+
+  LockboxAliasT unpack() => LockboxAliasT(
+    name: name,
+    lockboxId: const fb.Uint8ListReader(
+      lazy: false,
+    ).vTableGetNullable(_bc, _bcOffset, 6),
+  );
+
+  static int pack(fb.Builder fbBuilder, LockboxAliasT? object) {
+    if (object == null) return 0;
+    return object.pack(fbBuilder);
+  }
+}
+
+class LockboxAliasT implements fb.Packable {
+  String? name;
+  List<int>? lockboxId;
+
+  LockboxAliasT({this.name, this.lockboxId});
+
+  @override
+  int pack(fb.Builder fbBuilder) {
+    final int? nameOffset = name == null ? null : fbBuilder.writeString(name!);
+    final int? lockboxIdOffset = lockboxId == null
+        ? null
+        : fbBuilder.writeListUint8(lockboxId!);
+    fbBuilder.startTable(2);
+    fbBuilder.addOffset(0, nameOffset);
+    fbBuilder.addOffset(1, lockboxIdOffset);
+    return fbBuilder.endTable();
+  }
+
+  @override
+  String toString() {
+    return 'LockboxAliasT{name: ${name}, lockboxId: ${lockboxId}}';
+  }
+}
+
+class _LockboxAliasReader extends fb.TableReader<LockboxAlias> {
+  const _LockboxAliasReader();
+
+  @override
+  LockboxAlias createObject(fb.BufferContext bc, int offset) =>
+      LockboxAlias._(bc, offset);
+}
+
+class LockboxAliasBuilder {
+  LockboxAliasBuilder(this.fbBuilder);
+
+  final fb.Builder fbBuilder;
+
+  void begin() {
+    fbBuilder.startTable(2);
+  }
+
+  int addNameOffset(int? offset) {
+    fbBuilder.addOffset(0, offset);
+    return fbBuilder.offset;
+  }
+
+  int addLockboxIdOffset(int? offset) {
+    fbBuilder.addOffset(1, offset);
+    return fbBuilder.offset;
+  }
+
+  int finish() {
+    return fbBuilder.endTable();
+  }
+}
+
+class LockboxAliasObjectBuilder extends fb.ObjectBuilder {
+  final String? _name;
+  final List<int>? _lockboxId;
+
+  LockboxAliasObjectBuilder({String? name, List<int>? lockboxId})
+    : _name = name,
+      _lockboxId = lockboxId;
+
+  /// Finish building, and store into the [fbBuilder].
+  @override
+  int finish(fb.Builder fbBuilder) {
+    final int? nameOffset = _name == null
+        ? null
+        : fbBuilder.writeString(_name!);
+    final int? lockboxIdOffset = _lockboxId == null
+        ? null
+        : fbBuilder.writeListUint8(_lockboxId!);
+    fbBuilder.startTable(2);
+    fbBuilder.addOffset(0, nameOffset);
+    fbBuilder.addOffset(1, lockboxIdOffset);
+    return fbBuilder.endTable();
+  }
+
+  /// Convenience method to serialize to byte list.
+  @override
+  Uint8List toBytes([String? fileIdentifier]) {
+    final fbBuilder = fb.Builder(deduplicateTables: false);
+    fbBuilder.finish(finish(fbBuilder), fileIdentifier);
+    return fbBuilder.buffer;
+  }
+}
+
+class LockboxAliasList {
+  LockboxAliasList._(this._bc, this._bcOffset);
+  factory LockboxAliasList(List<int> bytes) {
+    final rootRef = fb.BufferContext.fromBytes(bytes);
+    return reader.read(rootRef, 0);
+  }
+
+  static const fb.Reader<LockboxAliasList> reader = _LockboxAliasListReader();
+
+  final fb.BufferContext _bc;
+  final int _bcOffset;
+
+  List<LockboxAlias>? get values => const fb.ListReader<LockboxAlias>(
+    LockboxAlias.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
+
+  @override
+  String toString() {
+    return 'LockboxAliasList{values: ${values}}';
+  }
+
+  LockboxAliasListT unpack() =>
+      LockboxAliasListT(values: values?.map((e) => e.unpack()).toList());
+
+  static int pack(fb.Builder fbBuilder, LockboxAliasListT? object) {
+    if (object == null) return 0;
+    return object.pack(fbBuilder);
+  }
+}
+
+class LockboxAliasListT implements fb.Packable {
+  List<LockboxAliasT>? values;
+
+  LockboxAliasListT({this.values});
+
+  @override
+  int pack(fb.Builder fbBuilder) {
+    final int? valuesOffset = values == null
+        ? null
+        : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
+    fbBuilder.startTable(1);
+    fbBuilder.addOffset(0, valuesOffset);
+    return fbBuilder.endTable();
+  }
+
+  @override
+  String toString() {
+    return 'LockboxAliasListT{values: ${values}}';
+  }
+}
+
+class _LockboxAliasListReader extends fb.TableReader<LockboxAliasList> {
+  const _LockboxAliasListReader();
+
+  @override
+  LockboxAliasList createObject(fb.BufferContext bc, int offset) =>
+      LockboxAliasList._(bc, offset);
+}
+
+class LockboxAliasListBuilder {
+  LockboxAliasListBuilder(this.fbBuilder);
+
+  final fb.Builder fbBuilder;
+
+  void begin() {
+    fbBuilder.startTable(1);
+  }
+
+  int addValuesOffset(int? offset) {
+    fbBuilder.addOffset(0, offset);
+    return fbBuilder.offset;
+  }
+
+  int finish() {
+    return fbBuilder.endTable();
+  }
+}
+
+class LockboxAliasListObjectBuilder extends fb.ObjectBuilder {
+  final List<LockboxAliasObjectBuilder>? _values;
+
+  LockboxAliasListObjectBuilder({List<LockboxAliasObjectBuilder>? values})
+    : _values = values;
+
+  /// Finish building, and store into the [fbBuilder].
+  @override
+  int finish(fb.Builder fbBuilder) {
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
+    fbBuilder.startTable(1);
+    fbBuilder.addOffset(0, valuesOffset);
+    return fbBuilder.endTable();
+  }
+
+  /// Convenience method to serialize to byte list.
+  @override
+  Uint8List toBytes([String? fileIdentifier]) {
+    final fbBuilder = fb.Builder(deduplicateTables: false);
+    fbBuilder.finish(finish(fbBuilder), fileIdentifier);
+    return fbBuilder.buffer;
+  }
+}
+
 class KnownLockbox {
   KnownLockbox._(this._bc, this._bcOffset);
   factory KnownLockbox(List<int> bytes) {
@@ -5738,16 +5967,19 @@ class SleepSupport {
       const fb.BoolReader().vTableGet(_bc, _bcOffset, 6, false);
   bool get supported =>
       const fb.BoolReader().vTableGet(_bc, _bcOffset, 8, false);
+  bool get cacheClearingActive =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 10, false);
 
   @override
   String toString() {
-    return 'SleepSupport{suspendNotifications: ${suspendNotifications}, sleepInhibition: ${sleepInhibition}, supported: ${supported}}';
+    return 'SleepSupport{suspendNotifications: ${suspendNotifications}, sleepInhibition: ${sleepInhibition}, supported: ${supported}, cacheClearingActive: ${cacheClearingActive}}';
   }
 
   SleepSupportT unpack() => SleepSupportT(
     suspendNotifications: suspendNotifications,
     sleepInhibition: sleepInhibition,
     supported: supported,
+    cacheClearingActive: cacheClearingActive,
   );
 
   static int pack(fb.Builder fbBuilder, SleepSupportT? object) {
@@ -5760,25 +5992,28 @@ class SleepSupportT implements fb.Packable {
   bool suspendNotifications;
   bool sleepInhibition;
   bool supported;
+  bool cacheClearingActive;
 
   SleepSupportT({
     this.suspendNotifications = false,
     this.sleepInhibition = false,
     this.supported = false,
+    this.cacheClearingActive = false,
   });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    fbBuilder.startTable(3);
+    fbBuilder.startTable(4);
     fbBuilder.addBool(0, suspendNotifications);
     fbBuilder.addBool(1, sleepInhibition);
     fbBuilder.addBool(2, supported);
+    fbBuilder.addBool(3, cacheClearingActive);
     return fbBuilder.endTable();
   }
 
   @override
   String toString() {
-    return 'SleepSupportT{suspendNotifications: ${suspendNotifications}, sleepInhibition: ${sleepInhibition}, supported: ${supported}}';
+    return 'SleepSupportT{suspendNotifications: ${suspendNotifications}, sleepInhibition: ${sleepInhibition}, supported: ${supported}, cacheClearingActive: ${cacheClearingActive}}';
   }
 }
 
@@ -5796,7 +6031,7 @@ class SleepSupportBuilder {
   final fb.Builder fbBuilder;
 
   void begin() {
-    fbBuilder.startTable(3);
+    fbBuilder.startTable(4);
   }
 
   int addSuspendNotifications(bool? suspendNotifications) {
@@ -5814,6 +6049,11 @@ class SleepSupportBuilder {
     return fbBuilder.offset;
   }
 
+  int addCacheClearingActive(bool? cacheClearingActive) {
+    fbBuilder.addBool(3, cacheClearingActive);
+    return fbBuilder.offset;
+  }
+
   int finish() {
     return fbBuilder.endTable();
   }
@@ -5823,22 +6063,26 @@ class SleepSupportObjectBuilder extends fb.ObjectBuilder {
   final bool? _suspendNotifications;
   final bool? _sleepInhibition;
   final bool? _supported;
+  final bool? _cacheClearingActive;
 
   SleepSupportObjectBuilder({
     bool? suspendNotifications,
     bool? sleepInhibition,
     bool? supported,
+    bool? cacheClearingActive,
   }) : _suspendNotifications = suspendNotifications,
        _sleepInhibition = sleepInhibition,
-       _supported = supported;
+       _supported = supported,
+       _cacheClearingActive = cacheClearingActive;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    fbBuilder.startTable(3);
+    fbBuilder.startTable(4);
     fbBuilder.addBool(0, _suspendNotifications);
     fbBuilder.addBool(1, _sleepInhibition);
     fbBuilder.addBool(2, _supported);
+    fbBuilder.addBool(3, _cacheClearingActive);
     return fbBuilder.endTable();
   }
 

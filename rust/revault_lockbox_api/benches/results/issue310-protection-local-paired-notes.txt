@@ -1,0 +1,44 @@
+Issue #310: controlled follow-up of the protected-read/open outliers
+
+Same pinned revisions and fixtures as issue310-protection-gate-notes.txt.
+Added optional REVAULT_GATE_CASE=mode/compressed/operation and REVAULT_GATE_SEED
+to the identical child harnesses. The candidate driver's compare subcommand
+runs both child executables locally: fifteen immediate ABBA/BAAB groups, six
+samples per child, discard sample zero. Parent and children pinned to physical
+CPU 2. No tool-call delays within a group. Seeds vary between groups, same seed
+for both revisions. Each case uses the same main-written high-entropy 8 MiB file.
+
+Each group contributes median(branch samples)/median(main samples). Reported
+change is median across the fifteen group ratios. Intervals below are the 2.5th
+and 97.5th percentiles from 5000 bootstrap resamples of those group ratios,
+seed 31917 using wrapping LCG 1664525*x+1013904223. Negative means faster.
+These are local experimental uncertainty estimates, not cross-platform bounds.
+
+Case                      Metric       Change       Bootstrap interval
+encrypted/raw/stream      read         -9.71%       [-11.02%, -8.96%]
+encrypted/raw/stream      open         -3.16%       [ -5.38%, -1.48%]
+encrypted/raw/stream      total       -16.35%       [-16.82%,-15.16%]
+signed/plaintext/range    open         -0.20%       [ -0.74%, +0.37%]
+signed/plaintext/range    read         -0.10%       [ -0.54%, +0.15%]
+signed/plaintext/range    total        -7.21%       [ -7.86%, -6.70%]
+unsigned/plaintext/range  open         -3.04%       [ -6.51%, -0.31%]
+unsigned/plaintext/range  read         +0.51%       [ -0.69%, +1.32%]
+unsigned/plaintext/range  total       -10.86%       [-11.70%, -9.47%]
+
+The three earlier outliers do not reproduce under immediate paired runs.
+The new tests support the <=5% read/open guardrail for these cases only.
+Do not generalize this result to all sizes, corpora, cache policies or APIs.
+The original compressed-write regression is separate and remains unresolved;
+the user has been asked whether to prioritize baseline write speed or accept
+the extra encoding work for smaller/faster-to-read new content.
+
+Raw data: issue310-protection-local-paired-{encrypted-stream,signed-open,
+plain-open}.csv. Earlier fixed-core but tool-separated ABBA runs are retained
+in issue310-protection-isolated-abba.csv; their drifting results motivated the
+local driver. No production behavior changed in this checkpoint.
+
+Reproduction: build protection_gate with identical source at 0f9a137 and
+bfbbf36, then execute a driver build with:
+taskset -c 2 DRIVER compare MAIN_EXE BRANCH_EXE ROOT 8388608 random 15 CASE
+ROOT is an existing fixture directory produced by protection_gate write.
+CASE is encrypted/false/stream, signed/false/range, or plain/false/range.

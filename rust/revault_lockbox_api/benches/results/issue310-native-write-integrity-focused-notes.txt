@@ -1,0 +1,47 @@
+Focused follow-up to mixed write results, 2026-09-13
+===================================================
+Two concerning cases from the broad native checksum-preparation experiment were
+rerun separately with more samples. The same exact before/after executables were
+checked against their recorded SHA256 values; no implementation changes were made.
+Before: a99ff8c532057b212528f37ddb8647ce72c9643c8996792f7639b6bb032308d0
+After:  6558e6519493d6d8e74ad73e208325db8e28a0daf932088e73fbf8d51bce3e6a
+Paths: /tmp/revault-native-write-FUFXSb/{before,after}
+
+Protocol for each case:
+  REVAULT_GATE_CHILD_SAMPLES=6 taskset -c 2 AFTER compare-write BEFORE AFTER ROOT
+  8388608 random 25 CASE
+CASE was encrypted/false/write and then plain/true/write. Groups alternate
+ABBA/BAAB; each child drops one warmup and retains five measured samples. Each
+case therefore has 500 measured rows, 250 per variant, across 25 paired groups.
+No implementation builds or other tests were run concurrently by this agent.
+All writes are independently reopened and compared byte-for-byte outside the
+write timer. Archive sizes match between variants. Comparator progress messages
+are excluded from CSV; no measured rows were discarded.
+
+Results from the existing paired bootstrap summarizer:
+Raw encrypted, unsigned:
+  paired change -4.253%, 95% interval [-7.727%, +0.558%].
+  Before central time 64.008 ms; after 60.203 ms.
+Plaintext, unsigned, compression enabled, high-entropy raw fallback:
+  paired change -1.204%, 95% interval [-10.195%, +2.314%].
+  Before central time 64.493 ms; after 62.230 ms.
+Central times are the summarizer's aggregate medians; paired-change estimates
+are calculated from matched groups and need not equal their simple ratio.
+
+Both upper confidence bounds are below the +5% threshold for these two specific
+before/after cases. The suspected increases in the earlier mixed run were not
+reproduced. Neither interval excludes zero, so these runs do not establish a
+statistically clear speedup. Keep the earlier mixed data as part of the record.
+
+Artifacts:
+  issue310-native-write-integrity-encrypted-focused.csv
+  issue310-native-write-integrity-encrypted-focused-summary.csv
+  issue310-native-write-integrity-plain-focused.csv
+  issue310-native-write-integrity-plain-focused-summary.csv
+
+Scope limitation: both executables use the experimental native layout. These
+results support retaining the removal of its unused legacy checksum, not native
+default activation. Other modes/corpora, the default-writer comparison, load-time
+gates, large/small-many ZIP parity and remaining bindings/release work are still
+required. This checkpoint changes evidence only; correctness tests were not rerun
+because no implementation or test code changed.

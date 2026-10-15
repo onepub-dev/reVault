@@ -215,8 +215,11 @@ final class Lockbox extends Owned implements ffi.Finalizable {
   ///   vault.close();
   /// }
   /// ```
+  /// Set [writable] to select access independently of [signingKey].
+  /// Unsigned archives need no signer for write access; null keeps legacy selection.
   static Lockbox open(
     String path, {
+    bool? writable,
     Vault? vault,
     SecretString? password,
     SecretBytes? contentKey,
@@ -224,6 +227,7 @@ final class Lockbox extends Owned implements ffi.Finalizable {
     ProfileSigningKeyPair? signingKey,
     LockboxOptions? options,
   }) {
+    final mode = writable == null ? 'open' : (writable ? 'write' : 'read');
     final explicit = [password, contentKey, contact].whereType<Object>().length;
     if (explicit > 1 || (explicit == 1 && vault != null)) {
       throw ArgumentError('Supply one explicit credential or a vault.');
@@ -231,7 +235,7 @@ final class Lockbox extends Owned implements ffi.Finalizable {
     if (explicit == 1) {
       return _file(
         path,
-        'open',
+        mode,
         password: password,
         contentKey: contentKey,
         contact: contact?.handle,
@@ -239,11 +243,13 @@ final class Lockbox extends Owned implements ffi.Finalizable {
         options: options,
       );
     }
-    if (vault != null) return _openUsingVault(path, vault, signingKey, options);
+    if (vault != null) {
+      return _openUsingVault(path, vault, signingKey, options, mode);
+    }
     Vault? defaultVault;
     try {
       defaultVault = Vault.open();
-      return _openUsingVault(path, defaultVault, signingKey, options);
+      return _openUsingVault(path, defaultVault, signingKey, options, mode);
     } on VaultPassphraseUnavailableException {
       throw LockboxCredentialUnavailableException(path);
     } finally {
@@ -323,13 +329,9 @@ final class Lockbox extends Owned implements ffi.Finalizable {
     Vault vault,
     ProfileSigningKeyPair? signingKey,
     LockboxOptions? options,
-  ) => _file(
-    path,
-    'open',
-    vault: vault,
-    signingKey: signingKey,
-    options: options,
-  );
+    String mode,
+  ) =>
+      _file(path, mode, vault: vault, signingKey: signingKey, options: options);
 
   static void _requireOneCredential(
     SecretString? password,
@@ -391,6 +393,26 @@ final class Lockbox extends Owned implements ffi.Finalizable {
   /// ```dart
   /// lockbox.extractFile('/docs/readme.txt', '/tmp/readme.txt');
   /// ```
+  void extractFileWithPolicy(
+    String source,
+    String destination, {
+    required int maxFileBytes,
+    required int maxTotalBytes,
+    required int maxFiles,
+    bool restorePermissions = false,
+    bool overwrite = false,
+  }) => runtime.operations.lockboxExtractFileWithPolicy(
+    handle,
+    source,
+    destination,
+    maxFileBytes,
+    maxTotalBytes,
+    maxFiles,
+    restorePermissions,
+    overwrite,
+  );
+
+  /// Extracts using the existing replacement-only API semantics.
   void extractFile(String source, String destination, {bool replace = false}) =>
       runtime.operations.lockboxExtractFile(
         handle,
@@ -533,6 +555,11 @@ final class Lockbox extends Owned implements ffi.Finalizable {
   /// ```
   void setWorkloadProfile(LockboxWorkload profile) =>
       runtime.operations.lockboxSetWorkloadProfile(handle, profile.nativeName);
+
+  /// Sets a soft cache target using `auto`, `disabled`, or `bytes` mode.
+  /// Pending writes remain valid; this is not a total-memory limit.
+  void setCacheLimit(String mode, {int bytes = 0}) =>
+      runtime.operations.lockboxSetCacheLimit(handle, mode, bytes);
 
   /// Selects worker [mode] and its requested [jobs] count for this handle.
   ///

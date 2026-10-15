@@ -1,0 +1,44 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs
+index 9258a38c..ab17596c 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs
+@@ -19,6 +19,7 @@ pub(in crate::file_format::candidate_files) struct Forms {
+     pub definitions: Vec<Definition>,
+     pub records: Vec<Record>,
+ }
++#[derive(Clone)]
+ pub(in crate::file_format::candidate_files) struct Definition {
+     pub type_id: FormTypeId,
+     pub revision: u32,
+@@ -27,6 +28,7 @@ pub(in crate::file_format::candidate_files) struct Definition {
+     pub description: Layout,
+     pub fields: Vec<Field>,
+ }
++#[derive(Clone)]
+ pub(in crate::file_format::candidate_files) struct Field {
+     pub id: String,
+     pub kind: FormFieldKind,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
+index a251c439..fca748c9 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
+@@ -247,3 +247,8 @@ fn typed_form_snapshots_large_metadata_history_and_retention_all_modes() {
+ mod moves;
+ 
+ mod selected_source;
++
++mod fields;
++
++#[cfg(target_os = "linux")]
++mod field_aggregate;
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms.rs
+index 83a658eb..72d57b0a 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms.rs
+@@ -486,3 +486,6 @@ pub(in crate::file_format::candidate_files) use lifecycle::{
+ 
+ mod moves;
+ pub(in crate::file_format::candidate_files) use moves::move_records;
++
++mod fields;
++pub(in crate::file_format::candidate_files) use fields::set_field;

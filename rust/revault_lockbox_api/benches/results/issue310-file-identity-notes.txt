@@ -1,0 +1,104 @@
+Issue #310: retain immutable Unix descriptor identity across validations
+Baseline: 7db1742, production identical to a7d99d6.
+Before zip_read SHA256:
+a5e853cc24934950ff9a106db9f80385b9d98fd2e9ce13ae97eb43e25bc64822
+Candidate zip_read SHA256 (before commit formatting):
+35877a15c1f264811012efc53708fa1f5c7c14932be7b6f015aeef32e35c00fb
+The baseline is the preserved pre-shared-window executable, not the rejected
+shared-window prototype. Both builds use identical benchmark source and enable
+native-block-layout. This change also affects default Unix FileStore validation;
+these performance measurements cover the native layout only.
+
+A live Unix descriptor retains its device/inode identity. FileStore now captures
+that identity once when opening, creating or atomically replacing a descriptor.
+Clones retain the same owned descriptor and identity. Every current-length or
+replacement check still obtains fresh path metadata, rejects a missing/different
+inode, and reads current length only from matching metadata. The file lock remains
+held across validation, preserving serialization against cooperating mutations.
+Opening still validates the locked descriptor against the path. Mutation revision
+tracking, exact reads, hash/AEAD/signature validation, recovery and format remain
+unchanged. Non-Unix checks retain the previous implementation; no non-Unix build
+or performance claim is made here.
+
+The new lifecycle regression checks cloned append/truncate lengths, an external
+truncate, path removal, relinking the same held inode, and same-size replacement.
+Replacement rejects both current-length checks and mutations; both original and
+replacement bytes remain intact. A fresh reopen accepts the replacement's identity.
+Direct filesystem changes are unit-level uncooperative fault injection; the public
+CLI cannot create those circumstances. Existing compaction/replacement, concurrent
+storage, cached-reader and all-protection tests also execute in the full suites.
+
+Syscall diagnostic: one sample, 512 x 4096-byte files, Interactive creation/read,
+plain/raw/pattern, ACCESS=random, PASSES=1, same baseline/candidate settings.
+REVAULT_ZIP_READ_ prefix applies to CASE=small, MODE=plain, COMPRESSION=false,
+PROFILE=Interactive, CREATE_PROFILE=Interactive, CORPUS=pattern, ACCESS=random,
+SAMPLES=1, PASSES=1. strace -c output retained. Whole-process statx calls fall
+from 4156 to 2609. The totals include fixture writes and ZIP operations, so this
+is evidence of removed calls, not isolated read latency. Traced wall times are
+not performance evidence. Matching baseline ACCESS=whole required 3132 statx
+calls; handles added 1024 calls for 512 files before the optimisation.
+
+Read timing matrices: CPU 2, plain mode, warm OS caches, fresh archives per
+sample, exact byte verification. Small: 512 rows, eight alternating-order pairs,
+nine samples per row, 512 x 4096-byte files, both creation/read profiles, both
+corpora/compression settings, ACCESS=random, PASSES=1,2. Repeated passes reuse
+the archive. Large: 48 rows, three alternating-order pairs, five samples per row,
+four 8 MiB files, Interactive creation, both corpora/compression/read profiles,
+ACCESS=random, PASSES=1. No agent builds/tests overlap the timing runs; unrelated
+host workloads remain active. Compression requested on random input falls back
+ to raw native frames.
+
+REVAULT_ZIP_READ_WRITE_PROFILE=1 records matching fixture create/add/commit/close
+controls on stderr. This instrumentation is outside read timers and identical
+for both binaries. Each fixture is subsequently reopened and byte-verified by
+the read measurements. Write matrices are diagnostics, not a fsync durability
+or formal protected-mode regression gate.
+
+Read CSV prefix: phase,create_profile,passes,run, followed by the standard 16
+columns. Summaries use per-group median lockbox_ms and lockbox_over_zip; average
+the middle two values for even sample counts. Speedup is baseline/candidate.
+Write CSVs have the same prefix followed by the 12 WRITE_PROFILE columns.
+
+Validation before commit-time formatting:
+- Default API: 341 unit passes, 5 ignored; all executed integration/doc suites pass.
+- Native + external-source library: 349 passes, 2 known recovery failures,
+  5 ignored. New identity regression passes.
+- Native + external-source all-targets Clippy with -D warnings passes.
+- Native zip_read release build succeeds.
+Known failures remain recovery_skips_truncated_tail_and_keeps_prior_intact_files
+and native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+This does not activate native layout or complete the wider read/write goal.
+
+Read results: 30 of 32 small-group absolute median times improve (speedups
+0.967-1.230x overall); the two slower cells are Interactive first-pass random
+input with compression requested. All 32 median Lockbox/ZIP ratios decrease,
+including those two cells, indicating concurrent timing variation. This is not
+formal per-cell significance evidence. Interactive first-pass ratios remain
+1.121-1.206x ZIP, so the issue's broad parity/10%-lead target is not met.
+All eight large-control median times improve, speedups 1.015-1.074x; large reads
+still remain substantially slower than ZIP. Retain the demonstrated removal of
+redundant identity syscalls and the broad read gains without claiming completion.
+
+Write controls: 256 small and 24 large fixture rows. Pool the duplicate read-pass
+settings when summarizing writes; write size/codec/creation settings are equal.
+Archive sizes match baseline/candidate throughout. Small write speedups range
+0.959-1.035x, with no consistent benefit. A three-run large compressed-pattern
+cell was 16.8% slower (speedup 0.856x), prompting the focused follow-up below.
+
+Focused write follow-up: 15 ABBA/BAAB groups, 60 complete fixture writes. Same
+zip_read executable pair, CPU 2, CASE=large, SIZE=8388608, MODE=plain,
+COMPRESSION=true, PROFILE=Interactive, CREATE_PROFILE=Interactive, CORPUS=pattern,
+ACCESS=random, SAMPLES=1, PASSES=1, WRITE_PROFILE=1. Each fixture holds four 8 MiB
+files, followed by fresh-handle byte verification. Fixture total_ms is converted
+to total_us in the standard protection_gate paired CSV schema; size denotes per-
+file bytes. No warmup fixture is discarded. The unchanged summarize subcommand
+from the preserved protection_gate executable computes the paired summary.
+Result: +0.385% central write time, 95% interval [-2.146%, +11.323%]. Pooled
+medians 40.224 ms baseline / 41.598 ms candidate. The earlier 16.8% slowdown is
+not reproduced centrally, but the interval does NOT pass a +5% non-regression
+gate. Preserve that uncertainty; do not claim write equivalence or improvement.
+
+All 560 read rows, 280 associated fixture write rows and 60 follow-up fixture
+writes completed successful independent byte verification. Existing protected-
+write and native/default gates remain separate unfinished work. Cold storage,
+non-Unix performance, recovery failures and release gates also remain open.

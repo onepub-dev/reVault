@@ -1,0 +1,2 @@
+case,metric,main_us,branch_us,paired_change_pct,low95_pct,high95_pct,pairs
+plain/true/write,total,40224.000,41598.000,0.385,-2.146,11.323,15

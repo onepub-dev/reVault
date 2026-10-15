@@ -1,0 +1,1150 @@
+diff --git a/bindings/README.md b/bindings/README.md
+index 19d1f434..8b6e2707 100644
+--- a/bindings/README.md
++++ b/bindings/README.md
+@@ -68,8 +68,8 @@ files live only in internal package locations; Ruby, Lua, and C use small
+ private readers because the official compiler does not provide a suitable
+ generator for those targets.
+ 
+-The generated declaration surface covers all 220 exported C ABI functions:
+-the ABI-version query plus 219 domain functions. C++, C, PHP, Swift, Lua, and Ruby
++The generated declaration surface covers all 221 exported C ABI functions:
++the ABI-version query plus 220 domain functions. C++, C, PHP, Swift, Lua, and Ruby
+ consume the header or the complete native symbol table directly; Java/Kotlin
+ use the generated Java FFM method-handle surface and typed facade.
+ The generated low-level surfaces are intentionally separate from the typed
+@@ -156,7 +156,7 @@ inputs consumed by the Rust tool rather than release scripts.
+    ecosystem package exclusively from them.
+ 3. Install every claimed language/target package in a clean GitHub Actions
+    consumer with no build tree or native-library override. The test must record
+-   the installed native path and archive hash before exercising all 219 calls.
++   the installed native path and archive hash before exercising all 220 calls.
+    Rust is the explicit source-native exception: its consumer runs the complete
+    `public_api_suite` and `vault_api` suites after `cargo package`, securely
+    unpacks the `.crate` into a clean consumer, and records that archive's hash;
+diff --git a/bindings/api/rust-to-abi.tsv b/bindings/api/rust-to-abi.tsv
+index d4aa7dbd..ff87b159 100644
+--- a/bindings/api/rust-to-abi.tsv
++++ b/bindings/api/rust-to-abi.tsv
+@@ -8,6 +8,7 @@ inspect_file	lockbox_inspect_file	direct
+ lockbox_id	lockbox_id	direct
+ owner_inspection	lockbox_owner_inspection	direct
+ set_owner_signing_key	lockbox_set_owner_signing_key	direct
++set_cache_limit	lockbox_set_cache_limit	direct live-handle cache tuning preserves pending writes
+ set_workload_profile	lockbox_set_workload_profile	direct
+ workload_profile	lockbox_runtime_options	returned in runtime options
+ set_worker_policy	lockbox_set_worker_policy	direct
+diff --git a/bindings/cpp/revault_api.hpp b/bindings/cpp/revault_api.hpp
+index fae2363f..190ca848 100644
+--- a/bindings/cpp/revault_api.hpp
++++ b/bindings/cpp/revault_api.hpp
+@@ -857,6 +857,11 @@ class Lockbox {
+     if (!lockbox_set_workload_profile(handle_, profile.data(), profile.size()))
+       throw std::runtime_error(buffer_last_error());
+   }
++  /** Sets a soft cache limit (auto, disabled, or bytes). */
++  void set_cache_limit(const std::string& mode, std::uint64_t bytes = 0) {
++    if (!lockbox_set_cache_limit(handle_, mode.data(), mode.size(), bytes))
++      throw std::runtime_error(buffer_last_error());
++  }
+   /** Sets worker policy. */
+   void set_worker_policy(const std::string& mode, std::size_t jobs = 0) {
+     if (!lockbox_set_worker_policy(handle_, mode.data(), mode.size(), jobs))
+diff --git a/bindings/csharp/BindingOperations.cs b/bindings/csharp/BindingOperations.cs
+index f4d20926..f003df19 100644
+--- a/bindings/csharp/BindingOperations.cs
++++ b/bindings/csharp/BindingOperations.cs
+@@ -273,6 +273,13 @@ internal sealed class BindingOperations
+         { return Require(RevaultNative.lockbox_set_workload_profile(handle, (IntPtr)profileBytesPointer, (nuint)profileBytes.Length)); }
+     }
+ 
++    public unsafe bool LockboxSetCacheLimit(IntPtr handle, string mode, ulong bytes)
++    {
++        var modeBytes = Encoding.UTF8.GetBytes(mode);
++        fixed (byte* modeBytesPointer = modeBytes)
++        { return Require(RevaultNative.lockbox_set_cache_limit(handle, (IntPtr)modeBytesPointer, (nuint)modeBytes.Length, bytes)); }
++    }
++
+     public unsafe bool LockboxSetWorkerPolicy(IntPtr handle, string mode, nuint jobs)
+     {
+         var modeBytes = Encoding.UTF8.GetBytes(mode);
+diff --git a/bindings/csharp/RevaultNative.cs b/bindings/csharp/RevaultNative.cs
+index 7f2a2274..a3c5039e 100644
+--- a/bindings/csharp/RevaultNative.cs
++++ b/bindings/csharp/RevaultNative.cs
+@@ -94,6 +94,9 @@ internal static partial class RevaultNative
+     public static extern bool lockbox_set_workload_profile(IntPtr handle, IntPtr profile, nuint profile_len);
+     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+     [return: MarshalAs(UnmanagedType.I1)]
++    public static extern bool lockbox_set_cache_limit(IntPtr handle, IntPtr mode, nuint mode_len, ulong bytes);
++    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
++    [return: MarshalAs(UnmanagedType.I1)]
+     public static extern bool lockbox_set_worker_policy(IntPtr handle, IntPtr mode, nuint mode_len, nuint jobs);
+     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+     public static extern RevaultBuffer lockbox_runtime_options(IntPtr handle);
+diff --git a/bindings/csharp/Vault.cs b/bindings/csharp/Vault.cs
+index bd249505..502ca5d2 100644
+--- a/bindings/csharp/Vault.cs
++++ b/bindings/csharp/Vault.cs
+@@ -264,6 +264,8 @@ public sealed class Revault
+         public ulong StorageLength => owner.operations.LockboxStorageLen(Handle);
+         /// <summary>Sets workload profile.</summary>
+         public void SetWorkloadProfile(string profile) => owner.operations.LockboxSetWorkloadProfile(Handle, profile);
++        /// <summary>Sets a soft cache target without discarding pending writes.</summary>
++        public void SetCacheLimit(string mode, ulong bytes) => owner.operations.LockboxSetCacheLimit(Handle, mode, bytes);
+         /// <summary>Sets worker policy.</summary>
+         public void SetWorkerPolicy(string mode, nuint jobs) => owner.operations.LockboxSetWorkerPolicy(Handle, mode, jobs);
+         /// <summary>Returns the cache, workload, and worker settings used by this Lockbox.</summary>
+diff --git a/bindings/dart/lib/src/binding_operations.dart b/bindings/dart/lib/src/binding_operations.dart
+index 4e497a1b..aa7b7ad1 100644
+--- a/bindings/dart/lib/src/binding_operations.dart
++++ b/bindings/dart/lib/src/binding_operations.dart
+@@ -541,6 +541,17 @@ final class BindingOperations {
+     ),
+   );
+ 
++  bool lockboxSetCacheLimit(
++    ffi.Pointer<ffi.Void> handle,
++    String mode,
++    int bytes,
++  ) => _withText(
++    mode,
++    (modePointer, modeLength) => _requireBool(
++      native.lockbox_set_cache_limit(handle, modePointer, modeLength, bytes),
++    ),
++  );
++
+   bool lockboxSetWorkerPolicy(
+     ffi.Pointer<ffi.Void> handle,
+     String mode,
+diff --git a/bindings/dart/lib/src/lockbox.dart b/bindings/dart/lib/src/lockbox.dart
+index db783dd8..9262b964 100644
+--- a/bindings/dart/lib/src/lockbox.dart
++++ b/bindings/dart/lib/src/lockbox.dart
+@@ -539,6 +539,11 @@ final class Lockbox extends Owned implements ffi.Finalizable {
+   void setWorkloadProfile(LockboxWorkload profile) =>
+       runtime.operations.lockboxSetWorkloadProfile(handle, profile.nativeName);
+ 
++  /// Sets a soft cache target using `auto`, `disabled`, or `bytes` mode.
++  /// Pending writes remain valid; this is not a total-memory limit.
++  void setCacheLimit(String mode, {int bytes = 0}) =>
++      runtime.operations.lockboxSetCacheLimit(handle, mode, bytes);
++
+   /// Selects worker [mode] and its requested [jobs] count for this handle.
+   ///
+   /// Example:
+diff --git a/bindings/dart/lib/src/revault_native.dart b/bindings/dart/lib/src/revault_native.dart
+index 72701bd1..60d6d47e 100644
+--- a/bindings/dart/lib/src/revault_native.dart
++++ b/bindings/dart/lib/src/revault_native.dart
+@@ -381,6 +381,15 @@ typedef _LockboxSetWorkloadProfileNative =
+     ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+ typedef _LockboxSetWorkloadProfileDart =
+     bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
++typedef _LockboxSetCacheLimitNative =
++    ffi.Bool Function(
++      ffi.Pointer<ffi.Void>,
++      ffi.Pointer<ffi.Uint8>,
++      ffi.Size,
++      ffi.Uint64,
++    );
++typedef _LockboxSetCacheLimitDart =
++    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int, int);
+ typedef _LockboxSetWorkerPolicyNative =
+     ffi.Bool Function(
+       ffi.Pointer<ffi.Void>,
+@@ -2046,6 +2055,17 @@ external bool _native_lockbox_set_workload_profile(
+   int p2,
+ );
+ 
++@ffi.Native<_LockboxSetCacheLimitNative>(
++  symbol: 'lockbox_set_cache_limit',
++  assetId: _assetId,
++)
++external bool _native_lockbox_set_cache_limit(
++  ffi.Pointer<ffi.Void> p0,
++  ffi.Pointer<ffi.Uint8> p1,
++  int p2,
++  int p3,
++);
++
+ @ffi.Native<_LockboxSetWorkerPolicyNative>(
+   symbol: 'lockbox_set_worker_policy',
+   assetId: _assetId,
+@@ -3868,6 +3888,11 @@ final class RevaultNative {
+             _LockboxSetWorkloadProfileNative,
+             _LockboxSetWorkloadProfileDart
+           >('lockbox_set_workload_profile'),
++      _lockbox_set_cache_limit = library
++          .lookupFunction<
++            _LockboxSetCacheLimitNative,
++            _LockboxSetCacheLimitDart
++          >('lockbox_set_cache_limit'),
+       _lockbox_set_worker_policy = library
+           .lookupFunction<
+             _LockboxSetWorkerPolicyNative,
+@@ -4759,6 +4784,7 @@ final class RevaultNative {
+       _lockbox_recovery_scan_path = _native_lockbox_recovery_scan_path,
+       _lockbox_storage_len = _native_lockbox_storage_len,
+       _lockbox_set_workload_profile = _native_lockbox_set_workload_profile,
++      _lockbox_set_cache_limit = _native_lockbox_set_cache_limit,
+       _lockbox_set_worker_policy = _native_lockbox_set_worker_policy,
+       _lockbox_runtime_options = _native_lockbox_runtime_options,
+       _lockbox_commit = _native_lockbox_commit,
+@@ -5276,6 +5302,13 @@ final class RevaultNative {
+     ffi.Pointer<ffi.Uint8> profile,
+     int profile_len,
+   ) => _lockbox_set_workload_profile(handle, profile, profile_len);
++  final _LockboxSetCacheLimitDart _lockbox_set_cache_limit;
++  bool lockbox_set_cache_limit(
++    ffi.Pointer<ffi.Void> handle,
++    ffi.Pointer<ffi.Uint8> mode,
++    int mode_len,
++    int bytes,
++  ) => _lockbox_set_cache_limit(handle, mode, mode_len, bytes);
+   final _LockboxSetWorkerPolicyDart _lockbox_set_worker_policy;
+   bool lockbox_set_worker_policy(
+     ffi.Pointer<ffi.Void> handle,
+diff --git a/bindings/e2e/c/conformance.c b/bindings/e2e/c/conformance.c
+index e195f71d..cd5c5078 100644
+--- a/bindings/e2e/c/conformance.c
++++ b/bindings/e2e/c/conformance.c
+@@ -479,6 +479,18 @@ static void archive_lifecycle(void) {
+   RevaultBuffer options = lockbox_runtime_options(box);
+   CHECK(framed_payload(options).len > 0, "runtime options");
+   buffer_free(options);
++  CHECK(lockbox_set_cache_limit(box, "bytes", 5, 8192), "cache limit");
++  RevaultBuffer cache_limit_stats = lockbox_cache_stats(box);
++  Bytes cache_limit_payload = framed_payload(cache_limit_stats);
++  const uint8_t *cache_limit_field = flatbuffer_field(cache_limit_payload, 0);
++  CHECK(cache_limit_field != NULL && cache_limit_field + 8 <= cache_limit_payload.ptr + cache_limit_payload.len, "cache limit field");
++  uint64_t observed_cache_limit = 0;
++  for (unsigned cache_byte = 0; cache_byte < 8; ++cache_byte)
++    observed_cache_limit |= ((uint64_t)cache_limit_field[cache_byte]) << (8 * cache_byte);
++  CHECK(observed_cache_limit == 8192, "cache limit stats");
++  buffer_free(cache_limit_stats);
++  CHECK(lockbox_set_cache_limit(box, "auto", 4, 0), "restore cache");
++  PASS(lockbox_set_cache_limit, 2);
+   PASS(lockbox_set_workload_profile, 1);
+   PASS(lockbox_set_worker_policy, 1);
+   PASS(lockbox_runtime_options, 1);
+diff --git a/bindings/e2e/cpp/conformance.cpp b/bindings/e2e/cpp/conformance.cpp
+index 6a081f06..b20448d6 100644
+--- a/bindings/e2e/cpp/conformance.cpp
++++ b/bindings/e2e/cpp/conformance.cpp
+@@ -180,6 +180,8 @@ static void archive_lifecycle() {
+   box.set_workload_profile("read-mostly");
+   box.set_worker_policy("single", 1);
+   check(!box.runtime_options().workload_profile.empty(), "runtime options");
++  box.set_cache_limit("bytes", 8192); check(box.cache_stats().limit_bytes == 8192, "cache limit");
++  box.set_cache_limit("auto", 0); pass("lockbox_set_cache_limit");
+   pass("lockbox_set_workload_profile");
+   pass("lockbox_set_worker_policy");
+   pass("lockbox_runtime_options");
+diff --git a/bindings/e2e/csharp/Program.cs b/bindings/e2e/csharp/Program.cs
+index e21e70be..e1105141 100644
+--- a/bindings/e2e/csharp/Program.cs
++++ b/bindings/e2e/csharp/Program.cs
+@@ -74,6 +74,8 @@ static class Conformance
+             box.AddSymlink("/link", "/renamed.txt"); Check(box.SymlinkTarget("/link") == "/renamed.txt", "link"); Pass("lockbox_add_symlink"); Pass("lockbox_get_symlink_target", 3);
+             Check(box.List("/", true).Count > 0, "list"); Check(box.Stat("/renamed.txt") != null, "stat"); Pass("lockbox_list", 2); Pass("lockbox_stat", 2);
+             box.SetWorkloadProfile("read-mostly"); box.SetWorkerPolicy("single", 1); Check(box.RuntimeOptions().WorkloadProfile.Length > 0, "runtime");
++            box.SetCacheLimit("bytes", 8192); Check(box.CacheStats().LimitBytes == 8192, "cache limit");
++            box.SetCacheLimit("auto", 0); Pass("lockbox_set_cache_limit");
+             Pass("lockbox_set_workload_profile"); Pass("lockbox_set_worker_policy"); Pass("lockbox_runtime_options");
+             box.Commit(); Check(box.StorageLength > 0, "storage"); Pass("lockbox_commit"); Pass("lockbox_storage_len");
+             archive = box.Bytes; Check(archive.Length > 0, "bytes"); Pass("lockbox_to_bytes", 2); Pass("buffer_free");
+diff --git a/bindings/e2e/dart/conformance.dart b/bindings/e2e/dart/conformance.dart
+index 9f2f0a22..63292854 100644
+--- a/bindings/e2e/dart/conformance.dart
++++ b/bindings/e2e/dart/conformance.dart
+@@ -173,6 +173,10 @@ void archiveLifecycle() {
+   box.setWorkloadProfile(LockboxWorkload.readMostly);
+   box.setWorkerPolicy(LockboxWorker.single, jobs: 1);
+   check(box.runtimeOptions().workloadProfile.isNotEmpty, 'runtime');
++  box.setCacheLimit('bytes', bytes: 8192);
++  check(box.cacheStats().limitBytes == 8192, 'cache limit');
++  box.setCacheLimit('auto');
++  pass('lockbox_set_cache_limit');
+   pass('lockbox_set_workload_profile');
+   pass('lockbox_set_worker_policy');
+   pass('lockbox_runtime_options');
+diff --git a/bindings/e2e/go/conformance.go b/bindings/e2e/go/conformance.go
+index b8a5e955..e0b32535 100644
+--- a/bindings/e2e/go/conformance.go
++++ b/bindings/e2e/go/conformance.go
+@@ -129,6 +129,10 @@ func archiveLifecycle() {
+ 	must(box.SetWorkloadProfile("read-mostly"))
+ 	must(box.SetWorkerPolicy("single", 1))
+ 	check(mustValue(box.RuntimeOptions()).WorkloadProfile != "", "runtime options")
++	must(box.SetCacheLimit("bytes", 8192))
++	check(mustValue(box.CacheStats()).LimitBytes == 8192, "cache limit")
++	must(box.SetCacheLimit("auto", 0))
++	pass("lockbox_set_cache_limit")
+ 	pass("lockbox_set_workload_profile")
+ 	pass("lockbox_set_worker_policy")
+ 	pass("lockbox_runtime_options")
+diff --git a/bindings/e2e/java/Conformance.java b/bindings/e2e/java/Conformance.java
+index 8422cc77..a5132fec 100644
+--- a/bindings/e2e/java/Conformance.java
++++ b/bindings/e2e/java/Conformance.java
+@@ -113,6 +113,8 @@ public final class Conformance {
+       pass("lockbox_list", 2); pass("lockbox_stat", 2);
+       box.setWorkloadProfile("read-mostly"); box.setWorkerPolicy("single", 1);
+       check(!box.runtimeOptions().workloadProfile().isEmpty(), "runtime");
++      box.setCacheLimit("bytes", 8192); check(box.cacheStats().limitBytes() == 8192, "cache limit");
++      box.setCacheLimit("auto", 0); pass("lockbox_set_cache_limit");
+       pass("lockbox_set_workload_profile"); pass("lockbox_set_worker_policy"); pass("lockbox_runtime_options");
+       box.commit(); check(box.storageLength() > 0, "storage");
+       pass("lockbox_commit"); pass("lockbox_storage_len");
+diff --git a/bindings/e2e/javascript/conformance.js b/bindings/e2e/javascript/conformance.js
+index c3c58cc2..25943beb 100644
+--- a/bindings/e2e/javascript/conformance.js
++++ b/bindings/e2e/javascript/conformance.js
+@@ -90,6 +90,8 @@ function archiveLifecycle() {
+   check(box.getSymlinkTarget('/link') === '/renamed.txt', 'symlink'); pass('lockbox_get_symlink_target', 3);
+   check(box.list('/', true).length > 0, 'list'); box.stat('/renamed.txt'); pass('lockbox_list', 2); pass('lockbox_stat', 2);
+   box.setWorkloadProfile('read-mostly'); box.setWorkerPolicy('single', 1); box.runtimeOptions();
++  box.setCacheLimit('bytes', 8192); check(Number(box.cacheStats().limitBytes) === 8192, 'cache limit');
++  box.setCacheLimit('auto', 0); pass('lockbox_set_cache_limit');
+   pass('lockbox_set_workload_profile'); pass('lockbox_set_worker_policy'); pass('lockbox_runtime_options');
+   box.commit(); pass('lockbox_commit'); check(Number(box.storageLen()) > 0, 'storage'); pass('lockbox_storage_len');
+   const archive = box.toBytes(); pass('lockbox_to_bytes', 2); pass('buffer_free');
+diff --git a/bindings/e2e/lua/conformance.lua b/bindings/e2e/lua/conformance.lua
+index ff25b442..bc7099d6 100644
+--- a/bindings/e2e/lua/conformance.lua
++++ b/bindings/e2e/lua/conformance.lua
+@@ -107,6 +107,8 @@ local function archive_lifecycle()
+   check(box:get_symlink_target('/link') == '/renamed.txt', 'symlink'); pass('lockbox_get_symlink_target', 3)
+   check(#box:list('/', true).entries > 0, 'list'); box:stat('/renamed.txt'); pass('lockbox_list', 2); pass('lockbox_stat', 2)
+   box:set_workload_profile('read-mostly'); box:set_worker_policy('single', 1); box:runtime_options()
++  box:set_cache_limit('bytes', 8192); check(box:cache_stats().limit_bytes == 8192, 'cache limit')
++  box:set_cache_limit('auto', 0); pass('lockbox_set_cache_limit')
+   pass('lockbox_set_workload_profile'); pass('lockbox_set_worker_policy'); pass('lockbox_runtime_options')
+   box:commit(); pass('lockbox_commit'); check(box:storage_len() > 0, 'storage'); pass('lockbox_storage_len')
+   local archive = box:to_bytes(); pass('lockbox_to_bytes', 2); pass('buffer_free')
+diff --git a/bindings/e2e/operations.tsv b/bindings/e2e/operations.tsv
+index 1617829f..0c312849 100644
+--- a/bindings/e2e/operations.tsv
++++ b/bindings/e2e/operations.tsv
+@@ -34,6 +34,7 @@ lockbox_recovery_report_render	archive.recovery	RevaultBuffer	const void *handle
+ lockbox_recovery_scan_path	archive.recovery	RevaultBuffer	const char *path, size_t path_len, const uint8_t *key, size_t key_len
+ lockbox_storage_len	archive.lifecycle	uint64_t	const void *handle
+ lockbox_set_workload_profile	archive.lifecycle	bool	void *handle, const char *profile, size_t profile_len
++lockbox_set_cache_limit	archive.lifecycle	bool	void *handle, const char *mode, size_t mode_len, uint64_t bytes
+ lockbox_set_worker_policy	archive.lifecycle	bool	void *handle, const char *mode, size_t mode_len, size_t jobs
+ lockbox_runtime_options	archive.diagnostics	RevaultBuffer	const void *handle
+ lockbox_commit	archive.lifecycle	bool	void *handle
+diff --git a/bindings/e2e/php/conformance.php b/bindings/e2e/php/conformance.php
+index 4aef81bb..e4da6ef1 100644
+--- a/bindings/e2e/php/conformance.php
++++ b/bindings/e2e/php/conformance.php
+@@ -96,6 +96,8 @@ function archiveLifecycle(ApiRuntime $api): void {
+     check(count($box->list('/', true)->getEntries()) > 0, 'list'); pass('lockbox_list', 2);
+     $box->stat('/renamed.txt'); pass('lockbox_stat', 2);
+     $box->setWorkloadProfile('read-mostly'); pass('lockbox_set_workload_profile');
++    $box->setCacheLimit('bytes', 8192); check($box->cacheStats()->getLimitBytes() == 8192, 'cache limit');
++    $box->setCacheLimit('auto', 0); pass('lockbox_set_cache_limit');
+     $box->setWorkerPolicy('single', 1); pass('lockbox_set_worker_policy');
+     $box->runtimeOptions(); pass('lockbox_runtime_options');
+     $box->commit(); pass('lockbox_commit');
+diff --git a/bindings/e2e/python/conformance.py b/bindings/e2e/python/conformance.py
+index 7ac0cfca..09e66c1a 100644
+--- a/bindings/e2e/python/conformance.py
++++ b/bindings/e2e/python/conformance.py
+@@ -182,6 +182,12 @@ def archive_lifecycle(runtime: Runtime) -> None:
+     runtime.bool(lib.lockbox_set_workload_profile(box, workload, 11), "workload")
+     runtime.bool(lib.lockbox_set_worker_policy(box, worker, 6, 1), "worker")
+     check(runtime.frame(lib.lockbox_runtime_options(box)), "runtime options")
++    cache_mode = data(b"bytes")
++    runtime.bool(lib.lockbox_set_cache_limit(box, cache_mode, 5, 8192), "cache limit")
++    check(decode("CacheStats", runtime.frame(lib.lockbox_cache_stats(box))).limit_bytes == 8192, "cache limit")
++    cache_auto = data(b"auto")
++    runtime.bool(lib.lockbox_set_cache_limit(box, cache_auto, 4, 0), "restore cache")
++    passed("lockbox_set_cache_limit", 2)
+     passed("lockbox_set_workload_profile", 1)
+     passed("lockbox_set_worker_policy", 1)
+     passed("lockbox_runtime_options", 1)
+diff --git a/bindings/e2e/ruby/conformance.rb b/bindings/e2e/ruby/conformance.rb
+index 79cbc84e..d257c10e 100644
+--- a/bindings/e2e/ruby/conformance.rb
++++ b/bindings/e2e/ruby/conformance.rb
+@@ -87,6 +87,8 @@ def archive_lifecycle
+   check(box.get_symlink_target('/link') == '/renamed.txt', 'symlink'); pass('lockbox_get_symlink_target', 3)
+   check(!box.list('/', true).entries.empty?, 'list'); box.stat('/renamed.txt'); pass('lockbox_list', 2); pass('lockbox_stat', 2)
+   box.set_workload_profile('read-mostly'); box.set_worker_policy('single', 1); box.runtime_options
++  box.set_cache_limit('bytes', 8192); check(box.cache_stats.limit_bytes == 8192, 'cache limit')
++  box.set_cache_limit('auto', 0); pass('lockbox_set_cache_limit')
+   pass('lockbox_set_workload_profile'); pass('lockbox_set_worker_policy'); pass('lockbox_runtime_options')
+   box.commit; pass('lockbox_commit'); check(box.storage_len > 0, 'storage'); pass('lockbox_storage_len')
+   archive = box.to_bytes; pass('lockbox_to_bytes', 2); pass('buffer_free')
+diff --git a/bindings/e2e/typescript/conformance.ts b/bindings/e2e/typescript/conformance.ts
+index a6be96b0..06a32f37 100644
+--- a/bindings/e2e/typescript/conformance.ts
++++ b/bindings/e2e/typescript/conformance.ts
+@@ -89,6 +89,8 @@ function archiveLifecycle() {
+   check(box.getSymlinkTarget('/link') === '/renamed.txt', 'symlink'); pass('lockbox_get_symlink_target', 3);
+   check(box.list('/', true).length > 0, 'list'); box.stat('/renamed.txt'); pass('lockbox_list', 2); pass('lockbox_stat', 2);
+   box.setWorkloadProfile('read-mostly'); box.setWorkerPolicy('single', 1); box.runtimeOptions();
++  box.setCacheLimit('bytes', 8192); check(Number(box.cacheStats().limitBytes) === 8192, 'cache limit');
++  box.setCacheLimit('auto', 0); pass('lockbox_set_cache_limit');
+   pass('lockbox_set_workload_profile'); pass('lockbox_set_worker_policy'); pass('lockbox_runtime_options');
+   box.commit(); pass('lockbox_commit'); check(Number(box.storageLen()) > 0, 'storage'); pass('lockbox_storage_len');
+   const archive = box.toBytes(); pass('lockbox_to_bytes', 2); pass('buffer_free');
+diff --git a/bindings/go/revault.go b/bindings/go/revault.go
+index ef81df0f..348b5752 100644
+--- a/bindings/go/revault.go
++++ b/bindings/go/revault.go
+@@ -697,6 +697,11 @@ func (box *Lockbox) SetWorkloadProfile(profile string) error {
+ 	return require(bool(C.lockbox_set_workload_profile(box.handle, charPointer(profile), C.size_t(len(profile)))))
+ }
+ 
++// SetCacheLimit sets a soft cache limit (auto, disabled, or bytes).
++func (box *Lockbox) SetCacheLimit(mode string, bytes uint64) error {
++	return require(bool(C.lockbox_set_cache_limit(box.handle, charPointer(mode), C.size_t(len(mode)), C.uint64_t(bytes))))
++}
++
+ // SetWorkerPolicy sets worker policy.
+ func (box *Lockbox) SetWorkerPolicy(mode string, jobs uint) error {
+ 	return require(bool(C.lockbox_set_worker_policy(box.handle, charPointer(mode), C.size_t(len(mode)), C.size_t(jobs))))
+diff --git a/bindings/go/revault_native.go b/bindings/go/revault_native.go
+index d0fb81dc..ef530561 100644
+--- a/bindings/go/revault_native.go
++++ b/bindings/go/revault_native.go
+@@ -125,6 +125,9 @@ func (native) LockboxStorageLen(handle unsafe.Pointer) C.uint64_t {
+ func (native) LockboxSetWorkloadProfile(handle unsafe.Pointer, profile unsafe.Pointer, profile_len C.size_t) C.bool {
+ 	return C.lockbox_set_workload_profile(handle, (*C.char)(profile), profile_len)
+ }
++func (native) LockboxSetCacheLimit(handle unsafe.Pointer, mode unsafe.Pointer, mode_len C.size_t, bytes C.uint64_t) C.bool {
++	return C.lockbox_set_cache_limit(handle, (*C.char)(mode), mode_len, bytes)
++}
+ func (native) LockboxSetWorkerPolicy(handle unsafe.Pointer, mode unsafe.Pointer, mode_len C.size_t, jobs C.size_t) C.bool {
+ 	return C.lockbox_set_worker_policy(handle, (*C.char)(mode), mode_len, jobs)
+ }
+diff --git a/bindings/java/src/com/onepub/revault/BindingOperations.java b/bindings/java/src/com/onepub/revault/BindingOperations.java
+index ebda8e0a..81c38511 100644
+--- a/bindings/java/src/com/onepub/revault/BindingOperations.java
++++ b/bindings/java/src/com/onepub/revault/BindingOperations.java
+@@ -256,6 +256,12 @@ final class BindingOperations {
+     }
+   }
+ 
++  public boolean lockboxSetCacheLimit(MemorySegment handle, String mode, long bytes) {
++    try (var arena = Arena.ofConfined()) {
++      return require((boolean) call(api.lockbox_set_cache_limit, handle, text(arena, mode), (long) mode.getBytes(StandardCharsets.UTF_8).length, bytes));
++    }
++  }
++
+   public boolean lockboxSetWorkerPolicy(MemorySegment handle, String mode, long jobs) {
+     try (var arena = Arena.ofConfined()) {
+       return require((boolean) call(api.lockbox_set_worker_policy, handle, text(arena, mode), (long) mode.getBytes(StandardCharsets.UTF_8).length, jobs));
+diff --git a/bindings/java/src/com/onepub/revault/Revault.java b/bindings/java/src/com/onepub/revault/Revault.java
+index 7b3e2e0b..410ea09c 100644
+--- a/bindings/java/src/com/onepub/revault/Revault.java
++++ b/bindings/java/src/com/onepub/revault/Revault.java
+@@ -342,6 +342,8 @@ public final class Revault {
+     public long storageLength() { return operations.lockboxStorageLen(handle); }
+     /** Sets workload profile. */
+     public void setWorkloadProfile(String profile) { operations.lockboxSetWorkloadProfile(handle, profile); }
++    /** Sets a soft cache target without discarding pending writes. */
++    public void setCacheLimit(String mode, long bytes) { operations.lockboxSetCacheLimit(handle, mode, bytes); }
+     /** Sets worker policy. */
+     public void setWorkerPolicy(String mode, long jobs) { operations.lockboxSetWorkerPolicy(handle, mode, jobs); }
+     /** Returns the cache, workload, and worker settings used by this Lockbox. */
+diff --git a/bindings/java/src/com/onepub/revault/RevaultAbiSymbols.java b/bindings/java/src/com/onepub/revault/RevaultAbiSymbols.java
+index 40c88e9d..644d1d74 100644
+--- a/bindings/java/src/com/onepub/revault/RevaultAbiSymbols.java
++++ b/bindings/java/src/com/onepub/revault/RevaultAbiSymbols.java
+@@ -42,6 +42,7 @@ final class RevaultAbiSymbols {
+     "lockbox_recovery_scan_path",
+     "lockbox_storage_len",
+     "lockbox_set_workload_profile",
++    "lockbox_set_cache_limit",
+     "lockbox_set_worker_policy",
+     "lockbox_runtime_options",
+     "lockbox_commit",
+diff --git a/bindings/java/src/com/onepub/revault/RevaultNativeApi.java b/bindings/java/src/com/onepub/revault/RevaultNativeApi.java
+index ea1b913b..831a4471 100644
+--- a/bindings/java/src/com/onepub/revault/RevaultNativeApi.java
++++ b/bindings/java/src/com/onepub/revault/RevaultNativeApi.java
+@@ -47,6 +47,7 @@ final class RevaultNativeApi {
+   public final MethodHandle lockbox_recovery_scan_path;
+   public final MethodHandle lockbox_storage_len;
+   public final MethodHandle lockbox_set_workload_profile;
++  public final MethodHandle lockbox_set_cache_limit;
+   public final MethodHandle lockbox_set_worker_policy;
+   public final MethodHandle lockbox_runtime_options;
+   public final MethodHandle lockbox_commit;
+@@ -274,6 +275,7 @@ final class RevaultNativeApi {
+     lockbox_recovery_scan_path = linker.downcallHandle(symbols.find("lockbox_recovery_scan_path").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+     lockbox_storage_len = linker.downcallHandle(symbols.find("lockbox_storage_len").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
+     lockbox_set_workload_profile = linker.downcallHandle(symbols.find("lockbox_set_workload_profile").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
++    lockbox_set_cache_limit = linker.downcallHandle(symbols.find("lockbox_set_cache_limit").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG));
+     lockbox_set_worker_policy = linker.downcallHandle(symbols.find("lockbox_set_worker_policy").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG));
+     lockbox_runtime_options = linker.downcallHandle(symbols.find("lockbox_runtime_options").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS));
+     lockbox_commit = linker.downcallHandle(symbols.find("lockbox_commit").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS));
+diff --git a/bindings/javascript/index.d.ts b/bindings/javascript/index.d.ts
+index e3aea49a..1a8bd0b9 100644
+--- a/bindings/javascript/index.d.ts
++++ b/bindings/javascript/index.d.ts
+@@ -205,6 +205,8 @@ export class Lockbox {
+   storageLen(): number;
+   /** Sets workload profile. */
+   setWorkloadProfile(profile: string): boolean;
++  /** Sets a soft cache target without discarding pending writes. */
++  setCacheLimit(mode: string, bytes: number): boolean;
+   /** Sets worker policy. */
+   setWorkerPolicy(mode: string, jobs: number): boolean;
+   /** Returns the cache, workload, and worker settings used by this Lockbox. */
+diff --git a/bindings/javascript/index.js b/bindings/javascript/index.js
+index 10569595..17911093 100644
+--- a/bindings/javascript/index.js
++++ b/bindings/javascript/index.js
+@@ -459,6 +459,11 @@ export class Lockbox extends OwnedHandle {
+     return this.operations.lockboxSetWorkloadProfile(this.nativeHandle, profile);
+   }
+ 
++  /** Sets a soft cache limit (auto, disabled, or bytes). */
++  setCacheLimit(mode, bytes) {
++    return this.operations.lockboxSetCacheLimit(this.nativeHandle, mode, bytes);
++  }
++
+   /** Sets worker policy. */
+   setWorkerPolicy(mode, jobs) {
+     return this.operations.lockboxSetWorkerPolicy(this.nativeHandle, mode, jobs);
+diff --git a/bindings/javascript/native.js b/bindings/javascript/native.js
+index 8abffb04..1da08e0c 100644
+--- a/bindings/javascript/native.js
++++ b/bindings/javascript/native.js
+@@ -77,6 +77,7 @@ let lockbox_recovery_report_render;
+ let lockbox_recovery_scan_path;
+ let lockbox_storage_len;
+ let lockbox_set_workload_profile;
++let lockbox_set_cache_limit;
+ let lockbox_set_worker_policy;
+ let lockbox_runtime_options;
+ let lockbox_commit;
+@@ -309,6 +310,7 @@ export function configureNativeLibrary(explicitPath = undefined) {
+   lockbox_recovery_scan_path = library.func('RevaultBuffer lockbox_recovery_scan_path(const char *, size_t, void *, size_t)');
+   lockbox_storage_len = library.func('uint64_t lockbox_storage_len(void *)');
+   lockbox_set_workload_profile = library.func('bool lockbox_set_workload_profile(void *, const char *, size_t)');
++  lockbox_set_cache_limit = library.func('bool lockbox_set_cache_limit(void *, const char *, size_t, uint64_t)');
+   lockbox_set_worker_policy = library.func('bool lockbox_set_worker_policy(void *, const char *, size_t, size_t)');
+   lockbox_runtime_options = library.func('RevaultBuffer lockbox_runtime_options(void *)');
+   lockbox_commit = library.func('bool lockbox_commit(void *)');
+@@ -625,6 +627,7 @@ export class BindingOperations {
+ 
+   lockboxSetWorkloadProfile(handle, profile) { return requireValue(lockbox_set_workload_profile(handle, Buffer.from(profile), Buffer.byteLength(profile))); }
+ 
++  lockboxSetCacheLimit(handle, mode, bytes) { return requireValue(lockbox_set_cache_limit(handle, Buffer.from(mode), Buffer.byteLength(mode), bytes)); }
+   lockboxSetWorkerPolicy(handle, mode, jobs) { return requireValue(lockbox_set_worker_policy(handle, Buffer.from(mode), Buffer.byteLength(mode), jobs)); }
+ 
+   lockboxRuntimeOptions(handle) { return decode('RuntimeOptions', lockbox_runtime_options(handle)); }
+diff --git a/bindings/lua/revault_api.lua b/bindings/lua/revault_api.lua
+index 6ae32022..f55843d0 100644
+--- a/bindings/lua/revault_api.lua
++++ b/bindings/lua/revault_api.lua
+@@ -59,6 +59,7 @@ RevaultBuffer lockbox_recovery_report_render(const void * handle, bool verbose,
+ RevaultBuffer lockbox_recovery_scan_path(const char * path, size_t path_len, const uint8_t * key, size_t key_len);
+ uint64_t lockbox_storage_len(const void * handle);
+ bool lockbox_set_workload_profile(void * handle, const char * profile, size_t profile_len);
++bool lockbox_set_cache_limit(void * handle, const char * mode, size_t mode_len, uint64_t bytes);
+ bool lockbox_set_worker_policy(void * handle, const char * mode, size_t mode_len, size_t jobs);
+ RevaultBuffer lockbox_runtime_options(const void * handle);
+ bool lockbox_commit(void * handle);
+@@ -675,6 +676,11 @@ function Operations:lockbox_set_workload_profile(handle, profile)
+   return true
+ end
+ 
++function Operations:lockbox_set_cache_limit(handle, mode, bytes)
++  if not native.lockbox_set_cache_limit(handle, mode, #mode, bytes) then error(last_error(), 2) end
++  return true
++end
++
+ function Operations:lockbox_set_worker_policy(handle, mode, jobs)
+   if not native.lockbox_set_worker_policy(handle, mode, #mode, jobs) then error(last_error(), 2) end
+   return true
+@@ -1925,6 +1931,11 @@ function Lockbox:set_workload_profile(profile)
+   return self.operations:lockbox_set_workload_profile(self.handle, profile)
+ end
+ 
++--- Sets a soft cache limit (auto, disabled, or bytes).
++function Lockbox:set_cache_limit(mode, bytes)
++  return self.operations:lockbox_set_cache_limit(self.handle, mode, bytes)
++end
++
+ --- Sets worker policy.
+ function Lockbox:set_worker_policy(mode, jobs)
+   return self.operations:lockbox_set_worker_policy(self.handle, mode, jobs)
+diff --git a/bindings/php/revault_ffi.h b/bindings/php/revault_ffi.h
+index d887b799..c9cb4a35 100644
+--- a/bindings/php/revault_ffi.h
++++ b/bindings/php/revault_ffi.h
+@@ -46,6 +46,8 @@ RevaultBuffer lockbox_recovery_report_render(const void *handle, bool verbose, s
+ RevaultBuffer lockbox_recovery_scan_path(const char *path, size_t path_len, const uint8_t *key, size_t key_len);
+ uint64_t lockbox_storage_len(const void *handle);
+ bool lockbox_set_workload_profile(void *handle, const char *profile, size_t profile_len);
++bool lockbox_set_cache_limit(void *handle, const char *mode, size_t mode_len, uint64_t bytes);
++/** Sets worker policy. */
+ bool lockbox_set_worker_policy(void *handle, const char *mode, size_t mode_len, size_t jobs);
+ RevaultBuffer lockbox_runtime_options(const void *handle);
+ bool lockbox_commit(void *handle);
+diff --git a/bindings/php/src/BindingOperations.php b/bindings/php/src/BindingOperations.php
+index da4e7322..d696ad43 100644
+--- a/bindings/php/src/BindingOperations.php
++++ b/bindings/php/src/BindingOperations.php
+@@ -253,6 +253,11 @@ final class BindingOperations
+         return $this->requireBool((bool) ($this->ffi->lockbox_set_workload_profile($handle, $profile, strlen($profile))));
+     }
+ 
++    public function lockboxSetCacheLimit(CData $handle, string $mode, int $bytes): bool
++    {
++        return $this->requireBool((bool) ($this->ffi->lockbox_set_cache_limit($handle, $mode, strlen($mode), $bytes)));
++    }
++
+     public function lockboxSetWorkerPolicy(CData $handle, string $mode, int $jobs): bool
+     {
+         return $this->requireBool((bool) ($this->ffi->lockbox_set_worker_policy($handle, $mode, strlen($mode), $jobs)));
+diff --git a/bindings/php/src/Vault.php b/bindings/php/src/Vault.php
+index f3137c8e..721ea371 100644
+--- a/bindings/php/src/Vault.php
++++ b/bindings/php/src/Vault.php
+@@ -554,6 +554,12 @@ class Lockbox extends OwnedHandle
+         return $this->operations->lockboxSetWorkloadProfile($this->handle, $profile);
+     }
+ 
++    /** Sets a soft cache limit without discarding pending writes. */
++    public function setCacheLimit(string $mode, int $bytes): bool
++    {
++        return $this->operations->lockboxSetCacheLimit($this->handle, $mode, $bytes);
++    }
++
+     /** Selects worker scheduling and the maximum job count. */
+     public function setWorkerPolicy(string $mode, int $jobs): bool
+     {
+diff --git a/bindings/python/revault_api/_revault_native.py b/bindings/python/revault_api/_revault_native.py
+index e7f49adb..c1cb4e93 100644
+--- a/bindings/python/revault_api/_revault_native.py
++++ b/bindings/python/revault_api/_revault_native.py
+@@ -77,6 +77,8 @@ def configure_native(library, buffer_type):
+     library.lockbox_storage_len.restype = ctypes.c_uint64
+     library.lockbox_set_workload_profile.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
+     library.lockbox_set_workload_profile.restype = ctypes.c_bool
++    library.lockbox_set_cache_limit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint64]
++    library.lockbox_set_cache_limit.restype = ctypes.c_bool
+     library.lockbox_set_worker_policy.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t]
+     library.lockbox_set_worker_policy.restype = ctypes.c_bool
+     library.lockbox_runtime_options.argtypes = [ctypes.c_void_p]
+diff --git a/bindings/python/revault_api/facade.py b/bindings/python/revault_api/facade.py
+index 1792ae26..9b9f811b 100644
+--- a/bindings/python/revault_api/facade.py
++++ b/bindings/python/revault_api/facade.py
+@@ -723,6 +723,11 @@ def _Lockbox_set_workload_profile(self, profile):
+     return _call(self, 'lockbox_set_workload_profile', (profile,))
+ Lockbox.set_workload_profile = _Lockbox_set_workload_profile
+ 
++def _Lockbox_set_cache_limit(self, mode, bytes):
++    """Sets a soft cache target without discarding pending writes."""
++    return _call(self, 'lockbox_set_cache_limit', (mode, bytes))
++Lockbox.set_cache_limit = _Lockbox_set_cache_limit
++
+ def _Lockbox_set_worker_policy(self, mode, jobs):
+     """Returns the policy."""
+     return _call(self, 'lockbox_set_worker_policy', (mode, jobs))
+@@ -1570,6 +1575,7 @@ _ROUTES = {
+     'lockbox_recovery_scan_path': (('text', 'bytes'), 'message:RecoveryReport', False),
+     'lockbox_storage_len': (('handle',), 'value', False),
+     'lockbox_set_workload_profile': (('handle', 'text'), 'bool', False),
++    'lockbox_set_cache_limit': (('handle', 'text', 'value'), 'bool', False),
+     'lockbox_set_worker_policy': (('handle', 'text', 'value'), 'bool', False),
+     'lockbox_runtime_options': (('handle',), 'message:RuntimeOptions', False),
+     'lockbox_commit': (('handle',), 'bool', False),
+diff --git a/bindings/ruby/lib/revault/binding_operations.rb b/bindings/ruby/lib/revault/binding_operations.rb
+index 87ecd5c8..3a43f5ac 100644
+--- a/bindings/ruby/lib/revault/binding_operations.rb
++++ b/bindings/ruby/lib/revault/binding_operations.rb
+@@ -37,6 +37,7 @@ module Revault
+     extern 'bool lockbox_reset_import_stats(void *)'
+     extern 'uint64_t lockbox_storage_len(void *)'
+     extern 'bool lockbox_set_workload_profile(void *, void *, size_t)'
++    extern 'bool lockbox_set_cache_limit(void *, void *, size_t, uint64_t)'
+     extern 'bool lockbox_set_worker_policy(void *, void *, size_t, size_t)'
+     extern 'bool lockbox_commit(void *)'
+     extern 'bool lockbox_create_dir(void *, void *, size_t, bool)'
+@@ -410,6 +411,10 @@ module Revault
+       require_value(Native.lockbox_set_workload_profile(handle, Fiddle::Pointer[profile], profile.bytesize))
+     end
+ 
++    def lockbox_set_cache_limit(handle, mode, bytes)
++      require_value(Native.lockbox_set_cache_limit(handle, Fiddle::Pointer[mode], mode.bytesize, bytes))
++    end
++
+     def lockbox_set_worker_policy(handle, mode, jobs)
+       require_value(Native.lockbox_set_worker_policy(handle, Fiddle::Pointer[mode], mode.bytesize, jobs))
+     end
+diff --git a/bindings/ruby/lib/revault/vault.rb b/bindings/ruby/lib/revault/vault.rb
+index d00483c6..2693411b 100644
+--- a/bindings/ruby/lib/revault/vault.rb
++++ b/bindings/ruby/lib/revault/vault.rb
+@@ -442,6 +442,11 @@ module Revault
+       @operations.lockbox_set_workload_profile(@native_handle, profile)
+     end
+ 
++    # Sets a soft cache limit (auto, disabled, or bytes).
++    def set_cache_limit(mode, bytes)
++      @operations.lockbox_set_cache_limit(@native_handle, mode, bytes)
++    end
++
+     # Sets worker policy.
+     def set_worker_policy(mode, jobs)
+       @operations.lockbox_set_worker_policy(@native_handle, mode, jobs)
+diff --git a/bindings/swift/Sources/RevaultAPI/RevaultAPI.swift b/bindings/swift/Sources/RevaultAPI/RevaultAPI.swift
+index 07250c87..464c8039 100644
+--- a/bindings/swift/Sources/RevaultAPI/RevaultAPI.swift
++++ b/bindings/swift/Sources/RevaultAPI/RevaultAPI.swift
+@@ -281,6 +281,13 @@ final class BindingOperations {
+         }
+     }
+ 
++    func lockboxSetCacheLimit(_ handle: UnsafeMutableRawPointer, _ mode: String, _ bytes: UInt64) throws -> Bool {
++        return try mode.withCString { modePointer in
++            guard lockbox_set_cache_limit(handle, modePointer, mode.utf8.count, bytes) else { throw RevaultError.native(lastError()) }
++            return true
++        }
++    }
++
+     func lockboxSetWorkerPolicy(_ handle: UnsafeMutableRawPointer, _ mode: String, _ jobs: Int) throws -> Bool {
+         return try mode.withCString { modePointer in
+             guard lockbox_set_worker_policy(handle, modePointer, mode.utf8.count, jobs) else { throw RevaultError.native(lastError()) }
+@@ -1885,6 +1892,12 @@ extension Lockbox {
+         try setWorkloadProfile(profile.rawValue)
+     }
+ 
++    /// Sets a soft cache limit (auto, disabled, or bytes).
++    @discardableResult
++    public func setCacheLimit(_ mode: String, _ bytes: UInt64) throws -> Bool {
++        return try operations.lockboxSetCacheLimit(handle!, mode, bytes)
++    }
++
+     /// Sets worker policy.
+     @discardableResult
+     public func setWorkerPolicy(_ mode: String, _ jobs: Int) throws -> Bool {
+diff --git a/bindings/swift/Sources/RevaultConformance/main.swift b/bindings/swift/Sources/RevaultConformance/main.swift
+index e4638c61..9be8dec1 100644
+--- a/bindings/swift/Sources/RevaultConformance/main.swift
++++ b/bindings/swift/Sources/RevaultConformance/main.swift
+@@ -70,6 +70,8 @@ func archiveLifecycle() throws {
+     try check(try box.getSymlinkTarget("/link") == "/renamed.txt", "symlink"); pass("lockbox_get_symlink_target", 3)
+     try check(try !box.list("/", true).isEmpty, "list"); _ = try box.stat("/renamed.txt"); pass("lockbox_list", 2); pass("lockbox_stat", 2)
+     try box.setWorkloadProfile("read-mostly"); try box.setWorkerPolicy("single", 1); _ = try box.runtimeOptions()
++    try box.setCacheLimit("bytes", 8192); try check(try box.cacheStats().limitBytes == 8192, "cache limit")
++    try box.setCacheLimit("auto", 0); pass("lockbox_set_cache_limit")
+     pass("lockbox_set_workload_profile"); pass("lockbox_set_worker_policy"); pass("lockbox_runtime_options")
+     try box.commit(); pass("lockbox_commit"); try check(try box.storageLen() > 0, "storage"); pass("lockbox_storage_len")
+     let archive = try box.toBytes(); pass("lockbox_to_bytes", 2); pass("buffer_free")
+diff --git a/bindings/wasm/generated/revault_wasm_bindings.cjs b/bindings/wasm/generated/revault_wasm_bindings.cjs
+index c8218965..c3c39f10 100644
+--- a/bindings/wasm/generated/revault_wasm_bindings.cjs
++++ b/bindings/wasm/generated/revault_wasm_bindings.cjs
+@@ -739,6 +739,20 @@ class WasmLockbox {
+             throw takeFromExternrefTable0(ret[0]);
+         }
+     }
++    /**
++     * Sets a soft page/native-frame cache target: `auto`, `disabled`, or `bytes`.
++     * Pending writes and active shared owners remain valid; this is not a total-memory limit.
++     * @param {string} mode
++     * @param {bigint} bytes
++     */
++    set_cache_limit(mode, bytes) {
++        const ptr0 = passStringToWasm0(mode, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
++        const len0 = WASM_VECTOR_LEN;
++        const ret = wasm.wasmlockbox_set_cache_limit(this.__wbg_ptr, ptr0, len0, bytes);
++        if (ret[1]) {
++            throw takeFromExternrefTable0(ret[0]);
++        }
++    }
+     /**
+      * Stages encrypted description text; call `commit` to publish it.
+      * For example: `box.set_description("Production credentials"); box.commit()`.
+diff --git a/bindings/wasm/generated/revault_wasm_bindings.d.ts b/bindings/wasm/generated/revault_wasm_bindings.d.ts
+index dd16bb38..c6d5dd4d 100644
+--- a/bindings/wasm/generated/revault_wasm_bindings.d.ts
++++ b/bindings/wasm/generated/revault_wasm_bindings.d.ts
+@@ -231,6 +231,11 @@ export class WasmLockbox {
+      * Moves one lockbox entry from `from` to `to`.
+      */
+     rename(from: string, to: string): void;
++    /**
++     * Sets a soft page/native-frame cache target: `auto`, `disabled`, or `bytes`.
++     * Pending writes and active shared owners remain valid; this is not a total-memory limit.
++     */
++    set_cache_limit(mode: string, bytes: bigint): void;
+     /**
+      * Stages encrypted description text; call `commit` to publish it.
+      * For example: `box.set_description("Production credentials"); box.commit()`.
+diff --git a/bindings/wasm/generated/revault_wasm_bindings_bg.wasm.d.ts b/bindings/wasm/generated/revault_wasm_bindings_bg.wasm.d.ts
+index 91f8d5c6..9c9b99ad 100644
+--- a/bindings/wasm/generated/revault_wasm_bindings_bg.wasm.d.ts
++++ b/bindings/wasm/generated/revault_wasm_bindings_bg.wasm.d.ts
+@@ -58,6 +58,7 @@ export const wasmlockbox_permissions: (a: number, b: number, c: number) => [numb
+ export const wasmlockbox_read_range: (a: number, b: number, c: number, d: bigint, e: bigint) => [number, number, number, number];
+ export const wasmlockbox_remove_dir: (a: number, b: number, c: number, d: number) => [number, number];
+ export const wasmlockbox_rename: (a: number, b: number, c: number, d: number, e: number) => [number, number];
++export const wasmlockbox_set_cache_limit: (a: number, b: number, c: number, d: bigint) => [number, number];
+ export const wasmlockbox_set_description: (a: number, b: number, c: number) => [number, number];
+ export const wasmlockbox_set_permissions: (a: number, b: number, c: number, d: number) => [number, number];
+ export const wasmlockbox_set_secret_variable: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+diff --git a/rust/revault_bindings/revault_api.h b/rust/revault_bindings/revault_api.h
+index fdff3b8f..4ff5c10e 100644
+--- a/rust/revault_bindings/revault_api.h
++++ b/rust/revault_bindings/revault_api.h
+@@ -122,6 +122,8 @@ RevaultBuffer lockbox_recovery_scan_path(const char *path, size_t path_len, cons
+ uint64_t lockbox_storage_len(const void *handle);
+ /** Sets workload profile. */
+ bool lockbox_set_workload_profile(void *handle, const char *profile, size_t profile_len);
++/** Sets a soft cache target without discarding pending writes. */
++bool lockbox_set_cache_limit(void *handle, const char *mode, size_t mode_len, uint64_t bytes);
+ /** Sets worker policy. */
+ bool lockbox_set_worker_policy(void *handle, const char *mode, size_t mode_len, size_t jobs);
+ /** Returns the runtime options. */
+diff --git a/rust/revault_bindings/src/lib.rs b/rust/revault_bindings/src/lib.rs
+index e3ca253f..c580de9d 100644
+--- a/rust/revault_bindings/src/lib.rs
++++ b/rust/revault_bindings/src/lib.rs
+@@ -1914,6 +1914,45 @@ pub unsafe extern "C" fn lockbox_storage_len(handle: *const c_void) -> u64 {
+     }
+ }
+ 
++#[no_mangle]
++/// Sets the page/native-frame cache retention target without discarding pending writes.
++///
++/// `mode` is `auto`, `disabled`, or `bytes`; `bytes` is used only by `bytes` mode.
++/// This is a soft cache target, not a total-memory limit.
++///
++/// # Safety
++/// Opaque handles must come from the matching reVault constructor or import,
++/// remain live, and have the expected type. Other non-null pointers must be
++/// valid for their documented access and byte length. Callers must prevent
++/// overlapping access that aliases mutable state and release each handle once.
++pub unsafe extern "C" fn lockbox_set_cache_limit(
++    handle: *mut c_void,
++    mode: *const c_char,
++    mode_len: usize,
++    bytes: u64,
++) -> bool {
++    let Some(handle) = (unsafe { lockbox_settings_mut(handle) }) else {
++        set_error("lockbox handle is null");
++        return false;
++    };
++    let Some(mode) = (unsafe { input_str(mode, mode_len) }) else {
++        set_error("invalid cache mode");
++        return false;
++    };
++    let limit = match mode {
++        "auto" => revault_lockbox_api::CacheLimit::Auto,
++        "disabled" => revault_lockbox_api::CacheLimit::Disabled,
++        "bytes" => revault_lockbox_api::CacheLimit::Bytes(bytes),
++        _ => {
++            set_error("cache mode must be auto, disabled, or bytes");
++            return false;
++        }
++    };
++    handle.set_cache_limit(limit);
++    clear_error();
++    true
++}
++
+ #[no_mangle]
+ /// Sets workload profile.
+ ///
+@@ -8207,6 +8246,39 @@ mod tests {
+     use super::*;
+     use std::ffi::CStr;
+ 
++    #[test]
++    fn cache_limit_abi_validates_policy_and_preserves_pending_content() {
++        let key = [31u8; 32];
++        unsafe {
++            assert!(!lockbox_set_cache_limit(ptr::null_mut(), b"auto".as_ptr().cast(), 4, 0));
++            let handle = lockbox_create(key.as_ptr(), key.len());
++            assert!(!handle.is_null());
++            let path = b"/pending";
++            let data = vec![71u8; 1024 * 1024];
++            assert!(lockbox_add_file(handle, path.as_ptr().cast(), path.len(), data.as_ptr(), data.len(), false));
++            assert!(lockbox_set_cache_limit(handle, b"bytes".as_ptr().cast(), 5, 0));
++            assert_eq!(lockbox_ref(handle).unwrap().inspector().cache_stats().limit_bytes, 0);
++            assert!(!lockbox_set_cache_limit(handle, b"invalid".as_ptr().cast(), 7, 999));
++            assert_eq!(lockbox_ref(handle).unwrap().inspector().cache_stats().limit_bytes, 0);
++            assert!(!lockbox_set_cache_limit(handle, ptr::null(), 4, 0));
++            assert_eq!(lockbox_ref(handle).unwrap().inspector().cache_stats().limit_bytes, 0);
++            assert!(lockbox_set_cache_limit(handle, b"disabled".as_ptr().cast(), 8, 999));
++            assert!(lockbox_commit(handle));
++            let archive = lockbox_to_bytes(handle);
++            assert!(!archive.ptr.is_null());
++            lockbox_free(handle);
++            let reopened = lockbox_open(archive.ptr, archive.len, key.as_ptr(), key.len());
++            buffer_free(archive);
++            assert!(!reopened.is_null());
++            assert!(lockbox_set_cache_limit(reopened, b"auto".as_ptr().cast(), 4, 0));
++            let output = lockbox_get_file(reopened, path.as_ptr().cast(), path.len());
++            assert!(!output.ptr.is_null());
++            assert_eq!(std::slice::from_raw_parts(output.ptr, output.len), data);
++            buffer_free(output);
++            lockbox_free(reopened);
++        }
++    }
++
+     #[test]
+     fn last_error_storage_is_nul_terminated_and_utf8_safe() {
+         assert!(!std::mem::needs_drop::<RefCell<[u8; LAST_ERROR_CAPACITY]>>());
+diff --git a/rust/revault_cli/src/commands/files.rs b/rust/revault_cli/src/commands/files.rs
+index 99284f9a..f5abe94f 100644
+--- a/rust/revault_cli/src/commands/files.rs
++++ b/rust/revault_cli/src/commands/files.rs
+@@ -277,6 +277,10 @@ fn add(request: AddRequest, access: &Access, worker_policy: WorkerPolicy) -> Cli
+         || request.sources.iter().any(|source| source.is_directory)
+     {
+         lb.set_workload_profile(WorkloadProfile::BulkImport);
++    } else {
++        // A single-file import does not need to retain all prior file pages.
++        // Keep its existing profile, compression and worker policy unchanged.
++        lb.set_cache_limit(revault_lockbox_api::CacheLimit::Bytes(32 * 1024 * 1024));
+     }
+     for source in &request.sources {
+         if !request.overwrite && !source.is_directory && lb.stat(&source.destination).is_some() {
+diff --git a/rust/revault_cli/tests/cli_flow.rs b/rust/revault_cli/tests/cli_flow.rs
+index 25bd377f..7803684b 100644
+--- a/rust/revault_cli/tests/cli_flow.rs
++++ b/rust/revault_cli/tests/cli_flow.rs
+@@ -3129,6 +3129,7 @@ fn add_can_default_destination_and_list_recursively() {
+     );
+     assert_success(&first_add);
+     assert!(String::from_utf8_lossy(&first_add.stdout).contains("Added 1 file to"));
++    fs::write(&source_file, "refused replacement").unwrap();
+     let protected_existing = run_output(
+         bin,
+         &[
+@@ -3139,6 +3140,9 @@ fn add_can_default_destination_and_list_recursively() {
+     );
+     assert!(!protected_existing.status.success());
+     assert!(String::from_utf8_lossy(&protected_existing.stderr).contains("already exists"));
++    let preserved = run_output(bin, &[lockbox.to_str().unwrap(), "cat", "alpha.txt"]);
++    assert_success(&preserved);
++    assert_eq!(preserved.stdout, b"alpha");
+     fs::write(&source_file, "alpha updated").unwrap();
+     let overwritten = run_output(
+         bin,
+diff --git a/rust/revault_lockbox_api/src/api_tests.rs b/rust/revault_lockbox_api/src/api_tests.rs
+index 3e78f9e2..d3fae08e 100644
+--- a/rust/revault_lockbox_api/src/api_tests.rs
++++ b/rust/revault_lockbox_api/src/api_tests.rs
+@@ -2236,6 +2236,53 @@ fn import_stats_record_threaded_import_stages_and_can_be_reset() {
+     assert_eq!(lb.import_stats(), Default::default());
+ }
+ 
++#[cfg(not(target_arch = "wasm32"))]
++#[test]
++fn changing_cache_limit_preserves_pending_commit_abort_and_packed_reads() {
++    let mut archive = Lockbox::create_with_options(
++        KEY,
++        LockboxOptions {
++            workload_profile: WorkloadProfile::BulkImport,
++            ..LockboxOptions::default()
++        },
++    );
++    add_file(&mut archive, &p("/a"), b"original", false).unwrap();
++    add_file(&mut archive, &p("/b"), b"neighbor", false).unwrap();
++    archive.commit().unwrap();
++    archive.set_workload_profile(WorkloadProfile::ExtractMany);
++    for (limit, expected) in [
++        (CacheLimit::Bytes(9 * 1024 * 1024), 9 * 1024 * 1024),
++        (CacheLimit::Disabled, 0),
++        (CacheLimit::Auto, 32 * 1024 * 1024),
++    ] {
++        add_file(&mut archive, &p("/a"), b"aborted replacement", true).unwrap();
++        archive.set_cache_limit(limit);
++        assert_eq!(archive.inspector().cache_stats().limit_bytes, expected);
++        assert_eq!(archive.get_file(&p("/a")).unwrap(), b"aborted replacement");
++        assert_eq!(archive.get_file(&p("/b")).unwrap(), b"neighbor");
++        archive.abort().unwrap();
++        assert_eq!(archive.get_file(&p("/a")).unwrap(), b"original");
++        add_file(&mut archive, &p("/new"), b"committed addition", false).unwrap();
++        archive.set_cache_limit(CacheLimit::Disabled);
++        archive.commit().unwrap();
++        let reopened = Lockbox::open_bytes_with_key_options(
++            archive.to_bytes(),
++            KEY,
++            LockboxOptions { cache_limit: CacheLimit::Disabled, ..LockboxOptions::default() },
++        ).unwrap();
++        assert_eq!(reopened.get_file(&p("/a")).unwrap(), b"original");
++        assert_eq!(reopened.get_file(&p("/b")).unwrap(), b"neighbor");
++        assert_eq!(reopened.get_file(&p("/new")).unwrap(), b"committed addition");
++        archive.delete(&p("/new")).unwrap();
++        archive.commit().unwrap();
++        archive.set_cache_limit(CacheLimit::Auto);
++        archive.set_workload_profile(WorkloadProfile::Interactive);
++        assert_eq!(archive.inspector().cache_stats().limit_bytes, 128 * 1024 * 1024);
++        archive.set_workload_profile(WorkloadProfile::ExtractMany);
++        assert_eq!(archive.inspector().cache_stats().limit_bytes, 32 * 1024 * 1024);
++    }
++}
++
+ #[cfg(not(target_arch = "wasm32"))]
+ #[test]
+ fn auto_extract_many_budget_restores_profiles_and_packed_reads() {
+diff --git a/rust/revault_lockbox_api/src/lockbox.rs b/rust/revault_lockbox_api/src/lockbox.rs
+index 158bad0e..e3c717e2 100644
+--- a/rust/revault_lockbox_api/src/lockbox.rs
++++ b/rust/revault_lockbox_api/src/lockbox.rs
+@@ -1316,6 +1316,21 @@ impl<State> Lockbox<State> {
+         self.read_only = self.storage.is_read_only();
+     }
+ 
++    /// Change the page/native-frame cache retention target.
++    ///
++    /// This is not a total-memory limit. Dirty pages and active shared owners
++    /// remain valid; reducing the target does not flush or discard pending writes.
++    /// Auto resolves using the current workload profile and platform defaults.
++    /// Separate decoded-frame retention is reconciled with the selected policy.
++    pub fn set_cache_limit(&mut self, limit: crate::CacheLimit) {
++        {
++            self.page_manager
++                .borrow_mut()
++                .set_cache_limit(limit, self.workload_profile);
++        }
++        self.trim_decoded_compression_frame_cache();
++    }
++
+     /// Set cache behavior tuned for the caller's expected access pattern.
+     pub fn set_workload_profile(&mut self, profile: WorkloadProfile) {
+         let previous = self.workload_profile;
+@@ -2410,6 +2425,39 @@ mod tests {
+         Lockbox::add_file(lb, path, data, replace)
+     }
+ 
++    #[cfg(not(target_arch = "wasm32"))]
++    #[test]
++    fn cache_limit_auto_transition_releases_excess_decoded_frames() {
++        let mut archive = Lockbox::create("cache transition");
++        archive.set_workload_profile(WorkloadProfile::ExtractMany);
++        archive.set_cache_limit(crate::CacheLimit::Bytes(32 * 1024 * 1024));
++        // Seed the separate decoded cache directly: native-frame writers use
++        // the shared page cache, but this policy must also reconcile legacy
++        // decoded frames already owned by the same live handle.
++        {
++            let mut cache = archive.compression_frame_cache.borrow_mut();
++            for id in 0..9 {
++                cache.entries.insert(id, CachedCompressionFrame {
++                    native_reference: None,
++                    compression: 0,
++                    compression_frame_len: 1024 * 1024,
++                    compressed_len: 1024 * 1024,
++                    compression_frame_digest: [0; 32],
++                    slices: Vec::new(),
++                    data: vec![id as u8; 1024 * 1024],
++                });
++            }
++            cache.used_bytes = 9 * 1024 * 1024;
++        }
++        archive.set_cache_limit(crate::CacheLimit::Auto);
++        let cache = archive.compression_frame_cache.borrow();
++        assert_eq!(cache.used_bytes, 8 * 1024 * 1024);
++        assert_eq!(cache.entries.len(), 8);
++        for (id, frame) in &cache.entries {
++            assert!(frame.data.iter().all(|byte| *byte == *id as u8));
++        }
++    }
++
+     #[test]
+     fn path_is_not_visible_in_cleartext() {
+         let mut lb = Lockbox::create("secret");
+diff --git a/rust/revault_lockbox_api/src/storage/page_cache.rs b/rust/revault_lockbox_api/src/storage/page_cache.rs
+index c40ddf50..94e79a18 100644
+--- a/rust/revault_lockbox_api/src/storage/page_cache.rs
++++ b/rust/revault_lockbox_api/src/storage/page_cache.rs
+@@ -238,6 +238,11 @@ impl PageCache {
+         self.limit
+     }
+ 
++    pub(crate) fn set_cache_limit(&mut self, limit: CacheLimit, profile: WorkloadProfile) {
++        self.limit = limit;
++        self.set_workload_profile(profile);
++    }
++
+     pub(crate) fn set_workload_profile(&mut self, profile: WorkloadProfile) {
+         // Streaming extraction needs a small reuse window, not all prior pages.
+         // Keep the original policy so changing profiles restores Auto capacity.
+@@ -2213,6 +2218,36 @@ mod tests {
+         }
+     }
+ 
++    #[test]
++    fn changing_cache_limit_preserves_dirty_payload_and_active_owners() {
++        let mut cache = PageCache::new(CacheLimit::Bytes(65536));
++        cache.insert_page(0, DecodedPage {
++            page_id: 0,
++            sequence: 1,
++            objects: vec![PageObject::new(PageObjectKind::FileData, 1, vec![41; 8192])],
++        }, 16384);
++        let retained = Arc::clone(cache.pages.get(&0).unwrap().page.decoded().unwrap());
++        let weak = Arc::downgrade(&retained);
++        cache.set_cache_limit(CacheLimit::Disabled, crate::WorkloadProfile::Interactive);
++        assert_eq!(cache.stats().used_bytes, 0);
++        assert_eq!(Arc::strong_count(&retained), 1);
++        assert_eq!(retained.objects[0].with_payload(|bytes| bytes.to_vec()).unwrap(), vec![41; 8192]);
++        cache.stage_decoded_page_with_policy(16384, 16384, DecodedPage {
++            page_id: 16384,
++            sequence: 2,
++            objects: vec![PageObject::new(PageObjectKind::FileData, 2, vec![73; 8192])],
++        }, PageWritePolicy::RetainAfterFlush).unwrap();
++        assert!(cache.dirty_offsets.contains(&16384));
++        for limit in [CacheLimit::Bytes(1024), CacheLimit::Disabled, CacheLimit::Auto] {
++            cache.set_cache_limit(limit, crate::WorkloadProfile::ExtractMany);
++            assert!(cache.dirty_offsets.contains(&16384));
++            assert_eq!(cache.get_page(16384).unwrap().objects[0].with_payload(|bytes| bytes.to_vec()).unwrap(), vec![73; 8192]);
++            assert_eq!(retained.objects[0].with_payload(|bytes| bytes.to_vec()).unwrap(), vec![41; 8192]);
++        }
++        drop(retained);
++        assert!(weak.upgrade().is_none());
++    }
++
+     #[test]
+     fn pressure_flush_preserves_dirty_metadata_and_pending_erasure() {
+         let archive = LockboxId::from_bytes([9; 16]);
+diff --git a/rust/revault_wasm_bindings/operations.tsv b/rust/revault_wasm_bindings/operations.tsv
+index 1617829f..0c312849 100644
+--- a/rust/revault_wasm_bindings/operations.tsv
++++ b/rust/revault_wasm_bindings/operations.tsv
+@@ -34,6 +34,7 @@ lockbox_recovery_report_render	archive.recovery	RevaultBuffer	const void *handle
+ lockbox_recovery_scan_path	archive.recovery	RevaultBuffer	const char *path, size_t path_len, const uint8_t *key, size_t key_len
+ lockbox_storage_len	archive.lifecycle	uint64_t	const void *handle
+ lockbox_set_workload_profile	archive.lifecycle	bool	void *handle, const char *profile, size_t profile_len
++lockbox_set_cache_limit	archive.lifecycle	bool	void *handle, const char *mode, size_t mode_len, uint64_t bytes
+ lockbox_set_worker_policy	archive.lifecycle	bool	void *handle, const char *mode, size_t mode_len, size_t jobs
+ lockbox_runtime_options	archive.diagnostics	RevaultBuffer	const void *handle
+ lockbox_commit	archive.lifecycle	bool	void *handle
+diff --git a/rust/revault_wasm_bindings/src/lib.rs b/rust/revault_wasm_bindings/src/lib.rs
+index 677c6a04..44f92900 100644
+--- a/rust/revault_wasm_bindings/src/lib.rs
++++ b/rust/revault_wasm_bindings/src/lib.rs
+@@ -303,6 +303,19 @@ impl WasmLockbox {
+             .map_err(error)
+     }
+ 
++    /// Sets a soft page/native-frame cache target: `auto`, `disabled`, or `bytes`.
++    /// Pending writes and active shared owners remain valid; this is not a total-memory limit.
++    pub fn set_cache_limit(&mut self, mode: &str, bytes: u64) -> Result<(), JsValue> {
++        let limit = match mode {
++            "auto" => revault_lockbox_api::CacheLimit::Auto,
++            "disabled" => revault_lockbox_api::CacheLimit::Disabled,
++            "bytes" => revault_lockbox_api::CacheLimit::Bytes(bytes),
++            _ => return Err(JsValue::from_str("cache mode must be auto, disabled, or bytes")),
++        };
++        self.0.set_cache_limit(limit);
++        Ok(())
++    }
++
+     /// Selects an `interactive`, `bulk-import`, `read-mostly`, or `extract-many` profile.
+     pub fn set_workload_profile(&mut self, profile: &str) -> Result<(), JsValue> {
+         let profile = match profile {

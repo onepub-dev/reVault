@@ -1,0 +1,37 @@
+   Compiling revault_cli v0.5.0-dev.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli)
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.09s
+     Running tests/aliases.rs (target/debug/deps/aliases-ca0a617f36ccdbd8)
+
+running 14 tests
+test environment_child ... ok
+test lockbox_alias_creation_refuses_existing_target_including_extensionless_name ... ok
+test aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt ... ok
+test alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination ... ok
+test session_default_alias_reads_follow_lockbox_move ... ok
+test representative_archive_routes_accept_alias_selector ... ok
+test aliases_never_fall_back_and_reject_replaced_or_forgotten_targets ... ok
+test migration_alias_selector_exports_and_imports_with_independent_readback ... ok
+test alias_lifecycle_persists_and_tracks_identity ... ok
+test new_names_reserve_at_but_host_paths_do_not ... ok
+test alias_destinations_are_refused_without_overwriting_existing_files ... ok
+test helpers_read_normal_and_secret_fields_and_reject_invalid_destinations ... ok
+test completion_exposes_names_only_and_retains_assignment_destination ... ok
+test older_cli_preserves_additive_alias_records ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 22.05s
+
+     Running tests/completion.rs (target/debug/deps/completion-1f712ac3c58a26cd)
+
+running 8 tests
+test locked_vault_completion_falls_back_without_prompt_or_diagnostics ... ok
+test bash_completion_sources_and_registers_all_four_commands ... ok
+test dynamic_completion_navigates_open_lockbox_paths ... ok
+test completion_generation_supports_shell_override_and_install_uninstall ... ok
+test dynamic_completion_completes_target_lockboxes_and_add_sources ... ok
+test completion_generate_and_explicit_path_cover_all_commands_for_every_shell ... ok
+test completion_default_install_refreshes_and_uninstalls_all_commands ... ok
+test dynamic_completion_reads_vault_names_without_exposing_signing_material ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.23s
+

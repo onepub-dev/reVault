@@ -1,0 +1,15 @@
+   Compiling zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.47s
+     Running unittests src/lib.rs (vendor/zstd-complete/target/debug/deps/zstd_complete-4c8ab4ae927fad66)
+
+running 1 test
+test fse::fse_decoder::optimized_fse_state_formula_matches_original_exhaustively ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 777 filtered out; finished in 0.41s
+
+     Running tests/workspaces.rs (vendor/zstd-complete/target/debug/deps/workspaces-1519da76bd7c7e7b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+

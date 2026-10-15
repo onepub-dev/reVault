@@ -1,0 +1,8 @@
+Unhandled exception:
+Bad state: Command failed: smoke-default-native-write, retainedlogs
+#0      require (file:///home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/protected-zip-comparison.dart:16:37)
+#1      run (file:///home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/protected-zip-comparison.dart:21:996)
+#2      smoke (file:///home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/protected-zip-comparison.dart:133:3)
+#3      main (file:///home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/protected-zip-comparison.dart:140:426)
+#4      _delayEntrypointInvocation.<anonymous closure> (dart:isolate-patch/isolate_patch.dart:311:33)
+#5      _RawReceivePort._handleMessage (dart:isolate-patch/isolate_patch.dart:192:12)

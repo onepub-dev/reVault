@@ -1,0 +1,530 @@
+{
+  "source-zstd-64mib/A": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/A/archive.lbox",
+    "archive_sha256": "bbf301fa245c06bdddf073a5f334e64dff21637b66b6c664ace236feb9e6a000",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 11771904,
+        "logical_bytes": 11769216,
+        "archive_bytes": 11769216,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 11771904,
+        "logical_bytes": 11769216,
+        "archive_bytes": 11769216,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 11771904,
+    "maximum_physical_read_bytes": 11771904,
+    "required_sample_read_bytes": 5885952,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "source-zstd-64mib/B": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/B/archive.lbox",
+    "archive_sha256": "0d5018fe6ab5657971f43668e97c98d254216648a70f01dda550c00484401c31",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 11821056,
+        "logical_bytes": 11819392,
+        "archive_bytes": 11819392,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 11821056,
+        "logical_bytes": 11819392,
+        "archive_bytes": 11819392,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 11821056,
+    "maximum_physical_read_bytes": 11821056,
+    "required_sample_read_bytes": 5910528,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "source-zstd-64mib/C": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/C/tree.lbox",
+    "archive_sha256": "f54a57b4c57ec2de4d324f0eef4285aba619e8abe67357fa362c33647a668a77",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 14569472,
+        "logical_bytes": 14811136,
+        "archive_bytes": 14811136,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 14569472,
+        "logical_bytes": 14811136,
+        "archive_bytes": 14811136,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 14569472,
+    "maximum_physical_read_bytes": 14569472,
+    "required_sample_read_bytes": 7284736,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "source-zstd-64mib/ZIP": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/ZIP/archive.zip",
+    "archive_sha256": "3498c1486fcd0147610e6252ed624e6af0b37e5619acaef1d9e9185bacc17aaa",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 11345920,
+        "logical_bytes": 11344003,
+        "archive_bytes": 11344003,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 11345920,
+        "logical_bytes": 11344003,
+        "archive_bytes": 11344003,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 11345920,
+    "maximum_physical_read_bytes": 11345920,
+    "required_sample_read_bytes": 5672960,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "source-zstd-1gib/A": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/A/archive.lbox",
+    "archive_sha256": "465a0fa123e18baa40f4d2168d668acb46795f313d0d01fbca5934027f26ecf1",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 183209984,
+        "logical_bytes": 183206272,
+        "archive_bytes": 183206272,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 183209984,
+        "logical_bytes": 183206272,
+        "archive_bytes": 183206272,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 183209984,
+    "maximum_physical_read_bytes": 183209984,
+    "required_sample_read_bytes": 91604992,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "source-zstd-1gib/B": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/B/archive.lbox",
+    "archive_sha256": "a5b453825c8e11cd5c426957ea0f31922748b2c90475100d8dd853106184547f",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 183980032,
+        "logical_bytes": 183979392,
+        "archive_bytes": 183979392,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 183980032,
+        "logical_bytes": 183979392,
+        "archive_bytes": 183979392,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 183980032,
+    "maximum_physical_read_bytes": 183980032,
+    "required_sample_read_bytes": 91990016,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "source-zstd-1gib/C": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/C/tree.lbox",
+    "archive_sha256": "8e7d81b39abce3ecb252be56e061d903366d02deba981621b170e57882ca5c18",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 231096320,
+        "logical_bytes": 231211008,
+        "archive_bytes": 231211008,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 231096320,
+        "logical_bytes": 231211008,
+        "archive_bytes": 231211008,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 231096320,
+    "maximum_physical_read_bytes": 231096320,
+    "required_sample_read_bytes": 115548160,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "source-zstd-1gib/ZIP": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/ZIP/archive.zip",
+    "archive_sha256": "9f9143587ac8621ec01411b2f6927f1a833e7b19cd48175db2f86dbf2a176820",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 182239232,
+        "logical_bytes": 182235395,
+        "archive_bytes": 182235395,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 182239232,
+        "logical_bytes": 182235395,
+        "archive_bytes": 182235395,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 182239232,
+    "maximum_physical_read_bytes": 182239232,
+    "required_sample_read_bytes": 91119616,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "random-raw-64mib/A": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-64mib/A/archive.lbox",
+    "archive_sha256": "8facd8b86841215186f05f0cd05be56938afefdda1a1fb3272eae0b9b36ed31f",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 67391488,
+        "logical_bytes": 67390848,
+        "archive_bytes": 67390848,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 67391488,
+        "logical_bytes": 67390848,
+        "archive_bytes": 67390848,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 67391488,
+    "maximum_physical_read_bytes": 67391488,
+    "required_sample_read_bytes": 33695744,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "random-raw-64mib/B": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-64mib/B/archive.lbox",
+    "archive_sha256": "48a1b68fa9a35182879b5b57acdb33b98a05eeda2cbcd03d8d08e4acbc5e4de5",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 67551232,
+        "logical_bytes": 67547520,
+        "archive_bytes": 67547520,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 67551232,
+        "logical_bytes": 67547520,
+        "archive_bytes": 67547520,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 67551232,
+    "maximum_physical_read_bytes": 67551232,
+    "required_sample_read_bytes": 33775616,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "random-raw-64mib/C": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-64mib/C/tree.lbox",
+    "archive_sha256": "d539244753a081258a545f1d6d530b48995515ddfbfc3dbf4f36d28da7fea01c",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 67563520,
+        "logical_bytes": 68026368,
+        "archive_bytes": 68026368,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 67563520,
+        "logical_bytes": 68026368,
+        "archive_bytes": 68026368,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 67563520,
+    "maximum_physical_read_bytes": 67563520,
+    "required_sample_read_bytes": 33781760,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "random-raw-64mib/ZIP": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-64mib/ZIP/archive.zip",
+    "archive_sha256": "a217062067cb23a48c6813f526f7137464cfc5104017c43e05b9f44c2256b392",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 67112960,
+        "logical_bytes": 67108992,
+        "archive_bytes": 67108992,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 67112960,
+        "logical_bytes": 67108992,
+        "archive_bytes": 67108992,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 67112960,
+    "maximum_physical_read_bytes": 67112960,
+    "required_sample_read_bytes": 33556480,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "random-raw-1gib/A": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-1gib/A/archive.lbox",
+    "archive_sha256": "1bb763cc704db574a0fcfa3c27cb821006a4e9a375b75ac0932285030ca89cf2",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 1074225152,
+        "logical_bytes": 1074222464,
+        "archive_bytes": 1074222464,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 1074225152,
+        "logical_bytes": 1074222464,
+        "archive_bytes": 1074222464,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 1074225152,
+    "maximum_physical_read_bytes": 1074225152,
+    "required_sample_read_bytes": 537112576,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "random-raw-1gib/B": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-1gib/B/archive.lbox",
+    "archive_sha256": "f580b3aee5b6be0dc6e1c1b44215b71e82312a108f0992ce3b200638921da362",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 1076736000,
+        "logical_bytes": 1076735360,
+        "archive_bytes": 1076735360,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 1076736000,
+        "logical_bytes": 1076735360,
+        "archive_bytes": 1076735360,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 1076736000,
+    "maximum_physical_read_bytes": 1076736000,
+    "required_sample_read_bytes": 538368000,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "random-raw-1gib/C": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-1gib/C/tree.lbox",
+    "archive_sha256": "2fc3e52b702a67ffb48efc080cee85dd9a8aeaa890490ea5ff70f4426b3307a3",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 1083588608,
+        "logical_bytes": 1083703296,
+        "archive_bytes": 1083703296,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 1083588608,
+        "logical_bytes": 1083703296,
+        "archive_bytes": 1083703296,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 1083588608,
+    "maximum_physical_read_bytes": 1083588608,
+    "required_sample_read_bytes": 541794304,
+    "agreement_fraction": 0.1,
+    "complete": true
+  },
+  "random-raw-1gib/ZIP": {
+    "path": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-1gib/ZIP/archive.zip",
+    "archive_sha256": "f6d5258ad27006cde6bd8dcf3000c49905056cb1edcf9456421bc082b6489ab0",
+    "scans": [
+      {
+        "scan": 0,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 1073745920,
+        "logical_bytes": 1073741952,
+        "archive_bytes": 1073741952,
+        "buffer_bytes": 65536
+      },
+      {
+        "scan": 1,
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 1073745920,
+        "logical_bytes": 1073741952,
+        "archive_bytes": 1073741952,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 1073745920,
+    "maximum_physical_read_bytes": 1073745920,
+    "required_sample_read_bytes": 536872960,
+    "agreement_fraction": 0.1,
+    "complete": true
+  }
+}

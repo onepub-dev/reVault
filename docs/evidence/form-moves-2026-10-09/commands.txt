@@ -1,0 +1,7 @@
+Cargo cwd: archive worktree rust/
+cargo test -p revault_lockbox_api --release --features external-source --lib typed_form_moves_metadata_only_all_modes -- --test-threads=1 --nocapture
+cargo test -p revault_lockbox_api --release --features external-source --lib typed_form_moves_ -- --test-threads=1 --nocapture
+cargo test -p revault_lockbox_api --release --features external-source --lib typed_form_snapshots -- --test-threads=1 --nocapture
+cargo test -p revault_lockbox_api --release --features external-source --lib typed_form_guarded_admission -- --test-threads=1 --nocapture
+cargo test -p revault_lockbox_api --release --features external-source --lib typed_form_delete_and_stream_salvage_all_modes -- --test-threads=1 --nocapture
+cargo clippy -p revault_lockbox_api --features external-source --lib --tests --benches -- -D warnings

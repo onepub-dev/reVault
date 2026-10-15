@@ -24,7 +24,7 @@ const RESP_INFO: u8 = 0x85;
 const RESP_ERR: u8 = 0xff;
 
 pub(crate) const DEFAULT_TTL_SECONDS: u64 = 15 * 60;
-pub(crate) const AGENT_PROTOCOL_VERSION: u32 = 1;
+pub(crate) const AGENT_PROTOCOL_VERSION: u32 = 2;
 pub(crate) const AGENT_IMPLEMENTATION_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub(crate) fn agent_is_compatible(protocol: u32, _implementation: &str) -> bool {
@@ -100,7 +100,7 @@ pub(crate) enum AgentResponse {
     Miss,
     Key(SecretVec),
     List(Vec<CachedLockbox>),
-    Info(u32, String),
+    Info(u32, String, bool),
     Err(String),
 }
 
@@ -111,7 +111,7 @@ pub(crate) enum ControlRequest {
 
 pub(crate) enum ControlResponse {
     Ok,
-    Registered(u64),
+    Registered(u64, bool),
     Err(String),
 }
 
@@ -223,8 +223,13 @@ pub(crate) fn encode_control_err_response(message: &str) -> io::Result<Vec<u8>> 
     encode_plain_frame(RESP_ERR, message.as_bytes())
 }
 
-pub(crate) fn encode_registered_response(token: u64) -> io::Result<Vec<u8>> {
-    encode_plain_frame(RESP_REGISTERED, &token.to_le_bytes())
+pub(crate) fn encode_registered_response(
+    token: u64,
+    terminate_on_suspend: bool,
+) -> io::Result<Vec<u8>> {
+    let mut bytes = token.to_le_bytes().to_vec();
+    bytes.push(u8::from(terminate_on_suspend));
+    encode_plain_frame(RESP_REGISTERED, &bytes)
 }
 
 pub(crate) fn encode_list_response(
@@ -247,6 +252,9 @@ pub(crate) fn encode_info_response() -> io::Result<SecretVec> {
     let mut payload = SecretVec::new();
     push_u32(&mut payload, AGENT_PROTOCOL_VERSION)?;
     push_string(&mut payload, AGENT_IMPLEMENTATION_VERSION)?;
+    payload
+        .try_extend_from_slice(&[u8::from(crate::sleep_watcher::cache_monitor_active())])
+        .map_err(io::Error::other)?;
     encode_frame_secure(RESP_INFO, &payload)
 }
 
@@ -353,9 +361,9 @@ pub(crate) fn parse_control_response(response: &[u8]) -> io::Result<ControlRespo
     let frame = parse_frame(response)?;
     match frame.message_type {
         RESP_OK if frame.payload.is_empty() => Ok(ControlResponse::Ok),
-        RESP_REGISTERED if frame.payload.len() == 8 => {
-            Ok(ControlResponse::Registered(read_u64(frame.payload)?))
-        }
+        RESP_REGISTERED if frame.payload.len() == 9 && frame.payload[8] <= 1 => Ok(
+            ControlResponse::Registered(read_u64(&frame.payload[..8])?, frame.payload[8] != 0),
+        ),
         RESP_ERR => Ok(ControlResponse::Err(read_utf8(frame.payload)?.to_string())),
         _ => invalid_data("invalid binary agent control response"),
     }
@@ -537,12 +545,24 @@ fn parse_info_response(payload: &[u8]) -> io::Result<ParsedResponse> {
     let mut cursor = Cursor::new(payload);
     let protocol = cursor.read_u32()?;
     let implementation = cursor.read_string()?.to_string();
+    // Older protocol responses have no runtime capability field. Their
+    // version is still checked by callers; never infer active monitoring.
+    let monitor = if cursor.is_finished() {
+        false
+    } else {
+        match cursor.read_exact(1)?[0] {
+            0 => false,
+            1 => true,
+            _ => return invalid_data("invalid cache monitor status"),
+        }
+    };
     if !cursor.is_finished() {
         return invalid_data("agent info response has trailing bytes");
     }
     Ok(ParsedResponse::Ready(AgentResponse::Info(
         protocol,
         implementation,
+        monitor,
     )))
 }
 
@@ -753,17 +773,17 @@ mod tests {
             ControlRequest::RegisterSecretActivity(42, SecretActivityKind::Open) => {}
             _ => panic!("expected activity registration"),
         }
-        let response = encode_registered_response(123).unwrap();
+        let response = encode_registered_response(123, true).unwrap();
         assert!(matches!(
             parse_control_response(&response).unwrap(),
-            ControlResponse::Registered(123)
+            ControlResponse::Registered(123, true)
         ));
     }
 
     #[test]
     fn protocol_reports_agent_compatibility() {
         match parse_response(encode_info_response().unwrap()).unwrap() {
-            AgentResponse::Info(protocol, implementation) => {
+            AgentResponse::Info(protocol, implementation, _) => {
                 assert_eq!(protocol, AGENT_PROTOCOL_VERSION);
                 assert_eq!(implementation, AGENT_IMPLEMENTATION_VERSION);
             }

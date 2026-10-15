@@ -3437,6 +3437,250 @@ class ProfileHistoryT(object):
         return profileHistory
 
 
+class LockboxAlias(object):
+    __slots__ = ['_tab']
+
+    @classmethod
+    def GetRootAs(cls, buf, offset=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
+        x = LockboxAlias()
+        x.Init(buf, n + offset)
+        return x
+
+    @classmethod
+    def GetRootAsLockboxAlias(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    # LockboxAlias
+    def Init(self, buf, pos):
+        self._tab = flatbuffers.table.Table(buf, pos)
+
+    # LockboxAlias
+    def Name(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # LockboxAlias
+    def LockboxId(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.Get(flatbuffers.number_types.Uint8Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
+        return 0
+
+    # LockboxAlias
+    def LockboxIdAsNumpy(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        if o != 0:
+            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Uint8Flags, o)
+        return 0
+
+    # LockboxAlias
+    def LockboxIdLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # LockboxAlias
+    def LockboxIdIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        return o == 0
+
+def LockboxAliasStart(builder):
+    builder.StartObject(2)
+
+def LockboxAliasAddName(builder, name):
+    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(name), 0)
+
+def LockboxAliasAddLockboxId(builder, lockboxId):
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(lockboxId), 0)
+
+def LockboxAliasStartLockboxIdVector(builder, numElems):
+    return builder.StartVector(1, numElems, 1)
+
+def LockboxAliasEnd(builder):
+    return builder.EndObject()
+
+
+try:
+    from typing import List
+except:
+    pass
+
+class LockboxAliasT(object):
+
+    # LockboxAliasT
+    def __init__(self):
+        self.name = None  # type: str
+        self.lockboxId = None  # type: List[int]
+
+    @classmethod
+    def InitFromBuf(cls, buf, pos):
+        lockboxAlias = LockboxAlias()
+        lockboxAlias.Init(buf, pos)
+        return cls.InitFromObj(lockboxAlias)
+
+    @classmethod
+    def InitFromPackedBuf(cls, buf, pos=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, pos)
+        return cls.InitFromBuf(buf, pos+n)
+
+    @classmethod
+    def InitFromObj(cls, lockboxAlias):
+        x = LockboxAliasT()
+        x._UnPack(lockboxAlias)
+        return x
+
+    # LockboxAliasT
+    def _UnPack(self, lockboxAlias):
+        if lockboxAlias is None:
+            return
+        self.name = lockboxAlias.Name()
+        if not lockboxAlias.LockboxIdIsNone():
+            if np is None:
+                self.lockboxId = []
+                for i in range(lockboxAlias.LockboxIdLength()):
+                    self.lockboxId.append(lockboxAlias.LockboxId(i))
+            else:
+                self.lockboxId = lockboxAlias.LockboxIdAsNumpy()
+
+    # LockboxAliasT
+    def Pack(self, builder):
+        if self.name is not None:
+            name = builder.CreateString(self.name)
+        if self.lockboxId is not None:
+            if np is not None and type(self.lockboxId) is np.ndarray:
+                lockboxId = builder.CreateNumpyVector(self.lockboxId)
+            else:
+                LockboxAliasStartLockboxIdVector(builder, len(self.lockboxId))
+                for i in reversed(range(len(self.lockboxId))):
+                    builder.PrependUint8(self.lockboxId[i])
+                lockboxId = builder.EndVector()
+        LockboxAliasStart(builder)
+        if self.name is not None:
+            LockboxAliasAddName(builder, name)
+        if self.lockboxId is not None:
+            LockboxAliasAddLockboxId(builder, lockboxId)
+        lockboxAlias = LockboxAliasEnd(builder)
+        return lockboxAlias
+
+
+class LockboxAliasList(object):
+    __slots__ = ['_tab']
+
+    @classmethod
+    def GetRootAs(cls, buf, offset=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
+        x = LockboxAliasList()
+        x.Init(buf, n + offset)
+        return x
+
+    @classmethod
+    def GetRootAsLockboxAliasList(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    # LockboxAliasList
+    def Init(self, buf, pos):
+        self._tab = flatbuffers.table.Table(buf, pos)
+
+    # LockboxAliasList
+    def Values(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
+        if o != 0:
+            x = self._tab.Vector(o)
+            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
+            x = self._tab.Indirect(x)
+            obj = LockboxAlias()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
+    # LockboxAliasList
+    def ValuesLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # LockboxAliasList
+    def ValuesIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
+        return o == 0
+
+def LockboxAliasListStart(builder):
+    builder.StartObject(1)
+
+def LockboxAliasListAddValues(builder, values):
+    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(values), 0)
+
+def LockboxAliasListStartValuesVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def LockboxAliasListEnd(builder):
+    return builder.EndObject()
+
+
+try:
+    from typing import List
+except:
+    pass
+
+class LockboxAliasListT(object):
+
+    # LockboxAliasListT
+    def __init__(self):
+        self.values = None  # type: List[LockboxAliasT]
+
+    @classmethod
+    def InitFromBuf(cls, buf, pos):
+        lockboxAliasList = LockboxAliasList()
+        lockboxAliasList.Init(buf, pos)
+        return cls.InitFromObj(lockboxAliasList)
+
+    @classmethod
+    def InitFromPackedBuf(cls, buf, pos=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, pos)
+        return cls.InitFromBuf(buf, pos+n)
+
+    @classmethod
+    def InitFromObj(cls, lockboxAliasList):
+        x = LockboxAliasListT()
+        x._UnPack(lockboxAliasList)
+        return x
+
+    # LockboxAliasListT
+    def _UnPack(self, lockboxAliasList):
+        if lockboxAliasList is None:
+            return
+        if not lockboxAliasList.ValuesIsNone():
+            self.values = []
+            for i in range(lockboxAliasList.ValuesLength()):
+                if lockboxAliasList.Values(i) is None:
+                    self.values.append(None)
+                else:
+                    lockboxAlias_ = LockboxAliasT.InitFromObj(lockboxAliasList.Values(i))
+                    self.values.append(lockboxAlias_)
+
+    # LockboxAliasListT
+    def Pack(self, builder):
+        if self.values is not None:
+            valueslist = []
+            for i in range(len(self.values)):
+                valueslist.append(self.values[i].Pack(builder))
+            LockboxAliasListStartValuesVector(builder, len(self.values))
+            for i in reversed(range(len(self.values))):
+                builder.PrependUOffsetTRelative(valueslist[i])
+            values = builder.EndVector()
+        LockboxAliasListStart(builder)
+        if self.values is not None:
+            LockboxAliasListAddValues(builder, values)
+        lockboxAliasList = LockboxAliasListEnd(builder)
+        return lockboxAliasList
+
+
 class KnownLockbox(object):
     __slots__ = ['_tab']
 
@@ -5349,8 +5593,15 @@ class SleepSupport(object):
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
         return False
 
+    # SleepSupport
+    def CacheClearingActive(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        if o != 0:
+            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+        return False
+
 def SleepSupportStart(builder):
-    builder.StartObject(3)
+    builder.StartObject(4)
 
 def SleepSupportAddSuspendNotifications(builder, suspendNotifications):
     builder.PrependBoolSlot(0, suspendNotifications, 0)
@@ -5360,6 +5611,9 @@ def SleepSupportAddSleepInhibition(builder, sleepInhibition):
 
 def SleepSupportAddSupported(builder, supported):
     builder.PrependBoolSlot(2, supported, 0)
+
+def SleepSupportAddCacheClearingActive(builder, cacheClearingActive):
+    builder.PrependBoolSlot(3, cacheClearingActive, 0)
 
 def SleepSupportEnd(builder):
     return builder.EndObject()
@@ -5373,6 +5627,7 @@ class SleepSupportT(object):
         self.suspendNotifications = False  # type: bool
         self.sleepInhibition = False  # type: bool
         self.supported = False  # type: bool
+        self.cacheClearingActive = False  # type: bool
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -5398,6 +5653,7 @@ class SleepSupportT(object):
         self.suspendNotifications = sleepSupport.SuspendNotifications()
         self.sleepInhibition = sleepSupport.SleepInhibition()
         self.supported = sleepSupport.Supported()
+        self.cacheClearingActive = sleepSupport.CacheClearingActive()
 
     # SleepSupportT
     def Pack(self, builder):
@@ -5405,6 +5661,7 @@ class SleepSupportT(object):
         SleepSupportAddSuspendNotifications(builder, self.suspendNotifications)
         SleepSupportAddSleepInhibition(builder, self.sleepInhibition)
         SleepSupportAddSupported(builder, self.supported)
+        SleepSupportAddCacheClearingActive(builder, self.cacheClearingActive)
         sleepSupport = SleepSupportEnd(builder)
         return sleepSupport
 

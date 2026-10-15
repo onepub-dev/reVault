@@ -1,6 +1,6 @@
 [package]
 name = "revault_lockbox_api"
-version = "0.0.42"
+version = "0.0.48"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
@@ -23,30 +23,35 @@ bindings = []
 migration = []
 test-support = []
 external-source = []
+# Experimental common native layout for public-path correctness and performance
+# gates. Not a release/default format policy until migration and gates pass.
+native-block-layout = []
 # Compatibility feature name: format-v2 is unconditional in the core.
 issue303-protocol = []
 
 [dependencies]
-argon2 = "0.6"
+argon2 = { version = "0.6", features = ["zeroize"] }
 chacha20poly1305 = "0.11"
 ed25519-dalek = "3"
 getrandom = "0.4"
 hkdf = "0.13"
-hmac = "0.13"
-revault_page_api = { version = "0.0.35", path = "../revault_page_api" }
-ml-dsa = { version = "0.1", features = ["getrandom"] }
-ml-kem = { version = "0.3.2", features = ["getrandom"] }
-sha2 = "0.11"
+hmac = { version = "0.13", features = ["zeroize"] }
+revault_page_api = { version = "0.0.41", path = "../revault_page_api" }
+ml-dsa = { version = "0.1", features = ["getrandom", "zeroize"] }
+ml-kem = { version = "0.3.2", features = ["getrandom", "zeroize"] }
+sha2 = { version = "0.11", features = ["zeroize"] }
 serde_json = "1"
-unicode-normalization = "0.1"
+unicode-normalization = "=0.1.25"
 x25519-dalek = { version = "3", features = ["static_secrets"] }
 zeroize = "1.9"
-zstd-complete = { version = "0.2", features = ["c-port-validation"] }
+zstd-complete = { version = "0.3.0", features = ["c-port-validation"] }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 getrandom = { version = "0.4", features = ["wasm_js"] }
 
 [dev-dependencies]
+subtle = "2.6"
+rayon = "1.12"
 criterion = "0.8.2"
 oxiarc-zstd = "0.4"
 zip = { version = "8", default-features = false, features = ["deflate"] }
@@ -54,9 +59,15 @@ zip = { version = "8", default-features = false, features = ["deflate"] }
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+[target.'cfg(any(unix, windows))'.dependencies]
+cap-std = "=4.0.3"
+cap-fs-ext = "=4.0.3"
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
     "Win32_System_Threading",
     "Win32_System_IO",
     "Win32_Storage_FileSystem",
@@ -66,6 +77,25 @@ windows-sys = { version = "0.61", features = [
 name = "performance"
 harness = false
 test = false
+
+[[bench]]
+name = "protection_gate"
+harness = false
+test = false
+
+[[bench]]
+name = "encoder_selection"
+harness = false
+test = false
+
+[[bench]]
+name = "shared_layout"
+harness = false
+test = false
+
+[[test]]
+name = "shared_layout_checks"
+path = "tests/shared_layout_checks.rs"
 
 [[bench]]
 name = "pgp_compare"
@@ -78,12 +108,30 @@ harness = false
 test = false
 
 [[bench]]
+name = "archive_evaluation"
+harness = false
+test = false
+
+[[bench]]
 name = "decoder_workspace"
 harness = false
 test = false
 
 [[bench]]
+name = "block_layout"
+harness = false
+
+[[test]]
+name = "block_layout_checks"
+path = "tests/block_layout_checks.rs"
+
+[[bench]]
 name = "compression_corpus"
 path = "benches/probes/compression_corpus.rs"
+harness = false
+test = false
+
+[[bench]]
+name = "recovery_commitment"
 harness = false
 test = false

@@ -230,7 +230,7 @@ fn lockbox_alias_matches(matches: &ArgMatches) -> CliResult<()> {
     match command {
         "set" => {
             let name = required_value(sub, "name");
-            super::aliases::validate_name(&name)?;
+            let name = revault_vault_api::normalize_lockbox_alias_name(&name)?;
             let path = lockbox_operand(sub, "lockbox", super::aliases::TargetPolicy::Existing)?;
             let inspection = Lockbox::inspect_file(&path)?;
             let vault = default_vault()?;
@@ -252,7 +252,8 @@ fn lockbox_alias_matches(matches: &ArgMatches) -> CliResult<()> {
             )
         }
         "remove" => {
-            let name = required_value(sub, "name");
+            let name =
+                revault_vault_api::normalize_lockbox_alias_prefix(&required_value(sub, "name"));
             default_vault()?.remove_lockbox_alias(&name)?;
             println!("Alias removed: {name}");
             Ok(())

@@ -64,6 +64,8 @@ impl Default for OpenFileOptions {
 
 /// Seekable read handle over a file inside a lockbox.
 pub struct LockboxFileReader<'a, State = Writable> {
+    #[cfg(any(test, feature = "native-block-layout"))]
+    native: Option<super::native_file_reader::NativeFileReader<'a>>,
     lockbox: &'a Lockbox<State>,
     path: LockboxPath,
     position: u64,
@@ -160,6 +162,8 @@ impl Lockbox<Writable> {
 impl<'a, State> LockboxFileReader<'a, State> {
     pub(super) fn new(lockbox: &'a Lockbox<State>, path: LockboxPath, len: u64) -> Self {
         Self {
+            #[cfg(any(test, feature = "native-block-layout"))]
+            native: None,
             lockbox,
             path,
             position: 0,
@@ -182,6 +186,29 @@ impl<'a, State> LockboxFileReader<'a, State> {
     fn read_internal(&mut self, buf: &mut [u8]) -> Result<usize> {
         if buf.is_empty() || self.position >= self.len {
             return Ok(0);
+        }
+        #[cfg(any(test, feature = "native-block-layout"))]
+        {
+            if self
+                .native
+                .as_ref()
+                .is_none_or(|reader| !reader.contains(self.position))
+            {
+                self.native = super::native_file_reader::NativeFileReader::open(
+                    self.lockbox,
+                    &self.path,
+                    self.position,
+                )?;
+                if self.native.is_some() {
+                    self.cache_page_index = None;
+                    self.cache_page = ReaderPage::Owned(ZeroizingBytes::new(Vec::new()));
+                }
+            }
+            if let Some(reader) = &mut self.native {
+                let count = reader.read(self.position, buf)?;
+                self.position += count as u64;
+                return Ok(count);
+            }
         }
         let mut total = 0usize;
         while total < buf.len() && self.position < self.len {
@@ -315,6 +342,7 @@ impl<'a> LockboxFileMut<'a> {
                     .as_ref()
                     .map(|entry| entry.record_object_id)
                     .unwrap_or(0),
+                record_digest: [0; 32],
                 deleted: false,
                 node_kind: NodeKind::File,
                 permissions: self.permissions,
@@ -395,6 +423,7 @@ impl<'a> LockboxFileMut<'a> {
             record_offset,
             record_len,
             record_object_id,
+            record_digest: [0; 32],
             deleted: false,
             node_kind: NodeKind::File,
             permissions: self.permissions,
@@ -527,7 +556,7 @@ mod shared_reader_tests {
     use super::*;
 
     #[test]
-    fn raw_reader_retains_verified_page_after_cache_eviction() {
+    fn raw_reader_retains_verified_bytes_after_cache_eviction() {
         let mut lb = Lockbox::create_in_memory_with_options(crate::LockboxCreateOptions {
             compression: crate::Compression::None,
             ..crate::LockboxCreateOptions::new(crate::Encryption::None, crate::Signing::None)
@@ -543,13 +572,193 @@ mod shared_reader_tests {
         let mut reader = reopened.open_file(&path).unwrap();
         let mut actual = [0; 32];
         reader.read_exact(&mut actual).unwrap();
+        assert_eq!(actual, payload[..32]);
+        #[cfg(not(feature = "native-block-layout"))]
         assert!(matches!(reader.cache_page, ReaderPage::Shared(_)));
+        #[cfg(feature = "native-block-layout")]
+        let retained_window = {
+            let window = reader.native.as_ref().unwrap().retained_window_for_tests();
+            assert_eq!(window.len(), crate::file_format::indexed_frame::BLOCK_BYTES);
+            assert_eq!(window, &payload[..window.len()]);
+            window.as_ptr()
+        };
         reopened.page_manager.borrow_mut().clear();
         reader.seek(SeekFrom::Start(12345)).unwrap();
         reader.read_exact(&mut actual).unwrap();
         assert_eq!(actual, payload[12345..12377]);
+        #[cfg(feature = "native-block-layout")]
+        assert_eq!(
+            reader
+                .native
+                .as_ref()
+                .unwrap()
+                .retained_window_for_tests()
+                .as_ptr(),
+            retained_window,
+            "an in-window seek retains the same verified allocation"
+        );
         reader.seek(SeekFrom::Start(2 * 1024 * 1024 - 16)).unwrap();
         reader.read_exact(&mut actual).unwrap();
         assert_eq!(actual, payload[2 * 1024 * 1024 - 16..2 * 1024 * 1024 + 16]);
+        reopened.page_manager.borrow_mut().clear();
+        reader.rewind().unwrap();
+        let mut all = Vec::new();
+        reader.read_to_end(&mut all).unwrap();
+        assert_eq!(all, payload);
+    }
+
+    #[cfg(feature = "native-block-layout")]
+    #[test]
+    fn small_native_readers_survive_eviction_and_seeks_in_all_modes() {
+        let signer = crate::OwnerSigningKeyPair::generate().unwrap();
+        let path = LockboxPath::new("/small").unwrap();
+        let input: Vec<u8> = (0..4096).map(|i| (i % 251) as u8).collect();
+        for encrypted in [false, true] {
+            for signed in [false, true] {
+                for compression in [crate::Compression::None, crate::Compression::default()] {
+                    for cache_bytes in [0, 64 * 1024] {
+                        let mut archive =
+                            Lockbox::create_in_memory_with_options(crate::LockboxCreateOptions {
+                                compression,
+                                ..crate::LockboxCreateOptions::new(
+                                    if encrypted {
+                                        crate::Encryption::Encrypted(
+                                            crate::LockboxProtection::ContentKey(
+                                                crate::SecretVec::try_from_slice(&[81; 32])
+                                                    .unwrap(),
+                                            ),
+                                        )
+                                    } else {
+                                        crate::Encryption::None
+                                    },
+                                    if signed {
+                                        crate::Signing::Owner(&signer)
+                                    } else {
+                                        crate::Signing::None
+                                    },
+                                )
+                            })
+                            .unwrap();
+                        archive.add_file(&path, &input, false).unwrap();
+                        archive.commit().unwrap();
+                        let archive = Lockbox::open_bytes(
+                            archive.try_to_bytes().unwrap(),
+                            if encrypted {
+                                crate::LockboxOpen::ContentKey(
+                                    crate::SecretVec::try_from_slice(&[81; 32]).unwrap(),
+                                )
+                            } else {
+                                crate::LockboxOpen::Unencrypted
+                            },
+                        )
+                        .unwrap();
+                        // Unit-level eviction also covers disabled cache admission.
+                        archive.page_manager.borrow_mut().trim_to(cache_bytes);
+                        let mut first = archive.open_file(&path).unwrap();
+                        let mut second = archive.open_file(&path).unwrap();
+                        let mut bytes = [0; 31];
+                        first.read_exact(&mut bytes).unwrap();
+                        assert_eq!(bytes, input[..31]);
+                        second.read_exact(&mut bytes).unwrap();
+                        assert_eq!(bytes, input[..31]);
+                        if cache_bytes > 0 {
+                            assert_eq!(
+                                first.native.as_ref().unwrap().retained_window_for_tests().as_ptr(),
+                                second.native.as_ref().unwrap().retained_window_for_tests().as_ptr(),
+                                "handles must retain the same verified allocation, not copied windows"
+                            );
+                        }
+                        archive.page_manager.borrow_mut().clear();
+                        for reader in [&mut first, &mut second] {
+                            reader.seek(SeekFrom::Start(3001)).unwrap();
+                            reader.read_exact(&mut bytes).unwrap();
+                            assert_eq!(bytes, input[3001..3032]);
+                            reader.rewind().unwrap();
+                            let mut all = Vec::new();
+                            reader.read_to_end(&mut all).unwrap();
+                            assert_eq!(all, input);
+                        }
+                        assert_eq!(archive.get_file(&path).unwrap(), input);
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(feature = "native-block-layout")]
+    #[test]
+    fn large_compressed_native_readers_share_windows_across_eviction_and_frame_boundaries() {
+        let signer = crate::OwnerSigningKeyPair::generate().unwrap();
+        let path = LockboxPath::new("/small").unwrap();
+        let input: Vec<u8> = (0..2 * 1024 * 1024 + 13).map(|i| (i % 251) as u8).collect();
+        for encrypted in [false, true] {
+            for signed in [false, true] {
+                for compression in [crate::Compression::default()] {
+                    for cache_bytes in [0, 4 * 1024 * 1024] {
+                        let mut archive =
+                            Lockbox::create_in_memory_with_options(crate::LockboxCreateOptions {
+                                compression,
+                                ..crate::LockboxCreateOptions::new(
+                                    if encrypted {
+                                        crate::Encryption::Encrypted(
+                                            crate::LockboxProtection::ContentKey(
+                                                crate::SecretVec::try_from_slice(&[81; 32])
+                                                    .unwrap(),
+                                            ),
+                                        )
+                                    } else {
+                                        crate::Encryption::None
+                                    },
+                                    if signed {
+                                        crate::Signing::Owner(&signer)
+                                    } else {
+                                        crate::Signing::None
+                                    },
+                                )
+                            })
+                            .unwrap();
+                        archive.add_file(&path, &input, false).unwrap();
+                        archive.commit().unwrap();
+                        let archive = Lockbox::open_bytes(
+                            archive.try_to_bytes().unwrap(),
+                            if encrypted {
+                                crate::LockboxOpen::ContentKey(
+                                    crate::SecretVec::try_from_slice(&[81; 32]).unwrap(),
+                                )
+                            } else {
+                                crate::LockboxOpen::Unencrypted
+                            },
+                        )
+                        .unwrap();
+                        // Unit-level eviction also covers disabled cache admission.
+                        archive.page_manager.borrow_mut().trim_to(cache_bytes);
+                        let mut first = archive.open_file(&path).unwrap();
+                        let mut second = archive.open_file(&path).unwrap();
+                        let mut bytes = [0; 29];
+                        first.read_exact(&mut bytes).unwrap();
+                        assert_eq!(bytes, input[..29]);
+                        second.read_exact(&mut bytes).unwrap();
+                        assert_eq!(bytes, input[..29]);
+                        if cache_bytes > 0 {
+                            assert_eq!(
+                                first.native.as_ref().unwrap().retained_window_for_tests().as_ptr(),
+                                second.native.as_ref().unwrap().retained_window_for_tests().as_ptr(),
+                                "handles must retain the same verified allocation, not copied windows"
+                            );
+                        }
+                        archive.page_manager.borrow_mut().clear();
+                        for reader in [&mut first, &mut second] {
+                            reader.seek(SeekFrom::Start(2 * 1024 * 1024 - 16)).unwrap();
+                            reader.read_exact(&mut bytes).unwrap();
+                            assert_eq!(bytes, input[2 * 1024 * 1024 - 16..2 * 1024 * 1024 + 13]);
+                            reader.rewind().unwrap();
+                            let mut all = Vec::new();
+                            reader.read_to_end(&mut all).unwrap();
+                            assert_eq!(all, input);
+                        }
+                        assert_eq!(archive.get_file(&path).unwrap(), input);
+                    }
+                }
+            }
+        }
     }
 }

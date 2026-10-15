@@ -216,6 +216,10 @@ export class WasmLockbox {
      */
     static open_with_password(bytes: Uint8Array, password: string): WasmLockbox;
     /**
+     * Opens using an explicit per-credential KDF budget for a trusted archive.
+     */
+    static open_with_password_budget(bytes: Uint8Array, password: string, max_derivations: number): WasmLockbox;
+    /**
      * Returns stored Unix permission bits, or `undefined` if absent.
      */
     permissions(path: string): number | undefined;
@@ -231,6 +235,11 @@ export class WasmLockbox {
      * Moves one lockbox entry from `from` to `to`.
      */
     rename(from: string, to: string): void;
+    /**
+     * Sets a soft page/native-frame cache target: `auto`, `disabled`, or `bytes`.
+     * Pending writes and active shared owners remain valid; this is not a total-memory limit.
+     */
+    set_cache_limit(mode: string, bytes: bigint): void;
     /**
      * Stages encrypted description text; call `commit` to publish it.
      * For example: `box.set_description("Production credentials"); box.commit()`.

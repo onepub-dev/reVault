@@ -1,0 +1,1 @@
+cargo +1.88.0 test --locked --offline --release -p revault_bindings --lib password_budget_and_private_extraction_abi_lifecycle -- --test-threads=1 --nocapture

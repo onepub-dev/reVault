@@ -59,6 +59,7 @@ pub(crate) fn run() -> CliResult<()> {
     if binary_name == "lbxv" || binary_name == "lbxx" {
         return helpers::run(&binary_name);
     }
+    completion::capture_completion_shell();
     clap_complete::CompleteEnv::with_factory(|| help::command(false))
         .bin(binary_name)
         .complete();
@@ -109,11 +110,26 @@ pub(crate) fn run() -> CliResult<()> {
         COMMAND_LOCKBOX_REFERENCE.with(|reference| *reference.borrow_mut() = true);
     }
     set_command_lockbox(resolved.map(|(path, _)| path));
-    let secret_activity = if command == "doctor"
+    // Closing a session and inspecting its capability must remain available
+    // when the configured protection service cannot start. These operations
+    // neither obtain content keys nor need the generic access material.
+    let control_only = command == "close"
+        || command == "session"
+            && matches!(
+                command_matches.subcommand_name(),
+                None | Some("stop" | "close-all" | "default")
+            )
+        || command == "doctor"
+            && command_matches.subcommand_name().is_none()
+            && self::command_lockbox().is_none();
+    let secret_activity = if control_only {
+        None
+    } else if command == "doctor"
         && matches!(
             command_matches.subcommand_name(),
             Some("recover" | "migrate" | "compact")
-        ) {
+        )
+    {
         Some(SecretActivityKind::Recovery)
     } else {
         command_secret_activity(command)
@@ -121,7 +137,11 @@ pub(crate) fn run() -> CliResult<()> {
     let _secret_activity = secret_activity
         .map(revault_vault_api::begin_secret_activity)
         .transpose()?;
-    let access = read_access(&matches, command)?;
+    let access = if control_only {
+        Access::CacheOnly
+    } else {
+        read_access(&matches, command)?
+    };
 
     let result = match command {
         "create" => keys::create_matches(command_matches, &access),
@@ -396,7 +416,9 @@ fn command_secret_activity(command: &str) -> Option<SecretActivityKind> {
         | "visualize" => Some(SecretActivityKind::Open),
         "variables" | "description" => Some(SecretActivityKind::Variables),
         "forms" => Some(SecretActivityKind::Form),
-        "access" | "open-key" | "session" => Some(SecretActivityKind::Vault),
+        "access" | "open-key" | "session" | "vault" | "keygen" | "create" => {
+            Some(SecretActivityKind::Vault)
+        }
         _ => None,
     }
 }

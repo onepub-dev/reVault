@@ -1,0 +1,1 @@
+PATH=/tmp/revault-flatc-25.2.10/bin:$PATH target/debug/revault-tool bindings status --repository .

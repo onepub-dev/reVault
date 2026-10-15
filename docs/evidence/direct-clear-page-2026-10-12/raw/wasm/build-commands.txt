@@ -1,0 +1,3 @@
+Build: env TMPDIR=/home/bsutton/.cache/rv4-security-20261011 cargo build --release --locked -p revault_wasm_bindings --target wasm32-unknown-unknown (cwd rust), exit 0.
+Generator: rust/target/security-wasm-tools/bin/wasm-bindgen --target nodejs --out-dir rust/target/direct-clear-page-wasm-generated rust/target/wasm32-unknown-unknown/release/revault_wasm_bindings.wasm, exit 0.
+Copied only generated revault_wasm_bindings_bg.wasm to bindings/wasm/generated; JS and type declarations compared byte-identical, no API changes.

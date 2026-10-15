@@ -1,0 +1,57 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+String artifact(String path, String targetName, bool testProfile, String kind) {
+  for (final line in File(path).readAsLinesSync()) {
+    try {
+      final value = jsonDecode(line);
+      if (value is! Map || value['reason'] != 'compiler-artifact') continue;
+      final target = value['target'];
+      final profile = value['profile'];
+      if (target is! Map || profile is! Map) continue;
+      if (target['name'] != targetName) continue;
+      if (!(target['kind'] as List).contains(kind)) continue;
+      if (profile['test'] != testProfile) continue;
+      final executable = value['executable'];
+      if (executable is String && executable.isNotEmpty) return executable;
+    } on FormatException {
+      continue;
+    }
+  }
+  throw StateError('No matching Cargo JSON artifact: $targetName $kind test=$testProfile in $path');
+}
+
+String sha256(String path) {
+  final result = Process.runSync('sha256sum', [path]);
+  if (result.exitCode != 0) throw StateError('sha256sum failed for $path: ${result.stderr}');
+  return '${result.stdout}'.split(RegExp(r'\s+')).first;
+}
+
+void main() {
+  const root = '/tmp/revault-tree-read-20261010';
+  final evidence = Directory(root);
+  if (evidence.existsSync()) throw StateError('Refusing existing destination $root');
+  final bin = Directory('$root/bin')..createSync(recursive: true);
+  final testSource = artifact('/tmp/revault-tree-read-20261010-test-build.jsonl', 'revault_lockbox_api', true, 'lib');
+  final benchSource = artifact('/tmp/revault-tree-read-20261010-bench-build.jsonl', 'archive_evaluation', true, 'bench');
+  final copiedTest = '$root/bin/revault_lockbox_api_tests';
+  final copiedBench = '$root/bin/archive_evaluation';
+  File(testSource).copySync(copiedTest);
+  File(benchSource).copySync(copiedBench);
+  for (final path in [copiedTest, copiedBench]) {
+    final result = Process.runSync('chmod', ['755', path]);
+    if (result.exitCode != 0) throw StateError('chmod failed for $path: ${result.stderr}');
+  }
+  final info = StringBuffer()
+    ..writeln('rust_test_binary_source=$testSource')
+    ..writeln('rust_test_binary=$copiedTest')
+    ..writeln('rust_test_binary_sha256=${sha256(copiedTest)}')
+    ..writeln('archive_evaluation_source=$benchSource')
+    ..writeln('archive_evaluation_binary=$copiedBench')
+    ..writeln('archive_evaluation_sha256=${sha256(copiedBench)}');
+  File('$root/build-identities.txt').writeAsStringSync(info.toString(), flush: true);
+  print('COPIED_TEST $copiedTest ${sha256(copiedTest)}');
+  print('COPIED_BENCH $copiedBench ${sha256(copiedBench)}');
+}

@@ -1,0 +1,84 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/allocation_map.rs b/rust/revault_lockbox_api/src/file_format/allocation_map.rs
+index be0e96f9..96c8f8a7 100644
+--- a/rust/revault_lockbox_api/src/file_format/allocation_map.rs
++++ b/rust/revault_lockbox_api/src/file_format/allocation_map.rs
+@@ -442,6 +442,9 @@ struct AllocatorState<S: Storage> {
+     available: BTreeMap<u64, Reservation>,
+     sizes: BTreeSet<(u64, u64)>,
+     written: Claims,
++    // Planning-only hold: prevent payload/index placement from fragmenting the
++    // next map's reusable arena. Durable reservation still occurs at commit.
++    held_arena: Option<Reservation>,
+ }
+ #[derive(Clone)]
+ struct Allocator<S: Storage>(Arc<Mutex<AllocatorState<S>>>);
+@@ -514,6 +517,26 @@ fn append_zeros(storage: &mut impl Storage, len: u64) -> Result<()> {
+     Ok(())
+ }
+ impl<S: Storage> AllocatorState<S> {
++    fn release_available(&mut self, mut range: Reservation) {
++        if let Some((&start, previous)) = self.available.range(..range.start).next_back() {
++            if previous.start + previous.len == range.start && previous.namespace == range.namespace && previous.base == range.base {
++                let previous = *previous;
++                self.available.remove(&start);
++                self.sizes.remove(&(previous.len, start));
++                range.start = start;
++                range.len += previous.len;
++            }
++        }
++        if let Some(next) = self.available.get(&(range.start + range.len)).copied() {
++            if next.namespace == range.namespace && next.base == range.base {
++                self.available.remove(&next.start);
++                self.sizes.remove(&(next.len, next.start));
++                range.len += next.len;
++            }
++        }
++        self.available.insert(range.start, range);
++        self.sizes.insert((range.len, range.start));
++    }
+     fn take_available(&mut self, len: u64, policy: Placement) -> Result<Option<Reservation>> {
+         let mut chosen = None;
+         for &(_, original) in self.sizes.range((len, 0)..) {
+@@ -579,17 +602,27 @@ impl<S: Storage> AllocatorState<S> {
+ }
+ 
+ impl<S: Storage> Allocator<S> {
+-    fn new(prepared: PreparedStore<S>, reservations: &[Reservation]) -> Self {
+-        Self(Arc::new(Mutex::new(AllocatorState {
++    fn new(prepared: PreparedStore<S>, reservations: &[Reservation], map_capacity: u64) -> Result<Self> {
++        let mut state = AllocatorState {
+             prepared,
+             available: reservations.iter().map(|r| (r.start, *r)).collect(),
+             sizes: reservations.iter().map(|r| (r.len, r.start)).collect(),
+             written: Claims::default(),
+-        })))
++            held_arena: None,
++        };
++        state.held_arena = state.take_available(map_capacity, Placement::Aligned)?;
++        Ok(Self(Arc::new(Mutex::new(state))))
+     }
+     fn reserve_arena(&mut self, len: u64) -> Result<Extent> {
+         let mut state = self.0.lock().unwrap();
+-        let start = if let Some(lease) = state.take_available(len, Placement::Aligned)? {
++        let held = state.held_arena.take();
++        let lease = if let Some(held) = held.filter(|held| held.len == len) {
++            Some(held)
++        } else {
++            if let Some(held) = held { state.release_available(held); }
++            state.take_available(len, Placement::Aligned)?
++        };
++        let start = if let Some(lease) = lease {
+             state.prepared.reserve(&[lease])?;
+             lease.start
+         } else {
+@@ -844,7 +877,9 @@ impl<S: Storage> Transaction<S> {
+         let index = Index::new(archive, mode, key)?;
+         let snapshot = Snapshot::inspect(&storage, &base, &index)?;
+         let prepared = PreparedStore::begin(storage, archive, mode, authority, key)?;
+-        let storage = Allocator::new(prepared, &snapshot.available);
++        let map_capacity = (snapshot.accounting.allocation + snapshot.accounting.reserve)
++            .div_ceil(2 * FAILURE_REGION) * 2 * FAILURE_REGION;
++        let storage = Allocator::new(prepared, &snapshot.available, map_capacity)?;
+         let logical = base.index;
+         let keys = base.keys;
+         Ok(Self {

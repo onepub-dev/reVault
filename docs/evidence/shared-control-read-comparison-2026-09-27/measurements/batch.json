@@ -1,0 +1,61 @@
+{
+  "revision": "8a786a83",
+  "primary_revision": "e23b4d33",
+  "aged_revision": "4b04e382",
+  "samples": 30,
+  "warmups": 3,
+  "passes": 1,
+  "cpu": 2,
+  "scope": "bounded file-only layout after 100 metadata edits; no A4 or full-format selection",
+  "binaries": {
+    "/tmp/revault-shared-read-resource": "749256ccd450ff7347ba570816fee6eb767d022a6fa864794172ab4769eb50d9",
+    "/tmp/revault-shared-read-runner": "b404f4bb15ac98eba941831a9d2e063d339eefc0e16ae0073bfca827179bf4fc",
+    "/tmp/revault-shared-read-driver": "ebe483f1bfcd441787f3f29ccb4c5b05c1cc902b017ee700734738dcfe72fa79",
+    "/tmp/revault-candidate-packed-frozen-driver": "d44ec5ea64a76cf925dd2bc881cbc188c057faca1d2a6d504f14820ab607940e",
+    "/tmp/revault-candidate-packed-resource": "c18d1d65ffa6839211a8d96adcbd5b2f63b2d5384a33f87621f757651d3e87a6"
+  },
+  "cases": [
+    {
+      "name": "small-plain",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/small",
+      "primary_root": "/tmp/revault-packed-comparison-20260927/small/other",
+      "dense_root": "/tmp/revault-metadata-tail-lifecycle-20260927/small-plain",
+      "access": "stream"
+    },
+    {
+      "name": "small-protected",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/small",
+      "primary_root": "/tmp/revault-whole-layout-cost-model-20260927/small-protected",
+      "dense_root": "/tmp/revault-metadata-tail-lifecycle-20260927/small-protected",
+      "access": "stream"
+    },
+    {
+      "name": "large-raw",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/raw64",
+      "primary_root": "/tmp/revault-packed-comparison-20260927/raw64/other",
+      "dense_root": "/tmp/revault-metadata-tail-lifecycle-20260927/large-raw",
+      "access": "stream"
+    },
+    {
+      "name": "large-compressed",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/compressed256",
+      "primary_root": "/tmp/revault-packed-comparison-20260927/compressed256/other",
+      "dense_root": "/tmp/revault-metadata-tail-lifecycle-20260927/large-compressed",
+      "access": "stream"
+    },
+    {
+      "name": "large-protected",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/compressed-encrypted-signed",
+      "primary_root": "/tmp/revault-packed-comparison-20260927/compressed-encrypted-signed/other",
+      "dense_root": "/tmp/revault-metadata-tail-lifecycle-20260927/large-protected",
+      "access": "stream"
+    },
+    {
+      "name": "raw-range",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/raw64",
+      "primary_root": "/tmp/revault-packed-comparison-20260927/raw64/other",
+      "dense_root": "/tmp/revault-metadata-tail-lifecycle-20260927/large-raw",
+      "access": "range"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+Pre-batch launcher attempt 1 (no samples ran):
+$ ./run-paired.dart
+/home/bsutton/apps/flutter/bin/internal/update_engine_version.sh: line 71: /home/bsutton/apps/flutter/bin/cache/engine.stamp.tmp.16: Read-only file system
+/home/bsutton/apps/flutter/bin/internal/update_engine_version.sh: line 78: /home/bsutton/apps/flutter/bin/cache/engine.realm: Read-only file system
+
+Pre-batch launcher attempt 2 (no samples ran), using SDK Dart bin first on PATH but without CI=true:
+$ PATH=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin:$PATH ./run-paired.dart
+Error: A connection to the Resident Frontend Compiler could not be established. Restarting the Resident Frontend Compiler and retrying compilation.
+Error: A connection to the Resident Frontend Compiler could not be established. Please re-run 'dart run --resident' and a new compiler will automatically be started in its place.
+FileSystemException: Failed to set file modification time, path = '/home/bsutton/.dart-tool/dart-flutter-telemetry-session.json' (OS Error: Read-only file system, errno = 30)
+
+Pre-batch launcher attempt 3 (no samples ran), with CI=true but no PATH correction:
+$ CI=true ./run-paired.dart
+Error: A connection to the Resident Frontend Compiler could not be established. Restarting the Resident Frontend Compiler and retrying compilation.
+Error: A connection to the Resident Frontend Compiler could not be established. Please re-run 'dart run --resident' and a new compiler will automatically be started in its place.
+
+Successful timing command (all 132 pairs completed):
+$ CI=true PATH=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin:$PATH ./run-paired.dart
+BATCH_FINISHED stable=true failures=0 report=/tmp/revault-tree-reclaim-20261010/paired/summary.json

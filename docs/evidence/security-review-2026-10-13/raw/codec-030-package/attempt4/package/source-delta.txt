@@ -1,0 +1,2 @@
+Attempt4 relative to attempt3: CHANGELOG.md only. Attempt4 includes exactly attempt3 corrected runtime and test bytes (including src/tests/mod.rs sha256 7b54b5ed47fabbbeb4299cf9cf47b8453877c6b33907d04f8d758d94cab7cab4); attempt4 adds/updates only CHANGELOG.md. Cargo package normalizes Cargo.toml; Cargo.lock is byte-identical.
+Attempt2 corrected test delta versus original input package: src/tests/mod.rs only, function test_specific_file; see attempt2/test-specific-file.diff. No production source changes.

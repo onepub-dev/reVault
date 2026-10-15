@@ -1,0 +1,16 @@
+{
+  "pid": 2019861,
+  "exit_code": 0,
+  "status": "incomplete_result_inventory",
+  "stop_cause": "",
+  "detected_failure_line": null,
+  "capture_failure": null,
+  "elapsed_seconds": 3703.972,
+  "sample_count": 741,
+  "inventory": 729,
+  "terminal_results": 711,
+  "passed_results": 711,
+  "failed_results": 0,
+  "ignored_results": 0,
+  "complete_suite_pass": false
+}

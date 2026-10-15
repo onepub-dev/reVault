@@ -1,0 +1,1 @@
+g++ -std=c++17 -Wall -Wextra -Werror -x c++ -fsyntax-only -I rust/revault_bindings -include revault_api.h /dev/null

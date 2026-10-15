@@ -1,0 +1,1 @@
+TMPDIR=/home/bsutton/.cache/rv4-security-20261011 REVAULT_E2E_ARTIFACT_DIR=/tmp/revault-c-alias-batch3/artifacts LOCKBOX_VAULT_DIR=/tmp/revault-c-alias-batch3/vault LOCKBOX_SESSION_AGENT_DIR=/tmp/revault-c-alias-batch3/agent REVAULT_E2E_LANGUAGE=c /tmp/revault-c-conformance-alias-batch3 --core

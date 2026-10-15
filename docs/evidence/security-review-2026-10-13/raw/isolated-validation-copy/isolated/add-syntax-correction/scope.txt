@@ -1,0 +1,1 @@
+The first isolated ordinary lifecycle failed because the newly authored test used positional destination syntax. Public add requires --to. Exactly three test command arrays corrected; originalfailure/source retained. Live worktree untouched.

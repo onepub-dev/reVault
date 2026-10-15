@@ -1,0 +1,7 @@
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... CANDIDATE_SAMPLE {"access":"stream","backend":"lockbox","baseline_peak_rss_kib":6828,"candidate_scope":"fresh typed file reader; unchanged integrity; no native activation or full-format qualification","candidate_test_executable_sha256":"537e74683294d2ae377ab15e2ae369f001670c4af9c707d573592e35fe92549e","first_byte_seconds":0.000941074,"kind":"sample","layout":"shared-control-typed-tree","logical_bytes_read":8388608000,"open_resources":{"cpu_seconds":0.0005510000000000003,"major_faults":0,"system_seconds":0.0005510000000000003,"user_seconds":0.0},"open_seconds":0.000549968,"passes":1000,"peak_rss_kib":6828,"probe_overhead_seconds":1.5900000001067838e-6,"read_resources":{"cpu_seconds":3.339085,"major_faults":0,"system_seconds":0.174852,"user_seconds":3.164233},"read_seconds":3.342291305,"resources":{"cpu_seconds":3.339636,"major_faults":0,"system_seconds":0.175403,"user_seconds":3.164233},"total_seconds":3.342842863,"verified":true}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 568 filtered out; finished in 3.37s
+

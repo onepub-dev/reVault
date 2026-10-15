@@ -1,0 +1,426 @@
+diff --git a/rust/revault_lockbox_api/benches/evaluation/runner.rs b/rust/revault_lockbox_api/benches/evaluation/runner.rs
+index e228cb93..b9a2e9f6 100644
+--- a/rust/revault_lockbox_api/benches/evaluation/runner.rs
++++ b/rust/revault_lockbox_api/benches/evaluation/runner.rs
+@@ -446,7 +446,7 @@ pub fn main() {
+         }
+         "run" => run(&args),
+         "summarize" => { assert_eq!(args.len(),2); summarize(Path::new(&args[1])); }
+-        _ => panic!("usage: archive_evaluation run NEW_ROOT FILES BYTES pattern|random|mixed raw|compressed plain|encrypted|signed|encrypted-signed SAMPLES stream|range PASSES default|none [OTHER_EXECUTABLE]"),
++        _ => panic!("usage: archive_evaluation run NEW_ROOT FILES BYTES pattern|random|mixed raw|compressed plain|encrypted|signed|encrypted-signed SAMPLES stream|range|create PASSES default|none [OTHER_EXECUTABLE]"),
+     }
+ }
+ fn run(args: &[String]) {
+@@ -463,12 +463,13 @@ fn run(args: &[String]) {
+         args[6].as_str(),
+         "plain" | "encrypted" | "signed" | "encrypted-signed"
+     ));
+-    assert!(matches!(args[8].as_str(), "stream" | "range"));
++    assert!(matches!(args[8].as_str(), "stream" | "range" | "create"));
+     assert!(matches!(args[10].as_str(), "default" | "none"));
+     let samples: usize = args[7].parse().unwrap();
+     assert!((1..=1000).contains(&samples));
+     let passes: usize = args[9].parse().unwrap();
+     assert!((1..=1000).contains(&passes));
++    assert!(args[8] != "create" || passes == 1, "create requires one pass");
+     let case = Case {
+         files,
+         bytes,
+@@ -516,6 +517,7 @@ fn run(args: &[String]) {
+         "inventory_sha256":hash_file(&root.join("inventory.json"))}),
+     );
+     for backend in ["zip", "lockbox"] {
++        if args[8] == "create" { continue; }
+         write_record(
+             &mut evidence,
+             &child(
+@@ -538,17 +540,19 @@ fn run(args: &[String]) {
+             &mut evidence,
+             &json!({"kind":"other_executable","sha256":hash_file(other)}),
+         );
+-        write_record(
+-            &mut evidence,
+-            &child(
+-                other,
+-                &[
+-                    "create".into(),
+-                    other_root.display().to_string(),
+-                    "lockbox".into(),
+-                ],
+-            ),
+-        );
++        if args[8] != "create" {
++            write_record(
++                &mut evidence,
++                &child(
++                    other,
++                    &[
++                        "create".into(),
++                        other_root.display().to_string(),
++                        "lockbox".into(),
++                    ],
++                ),
++            );
++        }
+     }
+     for pair in 0..samples + 3 {
+         let mut order = vec![
+@@ -565,16 +569,36 @@ fn run(args: &[String]) {
+             order.reverse();
+         }
+         for (worker, fixture, backend, is_other) in order {
+-            let mut record = child(
+-                worker,
+-                &[
+-                    "sample".into(),
+-                    fixture.display().to_string(),
+-                    backend.into(),
+-                    args[8].clone(),
+-                    args[9].clone(),
+-                ],
+-            );
++            let mut record = if args[8] == "create" {
++                // Use the existing create worker protocol so frozen baseline
++                // binaries remain directly comparable without rebuilding them.
++                // Setup, independent verification and removal are outside timing.
++                let trial = fixture.join(format!("create-{backend}-{pair}"));
++                fs::create_dir(&trial).unwrap();
++                fs::copy(fixture.join("case.json"), trial.join("case.json")).unwrap();
++                std::os::unix::fs::symlink(
++                    fs::canonicalize(fixture.join("source")).unwrap(), trial.join("source"),
++                ).unwrap();
++                let mut record = child(worker, &[
++                    "create".into(), trial.display().to_string(), backend.into(),
++                ]);
++                record["kind"] = json!("sample");
++                record["access"] = json!("create");
++                record["total_seconds"] = record["wall_seconds"].clone();
++                fs::remove_dir_all(trial).unwrap();
++                record
++            } else {
++                child(
++                    worker,
++                    &[
++                        "sample".into(),
++                        fixture.display().to_string(),
++                        backend.into(),
++                        args[8].clone(),
++                        args[9].clone(),
++                    ],
++                )
++            };
+             record["pair"] = json!(pair);
+             record["warmup"] = json!(pair < 3);
+             record["other"] = json!(is_other);
+@@ -647,19 +671,17 @@ fn summarize(path: &Path) {
+     for values in series.values() {
+         assert_eq!(values.len(), expected, "incomplete evidence");
+     }
+-    let metrics = [
+-        "total_seconds",
+-        "open_seconds",
+-        "read_seconds",
+-        "first_byte_seconds",
+-        "peak_rss_kib",
+-    ];
++    let metrics: &[&str] = if environment["access"] == "create" {
++        &["total_seconds", "peak_rss_kib"]
++    } else {
++        &["total_seconds", "open_seconds", "read_seconds", "first_byte_seconds", "peak_rss_kib"]
++    };
+     for (candidate, baseline) in [("primary", "zip"), ("other", "zip"), ("other", "primary")] {
+         let Some(values) = series.get(candidate) else {
+             continue;
+         };
+         let control = series.get(baseline).expect("missing baseline");
+-        for metric in metrics.into_iter().chain(["cpu_seconds"]) {
++        for metric in metrics.iter().copied().chain(["cpu_seconds"]) {
+             let read = |value: &Value| {
+                 if metric == "cpu_seconds" {
+                     value["resources"][metric].as_f64().unwrap()
+diff --git a/rust/revault_lockbox_api/src/lockbox.rs b/rust/revault_lockbox_api/src/lockbox.rs
+index c4155bb5..99308bca 100644
+--- a/rust/revault_lockbox_api/src/lockbox.rs
++++ b/rust/revault_lockbox_api/src/lockbox.rs
+@@ -1674,6 +1674,22 @@ impl<State> Lockbox<State> {
+         })?
+     }
+ 
++    pub(crate) fn flush_file_pages_under_pressure(&mut self) -> Result<()> {
++        if !self.page_manager.borrow().file_pages_exceed_cache_limit() {
++            return Ok(());
++        }
++        // The same durable reservation used by streaming BulkImport protects
++        // append space and reused free extents before any payload reaches disk.
++        self.begin_preparation()?;
++        self.key.with_bytes(|key| {
++            self.page_manager.borrow_mut().flush_staged_file_pages(
++                &mut self.storage,
++                self.lockbox_id,
++                key,
++            )
++        })?
++    }
++
+     pub(crate) fn has_dirty_pages(&self) -> bool {
+         self.page_manager.borrow().has_dirty_pages()
+     }
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index d158fca5..d17e475f 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -2805,6 +2805,8 @@ impl<'a, State> FilePageWriter<'a, State> {
+         } else {
+             self.lockbox
+                 .write_decoded_page_at(page_offset, self.lockbox.sequence, objects)?;
++            self.lockbox.page_manager.borrow_mut().mark_new_file_page(page_offset);
++            self.lockbox.flush_file_pages_under_pressure()?;
+         }
+         for pending in pending {
+             for chunk_index in pending.context.chunk_indices {
+diff --git a/rust/revault_lockbox_api/src/lockbox/preparation.rs b/rust/revault_lockbox_api/src/lockbox/preparation.rs
+index c20601a3..353e6fe3 100644
+--- a/rust/revault_lockbox_api/src/lockbox/preparation.rs
++++ b/rust/revault_lockbox_api/src/lockbox/preparation.rs
+@@ -308,6 +308,92 @@ mod tests {
+         );
+     }
+ 
++    #[test]
++    fn pressured_file_writes_bound_cache_and_preserve_commit_abort_in_all_modes() {
++        use crate::{Compression, Encryption, LockboxCreateOptions, LockboxOpen,
++            LockboxProtection, OwnerSigningKeyPair, SecretVec, Signing, WorkerPolicy};
++        let signer = OwnerSigningKeyPair::generate().unwrap();
++        let original = noise(1024 * 1024 + 17);
++        let replacement = noise(3 * 1024 * 1024 + 31);
++        let limit = 128 * 1024;
++        for encrypted in [false, true] {
++            for signed in [false, true] {
++                for compression in [Compression::None, Compression::default()] {
++                    let open = || if encrypted {
++                        LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
++                    } else { LockboxOpen::Unencrypted };
++                    let mut archive = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
++                        compression,
++                        ..LockboxCreateOptions::new(
++                            if encrypted { Encryption::Encrypted(LockboxProtection::ContentKey(
++                                SecretVec::try_from_slice(&[67; 32]).unwrap(),
++                            )) } else { Encryption::None },
++                            if signed { Signing::Owner(&signer) } else { Signing::None },
++                        )
++                    }).unwrap();
++                    archive.set_worker_policy(WorkerPolicy::Single);
++                    archive.page_manager.borrow_mut().trim_to(limit);
++                    archive.add_file(&path("/keep"), b"committed neighbour", false).unwrap();
++                    archive.add_file(&path("/payload"), &original, false).unwrap();
++                    assert!(archive.inspector().cache_stats().used_bytes <= limit);
++                    archive.commit().unwrap();
++                    for commit in [false, true] {
++                        archive.add_file_from_reader(
++                            &path("/payload"), std::io::Cursor::new(&replacement), true,
++                        ).unwrap();
++                        assert!(archive.inspector().cache_stats().used_bytes <= limit);
++                        assert_eq!(archive.get_file(&path("/payload")).unwrap(), replacement);
++                        if commit { archive.commit().unwrap(); } else { archive.abort().unwrap(); }
++                        let reopened = Lockbox::open_bytes(archive.to_bytes(), open()).unwrap();
++                        assert_eq!(reopened.get_file(&path("/payload")).unwrap(),
++                            if commit { &replacement } else { &original }.as_slice());
++                        assert_eq!(reopened.get_file(&path("/keep")).unwrap(), b"committed neighbour");
++                        reopened.inspector().verify_storage().unwrap();
++                    }
++                }
++            }
++        }
++    }
++
++    #[test]
++    fn pressured_file_write_failure_preserves_base_at_every_storage_operation() {
++        let mut base = Lockbox::create("secret");
++        let data = noise(384 * 1024);
++        base.add_file(&path("/keep"), b"committed", false).unwrap();
++        base.add_file(&path("/remove"), &data, false).unwrap();
++        base.commit().unwrap();
++        base.delete(&path("/remove")).unwrap();
++        base.commit().unwrap();
++        let sealed_len = base.storage.len().unwrap();
++        let bytes = base.to_bytes();
++        let open = || {
++            let mut archive = recover(bytes.clone());
++            archive.set_worker_policy(crate::WorkerPolicy::Single);
++            archive.page_manager.borrow_mut().trim_to(0);
++            archive
++        };
++        let mut successful = open();
++        successful.storage.reset_memory_operation_count();
++        successful.add_file_from_reader(&path("/abandoned"), std::io::Cursor::new(&data), false).unwrap();
++        let count = successful.storage.memory_operation_count();
++        assert!(count > 0, "pressure must write before commit");
++        for failure in 0..count {
++            let mut interrupted = open();
++            interrupted.storage.fail_memory_operation_after_successes(failure);
++            assert!(interrupted.add_file_from_reader(&path("/abandoned"), std::io::Cursor::new(&data), false).is_err(),
++                "failure {failure}");
++            let recovered = recover(interrupted.to_bytes());
++            assert_eq!(recovered.storage.len().unwrap(), sealed_len, "failure {failure}");
++            assert_eq!(recovered.get_file(&path("/keep")).unwrap(), b"committed");
++            assert!(!recovered.exists(&path("/abandoned")));
++            recovered.inspector().verify_storage().unwrap();
++            for slot in recovered.free_space.slots_by_offset() {
++                assert!(recovered.storage.read_at(slot.offset, slot.len as usize).unwrap()
++                    .iter().all(|byte| *byte == 0), "failure {failure}");
++            }
++        }
++    }
++
+     #[test]
+     fn abandoned_stream_requires_rollback_and_truncates_on_recovery() {
+         let mut lb = Lockbox::create("secret");
+diff --git a/rust/revault_lockbox_api/src/storage/page_cache.rs b/rust/revault_lockbox_api/src/storage/page_cache.rs
+index ae1400da..28e83e09 100644
+--- a/rust/revault_lockbox_api/src/storage/page_cache.rs
++++ b/rust/revault_lockbox_api/src/storage/page_cache.rs
+@@ -48,6 +48,9 @@ pub(crate) struct PageCache {
+     used_bytes: u64,
+     pages: HashMap<u64, CachedPage, FastBuildHasher>,
+     dirty_offsets: BTreeSet<u64>,
++    // Newly allocated file payload pages may be flushed before publication.
++    // Metadata and pending erasure must never be swept into this pressure path.
++    staged_file_offsets: BTreeSet<u64>,
+     discard_after_flush: BTreeSet<u64>,
+     zeroed_pages: HashMap<u64, u64, FastBuildHasher>,
+     recent: VecDeque<u64>,
+@@ -64,6 +67,7 @@ impl Clone for PageCache {
+             used_bytes: self.pages.values().map(|page| page.weight).sum(),
+             pages: self.pages.clone(),
+             dirty_offsets: self.dirty_offsets.clone(),
++            staged_file_offsets: self.staged_file_offsets.clone(),
+             discard_after_flush: self.discard_after_flush.clone(),
+             zeroed_pages: self.zeroed_pages.clone(),
+             recent: self.recent.clone(),
+@@ -205,6 +209,7 @@ impl PageCache {
+             used_bytes: 0,
+             pages: HashMap::with_hasher(FastBuildHasher::default()),
+             dirty_offsets: BTreeSet::new(),
++            staged_file_offsets: BTreeSet::new(),
+             discard_after_flush: BTreeSet::new(),
+             zeroed_pages: HashMap::with_hasher(FastBuildHasher::default()),
+             recent: VecDeque::new(),
+@@ -324,6 +329,7 @@ impl PageCache {
+         page: DecodedPage,
+         policy: PageWritePolicy,
+     ) -> Result<()> {
++        self.staged_file_offsets.remove(&offset);
+         self.zeroed_pages.remove(&offset);
+         match policy {
+             PageWritePolicy::RetainAfterFlush => {
+@@ -360,6 +366,7 @@ impl PageCache {
+         {
+             return Err(Error::CorruptRecord);
+         }
++        self.staged_file_offsets.remove(&offset);
+         self.zeroed_pages.remove(&offset);
+         self.evict_cached(offset);
+         self.used_bytes = self.used_bytes.saturating_add(weight);
+@@ -730,6 +737,36 @@ impl PageCache {
+         self.flush_dirty_offsets(storage, lockbox_id, key, dirty_offsets)
+     }
+ 
++    pub(crate) fn mark_new_file_page(&mut self, offset: u64) {
++        debug_assert!(self.dirty_offsets.contains(&offset));
++        self.staged_file_offsets.insert(offset);
++    }
++
++    pub(crate) fn file_pages_exceed_cache_limit(&self) -> bool {
++        self.used_bytes > self.limit_bytes && !self.staged_file_offsets.is_empty()
++    }
++
++    pub(crate) fn flush_staged_file_pages(
++        &mut self,
++        storage: &mut impl Storage,
++        lockbox_id: LockboxId,
++        key: &[u8],
++    ) -> Result<()> {
++        let offsets = self.staged_file_offsets.iter().copied().collect::<Vec<_>>();
++        self.flush_dirty_offsets(storage, lockbox_id, key, offsets.clone())?;
++        // Ordinary eviction stops at a dirty entry. Metadata may remain dirty
++        // until publication, so explicitly release these now-clean file pages
++        // rather than letting a pinned metadata page defeat the staging limit.
++        for offset in offsets {
++            if self.used_bytes <= self.limit_bytes {
++                break;
++            }
++            self.evict(offset);
++        }
++        self.trim_to_limit();
++        Ok(())
++    }
++
+     fn flush_dirty_offsets(
+         &mut self,
+         storage: &mut impl Storage,
+@@ -832,6 +869,7 @@ impl PageCache {
+             }
+             drop(encoded);
+             self.dirty_offsets.remove(&offset);
++            self.staged_file_offsets.remove(&offset);
+             if self.limit_bytes == 0 || self.discard_after_flush.remove(&offset) {
+                 self.evict(offset);
+             }
+@@ -972,6 +1010,7 @@ impl PageCache {
+         self.used_bytes = 0;
+         self.pages.clear();
+         self.dirty_offsets.clear();
++        self.staged_file_offsets.clear();
+         self.discard_after_flush.clear();
+         self.zeroed_pages.clear();
+         self.recent.clear();
+@@ -980,6 +1019,7 @@ impl PageCache {
+     pub(crate) fn evict(&mut self, offset: u64) {
+         self.evict_cached(offset);
+         self.dirty_offsets.remove(&offset);
++        self.staged_file_offsets.remove(&offset);
+         self.discard_after_flush.remove(&offset);
+     }
+ 
+@@ -1847,6 +1887,41 @@ mod tests {
+         assert_eq!(cache.stats().entries, 1);
+     }
+ 
++    #[test]
++    fn pressure_flush_preserves_dirty_metadata_and_pending_erasure() {
++        let archive = LockboxId::from_bytes([9; 16]);
++        let key = b"pressure-test-key";
++        let size = 4096;
++        let mut storage = StorageBackend::memory(vec![71; 3 * size]);
++        let mut cache = PageCache::new(CacheLimit::Bytes(size as u64));
++        cache.stage_decoded_page_with_policy(
++            0, size, page(0), PageWritePolicy::RetainAfterFlush,
++        ).unwrap();
++        cache.stage_decoded_page_with_policy(
++            size as u64, size, page(size as u64), PageWritePolicy::RetainAfterFlush,
++        ).unwrap();
++        cache.mark_new_file_page(size as u64);
++        cache.zeroed_pages.insert((2 * size) as u64, size as u64);
++        assert!(cache.file_pages_exceed_cache_limit());
++        let mut snapshot = cache.clone();
++        snapshot.flush_staged_file_pages(&mut storage, archive, key).unwrap();
++        assert_eq!(storage.read_at(0, size).unwrap(), vec![71; size]);
++        assert_eq!(storage.read_at((2 * size) as u64, size).unwrap(), vec![71; size]);
++        assert_eq!(snapshot.stats().used_bytes, size as u64);
++        assert!(snapshot.dirty_offsets.contains(&0));
++        assert!(!snapshot.dirty_offsets.contains(&(size as u64)));
++        assert!(snapshot.zeroed_pages.contains_key(&((2 * size) as u64)));
++        assert!(!snapshot.file_pages_exceed_cache_limit());
++        assert!(snapshot.read_page(
++            &storage, size as u64, archive, PageSecurity::Normal, PageReadKey::Normal(key),
++        ).is_ok());
++        // Restaging an allocation as ordinary metadata revokes early-flush eligibility.
++        cache.stage_decoded_page_with_policy(
++            size as u64, size, page(size as u64), PageWritePolicy::RetainAfterFlush,
++        ).unwrap();
++        assert!(!cache.file_pages_exceed_cache_limit());
++    }
++
+     fn page(page_id: u64) -> DecodedPage {
+         DecodedPage {
+             page_id,

@@ -1,0 +1,1 @@
+Preparation attempt 1 failed before Cargo launch: git ls-files emitted repository-root-relative paths while the hash command ran from rust/. Preserved the failed attempt as inputs.pre.invalid-cwd.sha256. No Cargo command ran.

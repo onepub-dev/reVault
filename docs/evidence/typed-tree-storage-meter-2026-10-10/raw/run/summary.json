@@ -1,0 +1,543 @@
+{
+  "scope": "single-version storage-meter open diagnostic; one 100-open process per fixture; no comparison/qualification",
+  "revision": "1bcf7b347a00adbf712c11afdea914d987698c3c",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "cpu": 2,
+  "opens_per_fixture": 100,
+  "inputs_stable": true,
+  "meter_semantics": "Counts and nested-storage durations are metered; wrapper bookkeeping is excluded from storage call time but included in stage time. Residual is stage median less median length/read duration and includes instrumentation, checksum, decoding, visitor work.",
+  "cases": {
+    "small512-mixed-compressed": {
+      "fixture": "small512-mixed-compressed",
+      "status": "passed",
+      "repeats": 100,
+      "verified": true,
+      "archive_sha256": "3d9e2d0ce9aab8dc3e6a52b075a701fb67fb9452c24b2efffc13a87e868990c2",
+      "median_total_open_us": 1009.5790000000001,
+      "stages": {
+        "codec": {
+          "stage_median_us": 0.08,
+          "share_of_total_percent": 0.007924095093103165,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "index_walk_and_decode": {
+          "stage_median_us": 483.80199999999996,
+          "share_of_total_percent": 47.921163177918714,
+          "storage_median": {
+            "length_calls": 3,
+            "read_calls": 3,
+            "read_into_calls": 0,
+            "requested_bytes": 196608,
+            "length_seconds_median_us": 2.72,
+            "read_seconds_median_us": 26.4505,
+            "storage_total_seconds_median_us": 29.1705,
+            "residual_stage_minus_storage_median_us": 454.63149999999996,
+            "residual_semantics": "includes instrumentation, checksum, decoding, and visitor work; not pure CPU or pure decoding"
+          }
+        },
+        "owner_payload_verification": {
+          "stage_median_us": 1.02,
+          "share_of_total_percent": 0.10103221243706534,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "ownership_graph": {
+          "stage_median_us": 2.01,
+          "share_of_total_percent": 0.199092889214217,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "pack_padding": {
+          "stage_median_us": 25.4355,
+          "share_of_total_percent": 2.519416509257819,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 1,
+            "read_into_calls": 0,
+            "requested_bytes": 19456,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 3.645
+          }
+        },
+        "reclaimed_space": {
+          "stage_median_us": 57.06999999999999,
+          "share_of_total_percent": 5.65285133704247,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 2,
+            "requested_bytes": 8192,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 2.5300000000000002
+          }
+        },
+        "selected_publication": {
+          "stage_median_us": 107.1215,
+          "share_of_total_percent": 10.610511906448133,
+          "storage_median": {
+            "length_calls": 3,
+            "read_calls": 5,
+            "read_into_calls": 0,
+            "requested_bytes": 73728,
+            "length_seconds_median_us": 2.4899999999999998,
+            "read_seconds_median_us": 13.05
+          }
+        },
+        "storage_handle": {
+          "stage_median_us": 11.46,
+          "share_of_total_percent": 1.1351266220870284,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "typed_validation": {
+          "stage_median_us": 316.73949999999996,
+          "share_of_total_percent": 31.37342397177437,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "value_key": {
+          "stage_median_us": 1.2049999999999998,
+          "share_of_total_percent": 0.1193566823398664,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        }
+      }
+    },
+    "raw8m-random": {
+      "fixture": "raw8m-random",
+      "status": "passed",
+      "repeats": 100,
+      "verified": true,
+      "archive_sha256": "7ee2a3befc88ff9f583f55dbaa7e5ad187f779ad06cd8f0fa7728d067ffb1694",
+      "median_total_open_us": 282.54850000000005,
+      "stages": {
+        "codec": {
+          "stage_median_us": 0.049999999999999996,
+          "share_of_total_percent": 0.017696076956699468,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "index_walk_and_decode": {
+          "stage_median_us": 120.48150000000001,
+          "share_of_total_percent": 42.64099791717174,
+          "storage_median": {
+            "length_calls": 1,
+            "read_calls": 1,
+            "read_into_calls": 0,
+            "requested_bytes": 65536,
+            "length_seconds_median_us": 0.63,
+            "read_seconds_median_us": 6.63,
+            "storage_total_seconds_median_us": 7.26,
+            "residual_stage_minus_storage_median_us": 113.22150000000002,
+            "residual_semantics": "includes instrumentation, checksum, decoding, and visitor work; not pure CPU or pure decoding"
+          }
+        },
+        "owner_payload_verification": {
+          "stage_median_us": 0.58,
+          "share_of_total_percent": 0.20527449269771378,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "ownership_graph": {
+          "stage_median_us": 5.68,
+          "share_of_total_percent": 2.0102743422810594,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "pack_padding": {
+          "stage_median_us": 6.86,
+          "share_of_total_percent": 2.427901758459167,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "reclaimed_space": {
+          "stage_median_us": 42.05,
+          "share_of_total_percent": 14.882400720584252,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 2,
+            "requested_bytes": 8192,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 1.92
+          }
+        },
+        "selected_publication": {
+          "stage_median_us": 84.436,
+          "share_of_total_percent": 29.883719078317522,
+          "storage_median": {
+            "length_calls": 3,
+            "read_calls": 5,
+            "read_into_calls": 0,
+            "requested_bytes": 73728,
+            "length_seconds_median_us": 1.85,
+            "read_seconds_median_us": 9.88
+          }
+        },
+        "storage_handle": {
+          "stage_median_us": 6.89,
+          "share_of_total_percent": 2.4385194046331864,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "typed_validation": {
+          "stage_median_us": 12.8555,
+          "share_of_total_percent": 4.549838346337,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "value_key": {
+          "stage_median_us": 0.61,
+          "share_of_total_percent": 0.2158921388717335,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        }
+      }
+    },
+    "compressed8m-pattern": {
+      "fixture": "compressed8m-pattern",
+      "status": "passed",
+      "repeats": 100,
+      "verified": true,
+      "archive_sha256": "6c526254bfdbf96819c355466e40ebbcf6edff708509677f46e3843d805c4c90",
+      "median_total_open_us": 230.393,
+      "stages": {
+        "codec": {
+          "stage_median_us": 0.06,
+          "share_of_total_percent": 0.02604245788717539,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "index_walk_and_decode": {
+          "stage_median_us": 80.136,
+          "share_of_total_percent": 34.782306754111445,
+          "storage_median": {
+            "length_calls": 1,
+            "read_calls": 1,
+            "read_into_calls": 0,
+            "requested_bytes": 65536,
+            "length_seconds_median_us": 0.64,
+            "read_seconds_median_us": 6.825,
+            "storage_total_seconds_median_us": 7.465,
+            "residual_stage_minus_storage_median_us": 72.67099999999999,
+            "residual_semantics": "includes instrumentation, checksum, decoding, and visitor work; not pure CPU or pure decoding"
+          }
+        },
+        "owner_payload_verification": {
+          "stage_median_us": 0.55,
+          "share_of_total_percent": 0.2387225306324411,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "ownership_graph": {
+          "stage_median_us": 0.8899999999999999,
+          "share_of_total_percent": 0.38629645865976825,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "pack_padding": {
+          "stage_median_us": 6.535,
+          "share_of_total_percent": 2.8364577048781863,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 1,
+            "read_into_calls": 0,
+            "requested_bytes": 5617,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 1.34
+          }
+        },
+        "reclaimed_space": {
+          "stage_median_us": 43.3455,
+          "share_of_total_percent": 18.81372263914268,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 2,
+            "requested_bytes": 8192,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 1.9800000000000002
+          }
+        },
+        "selected_publication": {
+          "stage_median_us": 84.81099999999999,
+          "share_of_total_percent": 36.811448264487204,
+          "storage_median": {
+            "length_calls": 3,
+            "read_calls": 5,
+            "read_into_calls": 0,
+            "requested_bytes": 73728,
+            "length_seconds_median_us": 1.9,
+            "read_seconds_median_us": 10.030000000000001
+          }
+        },
+        "storage_handle": {
+          "stage_median_us": 7.3005,
+          "share_of_total_percent": 3.168716063422066,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "typed_validation": {
+          "stage_median_us": 3.6500000000000004,
+          "share_of_total_percent": 1.5842495214698364,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "value_key": {
+          "stage_median_us": 0.6,
+          "share_of_total_percent": 0.2604245788717539,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        }
+      }
+    },
+    "raw64m-random": {
+      "fixture": "raw64m-random",
+      "status": "passed",
+      "repeats": 100,
+      "verified": true,
+      "archive_sha256": "0c098194eb7cfe027762af2a933f96a814854366773cd3bf6d67f9efeacf6775",
+      "median_total_open_us": 1090.23,
+      "stages": {
+        "codec": {
+          "stage_median_us": 0.049999999999999996,
+          "share_of_total_percent": 0.004586188235509938,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "index_walk_and_decode": {
+          "stage_median_us": 751.9055,
+          "share_of_total_percent": 68.96760316630434,
+          "storage_median": {
+            "length_calls": 6,
+            "read_calls": 6,
+            "read_into_calls": 0,
+            "requested_bytes": 393216,
+            "length_seconds_median_us": 4.3100000000000005,
+            "read_seconds_median_us": 41.691,
+            "storage_total_seconds_median_us": 46.001000000000005,
+            "residual_stage_minus_storage_median_us": 705.9045,
+            "residual_semantics": "includes instrumentation, checksum, decoding, and visitor work; not pure CPU or pure decoding"
+          }
+        },
+        "owner_payload_verification": {
+          "stage_median_us": 0.61,
+          "share_of_total_percent": 0.05595149647322125,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "ownership_graph": {
+          "stage_median_us": 58.676,
+          "share_of_total_percent": 5.3819836181356235,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "pack_padding": {
+          "stage_median_us": 50.661,
+          "share_of_total_percent": 4.64681764398338,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "reclaimed_space": {
+          "stage_median_us": 48.786,
+          "share_of_total_percent": 4.474835585151758,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 2,
+            "requested_bytes": 8192,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 2.0549999999999997
+          }
+        },
+        "selected_publication": {
+          "stage_median_us": 84.761,
+          "share_of_total_percent": 7.774598020601157,
+          "storage_median": {
+            "length_calls": 3,
+            "read_calls": 5,
+            "read_into_calls": 0,
+            "requested_bytes": 73728,
+            "length_seconds_median_us": 1.8900000000000001,
+            "read_seconds_median_us": 10.370000000000001
+          }
+        },
+        "storage_handle": {
+          "stage_median_us": 8.3855,
+          "share_of_total_percent": 0.7691496289773717,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "typed_validation": {
+          "stage_median_us": 80.281,
+          "share_of_total_percent": 7.363675554699467,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        },
+        "value_key": {
+          "stage_median_us": 0.53,
+          "share_of_total_percent": 0.04861359529640535,
+          "storage_median": {
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_into_calls": 0,
+            "requested_bytes": 0,
+            "length_seconds_median_us": 0.0,
+            "read_seconds_median_us": 0.0
+          }
+        }
+      }
+    }
+  }
+}

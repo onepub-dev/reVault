@@ -1,0 +1,1 @@
+2026-10-12T13:40:46+02:00 Assigned RUSTSEC-2024-0449 to unsafe-libyaml

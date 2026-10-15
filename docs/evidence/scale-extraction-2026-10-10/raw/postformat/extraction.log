@@ -1,0 +1,13 @@
+    Finished `release` profile [optimized] target(s) in 0.10s
+     Running unittests src/lib.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 6 tests
+test file_format::candidate_files::resource_probe::extraction::tests::extraction_refuses_existing_destination_before_opening_archive ... ok
+test file_format::candidate_files::resource_probe::extraction::tests::extraction_checks_reopened_bytes_across_buffer_boundary ... ok
+test file_format::candidate_files::resource_probe::extraction::tests::extraction_rejects_wrong_output_even_with_correct_reported_count ... ok
+test lockbox::extraction::tests::sequential_extraction_rejects_existing_symlink_parent ... ok
+test lockbox::extraction::tests::parallel_extraction_rejects_existing_symlink_parent ... ok
+test api_tests::symlink_support_round_trips_and_safe_extraction_skips_by_default ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 669 filtered out; finished in 0.01s
+

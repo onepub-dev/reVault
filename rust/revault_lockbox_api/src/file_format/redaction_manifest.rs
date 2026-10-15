@@ -3,7 +3,7 @@ use crate::free_slot::FreeSlot;
 use crate::{Error, Result};
 
 const VERSION: u8 = 1;
-const HEADER_LEN: usize = 32;
+const HEADER_LEN: usize = 72;
 const ENTRY_LEN: usize = 16;
 pub(crate) const MAX_REDACTION_RANGES: usize = 65_536;
 pub(crate) const MAX_REDACTION_OBJECT_IDS: usize = 262_144;
@@ -17,6 +17,7 @@ pub(crate) const MAX_REDACTION_TOTAL_BYTES: u64 = 1 << 50;
 pub(crate) struct RedactionManifestPage {
     pub(crate) transaction_sequence: u64,
     pub(crate) next_page_offset: u64,
+    pub(crate) next_page_commitment: crate::file_format::page_commitment::PageCommitment,
     pub(crate) total_range_count: u32,
     pub(crate) ranges: Vec<FreeSlot>,
 }
@@ -40,6 +41,8 @@ pub(crate) fn encode_page(page: &RedactionManifestPage) -> Result<Vec<u8>> {
     out.extend_from_slice(&page.transaction_sequence.to_le_bytes());
     out.extend_from_slice(&page.next_page_offset.to_le_bytes());
     out.extend_from_slice(&[0; 4]);
+    out.extend_from_slice(&page.next_page_commitment.physical_len.to_le_bytes());
+    out.extend_from_slice(&page.next_page_commitment.digest);
     for range in &page.ranges {
         out.extend_from_slice(&range.offset.to_le_bytes());
         out.extend_from_slice(&range.len.to_le_bytes());
@@ -67,6 +70,12 @@ pub(crate) fn decode_page(payload: &[u8]) -> Result<RedactionManifestPage> {
     }
     let transaction_sequence = read_u64_le(&payload[12..20])?;
     let next_page_offset = read_u64_le(&payload[20..28])?;
+    let next_page_commitment = crate::file_format::page_commitment::PageCommitment {
+        physical_len: read_u64_le(&payload[32..40])?,
+        digest: payload[40..72]
+            .try_into()
+            .map_err(|_| Error::CorruptRecord)?,
+    };
     let mut ranges = Vec::with_capacity(count);
     let mut cursor = HEADER_LEN;
     for _ in 0..count {
@@ -80,6 +89,7 @@ pub(crate) fn decode_page(payload: &[u8]) -> Result<RedactionManifestPage> {
     Ok(RedactionManifestPage {
         transaction_sequence,
         next_page_offset,
+        next_page_commitment,
         total_range_count,
         ranges,
     })
@@ -142,6 +152,7 @@ mod tests {
         let page = RedactionManifestPage {
             transaction_sequence: 7,
             next_page_offset: 900,
+            next_page_commitment: Default::default(),
             total_range_count: 2,
             ranges: vec![
                 FreeSlot {
@@ -184,6 +195,7 @@ mod tests {
         let mut payload = encode_page(&RedactionManifestPage {
             transaction_sequence: 1,
             next_page_offset: 0,
+            next_page_commitment: Default::default(),
             total_range_count: 2,
             ranges: vec![
                 FreeSlot { offset: 1, len: 2 },

@@ -1,0 +1,81 @@
+Issue #310: native decoded frames join the configured page cache
+Base bf46589, 2026-09-22. Native remains feature-gated.
+
+Native whole-file/range reads now retain verified decoded frames in PageCache
+rather than the separate profile-only compression-frame map. Cached bytes and
+slice metadata share the configured page-cache budget with ordinary pages.
+Disabled means no retained native decoded frames, for every workload profile.
+CacheStats now includes native decoded entries, approximate weight, hits and
+misses. Old whole-frame/legacy caching policy is unchanged. Native Read/Seek
+handles still retain their bounded local windows; these are not cache entries.
+The operation-local stream frame also remains independently bounded.
+
+Physical allocation length is recorded separately from decoded memory weight,
+so cleanup and staging overlap checks do not confuse compressed size with decoded
+size, or overlook padding. Immutable Arc payloads can be shared by transaction
+snapshots; dropping the last owner zeroizes their bytes. Dirty encoded native
+pages are never replaced by read-cache admission before their pending flush.
+Stream admission still avoids single-frame churn for oversized sequential scans.
+
+Cache hits still reopen/verify current native metadata and block index, validate
+the requested slice, and check storage identity/extent/external terminal state.
+Storage overwrites/truncation carry a monotonic revision; file clones share it.
+File revision changes occur under the exclusive write lock, before potentially
+partial mutation. Native readers capture it before index reads, check it during
+source validation, and tag admitted decoded bytes with that observed revision.
+This prevents cached bytes or retained read windows from hiding subsequent writes
+through the storage backend. Exhaustion fails closed. Append preserves existing
+bytes and does not invalidate them. This is not a new guarantee for arbitrary
+same-size writes by non-cooperating processes outside the storage abstraction;
+existing archive identity/extent and external session checks remain in force.
+
+Validation:
+- 23 cache-focused tests passed, including the two formerly failing API tests.
+- New public-API test: disabled and 8 KiB capacity under all four profiles,
+  byte comparisons, repeated hit, eviction/miss, total shared usage bound.
+- New cache unit test: decoded weight vs physical extent in both directions,
+  cleanup intersection, immutable snapshot ownership and last-owner drop.
+- Existing all-16-policy corruption/reference test unchanged and passing.
+- Expanded all-16-policy file test: overwrite through a cloned storage handle
+  rejects decoded-cache hits and retained reader windows; original truncation
+  between stream slices still rejects the retained neighbor.
+- Full default library: 336 passed, 5 ignored.
+- Full native + external-source library: 333 passed, 8 known recovery failures,
+  5 ignored. Down from 10 failures before this work; no failures suppressed.
+- After the final placement of revision advancement under the file lock:
+  26 focused native tests passed (the known writer/recovery test excluded),
+  37 default storage tests passed. Both strict library/test Clippy configurations
+  passed. No test executable was replaced while its subprocess tests were live.
+
+The first full run exposed in-memory overwrite coherence and later error
+precedence regressions. Both were fixed in production code: the corruption test
+was not relaxed, and archive replacement still returns LockUnavailable rather
+than being masked by the stale revision. The final full-suite counts above are
+from the fixed error-ordering code, before the last lock-placement tightening;
+the focused suites then verified that final tightening.
+
+Cold stream control: native zip_read, default-created 512 x 4096-byte pattern
+files, plaintext unsigned, both codecs and Interactive/ReadMostly readers. Five
+fresh-handle byte-verified samples per row, three alternating before/after pairs,
+CPU 2, warm OS cache, no builds/tests during timings. 24 rows / 120 lockbox reads.
+Baseline b328ea2 production code is identical to bf46589 (only benchmark
+instrumentation changed). Both binaries have that same benchmark instrumentation.
+SHA256:
+before 6794807ceef61a0ff997eb588b966724b69e139d91ab31d7bb5ba2ce8a3a959c
+after  988f631a3a4c132be7b5463e8d85cbe8cdcd6e979f7be0832fd0f137d1302a20
+Common REVAULT_ZIP_READ_ options:
+CREATE_PROFILE=Interactive CORPUS=pattern CASE=small MODE=plain ACCESS=stream
+SAMPLES=5; PROFILE, COMPRESSION and WRITE_PROFILE unset. taskset -c 2; TMPDIR
+under ignored worktree target/issue310-sign-tmp.
+
+Medians of run medians (ms), and median paired total-time change:
+raw Interactive          15.653 -> 15.846   +1.23%
+raw ReadMostly           16.044 -> 16.156   +0.55%
+compressed Interactive   17.763 -> 17.843   +0.45%
+compressed ReadMostly    18.020 -> 18.241   +1.23%
+Archive sizes unchanged: 2,995,584 raw; 836,992 compressed bytes. Individual paired
+changes range -1.00% to +3.93%. No cold-read speedup or formal non-regression is
+claimed: this closes cache correctness/accounting gaps with a small measured
+cold-stream cost. Whole-file/range warm/cold throughput and broader mode/load
+measurements remain to be assessed. Native recovery, ZIP parity and release/
+activation gates remain open.

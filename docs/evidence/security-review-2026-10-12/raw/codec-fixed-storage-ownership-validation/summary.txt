@@ -1,0 +1,5 @@
+build_exit=0
+workspace_filter_exit=0
+workspace_tests_inventory=5
+crate_source_pre_post=0
+test_binary_pre_post=0

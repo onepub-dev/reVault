@@ -1,0 +1,8 @@
+b89d74db96af699da14a4bf82c5528c85c8b4c5c0789cddc0e94d82bf0e91668  /tmp/revault-whole-layout-cost-model-20260927/small-protected/candidate.lbox
+b89d74db96af699da14a4bf82c5528c85c8b4c5c0789cddc0e94d82bf0e91668  /tmp/revault-typed-read-20261002/protected-c-controls/small-protected/candidate.lbox
+a80003e935f3a81dc3f2bce0cbc8f728fb7c22fd0238663eb2c09407521e9e42  /tmp/revault-whole-layout-cost-model-20260927/small-protected/candidate.public
+a80003e935f3a81dc3f2bce0cbc8f728fb7c22fd0238663eb2c09407521e9e42  /tmp/revault-typed-read-20261002/protected-c-controls/small-protected/candidate.public
+294076b97a1b24429c7dd44de98b12ac3028978715b19425572a7e81ea06f747  /tmp/revault-packed-comparison-20260927/compressed-encrypted-signed/other/candidate.lbox
+294076b97a1b24429c7dd44de98b12ac3028978715b19425572a7e81ea06f747  /tmp/revault-typed-read-20261002/protected-c-controls/large-protected/candidate.lbox
+13a0716de17d4f083c352771df9aa3a0ffa250242d2cd3c8c402cca83d52e1eb  /tmp/revault-packed-comparison-20260927/compressed-encrypted-signed/other/candidate.public
+13a0716de17d4f083c352771df9aa3a0ffa250242d2cd3c8c402cca83d52e1eb  /tmp/revault-typed-read-20261002/protected-c-controls/large-protected/candidate.public

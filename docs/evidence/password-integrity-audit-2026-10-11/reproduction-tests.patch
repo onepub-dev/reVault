@@ -1,0 +1,213 @@
+diff --git a/rust/revault_cli/tests/creation_options.rs b/rust/revault_cli/tests/creation_options.rs
+index b87a3669..52535cc1 100644
+--- a/rust/revault_cli/tests/creation_options.rs
++++ b/rust/revault_cli/tests/creation_options.rs
+@@ -200,3 +200,73 @@ fn invalid_creation_combinations_are_rejected_before_creation() {
+         assert!(!temp.path().join("invalid.lbox").exists());
+     }
+ }
++
++#[test]
++fn unsigned_password_archive_is_writable_by_a_recipient_without_a_vault() {
++    let temp = TestTempDir::new("unsigned-password-recipient");
++    let dir = temp.path();
++    let command = |context: &str, args: &[&str]| {
++        let mut command = Command::new(env!("CARGO_BIN_EXE_lockbox"));
++        command
++            .current_dir(dir)
++            .args(args)
++            .env("LOCKBOX_VAULT_DIR", dir.join(context).join("vault"))
++            .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
++            .env(
++                "LOCKBOX_SESSION_AGENT_DIR",
++                common::agent_socket_dir(&dir.join(context).join("agent")),
++            )
++            .env("LOCKBOX_SESSION_AGENT_LOG", dir.join(context).join("agent.log"))
++            .env("LOCKBOX_ADD_PROGRESS", "off")
++            .env_remove("LOCKBOX_VAULT_PASSWORD")
++            .env_remove("LOCKBOX_KEY")
++            .env_remove("LOCKBOX_PASSWORD")
++            .env_remove("COMPLETE");
++        command
++    };
++    let password = b"synthetic shared archive password\n";
++    success(
++        command("sender", &["shared.lbox", "create", "--password", "--signing", "none"])
++            .env("LOCKBOX_PASSWORD", "synthetic shared archive password")
++            .test_output()
++            .unwrap(),
++    );
++    success(
++        command("sender", &["shared.lbox", "open", "--password-stdin"])
++            .test_output_with_input(password)
++            .unwrap(),
++    );
++    fs::write(dir.join("payload.bin"), b"original sender bytes\0\xff").unwrap();
++    success(
++        command("sender", &["shared.lbox", "add", "payload.bin"])
++            .test_output()
++            .unwrap(),
++    );
++
++    // The recipient has its own empty Vault location and Session Agent, so
++    // only the explicitly supplied password can unlock the shared archive.
++    success(
++        command("recipient", &["shared.lbox", "open", "--password-stdin"])
++            .test_output_with_input(password)
++            .unwrap(),
++    );
++    assert_eq!(
++        success(command("recipient", &["shared.lbox", "cat", "/payload.bin"]).test_output().unwrap()),
++        b"original sender bytes\0\xff",
++    );
++    let replacement = b"recipient replacement bytes\0\xfe\n";
++    fs::write(dir.join("payload.bin"), replacement).unwrap();
++    success(
++        command("recipient", &["shared.lbox", "add", "--overwrite", "payload.bin"])
++            .test_output()
++            .unwrap(),
++    );
++    // Separate CLI reads verify the committed bytes for both participants.
++    for context in ["recipient", "sender"] {
++        assert_eq!(
++            success(command(context, &["shared.lbox", "cat", "/payload.bin"]).test_output().unwrap()),
++            replacement,
++        );
++        assert!(!dir.join(context).join("vault").exists());
++    }
++}
+diff --git a/rust/revault_lockbox_api/src/lockbox/commit.rs b/rust/revault_lockbox_api/src/lockbox/commit.rs
+index 30c224a0..8aed3b6b 100644
+--- a/rust/revault_lockbox_api/src/lockbox/commit.rs
++++ b/rust/revault_lockbox_api/src/lockbox/commit.rs
+@@ -682,6 +682,130 @@ mod tests {
+         LockboxPath::new(path).unwrap()
+     }
+ 
++    // Adversarial format-3 audit: direct byte changes deliberately model attackers,
++    // not supported editing APIs. These tests record current limitations in both
++    // signed and unsigned encrypted archives; they do not change format policy.
++    fn signature_audit_archive(signed: bool) -> Lockbox {
++        let signer = OwnerSigningKeyPair::generate().unwrap();
++        let mut archive = Lockbox::create_in_memory_with_options(crate::LockboxCreateOptions {
++            compression: crate::Compression::None,
++            ..crate::LockboxCreateOptions::new(
++                crate::Encryption::Encrypted(LockboxProtection::ContentKey(
++                    crate::SecretVec::try_from_slice(b"signature-audit-content-key").unwrap(),
++                )),
++                if signed { crate::Signing::Owner(&signer) } else { crate::Signing::None },
++            )
++        }).unwrap();
++        archive.add_password(&SecretString::try_from_slice(b"signature-audit-password").unwrap()).unwrap();
++        archive.set_variable(&VariableName::new("VALUE").unwrap(), "alpha").unwrap();
++        archive.commit().unwrap();
++        archive
++    }
++
++    fn signature_audit_open(bytes: Vec<u8>) -> crate::Result<Lockbox<crate::ReadOnly>> {
++        Lockbox::open_bytes(bytes, LockboxOpen::Password(
++            &SecretString::try_from_slice(b"signature-audit-password").unwrap(),
++        ))
++    }
++
++    #[test]
++    fn signature_audit_ciphertext_bitflips_and_mode_downgrades_are_rejected() {
++        for signed in [false, true] {
++            let archive = signature_audit_archive(signed);
++            for offset in [archive.commit_root_offset, archive.commit_auth_offset] {
++                let mut bytes = archive.to_bytes();
++                bytes[offset as usize + crate::page::PAGE_HEADER_LEN + 4] ^= 1;
++                assert!(signature_audit_open(bytes).is_err());
++            }
++            let mut bytes = archive.to_bytes();
++            let header = crate::file_format::read_header(&bytes).unwrap();
++            let start = header.slot_index * crate::file_format::header_v2::SLOT_LEN;
++            bytes[start + 10] ^= 2;
++            let checksum = crate::crypto::strong_checksum(&bytes[start..start + 128]);
++            bytes[start + 128..start + 160].copy_from_slice(&checksum);
++            assert!(signature_audit_open(bytes).is_err());
++        }
++    }
++
++    #[test]
++    fn signature_audit_zero_sequence_header_can_hide_committed_content() {
++        for signed in [false, true] {
++            let archive = signature_audit_archive(signed);
++            let mut bytes = archive.to_bytes();
++            let header = crate::file_format::read_header(&bytes).unwrap();
++            let start = header.slot_index * crate::file_format::header_v2::SLOT_LEN;
++            // Outsider uses only the public checksum, not a MAC or owner key.
++            bytes[start + 24..start + 40].fill(0); // root and sequence
++            bytes[start + 72..start + 104].fill(0); // auth and cleanup
++            let checksum = crate::crypto::strong_checksum(&bytes[start..start + 128]);
++            bytes[start + 128..start + 160].copy_from_slice(&checksum);
++            let opened = signature_audit_open(bytes).unwrap();
++            assert_eq!(opened.get_variable(&VariableName::new("VALUE").unwrap()).unwrap(), None);
++            assert!(!opened.owner_inspection().unwrap().signed);
++        }
++    }
++
++    #[test]
++    fn signature_audit_old_variable_ciphertext_can_be_replayed_without_keys() {
++        for signed in [false, true] {
++            let mut archive = signature_audit_archive(signed);
++            let old_bytes = archive.to_bytes();
++            let old_offset = archive.variable_root_offset as usize;
++            let old_page = crate::page::page_decode_slice(&old_bytes, old_offset).unwrap().to_vec();
++            archive.set_variable(&VariableName::new("VALUE").unwrap(), "bravo").unwrap();
++            archive.commit().unwrap();
++            let mut latest = archive.to_bytes();
++            let latest_offset = archive.variable_root_offset as usize;
++            let latest_page = crate::page::page_decode_slice(&latest, latest_offset).unwrap();
++            assert_eq!(old_page.len(), latest_page.len());
++            assert_eq!(signature_audit_open(latest.clone()).unwrap().get_variable(
++                &VariableName::new("VALUE").unwrap()).unwrap().as_deref(), Some("bravo"));
++            // Copy an earlier authenticated page verbatim; no password/content
++            // key/owner signing key is used to perform the substitution.
++            latest[latest_offset..latest_offset + old_page.len()].copy_from_slice(&old_page);
++            let opened = signature_audit_open(latest).unwrap();
++            assert_eq!(opened.get_variable(&VariableName::new("VALUE").unwrap()).unwrap().as_deref(), Some("alpha"));
++            assert_eq!(opened.owner_inspection().unwrap().signed, signed);
++        }
++    }
++
++    #[test]
++    fn signature_audit_public_key_slot_ids_can_be_changed_without_keys() {
++        for signed in [false, true] {
++            let archive = signature_audit_archive(signed);
++            let mut bytes = archive.to_bytes();
++            let original_id = archive.list_key_slots()[0].id;
++            for offset in [archive.key_directory.primary_offset, archive.key_directory.mirror_offset] {
++                let mut directory = crate::key_directory::read_key_directory(
++                    &bytes, offset, Some(archive.lockbox_id),
++                ).unwrap();
++                for slot in &mut directory.slots {
++                    match slot {
++                        crate::key_slot::KeySlot::Password { id, .. }
++                        | crate::key_slot::KeySlot::HybridContact { id, .. } => *id += 100,
++                    }
++                }
++                let page = crate::page::page_decode_slice(&bytes, offset as usize).unwrap();
++                let page_size = crate::page::physical_page_size_from_page_slice(page).unwrap();
++                let mut decoded = crate::page::decode_page(page, archive.lockbox_id, &[]).unwrap();
++                let object = decoded.objects.iter_mut().find(|object| object.kind == PageObjectKind::KeyDirectory).unwrap();
++                object.payload = crate::page::PagePayload::normal(crate::key_directory::encode_key_directory(
++                    &directory.slots, directory.lockbox_id, directory.generation, directory.copy_index,
++                ).unwrap());
++                // Key-directory pages are public; only public checksums change.
++                let replacement = crate::page::encode_page_with_format(
++                    page_size, archive.lockbox_id, decoded.page_id, decoded.sequence,
++                    &[], &decoded.objects, archive.format_mode,
++                ).unwrap();
++                bytes[offset as usize..offset as usize + replacement.len()].copy_from_slice(&replacement);
++            }
++            let opened = signature_audit_open(bytes).unwrap();
++            assert_eq!(opened.key_slots[0].id(), original_id + 100);
++            assert_eq!(opened.get_variable(&VariableName::new("VALUE").unwrap()).unwrap().as_deref(), Some("alpha"));
++            assert_eq!(opened.owner_inspection().unwrap().signed, signed);
++        }
++    }
++
+     fn add_file<State>(
+         lb: &mut Lockbox<State>,
+         path: &LockboxPath,

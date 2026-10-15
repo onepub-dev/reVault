@@ -69,6 +69,23 @@ class NativeFiles(unittest.TestCase):
             self.assertEqual(box.get_file('/new'), b'new archive')
         self.assertEqual(sorted(p.name for p in self.path.parent.iterdir()), [self.path.name])
 
+    def test_password_default_and_explicit_access(self):
+        password = b'unsigned password fixture'
+        with Lockbox.create(self.path, password=password) as box:
+            box.add_file('/hello', b'original', False)
+            box.commit()
+        with Lockbox.open(self.path, password=password, signing_key=self.signer, writable=False) as box:
+            self.assertEqual(box.get_file('/hello'), b'original')
+            with self.assertRaises(RevaultError):
+                box.commit()
+        with Lockbox.open(self.path, password=password, writable=True) as box:
+            box.add_file('/hello', b'replacement', True)
+            box.commit()
+        with Lockbox.open(self.path, password=password) as box:
+            self.assertEqual(box.get_file('/hello'), b'replacement')
+            with self.assertRaises(RevaultError):
+                box.commit()
+
     def test_shared_readers_exclude_writers_and_cannot_upgrade(self):
         with self.create() as box:
             box.add_file('/hello', b'original', False)

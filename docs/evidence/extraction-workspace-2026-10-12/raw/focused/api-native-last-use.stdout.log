@@ -1,0 +1,7 @@
+
+running 2 tests
+test storage::page_cache::tests::last_use_retirement_preserves_pending_markers_and_external_bytes ... ok
+test lockbox::extraction::tests::last_use_retirement_preserves_later_shared_frames_pages_and_parent ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 723 filtered out; finished in 0.00s
+

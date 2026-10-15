@@ -1,0 +1,7 @@
+case,metric,main_us,branch_us,paired_change_pct,low95_pct,high95_pct,pairs
+add_us/true/write,total,7923.085,12143.186,54.941,49.001,61.116,10
+commit_us/true/write,total,11371.827,9291.282,-17.648,-24.205,-10.509,10
+create_us/true/write,total,4061.959,3840.526,-1.615,-24.264,9.249,10
+host_read_us/true/write,total,890.830,895.511,2.013,-4.719,3.930,10
+page_write_us/true/write,total,21.130,2282.138,11301.701,10149.327,11656.227,10
+prepare_us/true/write,total,4136.800,5190.803,27.691,20.112,35.612,10

@@ -26,8 +26,12 @@ class DomainView:
         field = _pascal(name)
         numpy = getattr(self._table, field + "AsNumpy", None)
         if numpy is not None:
-            value = numpy()
-            return bytes(value) if value is not None else b""
+            # The transport's scalar vectors are byte vectors. Use the standard
+            # generated accessors: NumPy is optional in FlatBuffers and is not
+            # a dependency of this package.
+            length = getattr(self._table, field + "Length")
+            getter = getattr(self._table, field)
+            return bytes(getter(index) for index in range(length()))
         length = getattr(self._table, field + "Length", None)
         getter = getattr(self._table, field, None)
         if length is not None and getter is not None:

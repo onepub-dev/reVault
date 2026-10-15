@@ -1,0 +1,12 @@
+Focused test command:
+timeout --kill-after=20s 300s cargo +1.88.0 test --locked --offline --release -p revault_cli --test mirror_cli extraction_restores_stored_permissions_by_default_with_opt_out -- --exact --nocapture --test-threads=1
+
+Working directory: rust/
+Unified exec session: 27662
+Terminal exit status: 0
+Cargo release build completion: 48.00s
+Observed test result: `test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 7.34s`
+
+The test exercised multiple public CLI invocations; one deliberate expected-refusal invocation returned status 1, and two stop/cleanup calls returned status 2. The test itself passed. Cargo emitted a `revault_key_server` commercial-license build warning and rebuilt workspace crates.
+
+Additional exact filtered test commands and complete logs are in `read-only-extraction.log`, `help-grouped.log`, and `mirror-extraction-workflow.log`; all three exit 0 and report one passing test each.

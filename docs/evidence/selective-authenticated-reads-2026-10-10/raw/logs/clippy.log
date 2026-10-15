@@ -1,0 +1,32 @@
+    Checking revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+error[E0308]: mismatched types
+   --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/installation/credential_process.rs:82:33
+    |
+82  |         check_credential_reader(opened);
+    |         ----------------------- ^^^^^^ expected `TreeImage<_>`, found `AuditedTreeImage<StorageBackend>`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected struct `file_format::candidate_files::tree_image::reader::TreeImage<_>`
+               found struct `file_format::candidate_files::tree_image::AuditedTreeImage<storage::StorageBackend>`
+note: function defined here
+   --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/installation.rs:855:4
+    |
+855 | fn check_credential_reader<S: Storage>(mut opened: tree_image::TreeImage<S>) {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^             ------------------------------------
+
+error[E0624]: associated function `open_observed` is private
+   --> revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs:152:28
+    |
+152 |                   TreeImage::open_observed(storage, archive(), mode, &authority, key, |name| {
+    |                              ^^^^^^^^^^^^^ private associated function
+    |
+   ::: revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs:26:5
+    |
+26  | /     pub(super) fn open_observed(storage: S, archive: LockboxId, mode: FormatMode,
+27  | |         authority: &Authority<'_>, key: Option<&[u8]>, mut stage: impl FnMut(&'static str)) -> Result<Self> {
+    | |___________________________________________________________________________________________________________- private associated function defined here
+
+Some errors have detailed explanations: E0308, E0624.
+For more information about an error, try `rustc --explain E0308`.
+error: could not compile `revault_lockbox_api` (lib test) due to 2 previous errors

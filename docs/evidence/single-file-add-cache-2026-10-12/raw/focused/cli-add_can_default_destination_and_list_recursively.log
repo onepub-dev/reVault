@@ -1,0 +1,51 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+   Compiling revault_vault_api v0.0.42 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_vault_api)
+   Compiling revault_migration v0.0.39 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migration)
+   Compiling revault_cli v0.5.0-dev.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli)
+    Finished `release` profile [optimized] target(s) in 48.49s
+     Running tests/cli_flow.rs (target/release/deps/cli_flow-a494ce2937cf1fad)
+
+running 1 test
+test add_can_default_destination_and_list_recursively ... CLI start: test=add_can_default_destination_and_list_recursively pid=552377
+CLI end: test=add_can_default_destination_and_list_recursively pid=552377 elapsed=2.0380169s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552389
+CLI end: test=add_can_default_destination_and_list_recursively pid=552389 elapsed=1.410979597s status=exit status: 1
+CLI start: test=add_can_default_destination_and_list_recursively pid=552392
+CLI end: test=add_can_default_destination_and_list_recursively pid=552392 elapsed=404.797035ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552395
+CLI end: test=add_can_default_destination_and_list_recursively pid=552395 elapsed=1.409278325s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552482
+CLI end: test=add_can_default_destination_and_list_recursively pid=552482 elapsed=428.838509ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552485
+CLI end: test=add_can_default_destination_and_list_recursively pid=552485 elapsed=1.408180702s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552499
+CLI end: test=add_can_default_destination_and_list_recursively pid=552499 elapsed=403.506889ms status=exit status: 1
+CLI start: test=add_can_default_destination_and_list_recursively pid=552502
+CLI end: test=add_can_default_destination_and_list_recursively pid=552502 elapsed=1.410452671s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552536
+CLI end: test=add_can_default_destination_and_list_recursively pid=552536 elapsed=401.270899ms status=exit status: 1
+CLI start: test=add_can_default_destination_and_list_recursively pid=552572
+CLI end: test=add_can_default_destination_and_list_recursively pid=552572 elapsed=1.404505734s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552655
+CLI end: test=add_can_default_destination_and_list_recursively pid=552655 elapsed=1.407799146s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552658
+CLI end: test=add_can_default_destination_and_list_recursively pid=552658 elapsed=1.411679257s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552661
+CLI end: test=add_can_default_destination_and_list_recursively pid=552661 elapsed=427.046716ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552664
+CLI end: test=add_can_default_destination_and_list_recursively pid=552664 elapsed=401.833447ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552667
+CLI end: test=add_can_default_destination_and_list_recursively pid=552667 elapsed=401.800136ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552670
+CLI end: test=add_can_default_destination_and_list_recursively pid=552670 elapsed=1.003636249s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552692
+CLI end: test=add_can_default_destination_and_list_recursively pid=552692 elapsed=401.632844ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552695
+CLI end: test=add_can_default_destination_and_list_recursively pid=552695 elapsed=426.853505ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=552698
+CLI end: test=add_can_default_destination_and_list_recursively pid=552698 elapsed=401.513512ms status=exit status: 0
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 77 filtered out; finished in 17.01s
+

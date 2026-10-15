@@ -1,0 +1,9 @@
+Runtime:
+/home/bsutton/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --version
+v24.19.0
+
+Exact executed command:
+/home/bsutton/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node -e 'const assert=require("node:assert/strict"); const {WasmLockbox,set_weakened_allocation_allowed}=require("./bindings/wasm/generated/revault_wasm_bindings.cjs"); set_weakened_allocation_allowed(true); const key=new Uint8Array(32).fill(77); let box=new WasmLockbox(key); let bytes; try { box.add_file("/pending",new TextEncoder().encode("setter-lifecycle"),false); box.set_cache_limit("bytes",8192n); assert.throws(()=>box.set_cache_limit("invalid",0n),/cache mode/); assert.equal(new TextDecoder().decode(box.get_file("/pending")),"setter-lifecycle"); box.set_cache_limit("auto",0n); box.commit(); bytes=box.to_bytes(); } finally { box.free(); } box=WasmLockbox.open(bytes,key); try { assert.equal(new TextDecoder().decode(box.get_file("/pending")),"setter-lifecycle"); } finally { box.free(); } console.log("WASM bytes8192n -> invalid-input refusal -> Auto -> commit/reopen passed");'
+
+Output log: setter-lifecycle.log
+This test does not observe or claim a cache-limit getter; the generated WASM API has no cache_stats() method.

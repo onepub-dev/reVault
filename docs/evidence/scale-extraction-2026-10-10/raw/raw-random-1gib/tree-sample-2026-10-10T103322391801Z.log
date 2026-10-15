@@ -1,0 +1,32 @@
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... CANDIDATE_SAMPLE {"access":"stream","backend":"lockbox","baseline_peak_rss_kib":6188,"candidate_scope":"file-read component with explicit keys; no full-format, write or CLI RSS qualification","candidate_test_executable_sha256":"c3d55a2c59453263e348f986414e784fe03396a8c025f20358742399d89df868","extent_unit":65536,"first_byte_seconds":0.00074844,"kind":"sample","layout":"shared-control-typed-tree","logical_bytes_read":1073741824,"open_resources":{"cpu_seconds":0.0004600000000000001,"major_faults":0,"system_seconds":0.0,"user_seconds":0.0004600000000000001},"open_seconds":0.000459326,"passes":1,"peak_rss_kib":10156,"probe_overhead_seconds":1.1100000000263677e-6,"read_resources":{"cpu_seconds":0.653032,"major_faults":0,"system_seconds":0.068025,"user_seconds":0.5850069999999999},"read_seconds":0.65312233,"resources":{"cpu_seconds":0.653492,"major_faults":0,"system_seconds":0.068025,"user_seconds":0.585467},"total_seconds":0.653582766,"verified":true}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 674 filtered out; finished in 1.41s
+
+
+--- STDERR ---
+	Command being timed: "timeout 900 /tmp/revault-scale-20261010/evidence/bin/revault_lockbox_api_tests --exact file_format::candidate_files::resource_probe::candidate_file_resource_probe --ignored --nocapture"
+	User time (seconds): 1.14
+	System time (seconds): 0.27
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.41
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 10944
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 1502
+	Voluntary context switches: 5
+	Involuntary context switches: 20
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

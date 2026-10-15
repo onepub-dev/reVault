@@ -1,0 +1,113 @@
+{
+  "baseline_source": "a6b67546",
+  "candidate_source": "e23b4d33",
+  "hypothesis": "Shared allocation and privacy padding for independently protected file fragments reduces small-file space without surrendering independent recovery or whole-pack retirement",
+  "protocol": "ZIP + old C primary + new C other; 30 paired observations after 3 warmups, CPU 2; all source bytes verified after timing",
+  "limitations": "File-only C; no public records/access/bootstrap or compaction integration. Repeat fixed eight-case batch once; no target changes. 100k-file and GB resources follow as descriptive probes.",
+  "cases": [
+    {
+      "name": "compressed64",
+      "unit": 65536,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "pattern",
+      "codec": "compressed",
+      "mode": "plain",
+      "access": "stream",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "compressed256",
+      "unit": 262144,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "pattern",
+      "codec": "compressed",
+      "mode": "plain",
+      "access": "stream",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "raw64",
+      "unit": 65536,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "random",
+      "codec": "raw",
+      "mode": "plain",
+      "access": "stream",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "small",
+      "unit": 262144,
+      "files": 512,
+      "bytes": 4096,
+      "corpus": "mixed",
+      "codec": "compressed",
+      "mode": "plain",
+      "access": "stream",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "compressed-signed",
+      "unit": 262144,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "pattern",
+      "codec": "compressed",
+      "mode": "signed",
+      "access": "stream",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "compressed-encrypted-signed",
+      "unit": 262144,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "pattern",
+      "codec": "compressed",
+      "mode": "encrypted-signed",
+      "access": "stream",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "raw-range",
+      "unit": 65536,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "random",
+      "codec": "raw",
+      "mode": "plain",
+      "access": "range",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "raw-encrypted-range",
+      "unit": 65536,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "random",
+      "codec": "raw",
+      "mode": "encrypted",
+      "access": "range",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    }
+  ]
+}

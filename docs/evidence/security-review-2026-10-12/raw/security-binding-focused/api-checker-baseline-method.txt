@@ -1,0 +1,1 @@
+Checker function source is unchanged between cc2909a and the current worktree; current checker binary SHA256 085ee214e52db35a475d3b28c8b4656f626f7164dfba6fd90450b0ede7794446. Baseline source was archived from cc2909a and given temporary local git metadata only so git ls-files could enumerate it. Generated-binding currency remained unknown because flatc is unavailable.

@@ -1,0 +1,13 @@
+{
+  "revision": "951c43d3",
+  "binary_sha256": "501ec0baad29607bcdf6ce86eef23e10f708ddd460b2421b69b1b6f87f0f51ec",
+  "cases": {
+    "small-plain": "/tmp/revault-packed-comparison-20260927/small/other",
+    "small-protected": "/tmp/revault-whole-layout-cost-model-20260927/small-protected",
+    "large-raw": "/tmp/revault-packed-comparison-20260927/raw64/other",
+    "large-compressed": "/tmp/revault-packed-comparison-20260927/compressed256/other",
+    "large-protected": "/tmp/revault-packed-comparison-20260927/compressed-encrypted-signed/other"
+  },
+  "unit": 262144,
+  "scope": "read-only paged metadata size feasibility; one permission edit per leaf, not a persisted writer or performance qualification"
+}

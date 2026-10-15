@@ -1,0 +1,14 @@
+a475db0309c1e285c92aff7596dda982998547cd
+ M rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs
+ M rust/revault_lockbox_api/src/lockbox/files.rs
+?? docs/evidence/parallel-encoder-reuse-2026-10-12/
+?? docs/evidence/public-add-2026-10-12/
+?? docs/evidence/public-add-serial-2026-10-12/
+?? tools/public-add-serial.dart
+?? tools/public-add.dart
+85caddce82608beace258c8f507f8d33b73d27541d0ccbbfea0ea5ff648a273d  target/explicit-file-extraction-20261012/bin/lockbox-new
+5b831735bdf736506ad9cf0de3b85b90181f7036f3e7adb046e201672dbd712f  target/parallel-encoder-reuse-202612/bin/lockbox-new
+09f37009e52b0b226d11e1cc893863f1cd98dea16d58caee9ea4702958a098c7  revault_lockbox_api/src/lockbox/files.rs
+8c6f386809626d7d7e8cbd98992fc85fefcc855284c56f9a74973277f2b47b22  revault_lockbox_api/src/lockbox/file_import_pipeline.rs
+8b3444bf2390acec1150d9840bfc3f0bfc02b7f42d4b34df926ce7974b36cdd2  revault_cli/Cargo.toml
+beab5d20edb8c69e95f2f330abdbe38e08f11cfc3ea81adc87eadbc557e8167f  revault_lockbox_api/Cargo.toml

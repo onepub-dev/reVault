@@ -1,0 +1,272 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs
+index 03014fce..a05022f5 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs
+@@ -1,6 +1,6 @@
+-//! Bounded experimental filesystem catalogue and typed-tree variable metadata.
+-//! Dense serialization remains filesystem-only and refuses variable records.
+-//! Public activation, forms and the full mirror model remain separate work.
++//! Bounded experimental filesystem, variable and form snapshot metadata.
++//! Dense serialization remains filesystem-only and refuses other record families.
++//! Public activation, complete form mutation and mirror semantics remain separate.
+ use super::*;
+ use crate::crypto::strong_checksum;
+ use crate::file_format::allocation_map::Extent;
+@@ -9,6 +9,7 @@ use crate::file_format::publication_anchor::REGION_LEN;
+ use crate::page_buffer::ZeroizingBytes;
+ use std::collections::BTreeSet;
+ mod nodes;
++pub(super) mod forms;
+ pub(super) mod overflow;
+ pub(super) use nodes::Metadata;
+ const MAX_BODY: usize = 65536;
+@@ -41,6 +42,7 @@ pub(super) struct Catalogue {
+     typed: bool,
+     pub nodes: Vec<nodes::Node>,
+     pub variables: Vec<Variable>,
++    pub forms: forms::Forms,
+     pub vacant: Vec<Vacant>,
+     pub files: Vec<File>,
+     pub packs: Vec<Pack>,
+@@ -99,6 +101,7 @@ impl Catalogue {
+         }
+         let mut catalogue = Self {
+             variables: Vec::new(),
++            forms: forms::Forms::default(),
+             legacy: false,
+             typed: false,
+             nodes: Vec::new(),
+@@ -257,6 +260,7 @@ impl Catalogue {
+         }
+         let mut catalogue = Self {
+             variables: Vec::new(),
++            forms: forms::Forms::default(),
+             legacy,
+             typed,
+             nodes,
+@@ -324,6 +328,7 @@ impl Catalogue {
+                 .iter()
+                 .flat_map(|v| v.layout.extents.iter().copied()),
+         );
++        packs.extend(self.forms.texts().into_iter().flat_map(|text|text.extents.iter().copied()));
+         packs.sort_by_key(|extent| extent.start);
+         if self.legacy {
+             Graph::fresh_files(anchor, &packs)
+@@ -353,9 +358,9 @@ impl Catalogue {
+         Ok(())
+     }
+     pub(super) fn encode(&self, codec: &Codec, sealed: u64) -> Result<ZeroizingBytes> {
+-        if !self.variables.is_empty() {
++        if !self.variables.is_empty() || !self.forms.is_empty() {
+             return Err(Error::SecurityLimitExceeded(
+-                "variables require typed tree metadata".into(),
++                "variables and forms require typed tree metadata".into(),
+             ));
+         }
+         if self.legacy {
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs
+index e4649477..e9e4c04e 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs
+@@ -18,7 +18,7 @@ impl Catalogue {
+         codec: &Codec,
+         sealed: u64,
+     ) -> Result<Option<ZeroizingBytes>> {
+-        if !self.variables.is_empty() || self.files.len() + self.nodes.len() > MAX_MODEL_FILES {
++        if !self.variables.is_empty() || !self.forms.is_empty() || self.files.len() + self.nodes.len() > MAX_MODEL_FILES {
+             return Ok(None);
+         }
+         match self.encode(codec, sealed) {
+@@ -60,6 +60,8 @@ impl Catalogue {
+         }
+         nodes::validate_bounded(&self.files, &self.nodes, MAX_NODES)?;
+         validate_variables(&self.variables)?;
++        validate_form_identities(&self.forms,&self.files,&self.variables)?;
++        let form_records=self.forms.encode()?;
+         let mut path_bytes = 0usize;
+         for len in self
+             .files
+@@ -71,13 +73,16 @@ impl Catalogue {
+                     .map(|n| n.path.len() + 5 + n.target.as_ref().map_or(0, |v| v.len())),
+             )
+             .chain(self.variables.iter().map(|v| v.name.as_str().len()))
++            .chain(form_records.iter().map(|row|row.key.len()))
+         {
+             path_bytes = path_bytes.checked_add(len).ok_or(Error::CorruptRecord)?;
+         }
+         if path_bytes > super::super::MAX_PATH_BYTES {
+             return Err(Error::SecurityLimitExceeded("typed tree path bytes".into()));
+         }
+-        let version = if self.variables.is_empty() {
++        let version = if !self.forms.is_empty() {
++            b"RV4FS003"
++        } else if self.variables.is_empty() {
+             b"RV4FS001"
+         } else {
+             b"RV4FS002"
+@@ -90,6 +95,7 @@ impl Catalogue {
+                 &variable.layout.encode_metadata(),
+             )?);
+         }
++        out.extend(form_records);
+         for file in &self.files {
+             let mut value = Zeroizing::new(file.permissions.to_le_bytes().to_vec());
+             value.extend_from_slice(&file.info.encode());
+@@ -139,6 +145,7 @@ impl Catalogue {
+         let mut path_bytes = 0usize;
+         let mut format = 0;
+         let mut variables = Vec::new();
++        let mut form_rows = Vec::new();
+         let tree = visit(&mut |entry| {
+             match entry.namespace {
+                 FILE_RECORD => {
+@@ -236,12 +243,18 @@ impl Catalogue {
+                         .ok_or(Error::CorruptRecord)?;
+                     variables.push(entry);
+                 }
++                7..=10 => {
++                    forms::Forms::admit_row(&entry)?;
++                    if form_rows.len() >= 4096 {return Err(Error::CorruptRecord);}
++                    path_bytes=path_bytes.checked_add(entry.key.len()).ok_or(Error::CorruptRecord)?;
++                    form_rows.push(entry);
++                }
+                 FORMAT_RECORD
+                     if format == 0
+                         && entry.key.as_slice() == b"format"
+-                        && matches!(entry.value.as_slice(), b"RV4FS001" | b"RV4FS002") =>
++                        && matches!(entry.value.as_slice(), b"RV4FS001" | b"RV4FS002" | b"RV4FS003") =>
+                 {
+-                    format = if entry.value.as_slice() == b"RV4FS001" {
++                    format = if entry.value.as_slice() == b"RV4FS003" {3} else if entry.value.as_slice() == b"RV4FS001" {
+                         1
+                     } else {
+                         2
+@@ -271,14 +284,17 @@ impl Catalogue {
+             })
+             .collect::<Result<Vec<_>>>()?;
+         validate_variables(&variables)?;
++        let forms=forms::Forms::decode(form_rows,tree.anchor.mode,tree.anchor.sealed_len)?;
++        validate_form_identities(&forms,&files,&variables)?;
+         let mut payloads: Vec<_> = packs.iter().map(|pack| pack.extent).collect();
+         payloads.extend(
+             variables
+                 .iter()
+                 .flat_map(|v| v.layout.extents.iter().copied()),
+         );
++        payloads.extend(forms.texts().into_iter().flat_map(|text|text.extents.iter().copied()));
+         payloads.sort_by_key(|extent| extent.start);
+-        if format != (if variables.is_empty() { 1 } else { 2 }) || payloads != tree.graph.payloads()
++        if format != (if !forms.is_empty() {3} else if variables.is_empty() { 1 } else { 2 }) || payloads != tree.graph.payloads()
+         {
+             return Err(Error::CorruptRecord);
+         }
+@@ -316,6 +332,7 @@ impl Catalogue {
+             legacy: false,
+             typed: true,
+             variables,
++            forms,
+             files,
+             nodes,
+             packs,
+@@ -349,3 +366,9 @@ fn validate_variables(variables: &[Variable]) -> Result<()> {
+     }
+     Ok(())
+ }
++
++fn validate_form_identities(forms:&forms::Forms,files:&[File],variables:&[Variable])->Result<()> {
++ forms.validate()?;if forms.is_empty(){return Ok(());}let mut ids=BTreeSet::new();
++ for id in files.iter().map(|f|f.info.id).chain(variables.iter().map(|v|v.layout.id)).chain(forms.records.iter().map(|r|r.id)).chain(forms.texts().into_iter().map(|t|t.id)){if !ids.insert(id){return Err(Error::CorruptRecord);}}
++ Ok(())
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_image.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_image.rs
+index 387f5560..1705b66b 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_image.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_image.rs
+@@ -136,6 +136,7 @@ impl<S: Storage> Image<S> {
+                 self.anchor.sealed_len,
+             )?;
+         }
++        if !self.catalogue.forms.is_empty(){self.catalogue.forms.verify(&self.storage,self.anchor.archive,self.value_key.as_ref().ok_or(Error::CorruptRecord)?,self.anchor.sealed_len)?;}
+         Ok(())
+     }
+ }
+@@ -377,7 +378,7 @@ pub(super) fn value_key_for(
+     mode: FormatMode,
+     key: Option<&[u8]>,
+ ) -> Result<Option<Zeroizing<[u8; 32]>>> {
+-    if catalogue.variables.is_empty() {
++    if catalogue.variables.is_empty() && catalogue.forms.is_empty() {
+         Ok(None)
+     } else {
+         value_key(mode, key).map(Some)
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests.rs
+index 1e1ae0f3..2a9e9ffe 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests.rs
+@@ -7,6 +7,7 @@ mod fresh;
+ mod mutation;
+ mod open_reads;
+ mod variables;
++mod forms;
+ 
+ fn exported(
+     mode: FormatMode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs
+index 9d5d5dcb..456cd73c 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs
+@@ -327,12 +327,12 @@ use std::cell::RefCell;
+ use std::rc::Rc;
+ 
+ #[derive(Clone, Debug)]
+-struct Guarded<S> {
+-    inner: S,
+-    spans: Rc<RefCell<Vec<(u64, u64)>>>,
++pub(super) struct Guarded<S> {
++    pub(super) inner: S,
++    pub(super) spans: Rc<RefCell<Vec<(u64, u64)>>>,
+ }
+ impl<S: Storage> Guarded<S> {
+-    fn new(inner: S, spans: Vec<(u64, u64)>) -> Self {
++    pub(super) fn new(inner: S, spans: Vec<(u64, u64)>) -> Self {
+         Self {
+             inner,
+             spans: Rc::new(RefCell::new(spans)),
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs
+index 8d5fcd71..db646866 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs
+@@ -1,6 +1,7 @@
+ //! Experimental typed filesystem adapter over the authenticated shared tree.
+ //! Fresh export preserves its source. Filesystem and guarded variable transactions
+-//! are test-only; forms, public activation and complete migration remain separate.
++//! and form snapshots are test-only; public activation, complete form mutation
++//! and migration remain separate.
+ use super::dense_catalogue::{Catalogue, Metadata};
+ use super::dense_image::Image;
+ use super::*;
+@@ -10,6 +11,7 @@ mod fresh;
+ pub(super) use fresh::from_candidate;
+ mod mutation;
+ pub(super) mod variables;
++pub(super) mod forms;
+ pub(super) use mutation::{remove_files, update_files};
+ 
+ pub(super) struct TreeImage<S: Storage> {
+diff --git a/rust/revault_lockbox_api/src/file_format/mod.rs b/rust/revault_lockbox_api/src/file_format/mod.rs
+index c307e487..36a769e0 100644
+--- a/rust/revault_lockbox_api/src/file_format/mod.rs
++++ b/rust/revault_lockbox_api/src/file_format/mod.rs
+@@ -53,7 +53,11 @@ pub(crate) mod data_extent;
+ #[cfg(test)]
+ pub(crate) mod secure_segments;
+ 
+-// File-only comparison adapter; full public record/access integration remains.
++// Domain-bound form texts remain a selected-metadata experiment.
++#[cfg(test)]
++pub(crate) mod form_segments;
++
++// Candidate comparisons and typed shared-tree adapters; no public activation.
+ #[cfg(test)]
+ pub(crate) mod candidate_files;
+ 

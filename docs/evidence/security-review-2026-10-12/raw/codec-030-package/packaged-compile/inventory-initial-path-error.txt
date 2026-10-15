@@ -1,0 +1,1 @@
+The first inventory/list wrapper invocation did not start any test process: a repository evidence path omitted `read` from the worktree directory and the output file could not be created. A second attempt caught the same bad path before cargo or test-binary execution. No tests were executed. Corrected invocation follows.

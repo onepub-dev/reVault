@@ -966,6 +966,42 @@ final class ProfileHistory {
       _generations = null;
 }
 
+/// A local Vault alias mapping a normalized name to a stable lockbox identity; resolution does not open the target.
+///
+/// Example:
+/// ```dart
+/// for (final alias in vault.listLockboxAliases()) {
+///   print(alias.name);
+/// }
+/// ```
+final class LockboxAlias {
+  final fb.LockboxAlias? _view;
+  final String? _name;
+
+  /// Case-sensitive normalized NFC alias name.
+  late final String name = _view == null ? _name! : _view.name ?? '';
+  final Uint8List? _lockboxId;
+
+  /// Stable binary target identity; verify it when opening the resolved path.
+  late final Uint8List lockboxId = _view == null
+      ? _lockboxId!
+      : Uint8List.fromList(_view.lockboxId ?? const <int>[]);
+
+  /// Creates a LockboxAlias value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// for (final alias in vault.listLockboxAliases()) {
+  ///   print(alias.name);
+  /// }
+  /// ```
+  LockboxAlias({String name = '', required Uint8List lockboxId})
+    : _view = null,
+      _name = name,
+      _lockboxId = lockboxId;
+  LockboxAlias._from(this._view) : _name = null, _lockboxId = null;
+}
+
 /// A lockbox identifier and host path remembered by the local vault for later discovery.
 ///
 /// Example:
@@ -1343,20 +1379,26 @@ final class SleepSupport {
   final fb.SleepSupport? _view;
   final bool? _suspendNotifications;
 
-  /// Whether the host reports impending system suspend.
+  /// Whether suspend notification support is compiled for this host.
   late final bool suspendNotifications = _view == null
       ? _suspendNotifications!
       : _view.suspendNotifications;
   final bool? _sleepInhibition;
 
-  /// Whether the agent can delay sleep while handling secrets.
+  /// Whether sleep inhibition support is compiled for this host.
   late final bool sleepInhibition = _view == null
       ? _sleepInhibition!
       : _view.sleepInhibition;
   final bool? _supported;
 
-  /// Whether the host supplies enough integration for safe caching.
+  /// Whether this build includes the host integration; this is not runtime watcher readiness.
   late final bool supported = _view == null ? _supported! : _view.supported;
+  final bool? _cacheClearingActive;
+
+  /// Whether the current compatible Session Agent reports an active suspend cache watcher; false when absent or unavailable. Notification delivery is platform-dependent.
+  late final bool cacheClearingActive = _view == null
+      ? _cacheClearingActive!
+      : _view.cacheClearingActive;
 
   /// Creates a SleepSupport value for an API input or application-owned copy.
   ///
@@ -1369,14 +1411,17 @@ final class SleepSupport {
     bool suspendNotifications = false,
     bool sleepInhibition = false,
     bool supported = false,
+    bool cacheClearingActive = false,
   }) : _view = null,
        _suspendNotifications = suspendNotifications,
        _sleepInhibition = sleepInhibition,
-       _supported = supported;
+       _supported = supported,
+       _cacheClearingActive = cacheClearingActive;
   SleepSupport._from(this._view)
     : _suspendNotifications = null,
       _sleepInhibition = null,
-      _supported = null;
+      _supported = null,
+      _cacheClearingActive = null;
 }
 
 /// Availability and configuration of the platform credential store used for the Vault passphrase.
@@ -1640,6 +1685,10 @@ abstract final class DomainDecoders {
   static ProfileHistory profileHistory(Uint8List bytes) =>
       ProfileHistory._from(fb.ProfileHistory(bytes));
 
+  /// Decodes a native LockboxAlias result without copying its fields.
+  static LockboxAlias lockboxAlias(Uint8List bytes) =>
+      LockboxAlias._from(fb.LockboxAlias(bytes));
+
   /// Decodes a native KnownLockbox result without copying its fields.
   static KnownLockbox knownLockbox(Uint8List bytes) =>
       KnownLockbox._from(fb.KnownLockbox(bytes));
@@ -1731,6 +1780,12 @@ abstract final class DomainDecoders {
   static List<Contact> contactList(Uint8List bytes) =>
       List<Contact>.unmodifiable(
         (fb.ContactList(bytes).values ?? const []).map(Contact._from),
+      );
+
+  /// Decodes a native list of LockboxAlias values.
+  static List<LockboxAlias> lockboxAliasList(Uint8List bytes) =>
+      List<LockboxAlias>.unmodifiable(
+        (fb.LockboxAliasList(bytes).values ?? const []).map(LockboxAlias._from),
       );
 
   /// Decodes a native list of KnownLockbox values.

@@ -1,0 +1,4 @@
+error: document output filename collision
+The lib `revault_lockbox_api` in package `revault_lockbox_api v0.0.41 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_lockbox_api)` has the same name as the lib `revault_lockbox_api` in package `revault_archive_v3_reader v0.0.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_archive_v3/legacy)`.
+Only one may be documented at once since they output to the same path.
+Consider documenting only one, renaming one, or marking one with `doc = false` in Cargo.toml.

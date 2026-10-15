@@ -1,0 +1,75 @@
+Issue #310: reject delayed large-frame cache admission; measure repeated reads
+
+Production baseline: 4be2063. Production code was restored to that revision
+after this experiment. The retained code change is benchmark PASSES support.
+Before binary SHA256: a397b16a3a449b7f31b4c71ecaace6bbb8a6676e95534e7fe9e4cb39c6de5f53
+Rejected prototype SHA256: c4d7b32dd99ab4f3bef21f6daeec0760048d9023351cac470b43735c6efc4dfd
+Both binaries include identical new repeated-pass benchmark code, built release
+with native-block-layout. No format, default activation or public API change.
+
+The prototype delayed decoded-frame admission for standalone native frames
+larger than BLOCK_BYTES (16 KiB) under Interactive/BulkImport until the existing
+bounded NativeIndex cache entry had been reused (matching write revision and
+cache-entry generation > 0). Small/packed frames and ReadMostly/ExtractMany
+kept eager admission. No additional unbounded history or authentication bypass.
+Focused native tests checked all protection modes, repeated reads, and disabled
+cache; they passed apart from the pre-existing signed-neighbor recovery failure.
+The prototype and its policy-specific test were removed after the measurements.
+
+The new REVAULT_ZIP_READ_PASSES environment option defaults to one. It repeats
+all requested reads on the same archive handle within a sample for both ZIP and
+Lockbox, verifying every returned byte on every pass. Each timed sample still
+opens a fresh archive. PASSES must be recorded alongside the CSV (the base
+16-column CSV shape is unchanged), as done in this experiment's prefix columns.
+
+admission-reads.csv: 192 rows; four alternating-order before/after runs,
+five samples per row, four 8 MiB files, plain mode, Interactive creation,
+pattern/random corpora, both requested compression settings and
+Interactive/ReadMostly read profiles. ACCESS=whole. PASSES=1,2,5. OS caches
+warm; no decoded Lockbox data survives across timed samples. Requested
+compression=true on incompressible input falls back to raw native frames.
+The ReadMostly rows are unchanged-policy controls.
+
+Median lockbox before/after time per case (speedup), and prototype/ZIP time:
+1 false Interactive pattern: speedup 1.663, after/ZIP 2.630
+1 false Interactive random: speedup 1.820, after/ZIP 2.710
+1 false ReadMostly pattern: speedup 0.993, after/ZIP 4.739
+1 false ReadMostly random: speedup 0.990, after/ZIP 4.933
+1 true Interactive pattern: speedup 2.074, after/ZIP 1.597
+1 true Interactive random: speedup 1.783, after/ZIP 1.203
+1 true ReadMostly pattern: speedup 0.990, after/ZIP 3.860
+1 true ReadMostly random: speedup 0.971, after/ZIP 2.014
+2 false Interactive pattern: speedup 0.778, after/ZIP 3.531
+2 false Interactive random: speedup 0.757, after/ZIP 3.655
+2 false ReadMostly pattern: speedup 0.994, after/ZIP 2.610
+2 false ReadMostly random: speedup 1.010, after/ZIP 2.884
+2 true Interactive pattern: speedup 0.870, after/ZIP 2.641
+2 true Interactive random: speedup 0.742, after/ZIP 1.628
+2 true ReadMostly pattern: speedup 0.989, after/ZIP 2.258
+2 true ReadMostly random: speedup 1.000, after/ZIP 1.250
+5 false Interactive pattern: speedup 0.782, after/ZIP 2.200
+5 false Interactive random: speedup 0.869, after/ZIP 1.992
+5 false ReadMostly pattern: speedup 1.000, after/ZIP 1.571
+5 false ReadMostly random: speedup 0.970, after/ZIP 1.653
+5 true Interactive pattern: speedup 0.858, after/ZIP 1.530
+5 true Interactive random: speedup 0.815, after/ZIP 0.803
+5 true ReadMostly pattern: speedup 0.957, after/ZIP 1.398
+5 true ReadMostly random: speedup 1.030, after/ZIP 0.665
+
+Decision: reject the policy. Interactive first reads improve 1.66-2.07x,
+but two-pass sequences take 15-35% longer and five-pass sequences 15-28%
+longer. ReadMostly controls remain near parity between implementations.
+A first-read-only benchmark would have concealed these realistic regressions.
+
+Next work should reduce the copying/allocation cost of retaining decoded data
+and assembling multi-frame output while preserving warm reuse, rather than
+moving repeated hash/decode work onto the second read. Neither this experiment
+nor the existing large-file measurements establishes ZIP parity. The two known
+native recovery failures remain unresolved and native layout stays opt-in.
+
+Validation of retained benchmark change: both baseline/prototype release
+builds succeeded, and all 192 rows completed with byte verification on every
+pass. Production behavior is unchanged from 4be2063 after the scoped restore.
+- Retained zip_read benchmark passed Clippy with -D warnings after restoring
+  production sources. No new production test run is claimed for this bench-only
+  commit; the restored production revision's validation is recorded separately.

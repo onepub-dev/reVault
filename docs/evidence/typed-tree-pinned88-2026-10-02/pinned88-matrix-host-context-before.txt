@@ -1,0 +1,10 @@
+Fri Oct  2 13:17:35 UTC 2026
+ 23:17:35 up 20 days, 11:12,  1 user,  load average: 0.57, 0.94, 1.50
+pid 2973415's current affinity list: 0-15
+  63928       1 Sl   containerd-shim /usr/bin/containerd-shim-runc-v2 -namespace moby -id 09082d5445c708a0695ae005f31fdbce33730e6af5842e95182e5f8d7df36b9c -address /run/containerd/containerd.sock
+ 854829    6145 Sl   dart:log_collec /home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dartvm --resolved_executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart --executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart /home/bsutton/.pub-cache/hosted/pub.dev/fdb-1.10.1/bin/log_collector.dart ws://127.0.0.1:36763/LuhcwbMAHso=/ws /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/logs.txt /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/log_collector.pid
+ 863918    6145 Sl   dart:log_collec /home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dartvm --resolved_executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart --executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart /home/bsutton/.pub-cache/hosted/pub.dev/fdb-1.10.1/bin/log_collector.dart ws://127.0.0.1:36965/P9foASZlpCc=/ws /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/logs.txt /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/log_collector.pid
+1217376    6145 SLl  lbx             /home/bsutton/.cargo/bin/lbx __agent
+2580422       1 Ssl  op_monitor_code /opt/onepub/op_monitor/bin/op_monitor_codex_runner --config /opt/onepub/op_monitor/codex-runner/config.yaml --client-uid 2102
+2973415 2090218 Ss   bash            /bin/bash -lc { date -u; uptime; taskset -pc $$; ps -eo pid,ppid,stat,comm,args | rg -i 'cargo|rustc|revault|hmb|test|runner|fdb|lbx' | head -100; } > /tmp/revault-typed-read-20261002/pinned88-matrix-host-context-before.txt
+2973493 2973415 S    rg              rg -i cargo|rustc|revault|hmb|test|runner|fdb|lbx

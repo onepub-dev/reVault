@@ -311,6 +311,20 @@ static void expect_optional_string(RevaultBuffer value, const char *expected) {
   buffer_free(value);
 }
 
+static void expect_alias_count(RevaultBuffer value, size_t count) {
+  CHECK(flatbuffer_bytes(framed_payload(value), 1).len == count, "alias list count");
+  buffer_free(value);
+}
+
+static void expect_alias_target(RevaultBuffer value, const uint8_t *id, size_t id_len, const char *expected_path) {
+  Bytes payload = framed_payload(value);
+  Bytes actual_id = flatbuffer_bytes(payload, 1);
+  Bytes path = flatbuffer_bytes(payload, 2);
+  CHECK(actual_id.len == id_len && memcmp(actual_id.ptr, id, id_len) == 0, "alias target identity");
+  CHECK(path.len == strlen(expected_path) && memcmp(path.ptr, expected_path, path.len) == 0, "alias target path");
+  buffer_free(value);
+}
+
 static void loader_lifecycle(void) {
   char file_path[512]; artifact_path(file_path, sizeof(file_path), "native-file.lbox");
   const uint8_t file_key[32] = {75};
@@ -479,6 +493,18 @@ static void archive_lifecycle(void) {
   RevaultBuffer options = lockbox_runtime_options(box);
   CHECK(framed_payload(options).len > 0, "runtime options");
   buffer_free(options);
+  CHECK(lockbox_set_cache_limit(box, "bytes", 5, 8192), "cache limit");
+  RevaultBuffer cache_limit_stats = lockbox_cache_stats(box);
+  Bytes cache_limit_payload = framed_payload(cache_limit_stats);
+  const uint8_t *cache_limit_field = flatbuffer_field(cache_limit_payload, 1);
+  CHECK(cache_limit_field != NULL && cache_limit_field + 8 <= cache_limit_payload.ptr + cache_limit_payload.len, "cache limit field");
+  uint64_t observed_cache_limit = 0;
+  for (unsigned cache_byte = 0; cache_byte < 8; ++cache_byte)
+    observed_cache_limit |= ((uint64_t)cache_limit_field[cache_byte]) << (8 * cache_byte);
+  CHECK(observed_cache_limit == 8192, "cache limit stats");
+  buffer_free(cache_limit_stats);
+  CHECK(lockbox_set_cache_limit(box, "auto", 4, 0), "restore cache");
+  PASS(lockbox_set_cache_limit, 2);
   PASS(lockbox_set_workload_profile, 1);
   PASS(lockbox_set_worker_policy, 1);
   PASS(lockbox_runtime_options, 1);
@@ -697,6 +723,13 @@ static void expect_framed_nonempty(RevaultBuffer value, const char *message) {
 }
 
 static void vault_lifecycle(void) {
+  char alias_path[512];
+  artifact_path(alias_path, sizeof(alias_path), "remembered-alias-target.lbox");
+#ifdef _WIN32
+  CHECK((strlen(alias_path) > 2 && alias_path[1] == ':' && (alias_path[2] == '/' || alias_path[2] == '\\')) || (alias_path[0] == '\\' && alias_path[1] == '\\'), "alias fixture requires an absolute artifact root");
+#else
+  CHECK(alias_path[0] == '/', "alias fixture requires an absolute artifact root");
+#endif
   char root[512];
   artifact_path(root, sizeof(root), "vault");
   (void)mkdir(root, 0700);
@@ -827,12 +860,20 @@ static void vault_lifecycle(void) {
   PASS(vault_directory_load_backup, 3);
 
   CHECK(vault_directory_remember_lockbox(vault, id, sizeof(id),
-                                         "/tmp/example.lbox", 17),
+                                         alias_path, strlen(alias_path)),
         "remember lockbox");
   expect_framed_nonempty(vault_directory_list_known_lockboxes(vault),
                          "known lockboxes");
   PASS(vault_directory_remember_lockbox, 1);
   PASS(vault_directory_list_known_lockboxes, 1);
+  CHECK(vault_directory_set_lockbox_alias(vault, "portable", 8, id, sizeof(id)), "set alias");
+  CHECK(vault_directory_set_lockbox_alias(vault, "portable", 8, id, sizeof(id)), "repeat alias");
+  expect_alias_count(vault_directory_list_lockbox_aliases(vault), 1);
+  expect_alias_target(vault_directory_resolve_lockbox_alias(vault, "portable", 8), id, sizeof(id), alias_path);
+  PASS(vault_directory_set_lockbox_alias, 2); PASS(vault_directory_list_lockbox_aliases, 1); PASS(vault_directory_resolve_lockbox_alias, 2);
+  CHECK(vault_directory_remove_lockbox_alias(vault, "portable", 8), "remove alias");
+  CHECK(vault_directory_remove_lockbox_alias(vault, "portable", 8), "repeat alias removal");
+  expect_alias_count(vault_directory_list_lockbox_aliases(vault), 0); PASS(vault_directory_remove_lockbox_alias, 3);
 
   CHECK(vault_directory_remember_access_slot_label(vault, id, sizeof(id), 7,
                                               "primary", 7),
@@ -896,7 +937,7 @@ static void vault_lifecycle(void) {
 
   CHECK(vault_directory_forget_access_slot_label(vault, id, sizeof(id), 7),
         "forget access label");
-  CHECK(vault_directory_forget_lockbox(vault, "/tmp/example.lbox", 17),
+  CHECK(vault_directory_forget_lockbox(vault, alias_path, strlen(alias_path)),
         "forget lockbox");
   CHECK(vault_directory_delete_contact(vault, "bob", 3), "delete contact");
   PASS(vault_directory_forget_access_slot_label, 1);
@@ -931,8 +972,16 @@ static void vault_lifecycle(void) {
 
   vault_directory_free(vault);
   PASS(vault_directory_free, 1);
+  void *alias_writer = vault_directory_open(root, strlen(root), password, sizeof(password) - 1);
+  CHECK(alias_writer != NULL, "reopen alias writer");
+  CHECK(vault_directory_remember_lockbox(alias_writer, id, sizeof(id), alias_path, strlen(alias_path)), "remember persisted alias target");
+  CHECK(vault_directory_set_lockbox_alias(alias_writer, "portable", 8, id, sizeof(id)), "persist alias");
+  vault_directory_free(alias_writer);
   void *read_only = vault_read_only_open(root, strlen(root), password, sizeof(password) - 1);
   CHECK(read_only != NULL, "open read-only vault");
+  expect_alias_count(vault_read_only_list_lockbox_aliases(read_only), 1);
+  expect_alias_target(vault_read_only_resolve_lockbox_alias(read_only, "portable", 8), id, sizeof(id), alias_path);
+  PASS(vault_read_only_list_lockbox_aliases, 1); PASS(vault_read_only_resolve_lockbox_alias, 2);
   expect_framed_nonempty(vault_read_only_list_profile_names(read_only), "read-only profiles");
   RevaultBuffer read_only_contacts = vault_read_only_list_contact_names(read_only);
   CHECK(read_only_contacts.ptr != NULL, "read-only contacts"); buffer_free(read_only_contacts);
@@ -1468,6 +1517,10 @@ static void archive_advanced(void) {
              sizeof(payload) - 1);
   PASS(lockbox_create_password, 1);
   PASS(lockbox_open_password, 2);
+  void *budget_open = lockbox_open_password_with_budget(password_archive.ptr, password_archive.len, password, sizeof(password) - 1, 1);
+  CHECK(budget_open != NULL, "budget password open");
+  expect_raw(lockbox_get_file(budget_open, "/password.txt", 13), payload, sizeof(payload) - 1);
+  lockbox_free(budget_open); PASS(lockbox_open_password_with_budget, 2);
   lockbox_free(opened_password);
   lockbox_free(password_box);
   buffer_free(password_archive);
@@ -1526,6 +1579,10 @@ static void archive_advanced(void) {
         "extract one file");
   CHECK(access(extracted_file, F_OK) == 0, "extracted file exists");
   PASS(lockbox_extract_file, 2);
+  CHECK(lockbox_extract_file_with_policy(box, "/advanced.txt", 13, extracted_file, strlen(extracted_file), 1048576, 1048576, 1, true, true), "policy extract");
+  size_t policy_length = 0; uint8_t *policy_bytes = read_artifact(extracted_file, &policy_length);
+  CHECK(policy_length == sizeof(payload) - 1 && memcmp(policy_bytes, payload, policy_length) == 0, "policy extracted bytes");
+  free(policy_bytes); PASS(lockbox_extract_file_with_policy, 2);
   char extracted_tree[1024];
   snprintf(extracted_tree, sizeof(extracted_tree), "%s/tree", extract_root);
   CHECK(lockbox_extract_directory(box, extracted_tree, strlen(extracted_tree),

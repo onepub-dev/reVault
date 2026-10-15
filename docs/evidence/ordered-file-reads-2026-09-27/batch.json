@@ -1,0 +1,113 @@
+{
+  "baseline_source": "ab4e2bc6eb1f0387b4a6ebf2118b6675e032808d",
+  "candidate_source": "4c236915",
+  "hypothesis": "one ordered metadata traversal per read range reduces repeated decoding without weakening authentication",
+  "protocol": "ZIP + old C primary + new C other; 30 paired observations after 3 warmups, CPU 2; all source bytes verified after timing",
+  "limitations": "C file-only, no packing or public key bootstrap. Signed open stays eager. No final gate claim. Small-file weakness remains recorded.",
+  "cases": [
+    {
+      "name": "compressed64",
+      "unit": 65536,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "pattern",
+      "codec": "compressed",
+      "mode": "plain",
+      "access": "stream",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "compressed256",
+      "unit": 262144,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "pattern",
+      "codec": "compressed",
+      "mode": "plain",
+      "access": "stream",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "raw64",
+      "unit": 65536,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "random",
+      "codec": "raw",
+      "mode": "plain",
+      "access": "stream",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "small",
+      "unit": 262144,
+      "files": 512,
+      "bytes": 4096,
+      "corpus": "mixed",
+      "codec": "compressed",
+      "mode": "plain",
+      "access": "stream",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "compressed-signed",
+      "unit": 262144,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "pattern",
+      "codec": "compressed",
+      "mode": "signed",
+      "access": "stream",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "compressed-encrypted-signed",
+      "unit": 262144,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "pattern",
+      "codec": "compressed",
+      "mode": "encrypted-signed",
+      "access": "stream",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "raw-range",
+      "unit": 65536,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "random",
+      "codec": "raw",
+      "mode": "plain",
+      "access": "range",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    },
+    {
+      "name": "raw-encrypted-range",
+      "unit": 65536,
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "random",
+      "codec": "raw",
+      "mode": "encrypted",
+      "access": "range",
+      "samples": 30,
+      "passes": 1,
+      "padding": "default"
+    }
+  ]
+}

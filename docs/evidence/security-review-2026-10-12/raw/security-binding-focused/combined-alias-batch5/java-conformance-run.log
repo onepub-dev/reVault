@@ -1,0 +1,2 @@
+Error: Could not find or load main class com.onepub.revault.Conformance
+Caused by: java.lang.ClassNotFoundException: com.onepub.revault.Conformance

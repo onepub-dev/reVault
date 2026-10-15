@@ -1,0 +1,25 @@
+{
+  "printf_command": [
+    "/usr/bin/time",
+    "-v",
+    "/usr/bin/printf",
+    "capture-ok\\n"
+  ],
+  "printf_exit_code": 0,
+  "printf_outer_timeout": false,
+  "printf_capture_incomplete": false,
+  "printf_stdout": "capture-ok\n",
+  "printf_time_stderr_captured": true,
+  "timeout_command": [
+    "/usr/bin/timeout",
+    "--kill-after=1s",
+    "0.1s",
+    "/usr/bin/sleep",
+    "2"
+  ],
+  "timeout_exit_code": 124,
+  "timeout_outer_timeout": false,
+  "timeout_capture_incomplete": false,
+  "timeout_status_retained_and_rejected": true,
+  "passed": true
+}

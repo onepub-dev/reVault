@@ -1,0 +1,1100 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:37:8
+   |
+37 |     if append_special_block(block, last_block, output) {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `bool`, found `Result<bool, CapacityError>`
+   |
+   = note: expected type `bool`
+              found enum `Result<bool, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<bool, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+37 |     if append_special_block(block, last_block, output).expect("REASON") {
+   |                                                       +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:131:8
+    |
+131 |     if append_special_block(block, last_block, output) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `bool`, found `Result<bool, CapacityError>`
+    |
+    = note: expected type `bool`
+               found enum `Result<bool, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<bool, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+131 |     if append_special_block(block, last_block, output).expect("REASON") {
+    |                                                       +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:329:8
+    |
+329 |     if append_special_block(src, last_block, output) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `bool`, found `Result<bool, CapacityError>`
+    |
+    = note: expected type `bool`
+               found enum `Result<bool, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<bool, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+329 |     if append_special_block(src, last_block, output).expect("REASON") {
+    |                                                     +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:588:9
+    |
+587 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+588 |         PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => DFastBlockEncoding {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:56:5
+    |
+56  |     Raw,
+    |     --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+588 |         core::prelude::v1::Ok(PreparedBlockEmission::Raw) | PreparedBlockEmission::Rle => DFastBlockEncoding {
+    |         ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:588:38
+    |
+587 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+588 |         PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => DFastBlockEncoding {
+    |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:57:5
+    |
+57  |     Rle,
+    |     --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+588 |         PreparedBlockEmission::Raw | core::prelude::v1::Ok(PreparedBlockEmission::Rle) => DFastBlockEncoding {
+    |                                      ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:592:9
+    |
+587 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+...
+592 |         PreparedBlockEmission::Compressed { new_huffman_table } => DFastBlockEncoding {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+592 |         core::prelude::v1::Ok(PreparedBlockEmission::Compressed { new_huffman_table }) => DFastBlockEncoding {
+    |         ++++++++++++++++++++++                                                       +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:628:9
+    |
+614 |       match append_prepared_block_or_raw(
+    |  ___________-
+615 | |         block,
+616 | |         last_block,
+617 | |         strategy_params.strategy,
+...   |
+626 | |         output,
+627 | |     ) {
+    | |_____- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+628 |           PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => DFastBlockEncoding {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:56:5
+    |
+56  |       Raw,
+    |       --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+628 |         core::prelude::v1::Ok(PreparedBlockEmission::Raw) | PreparedBlockEmission::Rle => DFastBlockEncoding {
+    |         ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:628:38
+    |
+614 |       match append_prepared_block_or_raw(
+    |  ___________-
+615 | |         block,
+616 | |         last_block,
+617 | |         strategy_params.strategy,
+...   |
+626 | |         output,
+627 | |     ) {
+    | |_____- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+628 |           PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => DFastBlockEncoding {
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:57:5
+    |
+57  |       Rle,
+    |       --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+628 |         PreparedBlockEmission::Raw | core::prelude::v1::Ok(PreparedBlockEmission::Rle) => DFastBlockEncoding {
+    |                                      ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs:632:9
+    |
+614 |       match append_prepared_block_or_raw(
+    |  ___________-
+615 | |         block,
+616 | |         last_block,
+617 | |         strategy_params.strategy,
+...   |
+626 | |         output,
+627 | |     ) {
+    | |_____- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+...
+632 |           PreparedBlockEmission::Compressed { new_huffman_table } => DFastBlockEncoding {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+632 |         core::prelude::v1::Ok(PreparedBlockEmission::Compressed { new_huffman_table }) => DFastBlockEncoding {
+    |         ++++++++++++++++++++++                                                       +
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:35:8
+   |
+35 |     if append_special_block(block, last_block, output) {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `bool`, found `Result<bool, CapacityError>`
+   |
+   = note: expected type `bool`
+              found enum `Result<bool, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<bool, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+35 |     if append_special_block(block, last_block, output).expect("REASON") {
+   |                                                       +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:129:8
+    |
+129 |     if append_special_block(block, last_block, output) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `bool`, found `Result<bool, CapacityError>`
+    |
+    = note: expected type `bool`
+               found enum `Result<bool, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<bool, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+129 |     if append_special_block(block, last_block, output).expect("REASON") {
+    |                                                       +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:323:8
+    |
+323 |     if append_special_block(src, last_block, output) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `bool`, found `Result<bool, CapacityError>`
+    |
+    = note: expected type `bool`
+               found enum `Result<bool, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<bool, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+323 |     if append_special_block(src, last_block, output).expect("REASON") {
+    |                                                     +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:582:9
+    |
+581 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+582 |         PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => FastBlockEncoding {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:56:5
+    |
+56  |     Raw,
+    |     --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+582 |         core::prelude::v1::Ok(PreparedBlockEmission::Raw) | PreparedBlockEmission::Rle => FastBlockEncoding {
+    |         ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:582:38
+    |
+581 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+582 |         PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => FastBlockEncoding {
+    |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:57:5
+    |
+57  |     Rle,
+    |     --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+582 |         PreparedBlockEmission::Raw | core::prelude::v1::Ok(PreparedBlockEmission::Rle) => FastBlockEncoding {
+    |                                      ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:586:9
+    |
+581 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+...
+586 |         PreparedBlockEmission::Compressed { new_huffman_table } => FastBlockEncoding {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+586 |         core::prelude::v1::Ok(PreparedBlockEmission::Compressed { new_huffman_table }) => FastBlockEncoding {
+    |         ++++++++++++++++++++++                                                       +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:622:9
+    |
+608 |       match append_prepared_block_or_raw(
+    |  ___________-
+609 | |         block,
+610 | |         last_block,
+611 | |         strategy_params.strategy,
+...   |
+620 | |         output,
+621 | |     ) {
+    | |_____- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+622 |           PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => FastBlockEncoding {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:56:5
+    |
+56  |       Raw,
+    |       --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+622 |         core::prelude::v1::Ok(PreparedBlockEmission::Raw) | PreparedBlockEmission::Rle => FastBlockEncoding {
+    |         ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:622:38
+    |
+608 |       match append_prepared_block_or_raw(
+    |  ___________-
+609 | |         block,
+610 | |         last_block,
+611 | |         strategy_params.strategy,
+...   |
+620 | |         output,
+621 | |     ) {
+    | |_____- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+622 |           PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => FastBlockEncoding {
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:57:5
+    |
+57  |       Rle,
+    |       --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+622 |         PreparedBlockEmission::Raw | core::prelude::v1::Ok(PreparedBlockEmission::Rle) => FastBlockEncoding {
+    |                                      ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs:626:9
+    |
+608 |       match append_prepared_block_or_raw(
+    |  ___________-
+609 | |         block,
+610 | |         last_block,
+611 | |         strategy_params.strategy,
+...   |
+620 | |         output,
+621 | |     ) {
+    | |_____- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+...
+626 |           PreparedBlockEmission::Compressed { new_huffman_table } => FastBlockEncoding {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+626 |         core::prelude::v1::Ok(PreparedBlockEmission::Compressed { new_huffman_table }) => FastBlockEncoding {
+    |         ++++++++++++++++++++++                                                       +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:479:9
+    |
+478 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+479 |         PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:56:5
+    |
+56  |     Raw,
+    |     --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+479 |         core::prelude::v1::Ok(PreparedBlockEmission::Raw) | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+    |         ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:479:38
+    |
+478 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+479 |         PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+    |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:57:5
+    |
+57  |     Rle,
+    |     --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+479 |         PreparedBlockEmission::Raw | core::prelude::v1::Ok(PreparedBlockEmission::Rle) => GreedyEncodedBlock {
+    |                                      ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:484:9
+    |
+478 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+...
+484 |         PreparedBlockEmission::Compressed { new_huffman_table } => GreedyEncodedBlock {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+484 |         core::prelude::v1::Ok(PreparedBlockEmission::Compressed { new_huffman_table }) => GreedyEncodedBlock {
+    |         ++++++++++++++++++++++                                                       +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:521:9
+    |
+507 |       match append_prepared_block_or_raw(
+    |  ___________-
+508 | |         block,
+509 | |         last_block,
+510 | |         params.strategy,
+...   |
+519 | |         &mut bytes,
+520 | |     ) {
+    | |_____- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+521 |           PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:56:5
+    |
+56  |       Raw,
+    |       --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+521 |         core::prelude::v1::Ok(PreparedBlockEmission::Raw) | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+    |         ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:521:38
+    |
+507 |       match append_prepared_block_or_raw(
+    |  ___________-
+508 | |         block,
+509 | |         last_block,
+510 | |         params.strategy,
+...   |
+519 | |         &mut bytes,
+520 | |     ) {
+    | |_____- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+521 |           PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:57:5
+    |
+57  |       Rle,
+    |       --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+521 |         PreparedBlockEmission::Raw | core::prelude::v1::Ok(PreparedBlockEmission::Rle) => GreedyEncodedBlock {
+    |                                      ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:526:9
+    |
+507 |       match append_prepared_block_or_raw(
+    |  ___________-
+508 | |         block,
+509 | |         last_block,
+510 | |         params.strategy,
+...   |
+519 | |         &mut bytes,
+520 | |     ) {
+    | |_____- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+...
+526 |           PreparedBlockEmission::Compressed { new_huffman_table } => GreedyEncodedBlock {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+526 |         core::prelude::v1::Ok(PreparedBlockEmission::Compressed { new_huffman_table }) => GreedyEncodedBlock {
+    |         ++++++++++++++++++++++                                                       +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:572:9
+    |
+571 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+572 |         PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:56:5
+    |
+56  |     Raw,
+    |     --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+572 |         core::prelude::v1::Ok(PreparedBlockEmission::Raw) | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+    |         ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:572:38
+    |
+571 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+572 |         PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+    |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:57:5
+    |
+57  |     Rle,
+    |     --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+572 |         PreparedBlockEmission::Raw | core::prelude::v1::Ok(PreparedBlockEmission::Rle) => GreedyEncodedBlock {
+    |                                      ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:577:9
+    |
+571 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+...
+577 |         PreparedBlockEmission::Compressed { new_huffman_table } => GreedyEncodedBlock {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+577 |         core::prelude::v1::Ok(PreparedBlockEmission::Compressed { new_huffman_table }) => GreedyEncodedBlock {
+    |         ++++++++++++++++++++++                                                       +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs:152:16
+    |
+152 |         if let PreparedBlockEmission::Compressed { new_huffman_table } = emission {
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+    |                |
+    |                expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+152 |         if let core::prelude::v1::Ok(PreparedBlockEmission::Compressed { new_huffman_table }) = emission {
+    |                ++++++++++++++++++++++                                                       +
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs:55:12
+   |
+55 |         if append_rle_block(block, last_block, &mut candidate) {
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `bool`, found `Result<bool, CapacityError>`
+   |
+   = note: expected type `bool`
+              found enum `Result<bool, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<bool, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+55 |         if append_rle_block(block, last_block, &mut candidate).expect("REASON") {
+   |                                                               +++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs:69:16
+   |
+69 |           if let Some(emission) = append_literal_only_sub_block(
+   |  ________________^^^^^^^^^^^^^^___-
+   | |                |
+   | |                expected `Result<Option<SubBlockEmission>, ...>`, found `Option<_>`
+70 | |             prepared.prepared.literals.as_slice(),
+71 | |             last_block,
+72 | |             EntropyTableMode::Rle,
+...  |
+76 | |             &mut candidate,
+77 | |         ) {
+   | |_________- this expression has type `Result<Option<SubBlockEmission>, CapacityError>`
+   |
+   = note: expected enum `Result<Option<SubBlockEmission>, CapacityError>`
+              found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+   |
+69 |         if let core::prelude::v1::Ok(Some(emission)) = append_literal_only_sub_block(
+   |                ++++++++++++++++++++++              +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs:80:9
+    |
+76  |     let estimate = estimate_huffman_literal_sequence_block(
+    |                    --------------------------------------- arguments to this function are incorrect
+...
+80  |         sequence_tables.as_ref(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs:310:4
+    |
+310 | fn estimate_huffman_literal_sequence_block(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+314 |     sequence_tables: Option<&CompressedSequenceTables>,
+    |     --------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs:153:13
+    |
+147 |         let Some(emission) = append_huffman_sequence_sub_block(
+    |                              --------------------------------- arguments to this function are incorrect
+...
+153 |             sequence_tables.as_ref(),
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs:338:4
+    |
+338 | fn append_huffman_sequence_sub_block(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+344 |     sequence_tables: Option<&CompressedSequenceTables>,
+    |     --------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs:171:21
+    |
+168 |                 && prime_sequence_entropy_tables_for_repeat(
+    |                    ---------------------------------------- arguments to this function are incorrect
+...
+171 |                     sequence_tables.as_ref(),
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:131:15
+    |
+131 | pub(super) fn prime_sequence_entropy_tables_for_repeat(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+134 |     compressed_tables: Option<&CompressedSequenceTables>,
+    |     ----------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs:227:9
+    |
+221 |     let Some(emission) = append_huffman_sequence_sub_block(
+    |                          --------------------------------- arguments to this function are incorrect
+...
+227 |         sequence_tables.as_ref(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs:338:4
+    |
+338 | fn append_huffman_sequence_sub_block(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+344 |     sequence_tables: Option<&CompressedSequenceTables>,
+    |     --------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs:244:13
+    |
+242 |         finish_sequence_entropy_tables_after_superblock(
+    |         ----------------------------------------------- arguments to this function are incorrect
+243 |             sequence_modes,
+244 |             sequence_tables.as_ref(),
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:147:15
+    |
+147 | pub(super) fn finish_sequence_entropy_tables_after_superblock(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+148 |     modes: SequenceEntropyModes,
+149 |     compressed_tables: Option<&CompressedSequenceTables>,
+    |     ----------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs:268:13
+    |
+266 |         finish_sequence_entropy_tables_after_superblock(
+    |         ----------------------------------------------- arguments to this function are incorrect
+267 |             sequence_modes,
+268 |             sequence_tables.as_ref(),
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:147:15
+    |
+147 | pub(super) fn finish_sequence_entropy_tables_after_superblock(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+148 |     modes: SequenceEntropyModes,
+149 |     compressed_tables: Option<&CompressedSequenceTables>,
+    |     ----------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs:287:9
+    |
+285 |     finish_sequence_entropy_tables_after_superblock(
+    |     ----------------------------------------------- arguments to this function are incorrect
+286 |         sequence_modes,
+287 |         sequence_tables.as_ref(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:147:15
+    |
+147 | pub(super) fn finish_sequence_entropy_tables_after_superblock(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+148 |     modes: SequenceEntropyModes,
+149 |     compressed_tables: Option<&CompressedSequenceTables>,
+    |     ----------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs:381:9
+    |
+381 |     let Some(sequence_emission) = sequence_emission else {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^   ----------------- this expression has type `Result<Option<SubBlockSequenceEmission>, CapacityError>`
+    |         |
+    |         expected `Result<Option<...>, ...>`, found `Option<_>`
+    |
+    = note: expected enum `Result<Option<SubBlockSequenceEmission>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+381 |     let core::prelude::v1::Ok(Some(sequence_emission)) = sequence_emission else {
+    |         ++++++++++++++++++++++                       +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs:56:9
+    |
+53  |     let estimate = estimate_basic_literal_sequence_block(
+    |                    ------------------------------------- arguments to this function are incorrect
+...
+56  |         sequence_tables.as_ref(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs:253:4
+    |
+253 | fn estimate_basic_literal_sequence_block(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+256 |     sequence_tables: Option<&CompressedSequenceTables>,
+    |     --------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs:121:13
+    |
+117 |         let Some(emission) = append_basic_sequence_sub_block(
+    |                              ------------------------------- arguments to this function are incorrect
+...
+121 |             sequence_tables.as_ref(),
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs:275:4
+    |
+275 | fn append_basic_sequence_sub_block(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+279 |     sequence_tables: Option<&CompressedSequenceTables>,
+    |     --------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs:139:21
+    |
+136 |                 && prime_sequence_entropy_tables_for_repeat(
+    |                    ---------------------------------------- arguments to this function are incorrect
+...
+139 |                     sequence_tables.as_ref(),
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:131:15
+    |
+131 | pub(super) fn prime_sequence_entropy_tables_for_repeat(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+134 |     compressed_tables: Option<&CompressedSequenceTables>,
+    |     ----------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs:185:9
+    |
+181 |     let Some(emission) = append_basic_sequence_sub_block(
+    |                          ------------------------------- arguments to this function are incorrect
+...
+185 |         sequence_tables.as_ref(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs:275:4
+    |
+275 | fn append_basic_sequence_sub_block(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+279 |     sequence_tables: Option<&CompressedSequenceTables>,
+    |     --------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs:202:13
+    |
+200 |         finish_sequence_entropy_tables_after_superblock(
+    |         ----------------------------------------------- arguments to this function are incorrect
+201 |             sequence_modes,
+202 |             sequence_tables.as_ref(),
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:147:15
+    |
+147 | pub(super) fn finish_sequence_entropy_tables_after_superblock(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+148 |     modes: SequenceEntropyModes,
+149 |     compressed_tables: Option<&CompressedSequenceTables>,
+    |     ----------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs:226:13
+    |
+224 |         finish_sequence_entropy_tables_after_superblock(
+    |         ----------------------------------------------- arguments to this function are incorrect
+225 |             sequence_modes,
+226 |             sequence_tables.as_ref(),
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:147:15
+    |
+147 | pub(super) fn finish_sequence_entropy_tables_after_superblock(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+148 |     modes: SequenceEntropyModes,
+149 |     compressed_tables: Option<&CompressedSequenceTables>,
+    |     ----------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs:242:9
+    |
+240 |     finish_sequence_entropy_tables_after_superblock(
+    |     ----------------------------------------------- arguments to this function are incorrect
+241 |         sequence_modes,
+242 |         sequence_tables.as_ref(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&CompressedSequenceTables>`, found `Result<&Option<...>, ...>`
+    |
+    = note: expected enum `Option<&sequence_sections::CompressedSequenceTables>`
+               found enum `Result<&Option<sequence_sections::CompressedSequenceTables>, &CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:147:15
+    |
+147 | pub(super) fn finish_sequence_entropy_tables_after_superblock(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+148 |     modes: SequenceEntropyModes,
+149 |     compressed_tables: Option<&CompressedSequenceTables>,
+    |     ----------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs:290:9
+    |
+290 |     let Some(literal_emission) =
+    |         ^^^^^^^^^^^^^^^^^^^^^^ expected `Result<Option<...>, ...>`, found `Option<_>`
+291 |         append_sub_block_literals(literals, EntropyTableMode::Basic, false, output)
+    |         --------------------------------------------------------------------------- this expression has type `Result<Option<SubBlockLiteralEmission>, CapacityError>`
+    |
+    = note: expected enum `Result<Option<SubBlockLiteralEmission>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+290 |     let core::prelude::v1::Ok(Some(literal_emission)) =
+    |         ++++++++++++++++++++++                      +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs:316:9
+    |
+316 |     let Some(sequence_emission) = sequence_emission else {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^   ----------------- this expression has type `Result<Option<SubBlockSequenceEmission>, CapacityError>`
+    |         |
+    |         expected `Result<Option<...>, ...>`, found `Option<_>`
+    |
+    = note: expected enum `Result<Option<SubBlockSequenceEmission>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+316 |     let core::prelude::v1::Ok(Some(sequence_emission)) = sequence_emission else {
+    |         ++++++++++++++++++++++                       +
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/target_single.rs:52:9
+   |
+52 |       let Some(sequence_emission) = append_supported_sub_block_sequences(
+   |  _________^^^^^^^^^^^^^^^^^^^^^^^___-
+   | |         |
+   | |         expected `Result<Option<...>, ...>`, found `Option<_>`
+53 | |         &[],
+54 | |         super::target_modes::basic_sequence_modes(),
+55 | |         false,
+...  |
+58 | |         &mut candidate,
+59 | |     ) else {
+   | |_____- this expression has type `Result<Option<SubBlockSequenceEmission>, CapacityError>`
+   |
+   = note: expected enum `Result<Option<SubBlockSequenceEmission>, CapacityError>`
+              found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+   |
+52 |     let core::prelude::v1::Ok(Some(sequence_emission)) = append_supported_sub_block_sequences(
+   |         ++++++++++++++++++++++                       +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_single.rs:119:9
+    |
+119 |       let Some(sequence_emission) = append_supported_sub_block_sequences(
+    |  _________^^^^^^^^^^^^^^^^^^^^^^^___-
+    | |         |
+    | |         expected `Result<Option<...>, ...>`, found `Option<_>`
+120 | |         prepared.prepared.sequences.as_slice(),
+121 | |         sequence_modes,
+122 | |         true,
+...   |
+125 | |         &mut candidate,
+126 | |     ) else {
+    | |_____- this expression has type `Result<Option<SubBlockSequenceEmission>, CapacityError>`
+    |
+    = note: expected enum `Result<Option<SubBlockSequenceEmission>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+119 |     let core::prelude::v1::Ok(Some(sequence_emission)) = append_supported_sub_block_sequences(
+    |         ++++++++++++++++++++++                       +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_single.rs:172:9
+    |
+172 |       let Some(emission) = append_sequence_sub_block(
+    |  _________^^^^^^^^^^^^^^___-
+    | |         |
+    | |         expected `Result<Option<SubBlockEmission>, ...>`, found `Option<_>`
+173 | |         prepared.prepared.literals.as_slice(),
+174 | |         prepared.prepared.sequences.as_slice(),
+175 | |         last_block,
+...   |
+182 | |         &mut candidate,
+183 | |     ) else {
+    | |_____- this expression has type `Result<Option<SubBlockEmission>, CapacityError>`
+    |
+    = note: expected enum `Result<Option<SubBlockEmission>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+172 |     let core::prelude::v1::Ok(Some(emission)) = append_sequence_sub_block(
+    |         ++++++++++++++++++++++              +
+
+For more information about this error, try `rustc --explain E0308`.
+warning: `zstd-complete` (lib) generated 20 warnings
+error: could not compile `zstd-complete` (lib) due to 50 previous errors; 20 warnings emitted

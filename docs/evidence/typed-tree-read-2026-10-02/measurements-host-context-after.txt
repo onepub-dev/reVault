@@ -1,0 +1,5 @@
+Fri Oct  2 12:12:07 UTC 2026
+ 22:12:07 up 20 days, 10:07,  1 user,  load average: 1.03, 1.66, 3.52
+pid 2849938's current affinity list: 0-15
+ 854829    6145 Sl    0.0  0.0 10-00:43:50 /home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dartvm --resolved_executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart --executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart /home/bsutton/.pub-cache/hosted/pub.dev/fdb-1.10.1/bin/log_collector.dart ws://127.0.0.1:36763/LuhcwbMAHso=/ws /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/logs.txt /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/log_collector.pid
+ 863918    6145 Sl    0.0  0.0 10-00:42:17 /home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dartvm --resolved_executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart --executable_name=/home/bsutton/apps/flutter/bin/cache/dart-sdk/bin/dart /home/bsutton/.pub-cache/hosted/pub.dev/fdb-1.10.1/bin/log_collector.dart ws://127.0.0.1:36965/P9foASZlpCc=/ws /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/logs.txt /home/bsutton/git/.codex.workspaces/hmb-shared-style/.fdb/log_collector.pid

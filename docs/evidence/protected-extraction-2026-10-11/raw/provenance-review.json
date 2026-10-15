@@ -1,0 +1,25 @@
+{
+  "base_revision": "0cb929cde31ba76d1dbd93b6c7aaa88a05616e75",
+  "current_revision": "6735f6dbf949915ed7b94f0b6b9bb5fb7895e231",
+  "verified_source_files": 241,
+  "differing_files": [
+    "revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs",
+    "revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs",
+    "revault_lockbox_api/src/file_format/candidate_files/tree_image/reader/parallel.rs",
+    "revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs",
+    "revault_lockbox_api/src/benchmark_extraction.rs",
+    "revault_lockbox_api/src/benchmark_observation.rs"
+  ],
+  "not_whitespace_only": [
+    "revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs",
+    "revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs",
+    "revault_lockbox_api/src/file_format/candidate_files/tree_image/reader/parallel.rs",
+    "revault_lockbox_api/src/benchmark_extraction.rs",
+    "revault_lockbox_api/src/benchmark_observation.rs"
+  ],
+  "binaries": {
+    "/tmp/revault-parallel-20261010/balanced-bin/revault_lockbox_api_tests": "0d190e5d883ed42630c33f14a03c568b6b45f04df1ba612b4ee740d5ec4c09df",
+    "/tmp/revault-parallel-20261010/balanced-bin/archive_evaluation": "b07e1c264501ed0f3c72bcf433d14f218593903acdd3f3abcfbd421a23631c3f"
+  },
+  "method": "Reconstruct exact source from retained base+patch+new modules; require every recorded SHA256; compare current bytes after whitespace removal. Raw diff retained for manual review."
+}

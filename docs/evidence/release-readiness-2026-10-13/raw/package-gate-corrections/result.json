@@ -1,0 +1,87 @@
+{
+  "base_candidate": "f67a01dce2e1ebff53910f7b45a2570b16ddda75",
+  "failed_candidate_run": 38373486321,
+  "scope": "Required package/static CI corrections; no format or compression runtime changes",
+  "changes": [
+    "Go formatting and generated Go gofmt",
+    "Python conformance report formatting",
+    "Ruby alias externs use selected native carrier",
+    "Lua alias list public model mapping",
+    "Explicit gdbus package in 16 language images and two workflow apt lists",
+    "Sanitized bus-query method/exit status",
+    "Linux Vault UUID range >=1.8,<1.27 preserves advertised Rust1.88 resolver2 consumers"
+  ],
+  "validation": {
+    "tooling_build": "pass",
+    "tooling_all_targets_clippy_deny_warnings": "pass",
+    "affected_tooling_driver_groups": "pass",
+    "go_gofmt_vet_test": "pass on Go1.24.13",
+    "javascript_typescript": "package and strict E2E compile pass",
+    "python_ruff_compileall": "pass",
+    "python_file_lifecycle": {
+      "passed": 6
+    },
+    "javascript_file_lifecycle": {
+      "passed": 3,
+      "skipped": 1,
+      "skip_reason": "read-only bind-mount capability"
+    },
+    "ruby_lua": {
+      "ruby": {
+        "ordinary_pass_records": 229,
+        "exit_code": 0,
+        "log_sha256": "92c60d977a739017ba678ee3b4200fbd385e3dcf233a710802e8ef482e2de06a",
+        "owned_secret_service_pid_verified": true,
+        "source_copies_match_worktree": true,
+        "owned_containers_removed": true,
+        "private_fixture_state_removed": true
+      },
+      "lua": {
+        "ordinary_pass_records": 229,
+        "exit_code": 0,
+        "log_sha256": "e55ed78111040e5e70b100cff155657bc122e864831ad8e7600227ce72b3765f",
+        "owned_secret_service_pid_verified": true,
+        "source_copies_match_worktree": true,
+        "owned_containers_removed": true,
+        "private_fixture_state_removed": true
+      }
+    },
+    "installed_rust": {
+      "package": "revault-api",
+      "version": "0.5.0",
+      "edition": "2021",
+      "rust_version": "1.88",
+      "package_sha256": "783e047547c10c4a03409f3a7f0e8262e8b452734cc60adffcc635745907b632",
+      "ordinary_persisted_lifecycle_exit": 0,
+      "separate_interop_exit": 0,
+      "locked_offline_metadata_exit": 0,
+      "uuid": "1.26.0",
+      "zstd_complete": "registry0.3.0",
+      "consumer_lock_sha256": "cc080058f28299b10c22c70ae31bb2a8fc16b7ad49ce5d5706d9a97795b6eaa",
+      "private_artifacts_removed": true
+    }
+  },
+  "limitations": [
+    "Ruby/Lua local ABI b98d5617f838fd33fa4abdd50c091cfd8c2d8971838754ab6a615d90603f8ae5 requires GLIBC2.39; official Trixie runtime checks do not replace final Bookworm artifact CI",
+    "Final platform/package matrix and resource acceptance remain open",
+    "No measurements performed"
+  ],
+  "failed_preparation_preserved": [
+    "Bookworm/local ABI glibc mismatch",
+    "Container headless/service setup attempts",
+    "Initial online package DNS retries interrupted before offline success",
+    "DCLI pre-body telemetry/socket setup refusals"
+  ],
+  "source_hashes": {
+    "rust/revault_vault_api/Cargo.toml": "0b7c7ee31b926a54663b5125755a9dc4af7c52e4f9a6343af3f531711c4562c6",
+    "rust/Cargo.lock": "2c7c10dc640329d631b60c7a3a04e77c7a6390deff220306e49a1d2f0cc52c1e",
+    "bindings/rust/Cargo.lock": "5350faf6270baad312b7f507ec0d79598515f013b2501271850ad2fa90330004",
+    "bindings/e2e/rust/Cargo.lock": "5fd9810f808c8651e14f53f552c72b0d879cd4e4150669c92db84a40bc53f0b1",
+    "rust/revault_tooling/src/e2e.rs": "0f97b18d5f8a0af22a6b6e342ed29ee151b8ed15e532fd332c21f70cff6552f1",
+    "rust/revault_tooling/src/repository.rs": "d7ed72573b4b443de64f0e070e55a08193151c9f864ab2504994ec480a6cda84",
+    "bindings/ruby/lib/revault/binding_operations.rb": "d3bcf5eef418fa912eab72704bed55cf98c762ecdc25b9dfcbc1ce2b05c8cff5",
+    "bindings/lua/revault_api.lua": "c9ab1a838ed923df325030f215193b354dbd28d2e51754f91279a7c7ff98d0bb",
+    "bindings/e2e/python/conformance.py": "be3d7d2e40e15be05c4f79518df039a4ccfd7d2414efffc8f539b6053f594d46"
+  },
+  "raw_log_policy": "Only curated counts and hashes retained here; task-owned raw logs stay outside tracked evidence. No credentials copied."
+}

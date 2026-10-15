@@ -1,0 +1,1330 @@
+//! Layout-integration tests: native writer selection and some fixture setup
+//! remain private until production activation. Exercise persisted lifecycles
+//! and public read/recovery APIs after setup. These are not CLI E2E tests.
+use super::*;
+use crate::compression_frame_manifest::CompressionFrameSlice;
+use crate::file_chunk::{BlockFrameReference, CompressionFrameSegment, FileChunk};
+use crate::file_format::indexed_frame::block_page::{self, PageIdentity};
+use crate::{
+    Compression, Encryption, LockboxCreateOptions, LockboxProtection, Signing, SizePadding,
+};
+use std::io::{Read, Seek, SeekFrom};
+use std::sync::Arc;
+
+#[cfg(feature = "external-source")]
+pub(crate) fn replace_storage(archive: &mut Lockbox, storage: StorageBackend) {
+    archive.storage = storage;
+    archive.page_manager.borrow_mut().clear();
+    *archive.compression_frame_cache.borrow_mut() = CompressionFrameCache::default();
+}
+
+#[test]
+fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
+    use super::file_import_pipeline::CompressionFrameWrite;
+    use super::files::FilePageWriter;
+    use crate::LockboxOpen;
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let path = LockboxPath::new("/written").unwrap();
+    let keep = LockboxPath::new("/legacy").unwrap();
+    let input = (0..131078).map(|i| (i % 251) as u8).collect::<Vec<_>>();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                for size_padding in [SizePadding::Default, SizePadding::None] {
+                    let signing = if signed {
+                        Signing::Owner(&signer)
+                    } else {
+                        Signing::None
+                    };
+                    let mut archive =
+                        Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                            compression,
+                            size_padding,
+                            ..LockboxCreateOptions::new(
+                                if encrypted {
+                                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                                        SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                    ))
+                                } else {
+                                    Encryption::None
+                                },
+                                signing,
+                            )
+                        })
+                        .unwrap();
+                    archive.add_file(&keep, b"legacy bytes", false).unwrap();
+                    archive.commit().unwrap();
+                    let mut chunks = Vec::new();
+                    {
+                        // Only dispatch selection and TOC insertion are private:
+                        // actual pipeline, writer, allocator, cache and flush run.
+                        let mut writer = FilePageWriter::native(&mut archive);
+                        for (i, data) in input.chunks(65539).enumerate() {
+                            writer
+                                .write_compression_frame(
+                                    CompressionFrameWrite {
+                                        path: &path,
+                                        permissions: 0o640,
+                                        total_len: input.len() as u64,
+                                        file_offset: (i * 65539) as u64,
+                                        data,
+                                    },
+                                    &mut chunks,
+                                )
+                                .unwrap();
+                        }
+                        writer.finish(&mut chunks).unwrap();
+                    }
+                    assert_eq!(chunks.len(), 2);
+                    assert!(chunks.iter().all(|chunk| chunk.block_frame.is_some()));
+                    let first = &chunks[0].segments[0];
+                    archive.toc_entries.insert(
+                        path.clone(),
+                        TocEntry {
+                            path: path.clone(),
+                            len: input.len() as u64,
+                            record_offset: first.page_offset,
+                            record_len: first.page_len,
+                            record_object_id: first.object_id,
+                            record_digest: [0; 32],
+                            deleted: false,
+                            node_kind: crate::node_kind::NodeKind::File,
+                            permissions: 0o640,
+                            chunks,
+                        },
+                    );
+                    archive.mark_toc_dirty(&path);
+                    assert_eq!(archive.get_file(&path).unwrap(), input);
+                    assert_eq!(
+                        archive.read_file_range(&path, 65530, 23).unwrap(),
+                        input[65530..65553]
+                    );
+                    archive.commit().unwrap();
+                    let opened = Lockbox::open_bytes(
+                        archive.to_bytes(),
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        },
+                    )
+                    .unwrap();
+                    let persisted_bytes = archive.to_bytes();
+                    let scan = archive
+                        .key
+                        .with_bytes(|key| {
+                            crate::page_scanner::PageScanner::new(
+                                &persisted_bytes,
+                                archive.lockbox_id,
+                                key,
+                            )
+                            .scan_records()
+                        })
+                        .unwrap();
+                    assert_eq!(scan.corrupt_records, 0);
+                    // The public writer also emits a native page for `keep`
+                    // when the experiment is enabled. Select the subject's
+                    // pages by committed location, never scanner ordering.
+                    let native_pages = archive.toc_entries[&path]
+                        .chunks
+                        .iter()
+                        .map(|chunk| {
+                            scan.native_pages
+                                .iter()
+                                .find(|page| page.offset == chunk.segments[0].page_offset)
+                                .unwrap()
+                        })
+                        .collect::<Vec<_>>();
+                    assert_eq!(
+                        scan.native_pages.len(),
+                        2 + usize::from(cfg!(feature = "native-block-layout"))
+                    );
+                    for (page, chunk) in native_pages.iter().zip(&archive.toc_entries[&path].chunks)
+                    {
+                        let segment = &chunk.segments[0];
+                        assert_eq!(page.offset, segment.page_offset);
+                        assert_eq!(page.physical_len as u64, segment.page_len);
+                        assert_eq!(page.page_id, segment.object_id);
+                        assert_eq!(page.sequence, chunk.block_frame.as_ref().unwrap().sequence);
+                        assert_eq!(
+                            page.descriptor,
+                            chunk.block_frame.as_ref().unwrap().descriptor
+                        );
+                        assert!(page
+                            .manifest
+                            .slice_for(
+                                &path,
+                                chunk.file_offset,
+                                chunk.compression_frame_offset,
+                                chunk.len
+                            )
+                            .is_some());
+                        assert!(
+                            !scan
+                                .records
+                                .iter()
+                                .any(|record| record.object_id == page.page_id),
+                            "native blocks must not masquerade as legacy whole-frame records"
+                        );
+                    }
+                    let mut damaged = persisted_bytes.clone();
+                    let last = native_pages[1];
+                    let offset = last.offset as usize;
+                    archive
+                        .key
+                        .with_bytes(|key| {
+                            use crate::file_format::indexed_frame::block_page;
+                            assert!(block_page::scan(
+                                &persisted_bytes[..offset + last.physical_len - 1],
+                                offset,
+                                archive.lockbox_id,
+                                archive.format_mode,
+                                key
+                            )
+                            .is_err());
+                            assert!(block_page::scan(
+                                &persisted_bytes,
+                                offset,
+                                LockboxId::from_bytes([19; 16]),
+                                archive.format_mode,
+                                key
+                            )
+                            .is_err());
+                            assert!(block_page::scan(
+                                &persisted_bytes,
+                                offset,
+                                archive.lockbox_id,
+                                crate::creation_options::FormatMode(archive.format_mode.0 ^ 0x100),
+                                key
+                            )
+                            .is_err());
+                        })
+                        .unwrap();
+                    let used = crate::page::PAGE_HEADER_LEN
+                        + u32::from_le_bytes(damaged[offset + 44..offset + 48].try_into().unwrap())
+                            as usize;
+                    damaged[offset + used - 1] ^= 1;
+                    let damaged_scan = archive
+                        .key
+                        .with_bytes(|key| {
+                            crate::page_scanner::PageScanner::new(&damaged, archive.lockbox_id, key)
+                                .scan_records()
+                        })
+                        .unwrap();
+                    assert_eq!(damaged_scan.native_pages.len(), scan.native_pages.len() - 1);
+                    assert!(damaged_scan.native_pages.iter().any(|page| {
+                        page.offset == native_pages[0].offset
+                            && page.descriptor == native_pages[0].descriptor
+                    }));
+                    assert!(!damaged_scan
+                        .native_pages
+                        .iter()
+                        .any(|page| page.offset == last.offset));
+                    assert!(
+                        damaged_scan.corrupt_records > 0,
+                        "scanning must check all blocks, not only metadata/index"
+                    );
+                    assert_eq!(opened.get_file(&path).unwrap(), input);
+                    assert_eq!(opened.get_file(&keep).unwrap(), b"legacy bytes");
+                    let mut reader = opened.open_file(&path).unwrap();
+                    reader.seek(SeekFrom::Start(65530)).unwrap();
+                    let mut crossing = [0; 23];
+                    reader.read_exact(&mut crossing).unwrap();
+                    assert_eq!(crossing, input[65530..65553]);
+                    opened.inspector().verify_storage().unwrap();
+                    let report = opened.inspector().recovery_report();
+                    assert_eq!(report.corrupt_records, 0);
+                    assert_eq!(report.partial_files, 0);
+                    assert_eq!(report.intact_file_count, 2);
+                    let recovery_key = zeroize::Zeroizing::new(
+                        archive.key.with_bytes(|key| key.to_vec()).unwrap(),
+                    );
+                    // No public operation intentionally destroys TOC pages.
+                    // Erase all scanned TOC allocations, retaining the frame
+                    // manifests, then use only public recovery APIs.
+                    let mut missing_toc = persisted_bytes.clone();
+                    let mut erased = 0;
+                    for record in &scan.records {
+                        if record.header.kind == crate::record::RecordKind::TocNode {
+                            let start = record.offset as usize;
+                            let end = start + record.header.total_len as usize;
+                            missing_toc[start..end].fill(0);
+                            erased += 1;
+                        }
+                    }
+                    assert!(erased > 0);
+                    let manifest_report =
+                        crate::RecoveryScanner::scan_bytes(missing_toc.clone(), &*recovery_key);
+                    assert!(!manifest_report.toc_recovered);
+                    assert!(manifest_report.intact_files.is_empty());
+                    // A valid duplicate page is not a second authenticated
+                    // generation: ambiguous overlapping candidates are omitted.
+                    let first_native = native_pages[0];
+                    let start = first_native.offset as usize;
+                    let end = start + first_native.physical_len;
+                    let mut duplicate = missing_toc.clone();
+                    duplicate.extend_from_slice(&missing_toc[start..end]);
+                    let duplicate_report =
+                        crate::RecoveryScanner::scan_bytes(duplicate.clone(), &*recovery_key);
+                    assert!(!duplicate_report
+                        .intact_files
+                        .iter()
+                        .any(|entry| entry.path == path));
+                    assert!(crate::RecoveryScanner::salvage_bytes(
+                        duplicate,
+                        &*recovery_key,
+                        &signer,
+                    )
+                    .is_err());
+                    let mut gap = missing_toc.clone();
+                    gap[start..end].fill(0);
+                    let gap_report =
+                        crate::RecoveryScanner::scan_bytes(gap.clone(), &*recovery_key);
+                    assert!(gap_report.intact_files.is_empty());
+                    assert!(gap_report.corrupt_records > 0);
+                    assert!(
+                        crate::RecoveryScanner::salvage_bytes(gap, &*recovery_key, &signer,)
+                            .is_err()
+                    );
+                    // Frame manifests alone do not establish current membership,
+                    // regardless of whether the archive has an owner signer.
+                    assert!(crate::RecoveryScanner::salvage_bytes(
+                        missing_toc,
+                        &*recovery_key,
+                        &signer,
+                    )
+                    .is_err());
+                    let damaged_report =
+                        crate::RecoveryScanner::scan_bytes(damaged.clone(), &*recovery_key);
+                    assert!(damaged_report.corrupt_records > 0);
+                    assert_eq!(damaged_report.partial_files, 1,
+                        "one corrupt file must not prevent intact-neighbor recovery: encrypted={encrypted}, signed={signed}, compression={compression:?}, padding={size_padding:?}");
+                    assert_eq!(damaged_report.intact_file_count, 1);
+                    let salvaged = crate::RecoveryScanner::salvage_bytes(
+                        persisted_bytes.clone(),
+                        &*recovery_key,
+                        &signer,
+                    )
+                    .unwrap();
+                    assert_eq!(salvaged.get_file(&path).unwrap(), input);
+                    assert_eq!(salvaged.get_file(&keep).unwrap(), b"legacy bytes");
+                    assert_eq!(salvaged.format_options(), archive.format_options());
+                    let salvage_reopened = Lockbox::open_bytes(
+                        salvaged.to_bytes(),
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        },
+                    )
+                    .unwrap();
+                    assert_eq!(salvage_reopened.get_file(&path).unwrap(), input);
+                    let damaged_salvaged = crate::RecoveryScanner::salvage_bytes(
+                        damaged.clone(),
+                        &*recovery_key,
+                        &signer,
+                    )
+                    .unwrap();
+                    assert!(damaged_salvaged.get_file(&path).is_err());
+                    assert_eq!(damaged_salvaged.get_file(&keep).unwrap(), b"legacy bytes");
+                    if signed && compression == Compression::None {
+                        // Repair the outer checksum/AEAD after damaging the owner
+                        // signature: page integrity alone must not authorize salvage.
+                        let auth_offset = archive.commit_auth_offset;
+                        let auth_page = archive.read_page(auth_offset).unwrap();
+                        let mut auth = archive
+                            .read_and_verify_commit_auth_at(auth_offset)
+                            .unwrap()
+                            .0;
+                        auth.signatures[0].signature[0] ^= 1;
+                        let objects = vec![crate::page::PageObject::new(
+                            crate::page::PageObjectKind::CommitAuth,
+                            auth_page.objects[0].id,
+                            crate::commit_auth::encode_commit_auth(&auth).unwrap(),
+                        )];
+                        let physical_len = crate::page::physical_page_size_from_page_slice(
+                            &persisted_bytes[auth_offset as usize..],
+                        )
+                        .unwrap();
+                        let replacement = crate::page::encode_page_with_format(
+                            physical_len,
+                            archive.lockbox_id,
+                            auth_page.page_id,
+                            auth_page.sequence,
+                            &recovery_key,
+                            &objects,
+                            archive.format_mode,
+                        )
+                        .unwrap();
+                        let mut forged = persisted_bytes.clone();
+                        forged[auth_offset as usize..auth_offset as usize + physical_len]
+                            .copy_from_slice(&replacement);
+                        let report =
+                            crate::RecoveryScanner::scan_bytes(forged.clone(), &*recovery_key);
+                        assert!(report.intact_file_count <= 1);
+                        assert!(crate::RecoveryScanner::salvage_bytes(
+                            forged.clone(),
+                            &*recovery_key,
+                            &signer,
+                        )
+                        .is_err());
+                        forged[0] ^= 0xff;
+                        forged[192] ^= 0xff;
+                        assert!(
+                            crate::RecoveryScanner::salvage_bytes(forged, &*recovery_key, &signer)
+                                .is_err(),
+                            "header magic repair cannot authorize a bad signature"
+                        );
+                    }
+                    let mut writable = Lockbox::open_bytes_for_write(
+                        archive.to_bytes(),
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        },
+                        signing,
+                    )
+                    .unwrap();
+                    let renamed = LockboxPath::new("/renamed").unwrap();
+                    writable.rename(&path, &renamed).unwrap();
+                    writable.set_permissions(&renamed, 0o600).unwrap();
+                    writable.commit().unwrap();
+                    assert_eq!(writable.get_file(&renamed).unwrap(), input);
+                    assert!(writable.get_file(&path).is_err());
+                    // Delete native pages before compaction can rewrite them in
+                    // the legacy format selected by the still-gated default writer.
+                    let mut deletion = Lockbox::open_bytes_for_write(
+                        writable.to_bytes(),
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        },
+                        signing,
+                    )
+                    .unwrap();
+                    deletion.delete(&renamed).unwrap();
+                    deletion.commit().unwrap();
+                    let deleted = Lockbox::open_bytes(
+                        deletion.to_bytes(),
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        },
+                    )
+                    .unwrap();
+                    assert!(deleted.get_file(&renamed).is_err());
+                    assert_eq!(deleted.get_file(&keep).unwrap(), b"legacy bytes");
+                    deleted.inspector().verify_storage().unwrap();
+                    writable.compact().unwrap();
+                    assert_eq!(writable.get_file(&renamed).unwrap(), input);
+                    assert_eq!(writable.get_file(&keep).unwrap(), b"legacy bytes");
+                    writable.delete(&renamed).unwrap();
+                    writable.commit().unwrap();
+                    assert!(writable.get_file(&renamed).is_err());
+                    writable.inspector().verify_storage().unwrap();
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn native_file_writer_failures_publish_no_partial_chunk_and_reopen_the_base() {
+    use super::file_import_pipeline::CompressionFrameWrite;
+    use super::files::FilePageWriter;
+    use crate::LockboxOpen;
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let keep = LockboxPath::new("/keep").unwrap();
+    let path = LockboxPath::new("/unpublished").unwrap();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            let signing = if signed {
+                Signing::Owner(&signer)
+            } else {
+                Signing::None
+            };
+            let open = || {
+                if encrypted {
+                    LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                } else {
+                    LockboxOpen::Unencrypted
+                }
+            };
+            let mut base = Lockbox::create_in_memory_with_options(LockboxCreateOptions::new(
+                if encrypted {
+                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                        SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                    ))
+                } else {
+                    Encryption::None
+                },
+                signing,
+            ))
+            .unwrap();
+            base.add_file(&keep, b"committed bytes", false).unwrap();
+            base.commit().unwrap();
+            let bytes = base.to_bytes();
+            let frame = CompressionFrameWrite {
+                path: &path,
+                permissions: 0o640,
+                total_len: 65539,
+                file_offset: 0,
+                data: &[37; 65539],
+            };
+            let mut successful =
+                Lockbox::open_bytes_for_write(bytes.clone(), open(), signing).unwrap();
+            successful.storage.reset_memory_operation_count();
+            let mut chunks = Vec::new();
+            FilePageWriter::native(&mut successful)
+                .write_compression_frame(frame, &mut chunks)
+                .unwrap();
+            let operations = successful.storage.memory_operation_count();
+            assert!(!chunks.is_empty());
+            assert!(operations > 0);
+            for failure in 0..operations {
+                let mut attempt =
+                    Lockbox::open_bytes_for_write(bytes.clone(), open(), signing).unwrap();
+                attempt
+                    .storage
+                    .fail_memory_operation_after_successes(failure);
+                let mut chunks = Vec::new();
+                assert!(FilePageWriter::native(&mut attempt)
+                    .write_compression_frame(frame, &mut chunks)
+                    .is_err());
+                assert!(
+                    chunks.is_empty(),
+                    "partial frame published at operation {failure}"
+                );
+                let recovered =
+                    Lockbox::open_bytes_for_write(attempt.to_bytes(), open(), signing).unwrap();
+                assert_eq!(recovered.get_file(&keep).unwrap(), b"committed bytes");
+                assert!(recovered.get_file(&path).is_err());
+                recovered.inspector().verify_storage().unwrap();
+            }
+        }
+    }
+}
+
+#[test]
+fn native_file_writer_packed_deletion_preserves_survivors_in_all_modes() {
+    use super::file_import_pipeline::CompressionFrameWrite;
+    use super::files::FilePageWriter;
+    use crate::LockboxOpen;
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let paths = [
+        LockboxPath::new("/first").unwrap(),
+        LockboxPath::new("/second").unwrap(),
+    ];
+    let contents = [vec![29; 257], vec![43; 16387]];
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                for size_padding in [SizePadding::Default, SizePadding::None] {
+                    let signing = if signed {
+                        Signing::Owner(&signer)
+                    } else {
+                        Signing::None
+                    };
+                    let open = || {
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        }
+                    };
+                    let mut archive =
+                        Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                            compression,
+                            size_padding,
+                            ..LockboxCreateOptions::new(
+                                if encrypted {
+                                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                                        SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                    ))
+                                } else {
+                                    Encryption::None
+                                },
+                                signing,
+                            )
+                        })
+                        .unwrap();
+                    archive.commit().unwrap();
+                    let writes = paths
+                        .iter()
+                        .zip(&contents)
+                        .map(|(path, data)| CompressionFrameWrite {
+                            path,
+                            permissions: 0o640,
+                            total_len: data.len() as u64,
+                            file_offset: 0,
+                            data,
+                        })
+                        .collect::<Vec<_>>();
+                    let mut chunks = Vec::new();
+                    FilePageWriter::native(&mut archive)
+                        .write_compression_frame_bundle(&writes, &mut chunks)
+                        .unwrap();
+                    assert_eq!(chunks.len(), 2);
+                    assert!(Arc::ptr_eq(
+                        chunks[0].block_frame.as_ref().unwrap(),
+                        chunks[1].block_frame.as_ref().unwrap()
+                    ));
+                    let old_segment = chunks[0].segments[0].clone();
+                    for chunk in chunks {
+                        let path = chunk.stored_path.clone();
+                        let segment = &chunk.segments[0];
+                        archive.toc_entries.insert(
+                            path.clone(),
+                            TocEntry {
+                                path: path.clone(),
+                                len: chunk.len,
+                                record_offset: segment.page_offset,
+                                record_len: segment.page_len,
+                                record_object_id: segment.object_id,
+                                record_digest: [0; 32],
+                                deleted: false,
+                                node_kind: crate::node_kind::NodeKind::File,
+                                permissions: 0o640,
+                                chunks: vec![chunk],
+                            },
+                        );
+                        archive.mark_toc_dirty(&path);
+                    }
+                    archive.commit().unwrap();
+                    let mut reopened =
+                        Lockbox::open_bytes_for_write(archive.to_bytes(), open(), signing).unwrap();
+                    for (path, data) in paths.iter().zip(&contents) {
+                        assert_eq!(reopened.get_file(path).unwrap(), *data);
+                    }
+                    let recovery_key = zeroize::Zeroizing::new(
+                        reopened.key.with_bytes(|key| key.to_vec()).unwrap(),
+                    );
+                    let report = reopened.inspector().recovery_report();
+                    assert_eq!(report.intact_file_count, 2);
+                    assert_eq!(report.partial_files, 0);
+                    let salvaged = crate::RecoveryScanner::salvage_bytes(
+                        reopened.to_bytes(),
+                        &*recovery_key,
+                        &signer,
+                    )
+                    .unwrap();
+                    for (path, data) in paths.iter().zip(&contents) {
+                        assert_eq!(salvaged.get_file(path).unwrap(), *data);
+                    }
+                    let mut missing_toc = reopened.to_bytes();
+                    let scan = crate::page_scanner::PageScanner::new(
+                        &missing_toc,
+                        reopened.lockbox_id,
+                        &recovery_key,
+                    )
+                    .scan_records();
+                    for record in &scan.records {
+                        if record.header.kind == crate::record::RecordKind::TocNode {
+                            let start = record.offset as usize;
+                            missing_toc[start..start + record.header.total_len as usize].fill(0);
+                        }
+                    }
+                    assert!(crate::RecoveryScanner::salvage_bytes(
+                        missing_toc,
+                        &*recovery_key,
+                        &signer,
+                    )
+                    .is_err());
+                    let mut damaged = reopened.to_bytes();
+                    let offset = old_segment.page_offset as usize;
+                    let used = crate::page::PAGE_HEADER_LEN
+                        + u32::from_le_bytes(damaged[offset + 44..offset + 48].try_into().unwrap())
+                            as usize;
+                    damaged[offset + used - 1] ^= 1;
+                    let report =
+                        crate::RecoveryScanner::scan_bytes(damaged.clone(), &*recovery_key);
+                    assert_eq!(report.intact_file_count, 0);
+                    assert_eq!(
+                        report.partial_files, 2,
+                        "recovery verifies the entire shared frame"
+                    );
+                    let salvaged =
+                        crate::RecoveryScanner::salvage_bytes(damaged, &*recovery_key, &signer)
+                            .unwrap();
+                    for path in &paths {
+                        assert!(salvaged.get_file(path).is_err());
+                    }
+                    reopened.delete(&paths[0]).unwrap();
+                    reopened.commit().unwrap();
+                    let persisted = Lockbox::open_bytes(reopened.to_bytes(), open()).unwrap();
+                    assert!(persisted.get_file(&paths[0]).is_err());
+                    assert_eq!(persisted.get_file(&paths[1]).unwrap(), contents[1]);
+                    persisted.inspector().verify_storage().unwrap();
+                    // A surviving authoritative TOC must prevent resurrection
+                    // from a stale native manifest, even if its page is valid.
+                    let mut stale = reopened.to_bytes();
+                    let original = archive.to_bytes();
+                    let start = old_segment.page_offset as usize;
+                    stale
+                        .extend_from_slice(&original[start..start + old_segment.page_len as usize]);
+                    let stale_report =
+                        crate::RecoveryScanner::scan_bytes(stale.clone(), &*recovery_key);
+                    assert_eq!(stale_report.intact_file_count, 1,
+                        "stale recovery: encrypted={encrypted} signed={signed} compression={compression:?} padding={size_padding:?}: {stale_report:?}");
+                    assert!(!stale_report
+                        .intact_files
+                        .iter()
+                        .any(|entry| entry.path == paths[0]));
+                    if signed && cfg!(feature = "native-block-layout") {
+                        // No public API forges publication metadata. Repair the
+                        // unkeyed slot checksum only: bounding the recovery copy
+                        // must not trust an unauthenticated sealed length.
+                        for length in [383, stale.len() as u64, stale.len() as u64 + 1] {
+                            let mut forged = stale.clone();
+                            for slot in forged[..384].chunks_exact_mut(192) {
+                                slot[104..112].copy_from_slice(&length.to_le_bytes());
+                                let checksum = crate::crypto::strong_checksum(&slot[..160]);
+                                slot[160..192].copy_from_slice(&checksum);
+                            }
+                            let report =
+                                crate::RecoveryScanner::scan_bytes(forged.clone(), &*recovery_key);
+                            assert_eq!(report.intact_file_count, 0);
+                            assert!(crate::RecoveryScanner::salvage_bytes(
+                                forged,
+                                &*recovery_key,
+                                &signer,
+                            )
+                            .is_err());
+                        }
+                    }
+                    let stale_salvage =
+                        crate::RecoveryScanner::salvage_bytes(stale, &*recovery_key, &signer)
+                            .unwrap();
+                    assert!(stale_salvage.get_file(&paths[0]).is_err());
+                    assert_eq!(stale_salvage.get_file(&paths[1]).unwrap(), contents[1]);
+                    // Privacy retirement must erase the original shared page,
+                    // including the deleted file's independently protected blocks.
+                    assert_eq!(
+                        reopened
+                            .storage
+                            .read_at(old_segment.page_offset, old_segment.page_len as usize)
+                            .unwrap(),
+                        vec![0; old_segment.page_len as usize]
+                    );
+                }
+            }
+        }
+    }
+}
+
+pub(crate) fn install(archive: &mut Lockbox, input: &[u8]) -> Vec<LockboxPath> {
+    let identity = PageIdentity {
+        archive: archive.lockbox_id,
+        mode: archive.format_mode,
+        page_id: archive.sequence + 100,
+        sequence: archive.sequence + 1,
+    };
+    let split = input.len() / 2;
+    let slices = [0..split, split..input.len()]
+        .into_iter()
+        .enumerate()
+        .map(|(i, range)| CompressionFrameSlice {
+            path: LockboxPath::new(format!("/file-{i}")).unwrap(),
+            permissions: 0o640,
+            total_len: range.len() as u64,
+            file_offset: 0,
+            compression_frame_offset: range.start as u64,
+            len: range.len() as u64,
+        })
+        .collect::<Vec<_>>();
+    let (descriptor, page) = archive
+        .key
+        .with_bytes(|key| {
+            block_page::encode(identity, identity.page_id + 1, input, slices.clone(), key)
+        })
+        .unwrap()
+        .unwrap();
+    let offset = archive.storage.append(&page).unwrap();
+    let reference = Arc::new(BlockFrameReference {
+        descriptor,
+        sequence: identity.sequence,
+    });
+    let entries = slices
+        .into_iter()
+        .map(|slice| {
+            let descriptor = &reference.descriptor;
+            TocEntry {
+                path: slice.path.clone(),
+                len: slice.len,
+                record_offset: offset,
+                record_len: page.len() as u64,
+                record_object_id: identity.page_id,
+                record_digest: [0; 32],
+                deleted: false,
+                node_kind: crate::node_kind::NodeKind::File,
+                permissions: slice.permissions,
+                chunks: vec![FileChunk {
+                    block_frame: Some(reference.clone()),
+                    stored_path: slice.path,
+                    file_offset: 0,
+                    len: slice.len,
+                    compression_frame_offset: slice.compression_frame_offset,
+                    compression_frame_len: descriptor.logical_len,
+                    compressed_len: descriptor.stored_len,
+                    compression: descriptor.compression,
+                    compression_frame_id: descriptor.frame_id,
+                    compression_frame_digest: descriptor.index_commitment,
+                    segments: vec![CompressionFrameSegment {
+                        page_offset: offset,
+                        page_len: page.len() as u64,
+                        object_id: identity.page_id,
+                        segment_offset: 0,
+                        segment_len: descriptor.stored_len,
+                    }],
+                }],
+            }
+        })
+        .collect::<Vec<_>>();
+    let wire = crate::toc_btree::encode_toc_leaf(&entries).unwrap();
+    let crate::toc_btree::TocNode::Leaf(decoded) =
+        crate::toc_btree::decode_toc_node(&wire).unwrap()
+    else {
+        panic!("expected leaf");
+    };
+    let paths = decoded.iter().map(|entry| entry.path.clone()).collect();
+    archive
+        .toc_entries
+        .extend(decoded.into_iter().map(|entry| (entry.path.clone(), entry)));
+    paths
+}
+
+#[test]
+fn native_block_public_read_paths_and_signed_digest_validate_all_modes() {
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let input = (0..65539).map(|i| (i % 251) as u8).collect::<Vec<_>>();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                for size_padding in [SizePadding::Default, SizePadding::None] {
+                    let mut archive =
+                        Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                            compression,
+                            size_padding,
+                            ..LockboxCreateOptions::new(
+                                if encrypted {
+                                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                                        SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                    ))
+                                } else {
+                                    Encryption::None
+                                },
+                                if signed {
+                                    Signing::Owner(&signer)
+                                } else {
+                                    Signing::None
+                                },
+                            )
+                        })
+                        .unwrap();
+                    archive.commit().unwrap();
+                    let paths = install(&mut archive, &input);
+                    for (i, path) in paths.iter().enumerate() {
+                        let expected = if i == 0 {
+                            &input[..input.len() / 2]
+                        } else {
+                            &input[input.len() / 2..]
+                        };
+                        assert_eq!(archive.get_file(path).unwrap(), expected);
+                        assert_eq!(
+                            archive.read_file_range(path, 16380, 13).unwrap(),
+                            expected[16380..16393]
+                        );
+                        let mut reader = archive.open_file(path).unwrap();
+                        reader.seek(SeekFrom::Start(16380)).unwrap();
+                        let mut sample = [0; 13];
+                        reader.read_exact(&mut sample).unwrap();
+                        assert_eq!(sample, expected[16380..16393]);
+                        reader.rewind().unwrap();
+                        let mut content = Vec::new();
+                        reader.read_to_end(&mut content).unwrap();
+                        assert_eq!(content, expected);
+                        let mut extracted = Vec::new();
+                        archive
+                            .extract_file_to_writer(path, &mut extracted)
+                            .unwrap();
+                        assert_eq!(extracted, expected);
+                    }
+                    for order in [
+                        files::ContentStreamOrder::Logical,
+                        files::ContentStreamOrder::Physical,
+                    ] {
+                        let mut content = BTreeMap::<LockboxPath, Vec<u8>>::new();
+                        archive
+                            .stream_content(
+                                files::ContentStreamOptions { order },
+                                |chunk, reader| {
+                                    let bytes = content.entry(chunk.path).or_default();
+                                    assert_eq!(bytes.len() as u64, chunk.file_offset);
+                                    reader.read_to_end(bytes).unwrap();
+                                    Ok(())
+                                },
+                            )
+                            .unwrap();
+                        assert_eq!(content[&paths[0]], input[..input.len() / 2]);
+                        assert_eq!(content[&paths[1]], input[input.len() / 2..]);
+                    }
+                    // Canonical signing must eagerly read data, not just hash the index.
+                    assert!(archive.signed_content_digest().is_ok());
+                    let original = archive.toc_entries[&paths[0]].clone();
+                    // Unit-level cache reset isolates the index proof from the
+                    // decoded-data proof tested by the public reads above.
+                    archive.page_manager.borrow_mut().clear();
+                    archive
+                        .open_native_block_chunk(original.len, &original.chunks[0])
+                        .unwrap();
+                    let hits = archive.inspector().cache_stats().hits;
+                    archive
+                        .open_native_block_chunk(original.len, &original.chunks[0])
+                        .unwrap();
+                    assert!(archive.inspector().cache_stats().hits > hits);
+                    archive.toc_entries.get_mut(&paths[0]).unwrap().chunks[0].stored_path =
+                        LockboxPath::new("/wrong").unwrap();
+                    assert!(archive.get_file(&paths[0]).is_err());
+                    archive
+                        .toc_entries
+                        .insert(paths[0].clone(), original.clone());
+                    archive.toc_entries.get_mut(&paths[0]).unwrap().len += 1;
+                    assert!(archive.read_file_range(&paths[0], 0, 1).is_err());
+                    archive
+                        .toc_entries
+                        .insert(paths[0].clone(), original.clone());
+                    for mutation in 0..14 {
+                        let mut changed = original.clone();
+                        let chunk = &mut changed.chunks[0];
+                        match mutation {
+                            0 => {
+                                Arc::make_mut(chunk.block_frame.as_mut().unwrap())
+                                    .descriptor
+                                    .archive = LockboxId::from_bytes([19; 16])
+                            }
+                            1 => {
+                                Arc::make_mut(chunk.block_frame.as_mut().unwrap())
+                                    .descriptor
+                                    .mode
+                                    .0 ^= 0x100
+                            }
+                            2 => Arc::make_mut(chunk.block_frame.as_mut().unwrap()).sequence += 1,
+                            3 => chunk.compression_frame_id += 1,
+                            4 => chunk.compression_frame_digest[0] ^= 1,
+                            5 => chunk.compressed_len += 1,
+                            6 => chunk.compression_frame_len += 1,
+                            7 => chunk.segments[0].object_id += 1,
+                            8 => chunk.segments[0].page_len -= 1,
+                            9 => chunk.segments[0].page_offset += 1,
+                            10 => chunk.segments[0].segment_offset += 1,
+                            11 => chunk.segments[0].segment_len += 1,
+                            12 => chunk.segments.push(chunk.segments[0].clone()),
+                            13 => {
+                                Arc::make_mut(chunk.block_frame.as_mut().unwrap())
+                                    .descriptor
+                                    .salt[0] ^= 1
+                            }
+                            _ => unreachable!(),
+                        }
+                        assert!(
+                            archive
+                                .open_native_block_chunk(changed.len, &changed.chunks[0])
+                                .is_err(),
+                            "cached index accepted reference mutation {mutation}"
+                        );
+                        archive.toc_entries.insert(paths[0].clone(), changed);
+                        assert!(
+                            archive.read_file_range(&paths[0], 0, 1).is_err(),
+                            "accepted reference mutation {mutation}"
+                        );
+                    }
+                    archive
+                        .toc_entries
+                        .insert(paths[0].clone(), original.clone());
+                    let segment = &original.chunks[0].segments[0];
+                    let page = &archive.to_bytes()[segment.page_offset as usize..]
+                        [..segment.page_len as usize];
+                    let used = crate::page::PAGE_HEADER_LEN
+                        + u32::from_le_bytes(page[44..48].try_into().unwrap()) as usize;
+                    let damaged = page[used - 1] ^ 1;
+                    archive
+                        .storage
+                        .write_at(segment.page_offset + used as u64 - 1, &[damaged])
+                        .unwrap();
+                    if compression == Compression::None {
+                        // Raw range authentication touches only selected blocks;
+                        // signed snapshot verification below must still visit all.
+                        assert_eq!(
+                            archive.read_file_range(&paths[0], 0, 1).unwrap(),
+                            input[..1]
+                        );
+                    }
+                    assert!(archive.get_file(&paths[1]).is_err());
+                    assert!(archive.signed_content_digest().is_err());
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn native_file_handle_cached_bytes_reject_file_truncation() {
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let input = vec![37; 65539];
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                for size_padding in [SizePadding::Default, SizePadding::None] {
+                    let mut archive =
+                        Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                            compression,
+                            size_padding,
+                            ..LockboxCreateOptions::new(
+                                if encrypted {
+                                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                                        SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                    ))
+                                } else {
+                                    Encryption::None
+                                },
+                                if signed {
+                                    Signing::Owner(&signer)
+                                } else {
+                                    Signing::None
+                                },
+                            )
+                        })
+                        .unwrap();
+                    archive.commit().unwrap();
+                    let paths = install(&mut archive, &input);
+                    let path = std::env::temp_dir().join(format!(
+                        "revault-native-handle-{}-{}.lbox",
+                        std::process::id(),
+                        archive.lockbox_id
+                    ));
+                    archive.storage =
+                        StorageBackend::create_file(&path, &archive.to_bytes()).unwrap();
+                    archive.set_workload_profile(WorkloadProfile::ExtractMany);
+                    assert_eq!(
+                        archive.get_file(&paths[0]).unwrap(),
+                        input[..input.len() / 2]
+                    );
+                    assert_eq!(
+                        archive.decoded_compression_frame_cache_entries_for_tests(),
+                        1
+                    );
+                    assert_eq!(
+                        archive.get_file(&paths[1]).unwrap(),
+                        input[input.len() / 2..]
+                    );
+                    assert_eq!(
+                        archive.decoded_compression_frame_cache_entries_for_tests(),
+                        1
+                    );
+                    assert_eq!(archive.read_file_range(&paths[1], 3, 13).unwrap(), [37; 13]);
+                    let mut reader = archive.open_file(&paths[1]).unwrap();
+                    let mut bytes = [0; 13];
+                    reader.read_exact(&mut bytes).unwrap();
+                    assert_eq!(bytes, [37; 13]);
+                    // Fault injection has no public API: overwrite through a
+                    // cloned backing store, which shares the file and revision.
+                    let segment = &archive.toc_entries[&paths[0]].chunks[0].segments[0];
+                    let persisted = archive.to_bytes();
+                    let page = &persisted[segment.page_offset as usize..];
+                    let used = crate::page::PAGE_HEADER_LEN
+                        + u32::from_le_bytes(page[44..48].try_into().unwrap()) as usize;
+                    let offset = segment.page_offset + used as u64 - 1;
+                    let original = page[used - 1];
+                    let mut writer = archive.storage.clone();
+                    writer.write_at(offset, &[original ^ 1]).unwrap();
+                    assert!(
+                        archive.get_file(&paths[1]).is_err(),
+                        "overwrites invalidate decoded cache entries"
+                    );
+                    reader.rewind().unwrap();
+                    assert!(
+                        reader.read_exact(&mut bytes).is_err(),
+                        "overwrites invalidate retained read windows"
+                    );
+                    writer.write_at(offset, &[original]).unwrap();
+                    // Adversarial out-of-band truncation has no public CLI setup.
+                    let length = std::fs::metadata(&path).unwrap().len();
+                    let mut visited = 0;
+                    let result = archive.stream_content(Default::default(), |_, _| {
+                        visited += 1;
+                        std::fs::OpenOptions::new()
+                            .write(true)
+                            .open(&path)
+                            .unwrap()
+                            .set_len(length - 1)
+                            .unwrap();
+                        Ok(())
+                    });
+                    assert!(result.is_err());
+                    assert_eq!(
+                        visited, 1,
+                        "truncation must reject the retained neighboring slice"
+                    );
+                    reader.rewind().unwrap();
+                    assert!(reader.read_exact(&mut bytes).is_err());
+                    drop(reader);
+                    assert!(archive.get_file(&paths[0]).is_err());
+                    assert!(archive.read_file_range(&paths[1], 3, 13).is_err());
+                    assert_eq!(
+                        archive.decoded_compression_frame_cache_entries_for_tests(),
+                        1
+                    );
+                    let mut extracted = Vec::new();
+                    assert!(archive
+                        .extract_file_to_writer(&paths[1], &mut extracted)
+                        .is_err());
+                    assert!(
+                        extracted.is_empty(),
+                        "truncated cached bytes reached the writer"
+                    );
+                    drop(archive);
+                    std::fs::remove_file(path).unwrap();
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn staged_native_pages_use_preparation_and_abort_append_and_reused_extents() {
+    use super::file_import_pipeline::{CompressionFrameWrite, FileImportPipeline};
+    use crate::page_cache::PageWritePolicy;
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let keep = LockboxPath::new("/keep").unwrap();
+    let removed = LockboxPath::new("/removed").unwrap();
+    let mut state = 0xabcdef0123456789u64;
+    let random = (0..512 * 1024)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state as u8
+        })
+        .collect::<Vec<_>>();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                for size_padding in [SizePadding::Default, SizePadding::None] {
+                    let mut archive =
+                        Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                            compression,
+                            size_padding,
+                            ..LockboxCreateOptions::new(
+                                if encrypted {
+                                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                                        SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                    ))
+                                } else {
+                                    Encryption::None
+                                },
+                                if signed {
+                                    Signing::Owner(&signer)
+                                } else {
+                                    Signing::None
+                                },
+                            )
+                        })
+                        .unwrap();
+                    archive.add_file(&keep, b"committed", false).unwrap();
+                    archive.add_file(&removed, &random, false).unwrap();
+                    archive.commit().unwrap();
+                    archive.delete(&removed).unwrap();
+                    archive.commit().unwrap();
+                    for reuse in [false, true] {
+                        let base_len = archive.storage.len().unwrap();
+                        let prepared = FileImportPipeline::new(3, 1)
+                            .with_compression(Some(compression))
+                            .prepare(&[CompressionFrameWrite {
+                                path: &removed,
+                                permissions: 0o640,
+                                total_len: 32768,
+                                file_offset: 0,
+                                data: &[37; 32768],
+                            }]);
+                        archive.sequence += 2;
+                        let identity = PageIdentity {
+                            archive: archive.lockbox_id,
+                            mode: archive.format_mode,
+                            page_id: archive.sequence,
+                            sequence: archive.sequence,
+                        };
+                        let native = Arc::new(
+                            archive
+                                .key
+                                .with_bytes(|key| {
+                                    prepared.encode_native_page(identity, identity.page_id - 1, key)
+                                })
+                                .unwrap()
+                                .unwrap(),
+                        );
+                        let offset = if reuse {
+                            archive
+                                .allocate_page_offset(native.bytes().len() as u64)
+                                .unwrap()
+                        } else {
+                            archive.next_append_page_offset().unwrap()
+                        };
+                        assert_eq!(offset < base_len, reuse);
+                        // Native writer dispatch is still gated. Stage the real
+                        // prepared page privately, but use the actual archive flush
+                        // and public abort paths to test reservation ordering.
+                        archive
+                            .page_manager
+                            .borrow_mut()
+                            .stage_native_page(
+                                offset,
+                                archive.lockbox_id,
+                                native.clone(),
+                                PageWritePolicy::DiscardAfterFlush,
+                            )
+                            .unwrap();
+                        archive.flush_discardable_pages().unwrap();
+                        assert!(archive.preparing);
+                        assert_eq!(
+                            archive
+                                .storage
+                                .read_at(offset, native.bytes().len())
+                                .unwrap(),
+                            native.bytes()
+                        );
+                        archive.abort().unwrap();
+                        assert_eq!(archive.storage.len().unwrap(), base_len);
+                        assert_eq!(archive.get_file(&keep).unwrap(), b"committed");
+                        assert!(!archive.preparing);
+                        assert!(!archive.has_dirty_pages());
+                        if reuse {
+                            assert_eq!(
+                                archive
+                                    .storage
+                                    .read_at(offset, native.bytes().len())
+                                    .unwrap(),
+                                vec![0; native.bytes().len()]
+                            );
+                        }
+                        archive.inspector().verify_storage().unwrap();
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn whole_file_reservation_rejects_unaddressable_sparse_length() {
+    let path = LockboxPath::new("/oversized").unwrap();
+    let mut archive = Lockbox::create(b"test-key");
+    archive.add_file(&path, &[], false).unwrap();
+    archive.commit().unwrap();
+    // Unit-level malformed metadata: no real allocation or giant public write
+    // is needed to exercise the fallible output-reservation boundary.
+    let entry = archive.toc_entries.get_mut(&path).unwrap();
+    entry.len = u64::MAX;
+    entry.chunks.clear();
+    assert!(matches!(
+        archive.get_file(&path),
+        Err(Error::SecurityLimitExceeded(_))
+    ));
+}
+
+#[cfg(feature = "native-block-layout")]
+#[test]
+fn native_extraction_keeps_verified_bytes_alive_across_eviction_and_writer_errors() {
+    struct EvictingWriter<'a> {
+        archive: &'a Lockbox,
+        other: &'a LockboxPath,
+        bytes: Vec<u8>,
+        evicted: bool,
+        fail_after: Option<usize>,
+    }
+    impl std::io::Write for EvictingWriter<'_> {
+        fn write(&mut self, input: &[u8]) -> std::io::Result<usize> {
+            if self
+                .fail_after
+                .is_some_and(|limit| self.bytes.len() >= limit)
+            {
+                return Err(std::io::Error::other("injected output failure"));
+            }
+            if !self.evicted {
+                assert_eq!(self.archive.get_file(self.other).unwrap(), vec![91; 65536]);
+                self.evicted = true;
+            }
+            let available = self
+                .fail_after
+                .map_or(usize::MAX, |limit| limit - self.bytes.len());
+            let count = input.len().min(997).min(available);
+            self.bytes.extend_from_slice(&input[..count]);
+            Ok(count)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let path = LockboxPath::new("/main").unwrap();
+    let other = LockboxPath::new("/other").unwrap();
+    let input = (0..65536).map(|i| (i % 251) as u8).collect::<Vec<_>>();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                let mut archive = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                    compression,
+                    ..LockboxCreateOptions::new(
+                        if encrypted {
+                            Encryption::Encrypted(LockboxProtection::ContentKey(
+                                SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                            ))
+                        } else {
+                            Encryption::None
+                        },
+                        if signed {
+                            Signing::Owner(&signer)
+                        } else {
+                            Signing::None
+                        },
+                    )
+                })
+                .unwrap();
+                archive.add_file(&path, &input, false).unwrap();
+                archive.add_file(&other, &vec![91; 65536], false).unwrap();
+                archive.commit().unwrap();
+                // Unit-level cache budget makes a public neighboring-file read
+                // evict the frame currently borrowed by the output writer.
+                archive.page_manager.borrow_mut().trim_to(80 * 1024);
+                let offset = archive.toc_entries[&path].chunks[0].segments[0].page_offset;
+                for fail_after in [None, Some(2000)] {
+                    for warm in [false, true] {
+                        archive.page_manager.borrow_mut().clear();
+                        if warm {
+                            assert_eq!(archive.get_file(&path).unwrap(), input);
+                        }
+                        let mut writer = EvictingWriter {
+                            archive: &archive,
+                            other: &other,
+                            bytes: Vec::new(),
+                            evicted: false,
+                            fail_after,
+                        };
+                        let result = archive.extract_file_to_writer(&path, &mut writer);
+                        assert_eq!(result.is_err(), fail_after.is_some());
+                        assert!(writer.evicted);
+                        assert_eq!(writer.bytes, input[..fail_after.unwrap_or(input.len())]);
+                        assert!(archive
+                            .page_manager
+                            .borrow_mut()
+                            .native_decoded_page(offset, archive.storage.write_revision())
+                            .is_none());
+                        assert_eq!(archive.get_file(&path).unwrap(), input);
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,22 @@
+BASELINE large-compressed
+
+thread 'main' panicked at revault_lockbox_api/benches/evaluation/candidate_driver.rs:43:5:
+candidate failed:
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... FAILED
+
+failures:
+
+failures:
+    file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 570 filtered out; finished in 0.00s
+
+
+
+thread 'file_format::candidate_files::resource_probe::candidate_file_resource_probe' panicked at revault_lockbox_api/src/file_format/candidate_files/resource_probe.rs:134:10:
+called `Result::unwrap()` on an `Err` value: NotPresent
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

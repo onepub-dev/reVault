@@ -1,0 +1,5 @@
+Source: official google/flatbuffers GitHub release v25.2.10 (release page identifies tag commit 1c51462).
+Asset: Linux.flatc.binary.g++-13.zip (GitHub release asset id 228082624; advertised size 2,523,458 bytes).
+Download command: gh release download v25.2.10 --repo google/flatbuffers --pattern Linux.flatc.binary.g++-13.zip --dir /tmp/revault-flatc-25.2.10
+Official download URL: https://github.com/google/flatbuffers/releases/download/v25.2.10/Linux.flatc.binary.g%2B%2B-13.zip
+Extracted executable is isolated at /tmp/revault-flatc-25.2.10/bin/flatc; no system install or sudo was used.

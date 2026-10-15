@@ -1,0 +1,14 @@
+{
+  "sample_rows": 12,
+  "warmup_sample_rows": 9,
+  "measured_sample_rows": 3,
+  "measured_layouts": [
+    "shared-control-typed-tree",
+    "candidate-262144",
+    "default"
+  ],
+  "all_verified": true,
+  "logical_bytes_read_per_sample": 2097152,
+  "setup_only_excluded": true,
+  "passed": true
+}

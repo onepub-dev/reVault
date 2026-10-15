@@ -1,0 +1,34 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/authenticated_index.rs b/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
+index c854e958..56c796f4 100644
+--- a/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
++++ b/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
+@@ -759,20 +759,25 @@ impl Index {
+         {
+             return Err(Error::CorruptRecord);
+         }
++        // Plaintext already resides in the caller's verified, wiped page.
++        // Borrow it for decoding instead of allocating another private copy.
++        // Decrypted storage remains owned and wiped on every return path.
++        let decrypted;
+         let body = if let Some(key) = &self.key {
+-            ZeroizingBytes::new(open_with_nonce(
++            decrypted = ZeroizingBytes::new(open_with_nonce(
+                 &bytes[HEADER..],
+                 key.as_slice(),
+                 &bytes[28..40],
+                 &bytes[..28],
+-            )?)
++            )?);
++            &decrypted[..]
+         } else {
+             if bytes[28..40] != [0; 12] {
+                 return Err(Error::CorruptRecord);
+             }
+-            ZeroizingBytes::new(bytes[HEADER..].to_vec())
++            &bytes[HEADER..]
+         };
+-        let mut cursor = Cursor(&body);
++        let mut cursor = Cursor(body);
+         let height = cursor.take(1)?[0];
+         let count = cursor.u64()?;
+         let items = cursor.u16()? as usize;

@@ -1,0 +1,2 @@
+create_profile,corpus,mode,compressed,before_total_ms,after_total_ms,median_paired_change_pct,min_paired_change_pct,max_paired_change_pct,before_commit_ms,after_commit_ms,pairs
+BulkImport,random,encrypted,false,24.506,24.815,2.46,-22.20,18.00,20.835,21.160,21

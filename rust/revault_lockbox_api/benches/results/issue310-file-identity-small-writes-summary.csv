@@ -1,0 +1,9 @@
+create_profile,compressed,corpus,before_ms,after_ms,speedup
+BulkImport,false,pattern,24.996,24.788,1.008
+BulkImport,false,random,26.340,27.473,0.959
+BulkImport,true,pattern,21.393,22.223,0.963
+BulkImport,true,random,23.942,23.125,1.035
+Interactive,false,pattern,41.157,40.916,1.006
+Interactive,false,random,40.612,40.572,1.001
+Interactive,true,pattern,42.697,43.916,0.972
+Interactive,true,random,47.188,46.538,1.014

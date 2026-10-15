@@ -1,0 +1,15 @@
+{
+  "revision": "b8286701",
+  "binary_sha256": "b0065af9b9fe7e89cd2cf684f1e552385d7f344d1ca71d0d961021665beffa0e",
+  "cases": {
+    "small-plain": {
+      "dense": "/tmp/revault-dense-file-image-20260927/small-plain",
+      "control": "/tmp/revault-packed-comparison-20260927/small/other"
+    },
+    "small-protected": {
+      "dense": "/tmp/revault-dense-file-image-20260927/small-protected",
+      "control": "/tmp/revault-whole-layout-cost-model-20260927/small-protected"
+    }
+  },
+  "scope": "read-only damage comparison; primary retained corpus; one observation"
+}

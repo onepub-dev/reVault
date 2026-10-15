@@ -1,0 +1,14 @@
+rust-toolchain.toml:
+[toolchain]
+channel = "1.88.0"
+components = ["clippy", "rustfmt"]
+targets = ["wasm32-unknown-unknown", "wasm32-wasip2"]
+profile = "default"
+
+.cargo/config.toml:
+[alias]
+xtask = "run -p xtask --"
+
+Cargo version: cargo 1.88.0 (873a06493 2025-05-10)
+Rustc version: rustc 1.88.0 (6b00bc388 2025-06-23)
+selectors (RUSTUP_TOOLCHAIN=1.88.0, RUSTC=unset, RUSTC_WRAPPER=unset, CARGO=unset)

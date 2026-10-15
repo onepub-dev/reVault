@@ -1,0 +1,62 @@
+Issue 310: native/default write gate after pooled encoder buffers
+
+Both executables freshly built from committed production source 62180a3.
+Default SHA256:
+04a180dbdf4f271c7775fdfa81797b88f4c48f0dc9ac90e651c35c86397cc3d5
+Native SHA256:
+23a4796a69bb313dcd014096373085a1835adc489c37505c081cdffbeaf890c8
+Preserved as target/issue310-layout-gate-62180a3-{default,native}.
+Build commands: cargo bench -p revault_lockbox_api --bench protection_gate
+--no-run, with --features native-block-layout for native. Both builds passed.
+CSV main=default,branch=native, not before/after this optimization. Both layouts
+contain pooled encoder buffers and all applicable retained production changes.
+
+Protocol:8MiB pattern/random, four protection modes, raw/compressed, default
+padding, synthetic keys/no password KDF. CPU2 taskset; warm OS caches, warm pool
+within child after discarded first sample. No owned builds/tests overlapped;
+unrelated host work uncontrolled. Not cold-process/cold-I/O or CLI timing.
+Broad matrix5 ABBA/BAAB groups,3 child samples each, first discarded:640 measured
+plus320 warmups. Both focused cases fixed before this run based on prior failed
+gates:encrypted-signed/true/write and encrypted/true/write, pattern,15 groups,
+6 child samples each with first discarded:600 measured plus120 warmups.
+All1240 measured+440 warmups=1680 writes independently reopened and persisted
+bytes compared outside timed create/add/commit/drop. Runner exited0.
+Existing summarizer bootstraps5000 whole groups using per-group median ratios;
+pooled medians are descriptive and are a different estimator.
+
+Pattern raw writes:paired reductions43.455-61.759%, all upper bounds below zero.
+Random writes:paired reductions44.518-60.672%, all upper bounds below zero.
+Pattern compressed broad cases remain mixed:
+plain+7.427%[+2.044,+8.095], encrypted+10.367%[+0.450,+25.657],
+signed+0.495%[-5.412,+11.378],encrypted-signed-2.066%[-8.412,+3.647].
+Five-group broad intervals have limited precision and no multiplicity correction.
+
+Focused encrypted-signed compressed:
+pooled default19.647171ms,native20.213209ms;
+paired-0.543%,95%[-5.352,+4.477],15 groups.
+PASS the existing upper95%<=+5% gate for this case in this run.
+This does not establish a speedup; the interval includes zero.
+
+Focused encrypted-only compressed:
+pooled default19.954296ms,native21.829963ms;
+paired+3.257%,95%[-2.040,+10.876],15 groups.
+FAIL the upper95%<=+5% gate. It does not establish a slowdown at95%, but the
+uncertainty is too wide to demonstrate non-regression within5%.
+Broad and focused results are retained separately, not pooled. Time differences
+between cases/runs are not evidence of specific allocator/flush causation.
+Prior f4b1d91 results used a different session/revision and are not pooled or
+claimed as a statistically demonstrated trend. Pooling's native before/after
+benefit is separately measured in issue310-pooled-encoder-* artifacts.
+
+Overall write gate remains OPEN; plain and signed compressed broad intervals
+also exceed5%. Native stays opt-in. No recovery checks weakened, format changed,
+or production edit made in this checkpoint. Correctness evidence is in the
+pooled-encoder notes:default354unitpass, native360pass plus2 known recovery
+failures, all executed integrations passing and Clippy passing.
+
+Next: investigate current encrypted-only compressed cost with matched builds;
+old profiles predate pooled scratch/output and cannot establish current causes.
+Streaming/CLI writes still use ordinary codec; reuse there needs independent
+lifecycle and performance validation rather than extrapolating slice results.
+Broader read parity, cold I/O, signed recovery, migrations, bindings and release
+work remain incomplete. No remote changes made.

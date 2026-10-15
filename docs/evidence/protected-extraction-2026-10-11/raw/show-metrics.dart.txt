@@ -1,0 +1,5 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+void main(List<String> args){final s=jsonDecode(File(args.single).readAsStringSync()) as Map;for(final e in (s['cases'] as Map).entries){print(e.key);for(final v in (e.value['variants'] as Map).entries){final m=v.value;print(' ${v.key}: elapsed=${m['median_elapsed_seconds']} cpu=${m['median_cpu_seconds']} rssMiB=${(m['max_extraction_peak_rss_kib'] as num)/1024}');}for(final p in (e.value['paired_comparisons'] as Map).entries){final m=p.value;final t=m['elapsed_seconds'],c=m['cpu_seconds'];print(' ${p.key}: elapsed ${t['geometric_mean_ratio']} [${t['low95']},${t['high95']}] CPU ${c['geometric_mean_ratio']} [${c['low95']},${c['high95']}]');}}print(green('Reported validated metrics only.'));}

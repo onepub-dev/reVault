@@ -1,0 +1,7 @@
+
+running 1 test
+test file_format::candidate_files::tests::tree_tests::variables::resource::typed_variable_resource_probe ... VARIABLE_RESOURCE_VERIFIED {"archive_bytes":4915200,"archive_sha256":"1e01a89a7ed3de45bf1e69a3aada6e5e72ccec6d9f93f8ed49f14095bad189ec","length":1048576,"revision":2,"segments":16}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 589 filtered out; finished in 0.10s
+

@@ -1,0 +1,180 @@
+{
+  "command": {
+    "executable": "/home/bsutton/.cargo/bin/cargo",
+    "args": [
+      "+1.88.0",
+      "metadata",
+      "--format-version",
+      "1",
+      "--offline"
+    ],
+    "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust",
+    "timeout_seconds": 900
+  },
+  "exit_code": 0,
+  "elapsed_ms": 408,
+  "source_head": "7cb57d5667c6308b0ee91793f195b84db5378800",
+  "input_count_before": 1065,
+  "input_count_after": 1065,
+  "non_lock_inputs_unchanged": true,
+  "lock_sha256_before": "08ae182b587940f8e616d799ff0e046f9d1526c9619522a20e5e4c6ed5fe367f",
+  "lock_sha256_after": "50840bcd53b04323e8f0f5e837ba3574a6c7c89f46583425d938f5b80a9b7273",
+  "lock_changed": true,
+  "lock_diff_exit_code": 1,
+  "metadata_packages": [
+    {
+      "name": "revault_archive_v1_initial_reader",
+      "version": "0.0.1",
+      "source": null,
+      "manifest_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_archive_v1_initial_reader/Cargo.toml",
+      "dependencies": [
+        "argon2",
+        "chacha20poly1305",
+        "ed25519-dalek",
+        "getrandom",
+        "hkdf",
+        "ml-dsa",
+        "ml-kem",
+        "revault_page_api",
+        "ruzstd",
+        "sha2",
+        "sysinfo",
+        "unicode-normalization",
+        "x25519-dalek",
+        "zeroize",
+        "zstd",
+        "getrandom",
+        "libc"
+      ]
+    },
+    {
+      "name": "revault_archive_v1_legacy_reader",
+      "version": "0.0.1",
+      "source": null,
+      "manifest_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_archive_v1_legacy_reader/Cargo.toml",
+      "dependencies": [
+        "argon2",
+        "chacha20poly1305",
+        "ed25519-dalek",
+        "getrandom",
+        "hkdf",
+        "ml-dsa",
+        "ml-kem",
+        "revault_page_api",
+        "ruzstd",
+        "sha2",
+        "sysinfo",
+        "unicode-normalization",
+        "x25519-dalek",
+        "zeroize",
+        "zstd",
+        "getrandom",
+        "libc"
+      ]
+    },
+    {
+      "name": "revault_archive_v1_reader",
+      "version": "0.0.1",
+      "source": null,
+      "manifest_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_archive_v1_reader/Cargo.toml",
+      "dependencies": [
+        "argon2",
+        "chacha20poly1305",
+        "ed25519-dalek",
+        "getrandom",
+        "hkdf",
+        "ml-dsa",
+        "ml-kem",
+        "revault_page_api",
+        "ruzstd",
+        "serde_json",
+        "sha2",
+        "unicode-normalization",
+        "x25519-dalek",
+        "zeroize",
+        "zstd",
+        "getrandom",
+        "libc",
+        "windows-sys"
+      ]
+    },
+    {
+      "name": "revault_vault_v1_reader",
+      "version": "0.0.1",
+      "source": null,
+      "manifest_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_vault_v1_reader/Cargo.toml",
+      "dependencies": [
+        "base64ct",
+        "chacha20poly1305",
+        "getrandom",
+        "revault_archive_v1_initial_reader",
+        "serde",
+        "serde_json",
+        "sha2",
+        "zeroize",
+        "dbus",
+        "keyring",
+        "keyring",
+        "objc2-core-foundation",
+        "objc2-io-kit",
+        "libc",
+        "keyring",
+        "windows-sys"
+      ]
+    },
+    {
+      "name": "revault_vault_v2_container_v1_reader",
+      "version": "0.0.1",
+      "source": null,
+      "manifest_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_vault_v2_container_v1_reader/Cargo.toml",
+      "dependencies": [
+        "base64ct",
+        "chacha20poly1305",
+        "getrandom",
+        "revault_archive_v1_reader",
+        "serde",
+        "serde_json",
+        "sha2",
+        "zeroize",
+        "dbus",
+        "keyring",
+        "secret-service",
+        "zbus",
+        "keyring",
+        "objc2-core-foundation",
+        "objc2-io-kit",
+        "libc",
+        "keyring",
+        "windows-sys"
+      ]
+    },
+    {
+      "name": "ruzstd",
+      "version": "0.9.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "manifest_path": "/home/bsutton/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ruzstd-0.9.1/Cargo.toml",
+      "dependencies": [
+        "rustc-std-workspace-alloc",
+        "rustc-std-workspace-core",
+        "fastrand",
+        "twox-hash",
+        "criterion",
+        "rand",
+        "zstd"
+      ]
+    },
+    {
+      "name": "twox-hash",
+      "version": "2.1.4",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "manifest_path": "/home/bsutton/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/twox-hash-2.1.4/Cargo.toml",
+      "dependencies": [
+        "rand",
+        "serde",
+        "serde_json"
+      ]
+    }
+  ],
+  "all_five_present": true,
+  "ruzstd_0_9_1_present": true
+}

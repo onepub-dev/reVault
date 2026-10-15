@@ -3,13 +3,100 @@ use crate::{Error, Result};
 use std::ops::{Deref, DerefMut};
 use zeroize::Zeroize;
 
+/// Internal owned plaintext whose sensitivity follows its archive protection.
+/// Successful public ownership transfer is explicit; abandoned encrypted-origin
+/// or pre-encryption bytes are wiped across the full capacity on every exit.
+pub(crate) struct SensitiveBytes {
+    bytes: Vec<u8>,
+    sensitive: bool,
+}
+
+impl SensitiveBytes {
+    pub(crate) fn new(bytes: Vec<u8>, sensitive: bool) -> Self {
+        Self { bytes, sensitive }
+    }
+
+    pub(crate) fn into_vec(mut self) -> Vec<u8> {
+        std::mem::take(&mut self.bytes)
+    }
+}
+
+impl Deref for SensitiveBytes {
+    type Target = Vec<u8>;
+    fn deref(&self) -> &Vec<u8> {
+        &self.bytes
+    }
+}
+
+impl DerefMut for SensitiveBytes {
+    fn deref_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.bytes
+    }
+}
+
+impl Drop for SensitiveBytes {
+    fn drop(&mut self) {
+        if self.sensitive {
+            zeroize_bytes(&mut self.bytes);
+            #[cfg(test)]
+            observe_sensitive_drop(&mut self.bytes);
+        }
+    }
+}
+
 // Vec<T>::zeroize first wipes every element separately and then wipes the
 // entire allocation again. For bytes, slice zeroization provides the same
 // volatile-write guarantees with one barrier per slice. Cover spare capacity
 // too, since truncation may have left sensitive bytes there. Retain the length.
 pub(crate) fn zeroize_bytes(bytes: &mut Vec<u8>) {
-    bytes.as_mut_slice().zeroize();
-    bytes.spare_capacity_mut().zeroize();
+    zeroize_byte_slice(bytes.as_mut_slice());
+    zeroize_spare_bytes(bytes.spare_capacity_mut());
+}
+
+#[repr(transparent)]
+#[derive(Clone, Copy, Default)]
+struct WipeBlock([u64; 8]);
+
+// The transparent integer array has no padding and its default is all zeroes.
+impl zeroize::DefaultIsZeroes for WipeBlock {}
+
+// Unlike WipeBlock, this wrapper permits uninitialized bytes. Keep the wrapper
+// distinct so zeroize uses wide DefaultIsZeroes stores rather than its
+// MaybeUninit slice implementation, which clears one byte at a time.
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+struct SpareWipeBlock(std::mem::MaybeUninit<WipeBlock>);
+
+impl Default for SpareWipeBlock {
+    fn default() -> Self {
+        Self(std::mem::MaybeUninit::zeroed())
+    }
+}
+
+impl zeroize::DefaultIsZeroes for SpareWipeBlock {}
+
+fn zeroize_spare_bytes(bytes: &mut [std::mem::MaybeUninit<u8>]) {
+    // SAFETY: SpareWipeBlock transparently wraps MaybeUninit and permits all
+    // initialized or uninitialized bit patterns. It has the size/alignment of
+    // the padding-free WipeBlock. align_to_mut partitions this exclusive slice
+    // into disjoint aligned regions; zeroize only overwrites them with zeroes.
+    let (head, words, tail) = unsafe { bytes.align_to_mut::<SpareWipeBlock>() };
+    head.zeroize();
+    words.zeroize();
+    tail.zeroize();
+}
+
+pub(crate) fn zeroize_byte_slice(bytes: &mut [u8]) {
+    // Wide stores avoid a byte-at-a-time volatile loop. Continue to
+    // use zeroize for the writes and compiler fences on every region.
+    // SAFETY: every bit pattern is valid for WipeBlock, with no padding. align_to_mut
+    // partitions this initialized byte slice into disjoint, correctly aligned
+    // regions in the same allocation. All three regions are overwritten, never
+    // interpreted as sensitive numeric values or accessed through another alias.
+    let (head, words, tail) = unsafe { bytes.align_to_mut::<WipeBlock>() };
+    head.zeroize();
+    words.zeroize();
+    tail.zeroize();
 }
 
 pub(crate) struct ZeroizingBytes(Vec<u8>);
@@ -91,6 +178,54 @@ mod tests {
     use super::*;
 
     #[test]
+    fn wide_wiping_covers_unaligned_slices_without_touching_neighbours() {
+        for offset in 0..32 {
+            for len in 0..129 {
+                let mut bytes = [0xa5; 192];
+                zeroize_byte_slice(&mut bytes[offset..offset + len]);
+                assert!(bytes[..offset].iter().all(|byte| *byte == 0xa5));
+                assert!(bytes[offset..offset + len].iter().all(|byte| *byte == 0));
+                assert!(bytes[offset + len..].iter().all(|byte| *byte == 0xa5));
+            }
+        }
+    }
+
+    #[test]
+    fn spare_wiping_covers_uninitialized_and_unaligned_regions() {
+        use std::mem::MaybeUninit;
+        for offset in 0..32 {
+            for len in 0..129 {
+                let mut bytes = [MaybeUninit::new(0xa5u8); 192];
+                bytes[offset..offset + len].fill(MaybeUninit::uninit());
+                zeroize_spare_bytes(&mut bytes[offset..offset + len]);
+                for (index, byte) in bytes.iter().enumerate() {
+                    // SAFETY: the untouched region was initialized above and
+                    // zeroize_spare_bytes initialized the selected region.
+                    let value = unsafe { byte.assume_init() };
+                    assert_eq!(
+                        value,
+                        if (offset..offset + len).contains(&index) {
+                            0
+                        } else {
+                            0xa5
+                        }
+                    );
+                }
+            }
+        }
+        let mut bytes = Vec::<u8>::with_capacity(4096);
+        let capacity = bytes.capacity();
+        zeroize_bytes(&mut bytes);
+        assert!(bytes.is_empty());
+        assert_eq!(bytes.capacity(), capacity);
+        for byte in bytes.spare_capacity_mut() {
+            // SAFETY: zeroize_bytes initialized all spare capacity above.
+            let value = unsafe { byte.assume_init() };
+            assert_eq!(value, 0);
+        }
+    }
+
+    #[test]
     fn byte_wiping_handles_empty_and_partial_allocations() {
         for len in [0, 1, 7, 8, 31, 1024] {
             let mut bytes = vec![0xa5; 2048];
@@ -108,4 +243,50 @@ mod tests {
         }
         zeroize_bytes(&mut Vec::new());
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    static SENSITIVE_DROP_OBSERVATIONS: std::cell::RefCell<Option<Vec<(usize, usize, bool)>>> = const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(test)]
+pub(crate) fn observe_sensitive_drops<T>(
+    operation: impl FnOnce() -> T,
+) -> (T, Vec<(usize, usize, bool)>) {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            let _ = SENSITIVE_DROP_OBSERVATIONS.try_with(|v| {
+                v.borrow_mut().take();
+            });
+        }
+    }
+    SENSITIVE_DROP_OBSERVATIONS.with(|v| {
+        assert!(v.borrow().is_none());
+        *v.borrow_mut() = Some(Vec::new());
+    });
+    let reset = Reset;
+    let result = operation();
+    let observations = SENSITIVE_DROP_OBSERVATIONS.with(|v| v.borrow_mut().take().unwrap());
+    drop(reset);
+    (result, observations)
+}
+
+#[cfg(test)]
+fn observe_sensitive_drop(bytes: &mut Vec<u8>) {
+    if bytes.capacity() == 0 {
+        return;
+    }
+    let _ = SENSITIVE_DROP_OBSERVATIONS.try_with(|observations| {
+        if let Some(values) = observations.borrow_mut().as_mut() {
+            let zeroed = bytes.iter().all(|v| *v == 0)
+                && bytes.spare_capacity_mut().iter().all(|v| {
+                    // SAFETY: Called immediately after zeroize_bytes, which
+                    // initializes every spare byte. The allocation is still live.
+                    unsafe { *v.assume_init_ref() == 0 }
+                });
+            values.push((bytes.len(), bytes.capacity(), zeroed));
+        }
+    });
 }

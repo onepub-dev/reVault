@@ -1,0 +1,59 @@
+{
+  "command": [
+    "taskset",
+    "-c",
+    "0,1,2,3,4",
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "900",
+    "/tmp/revault-parallel-20261010/balanced-bin/revault_lockbox_api_tests",
+    "--exact",
+    "file_format::candidate_files::resource_probe::candidate_file_resource_probe",
+    "--ignored",
+    "--nocapture"
+  ],
+  "environment": {
+    "REVAULT_CANDIDATE_ROOT": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted",
+    "REVAULT_CANDIDATE_PHASE": "tree-create",
+    "REVAULT_CANDIDATE_UNIT": "65536"
+  },
+  "candidate_sha256_before": "0d190e5d883ed42630c33f14a03c568b6b45f04df1ba612b4ee740d5ec4c09df",
+  "candidate_sha256_after": "0d190e5d883ed42630c33f14a03c568b6b45f04df1ba612b4ee740d5ec4c09df",
+  "inputs_before": {
+    "source": {
+      "inventory_sha256": "63b31d9137792d222051929671f01264868c5442c72603cbf3e901624a6a8a86",
+      "file_count": 1,
+      "unique_file_hashes": 1,
+      "aggregate_manifest_sha256": "b60118ac7016a0b615e93203667360497f4752b2f608a2a74665400c25c7805d"
+    },
+    "case_json_sha256": "cbadf21c7587c97e6690ada387585f7d859022d2515d816c6451cb73157020c0",
+    "inventory_sha256": "63b31d9137792d222051929671f01264868c5442c72603cbf3e901624a6a8a86",
+    "archive_sha256": "6c7f545dae026949a953d7dca0c6cdde889e77b2f7ceddb689489bdf44d86d56"
+  },
+  "inputs_after": {
+    "source": {
+      "inventory_sha256": "63b31d9137792d222051929671f01264868c5442c72603cbf3e901624a6a8a86",
+      "file_count": 1,
+      "unique_file_hashes": 1,
+      "aggregate_manifest_sha256": "b60118ac7016a0b615e93203667360497f4752b2f608a2a74665400c25c7805d"
+    },
+    "case_json_sha256": "cbadf21c7587c97e6690ada387585f7d859022d2515d816c6451cb73157020c0",
+    "inventory_sha256": "63b31d9137792d222051929671f01264868c5442c72603cbf3e901624a6a8a86",
+    "archive_sha256": "6c7f545dae026949a953d7dca0c6cdde889e77b2f7ceddb689489bdf44d86d56"
+  },
+  "sample": {
+    "archive_bytes": 1155989504,
+    "archive_sha256": "69ffaed995ea963a52e6966b468a22ac977d51c9b92b4d6c8c5659b05c111555",
+    "kind": "typed_tree_fixture",
+    "layout": "shared-control-typed-tree",
+    "scope": "fresh direct typed export; construction is not a write-performance sample",
+    "verified": true
+  },
+  "tree_sha256": "69ffaed995ea963a52e6966b468a22ac977d51c9b92b4d6c8c5659b05c111555",
+  "tree_public_sha256": "9fde3ebc0184ec10b7bce52bcbc8d509f9b5ba6b810b1c62e7014823afdcdbe9",
+  "exit_code": 0,
+  "stdout": "\nrunning 1 test\nCANDIDATE_SAMPLE {\"archive_bytes\":1155989504,\"archive_sha256\":\"69ffaed995ea963a52e6966b468a22ac977d51c9b92b4d6c8c5659b05c111555\",\"kind\":\"typed_tree_fixture\",\"layout\":\"shared-control-typed-tree\",\"scope\":\"fresh direct typed export; construction is not a write-performance sample\",\"verified\":true}\ntest file_format::candidate_files::resource_probe::candidate_file_resource_probe ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 681 filtered out; finished in 16.87s\n\n",
+  "stderr": "\tCommand being timed: \"timeout 900 /tmp/revault-parallel-20261010/balanced-bin/revault_lockbox_api_tests --exact file_format::candidate_files::resource_probe::candidate_file_resource_probe --ignored --nocapture\"\n\tUser time (seconds): 11.89\n\tSystem time (seconds): 4.27\n\tPercent of CPU this job got: 95%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:16.87\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 26620\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 5889\n\tVoluntary context switches: 9241\n\tInvoluntary context switches: 271\n\tSwaps: 0\n\tFile system inputs: 128\n\tFile system outputs: 4642824\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n\tCommand being timed: \"timeout 930 taskset -c 0,1,2,3,4 /usr/bin/time -v timeout 900 /tmp/revault-parallel-20261010/balanced-bin/revault_lockbox_api_tests --exact file_format::candidate_files::resource_probe::candidate_file_resource_probe --ignored --nocapture\"\n\tUser time (seconds): 11.89\n\tSystem time (seconds): 4.27\n\tPercent of CPU this job got: 95%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:16.88\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 26620\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 6590\n\tVoluntary context switches: 9246\n\tInvoluntary context switches: 271\n\tSwaps: 0\n\tFile system inputs: 128\n\tFile system outputs: 4642824\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n",
+  "verified": true
+}

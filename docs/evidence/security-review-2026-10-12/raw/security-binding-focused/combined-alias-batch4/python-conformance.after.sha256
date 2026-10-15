@@ -1,0 +1,4 @@
+0175ed64a8083e65e577789886f91f311d08363c8eceb9e815a172342df0b60d  bindings/e2e/python/conformance.py
+a2b6df11ca4675a6f9da9d4d4d1315a00e71ce20c07b088202145426c0de6526  bindings/python/revault_api/facade.py
+02bd9cc2fc1adc906406a6eceec837a1a82ed51f93bb5f50da9397cf76598f35  bindings/python/revault_api/_domain.py
+009d16510363bb5ae25c5a7ca909bca16957dbcf42fee83abd82dcf281e0a0b0  rust/target/release/librevault_api.so

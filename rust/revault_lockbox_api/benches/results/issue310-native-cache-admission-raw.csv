@@ -1,0 +1,13 @@
+phase,variant,run,files,bytes_per_file,compressed,mode,profile,access,zip_ms,lockbox_ms,lockbox_over_zip,zip_open_ms,zip_read_ms,lockbox_open_ms,lockbox_read_ms,zip_bytes,lockbox_bytes,corpus
+audit,pre_cache,1,4,67108864,false,plain,ReadMostly,stream,86.876,174.724,2.011,0.057,86.813,0.239,174.431,268435902,269385088,pattern
+audit,pre_cache,1,4,67108864,true,plain,ReadMostly,stream,58.066,100.961,1.739,0.050,58.009,0.342,100.555,3479856,1967488,pattern
+audit,cache,1,4,67108864,false,plain,ReadMostly,stream,94.736,235.705,2.488,0.061,94.675,0.295,225.584,268435902,269385088,pattern
+audit,cache,1,4,67108864,true,plain,ReadMostly,stream,58.379,158.959,2.723,0.051,58.312,0.402,148.478,3479856,1967488,pattern
+repeat,cache,1,4,67108864,false,plain,ReadMostly,stream,85.263,235.913,2.767,0.059,85.198,0.313,225.627,268435902,269385088,pattern
+repeat,cache,1,4,67108864,true,plain,ReadMostly,stream,58.475,161.635,2.764,0.048,58.420,0.402,151.068,3479856,1967488,pattern
+repeat,admission,1,4,67108864,false,plain,ReadMostly,stream,90.844,174.903,1.925,0.058,90.779,0.235,174.605,268435902,269385088,pattern
+repeat,admission,1,4,67108864,true,plain,ReadMostly,stream,57.703,101.087,1.752,0.050,57.614,0.342,100.690,3479856,1967488,pattern
+repeat,cache,2,4,67108864,false,plain,ReadMostly,stream,87.391,234.132,2.679,0.061,87.324,0.297,224.055,268435902,269385088,pattern
+repeat,cache,2,4,67108864,true,plain,ReadMostly,stream,58.418,157.875,2.703,0.052,58.350,0.402,147.325,3479856,1967488,pattern
+repeat,admission,2,4,67108864,false,plain,ReadMostly,stream,87.642,184.115,2.101,0.058,87.577,0.242,183.814,268435902,269385088,pattern
+repeat,admission,2,4,67108864,true,plain,ReadMostly,stream,58.481,102.412,1.751,0.052,58.425,0.332,102.021,3479856,1967488,pattern

@@ -1,0 +1,5 @@
+779344ee0dd6fc523faa03612823dd529c8d85701d8311dcb53e19046b6ee222  rust/vendor/zstd-complete/src/tests/mod.rs
+f78e0bfffe38e38ec2d39cc7b6e08b0c53975c86837de2b887d220a7d0d4544a  rust/vendor/zstd-complete/src/workspace.rs
+7cb5b6dc76e6ff686210bc32e21df4731decfac50f82c6d7276735097e7294f9  rust/vendor/zstd-complete/Cargo.toml
+ff14396eea964853f660faeff02e7ad1d08501700eb32cab7e6c538ef2791408  rust/Cargo.lock
+a38189a6c8f29912fc474763a826e50f7e8f69ce166924173c88a35cdcca7199  rust/revault_cli/tests/compaction.rs

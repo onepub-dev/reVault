@@ -1,0 +1,20 @@
+    Finished `release` profile [optimized] target(s) in 0.11s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-fe3f630220cbcd0b)
+
+running 1 test
+
+thread 'lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes' panicked at revault_lockbox_api/src/lockbox/block_frame_tests.rs:317:21:
+assertion `left == right` failed: one corrupt file must not prevent intact-neighbor recovery: encrypted=false, signed=true, compression=None, padding=Default
+  left: 2
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes ... FAILED
+
+failures:
+
+failures:
+    lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 555 filtered out; finished in 0.12s
+
+error: test failed, to rerun pass `-p revault_lockbox_api --lib`

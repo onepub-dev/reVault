@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "gate_count_including_parity_attempts": 232,
+  "eviction_attempts": 233,
+  "gates_requiring_retry": 1,
+  "maximum_attempts_observed": 2,
+  "retried_gates": [
+    {
+      "path": "final-buffered-batch/random-1gib-compressed-encrypted/typed-tree-1/logs/sample-14-typed-tree-1-attempt00.cache-gate.json",
+      "attempts": 2
+    }
+  ],
+  "policy": "maximum3 attempts100ms apart; exact zero residency; timing-independent"
+}

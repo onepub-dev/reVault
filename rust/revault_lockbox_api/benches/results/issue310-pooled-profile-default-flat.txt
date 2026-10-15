@@ -1,0 +1,425 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 3K of event 'cycles:u'
+# Event count (approx.): 23301478523
+#
+# Overhead  Command          Shared Object                         Symbol
+# ........  ...............  ....................................  ..................................................................................................................................................................................................................
+#
+    35.61%  issue310-layout  issue310-layout-gate-62180a3-default  [.] protection_gate::main
+            |
+            ---protection_gate::main
+
+     7.78%  issue310-layout  libc.so.6                             [.] __memmove_avx_unaligned_erms
+            |
+            ---__memmove_avx_unaligned_erms
+               |
+               |--4.37%--<alloc::vec::Vec<T,A> as alloc::vec::spec_extend::SpecExtend<&T,core::slice::iter::Iter<T>>>::spec_extend
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+               |          protection_gate::main
+               |
+               |--1.38%--zstd_complete::decoding::ringbuffer::RingBuffer::extend_from_within_unchecked
+               |          zstd_complete::decoding::decode_buffer::DecodeBuffer::repeat
+               |          zstd_complete::decoding::sequence_execution::execute_sequences
+               |          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               |          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+               |          revault_lockbox_api::compression::zstd_decode
+               |          revault_lockbox_api::compression::decode_compression_frame
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_checked_frame_slice
+               |          revault_lockbox_api::file_format::page::PagePayload::with_bytes
+               |          revault_lockbox_api::lockbox::Lockbox<State>::with_page
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+               |          protection_gate::main
+               |
+                --1.26%--<zstd_complete::decoding::frame_decoder::FrameDecoder as std::io::Read>::read
+                          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+                          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+                          revault_lockbox_api::compression::zstd_decode
+                          revault_lockbox_api::compression::decode_compression_frame
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_checked_frame_slice
+                          revault_lockbox_api::file_format::page::PagePayload::with_bytes
+                          revault_lockbox_api::lockbox::Lockbox<State>::with_page
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                          protection_gate::main
+
+     5.85%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::kernel::dfast::compress_block
+            |
+            ---zstd_complete::kernel::dfast::compress_block
+               zstd_complete::encoding::levels::c_port::dfast::compress_block_double_fast_no_dict_with_state_and_loaded_dict
+               zstd_complete::encoding::levels::c_port::dfast_block::prepare_block_double_fast_no_dict_stored_with_state_and_loaded_dict
+               zstd_complete::encoding::levels::c_port::dfast_block::mode::append_block_double_fast_no_dict_with_state_and_policy_in_mode
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx_in
+               zstd_complete::encoding::workspace::EncoderCore::encode_into
+               zstd_complete::encoding::workspace::StaticEncoderWorkspace::encode_into
+               revault_lockbox_api::compression::encode_workspace::with_encoder::{{closure}}
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_payload_with_encoder
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_with_encoder
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::write_file_data_from_slice::{{closure}}
+               revault_lockbox_api::compression::encode_workspace::with_encoder
+
+     5.74%  issue310-layout  libc.so.6                             [.] __memcmp_avx2_movbe
+            |
+            ---__memcmp_avx2_movbe
+               protection_gate::main
+
+     4.52%  issue310-layout  issue310-layout-gate-62180a3-default  [.] <twox_hash::xxhash64::Hasher as core::hash::Hasher>::write
+            |
+            ---<twox_hash::xxhash64::Hasher as core::hash::Hasher>::write
+               <zstd_complete::decoding::frame_decoder::FrameDecoder as std::io::Read>::read
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+               revault_lockbox_api::compression::zstd_decode
+               revault_lockbox_api::compression::decode_compression_frame
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_checked_frame_slice
+               revault_lockbox_api::file_format::page::PagePayload::with_bytes
+               revault_lockbox_api::lockbox::Lockbox<State>::with_page
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+               protection_gate::main
+
+     4.20%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::decoding::sequence_section_decoder::decode_sequences
+            |
+            ---zstd_complete::decoding::sequence_section_decoder::decode_sequences
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+               revault_lockbox_api::compression::zstd_decode
+               revault_lockbox_api::compression::decode_compression_frame
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_checked_frame_slice
+               revault_lockbox_api::file_format::page::PagePayload::with_bytes
+               revault_lockbox_api::lockbox::Lockbox<State>::with_page
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+               protection_gate::main
+
+     3.19%  issue310-layout  issue310-layout-gate-62180a3-default  [.] revault_lockbox_api::file_format::page_buffer::zeroize_bytes
+            |
+            ---revault_lockbox_api::file_format::page_buffer::zeroize_bytes
+               |
+               |--1.52%--<revault_lockbox_api::compression::encode_workspace::Lease as core::ops::drop::Drop>::drop
+               |          core::ptr::drop_in_place<revault_lockbox_api::compression::encode_workspace::Lease>
+               |          revault_lockbox_api::compression::encode_workspace::with_encoder
+               |
+                --1.10%--revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                          protection_gate::main
+
+     2.91%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::blocks::compressed::sequence_bitstream::encode_stored_sequences
+            |
+            ---zstd_complete::encoding::blocks::compressed::sequence_bitstream::encode_stored_sequences
+               zstd_complete::encoding::blocks::compressed::compress_c_stored_block_with_stats_impl
+               zstd_complete::encoding::levels::c_port::block_emit::append_stored_block_or_raw_deferred
+               zstd_complete::encoding::levels::c_port::dfast_block::encode_stored_words_block
+               zstd_complete::encoding::levels::c_port::dfast_block::mode::append_block_double_fast_no_dict_with_state_and_policy_in_mode
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx_in
+               zstd_complete::encoding::workspace::EncoderCore::encode_into
+               zstd_complete::encoding::workspace::StaticEncoderWorkspace::encode_into
+               revault_lockbox_api::compression::encode_workspace::with_encoder::{{closure}}
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_payload_with_encoder
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_with_encoder
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::write_file_data_from_slice::{{closure}}
+               revault_lockbox_api::compression::encode_workspace::with_encoder
+
+     2.89%  issue310-layout  libc.so.6                             [.] __memset_avx2_unaligned_erms
+            |
+            ---__memset_avx2_unaligned_erms
+               |
+                --1.59%--zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+                          revault_lockbox_api::compression::zstd_decode
+                          revault_lockbox_api::compression::decode_compression_frame
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_checked_frame_slice
+                          revault_lockbox_api::file_format::page::PagePayload::with_bytes
+                          revault_lockbox_api::lockbox::Lockbox<State>::with_page
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                          protection_gate::main
+
+     2.82%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::levels::c_port::pre_split::Fingerprint::record
+            |
+            ---zstd_complete::encoding::levels::c_port::pre_split::Fingerprint::record
+               zstd_complete::encoding::levels::c_port::pre_split::FrameProgress::next_block_size
+
+     2.67%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::match_generator::sequence::<impl zstd_complete::encoding::match_generator::MatchGenerator>::next_sequence
+            |
+            ---zstd_complete::encoding::match_generator::sequence::<impl zstd_complete::encoding::match_generator::MatchGenerator>::next_sequence
+               zstd_complete::encoding::blocks::compressed::prepare_block
+               zstd_complete::encoding::levels::fastest::emit_matcher_block_or_raw
+               zstd_complete::encoding::frame_compressor::FrameCompressor<R,W,M>::compress
+               zstd_complete::encoding::compress_to_vec
+               revault_lockbox_api::compression::looks_incompressible
+               |
+               |--1.76%--revault_lockbox_api::compression::encode_workspace::with_encoder::{{closure}}
+               |          revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_payload_with_encoder
+               |          revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_with_encoder
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::write_file_data_from_slice::{{closure}}
+               |
+                --0.91%--revault_lockbox_api::compression::encode_workspace::with_encoder
+
+     2.54%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::decoding::ringbuffer::RingBuffer::extend_from_within_unchecked
+            |
+            ---zstd_complete::decoding::ringbuffer::RingBuffer::extend_from_within_unchecked
+               zstd_complete::decoding::decode_buffer::DecodeBuffer::repeat
+               zstd_complete::decoding::sequence_execution::execute_sequences
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+               revault_lockbox_api::compression::zstd_decode
+               |
+                --2.51%--revault_lockbox_api::compression::decode_compression_frame
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_checked_frame_slice
+                          revault_lockbox_api::file_format::page::PagePayload::with_bytes
+                          revault_lockbox_api::lockbox::Lockbox<State>::with_page
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                          protection_gate::main
+
+     2.38%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::levels::c_port::pre_split::FrameProgress::next_block_size
+            |
+            ---zstd_complete::encoding::levels::c_port::pre_split::FrameProgress::next_block_size
+
+     1.84%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::fse::fse_decoder::FSETable::build_decoding_table
+            |
+            ---zstd_complete::fse::fse_decoder::FSETable::build_decoding_table
+               |
+                --1.62%--zstd_complete::fse::fse_decoder::FSETable::build_decoder
+                          zstd_complete::decoding::sequence_section_decoder::decode_sequences
+                          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+                          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+                          revault_lockbox_api::compression::zstd_decode
+                          revault_lockbox_api::compression::decode_compression_frame
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_checked_frame_slice
+                          revault_lockbox_api::file_format::page::PagePayload::with_bytes
+                          revault_lockbox_api::lockbox::Lockbox<State>::with_page
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                          protection_gate::main
+
+     1.64%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::decoding::sequence_execution::execute_sequences
+            |
+            ---zstd_complete::decoding::sequence_execution::execute_sequences
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+               revault_lockbox_api::compression::zstd_decode
+               revault_lockbox_api::compression::decode_compression_frame
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_checked_frame_slice
+               revault_lockbox_api::file_format::page::PagePayload::with_bytes
+               revault_lockbox_api::lockbox::Lockbox<State>::with_page
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+               protection_gate::main
+
+     1.34%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::decoding::decode_buffer::DecodeBuffer::repeat
+            |
+            ---zstd_complete::decoding::decode_buffer::DecodeBuffer::repeat
+               zstd_complete::decoding::sequence_execution::execute_sequences
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+               revault_lockbox_api::compression::zstd_decode
+               |
+                --1.28%--revault_lockbox_api::compression::decode_compression_frame
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_checked_frame_slice
+                          revault_lockbox_api::file_format::page::PagePayload::with_bytes
+                          revault_lockbox_api::lockbox::Lockbox<State>::with_page
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                          protection_gate::main
+
+     1.28%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::fse::fse_encoder::table::build_table_from_probabilities_with_scratch
+            |
+            ---zstd_complete::fse::fse_encoder::table::build_table_from_probabilities_with_scratch
+               |
+                --1.07%--zstd_complete::encoding::blocks::compressed::sequence_tables::builder::build_c_fast_sequence_table_from_u32_counts_impl
+                          zstd_complete::encoding::blocks::compressed::sequence_tables::selection::c_fast::choose_c_fast_table_from_u32_lane
+                          zstd_complete::encoding::blocks::compressed::sequence_tables::selection::c_fast::choose_c_dfast_u32_sequence_table_modes
+                          zstd_complete::encoding::blocks::compressed::compress_c_stored_block_with_stats_impl
+                          zstd_complete::encoding::levels::c_port::block_emit::append_stored_block_or_raw_deferred
+                          zstd_complete::encoding::levels::c_port::dfast_block::encode_stored_words_block
+                          zstd_complete::encoding::levels::c_port::dfast_block::mode::append_block_double_fast_no_dict_with_state_and_policy_in_mode
+                          zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx_in
+
+     1.14%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::blocks::compressed::sequence_tables::selection::c_fast::choose_c_dfast_u32_sequence_table_modes
+            |
+            ---zstd_complete::encoding::blocks::compressed::sequence_tables::selection::c_fast::choose_c_dfast_u32_sequence_table_modes
+               zstd_complete::encoding::blocks::compressed::compress_c_stored_block_with_stats_impl
+               zstd_complete::encoding::levels::c_port::block_emit::append_stored_block_or_raw_deferred
+               zstd_complete::encoding::levels::c_port::dfast_block::encode_stored_words_block
+               zstd_complete::encoding::levels::c_port::dfast_block::mode::append_block_double_fast_no_dict_with_state_and_policy_in_mode
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx_in
+               |
+                --1.11%--zstd_complete::encoding::workspace::EncoderCore::encode_into
+                          zstd_complete::encoding::workspace::StaticEncoderWorkspace::encode_into
+                          revault_lockbox_api::compression::encode_workspace::with_encoder::{{closure}}
+                          revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_payload_with_encoder
+                          revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_with_encoder
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::write_file_data_from_slice::{{closure}}
+                          revault_lockbox_api::compression::encode_workspace::with_encoder
+
+     0.68%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::blocks::compressed::sequence_bitstream::encode_c_fast_table_sequences_bmi2
+            |
+            ---zstd_complete::encoding::blocks::compressed::sequence_bitstream::encode_c_fast_table_sequences_bmi2
+               zstd_complete::encoding::blocks::compressed::compress_c_stored_block_with_stats_impl
+               zstd_complete::encoding::levels::c_port::block_emit::append_stored_block_or_raw_deferred
+               zstd_complete::encoding::levels::c_port::dfast_block::encode_stored_words_block
+               zstd_complete::encoding::levels::c_port::dfast_block::mode::append_block_double_fast_no_dict_with_state_and_policy_in_mode
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx_in
+               zstd_complete::encoding::workspace::EncoderCore::encode_into
+               zstd_complete::encoding::workspace::StaticEncoderWorkspace::encode_into
+               revault_lockbox_api::compression::encode_workspace::with_encoder::{{closure}}
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_payload_with_encoder
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_with_encoder
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::write_file_data_from_slice::{{closure}}
+               revault_lockbox_api::compression::encode_workspace::with_encoder
+
+     0.55%  issue310-layout  issue310-layout-gate-62180a3-default  [.] <alloc::vec::Vec<T> as alloc::vec::spec_from_iter::SpecFromIter<T,I>>::from_iter
+            |
+            ---<alloc::vec::Vec<T> as alloc::vec::spec_from_iter::SpecFromIter<T,I>>::from_iter
+               zstd_complete::encoding::util::likely_composer_lockfile_text
+               zstd_complete::encoding::util::likely_dependency_json_lockfile_text
+               zstd_complete::encoding::levels::fastest::emit_matcher_block_or_raw
+               zstd_complete::encoding::frame_compressor::FrameCompressor<R,W,M>::compress
+               zstd_complete::encoding::compress_to_vec
+               revault_lockbox_api::compression::looks_incompressible
+               |
+                --0.52%--revault_lockbox_api::compression::encode_workspace::with_encoder::{{closure}}
+                          revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_payload_with_encoder
+                          revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_with_encoder
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::write_file_data_from_slice::{{closure}}
+                          revault_lockbox_api::compression::encode_workspace::with_encoder
+
+     0.50%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::bit_io::bit_reader_reverse::BitReaderReversed::refill
+            |
+            ---zstd_complete::bit_io::bit_reader_reverse::BitReaderReversed::refill
+               zstd_complete::decoding::sequence_section_decoder::decode_sequences
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+               revault_lockbox_api::compression::zstd_decode
+               revault_lockbox_api::compression::decode_compression_frame
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_checked_frame_slice
+               revault_lockbox_api::file_format::page::PagePayload::with_bytes
+               revault_lockbox_api::lockbox::Lockbox<State>::with_page
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+               protection_gate::main
+
+     0.42%  issue310-layout  issue310-layout-gate-62180a3-default  [.] chacha20::backends::avx2::inner
+     0.42%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::fse::fse_decoder::FSEDecoder::update_state
+     0.42%  issue310-layout  issue310-layout-gate-62180a3-default  [.] revault_lockbox_api::compression::looks_incompressible
+     0.36%  issue310-layout  issue310-layout-gate-62180a3-default  [.] revault_lockbox_api::file_format::page::encode_objects_body
+     0.31%  issue310-layout  issue310-layout-gate-62180a3-default  [.] <alloc::vec::Vec<T> as alloc::vec::spec_from_iter::SpecFromIter<T,I>>::from_iter
+     0.30%  issue310-layout  issue310-layout-gate-62180a3-default  [.] sha2::sha256::x86_sha::compress
+     0.29%  issue310-layout  issue310-layout-gate-62180a3-default  [.] revault_lockbox_api::file_format::page::encode_page_with_format
+     0.27%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::kernel::seqstore::prepare_stored_literals_in
+     0.21%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::kernel::huff0::table::build_tree
+     0.19%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::util::likely_composer_lockfile_text
+     0.19%  issue310-layout  libc.so.6                             [.] _int_malloc
+     0.16%  issue310-layout  issue310-layout-gate-62180a3-default  [.] alloc::raw_vec::finish_grow
+     0.13%  issue310-layout  libm.so.6                             [.] __log2_fma
+     0.13%  issue310-layout  issue310-layout-gate-62180a3-default  [.] <zstd_complete::encoding::match_generator::driver::MatchGeneratorDriver as zstd_complete::encoding::Matcher>::commit_space
+     0.13%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::huff0::huff0_encoder::weights::table_description_bytes_from_weights_reusing_with_fse_scratch
+     0.12%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::blocks::compressed::literals::stats::LiteralStats::from_literals_with_stream_counts
+     0.10%  issue310-layout  libc.so.6                             [.] __memmove_avx_unaligned
+     0.10%  issue310-layout  libc.so.6                             [.] cfree@GLIBC_2.2.5
+     0.10%  issue310-layout  libc.so.6                             [.] _int_free_merge_chunk
+     0.10%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::blocks::compressed::sequence_bitstream::encode_sequences
+     0.10%  issue310-layout  libc.so.6                             [.] _int_realloc
+     0.10%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+     0.10%  issue310-layout  libc.so.6                             [.] malloc
+     0.09%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::fse::fse_encoder::write_normalized_probabilities_bytes
+     0.07%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::fse::fse_encoder::normalize::normalize_counts_with_total_into
+     0.07%  issue310-layout  libc.so.6                             [.] realloc
+     0.07%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::kernel::seqstore::PreparedStoreWriter::new
+     0.07%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::blocks::compressed::sequence_tables::builder::build_c_fast_sequence_table_from_u32_counts_impl
+     0.07%  issue310-layout  issue310-layout-gate-62180a3-default  [.] <alloc::vec::Vec<T> as alloc::vec::spec_from_iter::SpecFromIter<T,I>>::from_iter
+     0.07%  issue310-layout  libc.so.6                             [.] _int_free_chunk
+     0.07%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::bit_io::bit_writer::BitWriter<V>::append_aligned_with
+     0.07%  issue310-layout  [unknown]                             [k] 0xffffffff96000ef0
+     0.06%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::kernel::dfast::compress_block
+     0.06%  issue310-layout  issue310-layout-gate-62180a3-default  [.] revault_lockbox_api::lockbox::commit::<impl revault_lockbox_api::lockbox::Lockbox>::commit_inner
+     0.06%  issue310-layout  libc.so.6                             [.] unlink_chunk.isra.0
+     0.05%  issue310-layout  [unknown]                             [k] 0xffffffff9682c90e
+     0.04%  issue310-layout  issue310-layout-gate-62180a3-default  [.] __rustc::__rust_dealloc
+     0.04%  issue310-layout  issue310-layout-gate-62180a3-default  [.] alloc::collections::btree::map::IntoIter<K,V,A>::dying_next
+     0.04%  issue310-layout  issue310-layout-gate-62180a3-default  [.] revault_lockbox_api::toc::toc_btree::toc_leaf_groups
+     0.04%  issue310-layout  [unknown]                             [k] 0xffffffff968e511a
+     0.04%  issue310-layout  issue310-layout-gate-62180a3-default  [.] revault_lockbox_api::model::compression_frame_manifest::take_varint
+     0.04%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::frame_compressor::FseTables::reset
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::huff0::huff0_encoder::table::HuffmanTable::build_from_counts_with_max_bits_and_workspaces_impl
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::levels::c_port::dfast_block::prepare_block_double_fast_no_dict_stored_with_state_and_loaded_dict
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffff976f57e1
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::fse::fse_decoder::FSETable::build_decoder
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffff96ba5698
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::workspace::EncoderCore::add_size
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] core::core_arch::x86::avx2::_mm256_add_epi32
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::decoding::frame_decoder::FrameDecoder::reset_with_window_limit_and_dictionary
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffffc0a0063e
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] revault_lockbox_api::compression::decode_page_body_view
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffffc0c49993
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffff96825d8e
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] chacha20::ChaChaCore<R,V>::new_internal
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::bit_io::bit_reader::BitReader::get_bits
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] <revault_lockbox_api::storage::page_cache::PageCache as core::clone::Clone>::clone
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffff96b27f0c
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] revault_lockbox_api::file_format::page::uncompressed_objects_fit
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffffc0b1fb16
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] std::fs::File::metadata
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] core::core_arch::x86::avx2::_mm256_and_si256
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] cipher::stream::StreamCipher::try_apply_keystream_inout
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::levels::c_port::block_emit::append_stored_block_or_raw_deferred
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] <alloc::vec::Vec<T> as alloc::vec::spec_from_iter::SpecFromIter<T,I>>::from_iter
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffff968e008a
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] hashbrown::raw::RawTable<T,A>::reserve_rehash
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] <alloc::collections::btree::map::BTreeMap<K,V,A> as core::ops::drop::Drop>::drop
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffff9772d2b1
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffff968f7388
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] revault_lockbox_api::file_format::page::encode_object_stream
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::bit_io::bit_writer::BitWriter<V>::write_bits_64_cold
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffff9684a1fb
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::block_header::BlockHeader::serialize_to_bytes
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] alloc::raw_vec::RawVecInner<A>::reserve::do_reserve_and_handle
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] core::ptr::drop_in_place<revault_lockbox_api::toc::incremental_btree::PersistedBTree<revault_lockbox_api::toc::form_btree::FormTreeNode,revault_lockbox_api::toc::form_btree::FormLeaf,alloc::string::String>>
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] revault_lockbox_api::file_format::payload::encode_compression_frame_segment_payload_with_compression
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::frame_compressor::FrameCompressor<R,W,M>::compress
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] <alloc::vec::Vec<T,A> as core::clone::Clone>::clone
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] core::core_arch::x86::avx2::_mm256_permute4x64_epi64
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::levels::c_port::dfast::compress_block_double_fast_no_dict_with_state_and_loaded_dict
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::blocks::compressed::compress_c_stored_block_with_stats_impl
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] hashbrown::raw::RawTable<T,A>::reserve_rehash
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::blocks::compressed::compress_prepared_block
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] <poly1305::backend::avx2::helpers::AdditionKey as core::ops::arith::Add<poly1305::backend::avx2::helpers::Aligned130>>::add::propagate_carry
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::blocks::compressed::sequence_tables::builder::build_sequence_table
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::encoding::blocks::compressed::sequence_tables::builder::build_sequence_table
+     0.03%  issue310-layout  libc.so.6                             [.] __libc_calloc
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::fse::fse_encoder::table::fill_symbol_transforms
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] <alloc::vec::Vec<T,A> as alloc::vec::spec_extend::SpecExtend<T,I>>::spec_extend
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] poly1305::backend::avx2::State::new
+     0.03%  issue310-layout  libc.so.6                             [.] __libc_malloc2
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffff9680ae5a
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] revault_lockbox_api::lockbox::accounting::<impl revault_lockbox_api::lockbox::Lockbox<State>>::storage_inventory
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] revault_lockbox_api::toc::toc_codec::TocEncoder::encode
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffff9684de2d
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] <alloc::collections::btree::map::BTreeMap<K,V,A> as core::clone::Clone>::clone::clone_subtree
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::bit_io::bit_writer::BitWriter<V>::append_bytes
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] alloc::raw_vec::RawVec<T,A>::grow_one
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffff9684ddb6
+     0.03%  issue310-layout  [unknown]                             [k] 0xffffffff965d1dc8
+     0.03%  issue310-layout  issue310-layout-gate-62180a3-default  [.] zstd_complete::kernel::huff0::table::build_codes_reusing
+     0.01%  issue310-layout  [unknown]                             [k] 0xffffffff96000b90
+     0.00%  issue310-layout  libm.so.6                             [.] __log1p_ifunc
+     0.00%  taskset          ld-linux-x86-64.so.2                  [.] _dl_new_object
+     0.00%  issue310-layout  ld-linux-x86-64.so.2                  [.] __GI___tunables_init
+     0.00%  issue310-layout  [unknown]                             [k] 0xffffffff967eba41
+     0.00%  taskset          [unknown]                             [k] 0xffffffff96812211
+     0.00%  issue310-layout  [unknown]                             [k] 0xffffffff967ece9b
+     0.00%  taskset          [unknown]                             [k] 0xffffffff97710b18
+     0.00%  issue310-layout  [unknown]                             [k] 0xffffffff967eba50
+     0.00%  taskset          [unknown]                             [k] 0xffffffff9682c90e
+     0.00%  taskset          [unknown]                             [k] 0xffffffff9684ddb6
+     0.00%  taskset          [unknown]                             [k] 0xffffffff97736985
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

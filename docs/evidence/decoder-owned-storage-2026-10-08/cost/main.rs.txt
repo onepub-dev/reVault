@@ -1,0 +1,67 @@
+use std::{fs, hint::black_box, path::Path, time::Instant};
+use zstd_complete::decoding::{FrameDecoder, StaticDecoderWorkspace};
+
+fn window(bytes: &[u8]) -> usize {
+    assert_eq!(&bytes[..4], &[0x28, 0xb5, 0x2f, 0xfd]);
+    let descriptor = bytes[4];
+    if descriptor & 0x20 == 0 {
+        let base = 1usize << (10 + (bytes[5] >> 3));
+        base + base / 8 * (bytes[5] & 7) as usize
+    } else {
+        let start = 5 + [0, 1, 2, 4][(descriptor & 3) as usize];
+        let size = [1, 2, 4, 8][(descriptor >> 6) as usize];
+        let mut raw = [0; 8];
+        raw[..size].copy_from_slice(&bytes[start..start + size]);
+        u64::from_le_bytes(raw) as usize + if size == 2 { 256 } else { 0 }
+    }
+}
+
+fn main() {
+    let args: Vec<_> = std::env::args().collect();
+    let root = Path::new(&args[2]);
+    if args[1] == "generate" {
+        fs::create_dir(root).unwrap();
+        for (name, length) in [("small", 4096), ("medium", 262144), ("large", 8 * 1024 * 1024)] {
+            let raw: Vec<_> = (0..length).map(|n| ((n / 71 + n / 251) % 19) as u8).collect();
+            let encoded = zstd_complete::encoding::compress_slice_c_level(&raw, 3);
+            let mut decoded = vec![0; raw.len()];
+            assert_eq!(FrameDecoder::new().decode_all(&encoded, &mut decoded).unwrap(), raw.len());
+            assert_eq!(decoded, raw);
+            fs::write(root.join(format!("{name}.raw")), &raw).unwrap();
+            fs::write(root.join(format!("{name}.zst")), &encoded).unwrap();
+            println!("{name}\traw={}\tencoded={}\twindow={}", raw.len(), encoded.len(), window(&encoded));
+        }
+        return;
+    }
+    assert_eq!(args[1], "sample");
+    let name = &args[3];
+    let scoped = args[4] == "static";
+    let repetitions: usize = args[5].parse().unwrap();
+    let raw = fs::read(root.join(format!("{name}.raw"))).unwrap();
+    let encoded = fs::read(root.join(format!("{name}.zst"))).unwrap();
+    let window = window(&encoded);
+    assert!(window <= 100 * 1024 * 1024);
+    let mut output = vec![0; raw.len()];
+    let mut scratch = if scoped { vec![0; StaticDecoderWorkspace::required_size(window, 0).unwrap()] } else { Vec::new() };
+    let mut seconds = 0.0;
+    for _ in 0..repetitions {
+        let start = Instant::now();
+        let length = if scoped {
+            let mut decoder = StaticDecoderWorkspace::new(&mut scratch, window, 0).unwrap();
+            let length = decoder.decode_into(black_box(&encoded), black_box(&mut output)).unwrap();
+            drop(decoder);
+            length
+        } else {
+            let mut decoder = FrameDecoder::new();
+            let length = decoder.decode_all(black_box(&encoded), black_box(&mut output)).unwrap();
+            drop(decoder);
+            length
+        };
+        seconds += start.elapsed().as_secs_f64();
+        assert_eq!(length, raw.len());
+        assert_eq!(output, raw);
+    }
+    let status = fs::read_to_string("/proc/self/status").unwrap();
+    let peak = status.lines().find(|line| line.starts_with("VmHWM:")).unwrap().split_whitespace().nth(1).unwrap();
+    println!("{{\"seconds\":{seconds},\"repetitions\":{repetitions},\"rss_kib\":{peak},\"raw_bytes\":{},\"encoded_bytes\":{},\"window_bytes\":{window}}}", raw.len(), encoded.len());
+}

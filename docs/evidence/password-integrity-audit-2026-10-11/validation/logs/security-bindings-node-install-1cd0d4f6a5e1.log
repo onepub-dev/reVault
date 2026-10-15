@@ -1,0 +1,4 @@
+npm warn workspaces @onepub-dev/revault-api in filter set, but no workspace folder present
+npm error code ENOTCACHED
+npm error request to https://registry.npmjs.org/koffi/-/koffi-2.16.3.tgz failed: cache mode is 'only-if-cached' but no cached response is available.
+npm error A complete log of this run can be found in: /home/bsutton/.npm/_logs/2026-10-11T01_47_23_623Z-debug-0.log

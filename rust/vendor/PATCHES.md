@@ -1,0 +1,131 @@
+# Historical local Zstd correctness and performance patches
+
+The current API and format-3 migration reader now require the published
+`zstd-complete` 0.3.0 release. The workspace path patch has been removed. This
+directory is retained as a historical source snapshot and is not used by Cargo
+to resolve those dependencies. The explicitly approved published archive has
+SHA-256 `acce3e08f5aa28b5dc1738f46c3a8a65e0daa28dca2dae579cc48bc398958e9d`;
+an independent crates.io download matched. Registry-backed consumer and release
+qualification are recorded separately in the release-readiness evidence.
+
+`zstd-complete/` is the published `zstd-complete` 0.2.0 source, with its original
+licenses and notices. The original encoder correction puts the first raw Huffman
+weight in the high nibble in both serializers in
+`src/huff0/huff0_encoder/weights.rs`. Two independent wire-order regression tests
+accompany it. No local encoder optimizations from the upstream working tree are
+included.
+
+The released encoder can emit a valid Zstd stream that decodes to incorrect bytes.
+The reproducer is 65,536 bytes at offsets 65,536..131,072 of
+`((offset / 71 + offset / 251) % 19) as u8`, encoded at level 3. Both the ordinary
+Rust decoder, bounded Rust decoder and zstd CLI 1.5.7 produce the same incorrect
+content from the unpatched stream. This is an encoder defect, not a decoder
+acceptance difference or a candidate archive-layout defect.
+
+The same two-line encoder correction already exists as uncommitted work in the
+local upstream checkout. This copy does not depend on that checkout or modify
+its ongoing work. The following decoder changes were added locally on 2026-10-02;
+no upstream encoder optimizations were imported.
+
+## Full-buffer frame checksum comparison
+
+With the `hash` feature enabled, `src/decoding/frame_decoder.rs` now compares
+each completed frame's stored checksum with the value already calculated by the
+decoder, before success or advancing to the next concatenated frame. Previously
+the full-buffer API exposed those values without comparing them. A distinct
+`ChecksumMismatch` error is defined in `src/decoding/errors.rs`. Workspace tests
+cover corruption in the first, middle and last frame and valid frames without
+checksums. Streaming/incremental APIs retain their separate existing contract;
+this patch does not promise that those APIs withhold bytes until frame completion.
+
+The reVault consumer separately retains a full-length zeroizing destination on
+fresh fallback decode errors, ensuring partial output is wiped. That change is
+outside this vendor directory. Both consumer wrappers also reject declared-length
+mismatches before transferring output out of the zeroizing guard. See the
+[checksum/wiping evidence](../../docs/evidence/decoder-checksum-2026-10-02/README.md).
+That October 2 correction did not cover ordinary decoder-owned internal history.
+The subsequent October 8 owned-byte correction below closes specified release
+paths; full decoder-memory wiping remains unqualified.
+
+## FSE decoding-table arithmetic
+
+`src/fse/fse_decoder.rs` computes equivalent table entries using the next-state
+log/shift formula for valid power-of-two state tables, avoiding repeated integer
+division and distribution arithmetic per entry. The prior calculation remains
+the fallback for zero/out-of-domain inputs. Exhaustive tests compare 11,188,905
+valid combinations against the original calculation, plus boundary/fallback
+cases. Table order, format, checksum behavior, memory bounds and wiping are
+unchanged. See the [paired experiment](../../docs/evidence/decoder-fse-2026-10-02/README.md).
+
+The same file also adds `#[inline]` to `FSEDecoder::update_state`, retaining its
+operations and bounds checks. The [isolated paired trial](../../docs/evidence/decoder-inline-2026-10-02/README.md)
+measures a 4.4% compressed plaintext read benefit; other read intervals include
+parity. Unexplained process RSS and raw open-time shifts are not claimed as gains.
+
+An overlapping-copy experiment was rejected for lack of demonstrated read
+benefit and is not included in this vendor copy.
+
+## Owned byte release and decoded-block bounds — 2026-10-08
+
+Owned history, literal/block byte buffers and decoder-owned dictionary contents
+now wipe full capacity before replacement/deallocation. Controlled byte storage
+prevents hidden Vec reallocations. Caller-owned workspace policy and the public
+Dictionary API remain unchanged. Entropy/sequence metadata, caller-owned data
+and process abort are outside this scoped claim. No per-block wipe or mode-based
+bypass is introduced; protected archives also pass decrypted data to this codec.
+
+Separate literal-size/count and checked sequence-output bounds reject decoded
+blocks beyond 128 KiB before static storage can grow. Short literal inputs return
+errors before slicing. Valid multi-block frames remain supported. Tests observe
+known live bytes before erasure and zeros before free, plus owned/static error
+paths, canaries and allocation-free static decoding. See the
+[owned-storage evidence](../../docs/evidence/decoder-owned-storage-2026-10-08/README.md)
+for exact limits, qualification and the fixed combined cost comparison.
+The initial byte-wise volatile wipe had a material lifecycle cost; aligned
+64-byte volatile stores with byte prefix/suffix now retain the identical
+full-capacity policy and fence. MaybeUninit partitions avoid reading spare
+capacity; guard coverage spans every offset 0–63 and length 0–192. The separate
+fixed comparison against the byte-wise correction is recorded with that evidence.
+
+## Static encoder ownership correction — October 2026 security review
+
+Static encoder buffers now keep their caller-storage ownership tag through
+prepared-block, literal-store and encoded-block transfers. `ReusableVec` leases
+and typed storage casts retain that tag rather than reconstructing an owning
+`Vec` over borrowed workspace memory. Checked alignment, element size and
+capacity remain required for casts. Ordinary owned buffers retain their normal
+ownership. This correction changes ownership bookkeeping, not the Zstd wire
+format, compression policy or archive authentication.
+
+Focused tests cover lease transfer and release, typed storage, normal owned
+storage, and construction/encoding in caller storage. The bounded workspace
+test covers all 22 supported numeric levels and six source sizes, including
+2 MiB, with an independent libzstd byte comparison in the consumer validation.
+These are bounded allocation and compatibility checks, not a proof that every
+possible codec input uses no hidden allocations.
+
+The reVault consumer separately routes plaintext destined for encryption through
+guarded, bounded static encoder storage. Combined scratch/output admission is
+64 MiB; an unavailable or oversized workspace uses the existing raw-frame
+representation, which is subsequently encrypted normally. Clear-only archive
+encoding is unchanged. Guarded scratch/output cleanup is a consumer change,
+not a claim that every ordinary vendor encoder allocation is wiped. Previously
+retained decoder-owned byte cleanup above remains in place.
+
+The isolated distributable preparation includes all local vendor corrections,
+not merely the latest ownership diff, and retains original license notices.
+Package validation must include the small decoder/dictionary fixtures used by
+distributed tests; an earlier candidate omitted eleven such fixtures and is
+preserved as a failed preparation attempt. Exact final artifact identities and
+consumer results belong in the security/release evidence; this document does
+not assert publication or completed cross-platform qualification.
+
+## Release boundary
+
+The corrected dependency has been published with separate explicit authorization;
+this does not authorize publishing reVault or qualify its release. Direct dependency
+requirements and lockfiles must resolve the corrected registry release, and isolated
+packaged/install checks must pass. Cargo does not propagate workspace path patches
+into published crates, which is why the active path patch was removed. Do not publish
+a package that silently resolves the known-bad encoder. Existing corrupted payload cannot be repaired by changing
+the decoder; independently verify source contents when available.

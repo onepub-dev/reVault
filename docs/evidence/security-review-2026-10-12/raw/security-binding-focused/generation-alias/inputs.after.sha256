@@ -1,0 +1,5 @@
+b8666f1e17dc27b2e81fc0240ab1b7229ca93d77e4263487313485a64add3f81  ../bindings/flatbuffers/revault_bindings.fbs
+aaec1bffc7d6ec6d32ca12ae45b9741b779e1db3f47a05b8e950c67488e58f62  ../bindings/e2e/operations.tsv
+2f8e95c88888bb2ae299b16d41f3a43cb10b1305337e6a10c43a4849ee8e3a7f  ../bindings/api/rust-to-abi.tsv
+986acb6c8e9900a2592abbcbafe969e2009d07c8dd74ee7c8b6d8b83dd77bd71  ../bindings/api/rust-only-exclusions.tsv
+085ee214e52db35a475d3b28c8b4656f626f7164dfba6fd90450b0ede7794446  target/debug/revault-tool

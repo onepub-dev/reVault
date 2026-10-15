@@ -1,0 +1,13 @@
+{
+  "focused_test_executions": 30,
+  "overlapping_filters": true,
+  "default_api": 19,
+  "native_api": 10,
+  "public_cli": 1,
+  "all_commands_exit_zero": true,
+  "full_suite_rerun": false,
+  "wasm_build_generation": "passed",
+  "portable_wasm_lifecycles": 2,
+  "source_snapshot": "pre-format; hook formats staged Rust at commit",
+  "remaining_usage_percent": 69
+}

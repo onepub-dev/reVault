@@ -1,0 +1,460 @@
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: method `len` is never used
+  --> vendor/zstd-complete/src/fixed_storage.rs:38:19
+   |
+23 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+38 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `zstd-complete` (lib) generated 21 warnings (run `cargo fix --lib -p zstd-complete` to apply 20 suggestions)
+warning: associated function `new` is never used
+  --> revault_lockbox_api/src/compression/encode_workspace.rs:63:19
+   |
+62 | impl EncoderFrame {
+   | ----------------- associated function in this implementation
+63 |     pub(crate) fn new(input: &[u8], probe: bool) -> Self {
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: associated function `open_bytes_with_password` is never used
+   --> revault_lockbox_api/src/lockbox/key_management.rs:749:19
+    |
+201 | impl Lockbox {
+    | ------------ associated function in this implementation
+...
+749 |     pub(crate) fn open_bytes_with_password(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_compression_frame_manifest` is never used
+  --> revault_lockbox_api/src/model/compression_frame_manifest.rs:49:15
+   |
+49 | pub(crate) fn encode_compression_frame_manifest(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `revault_lockbox_api` (lib) generated 3 warnings
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+   Compiling revault_cli v0.5.0-dev.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli)
+    Finished `release` profile [optimized] target(s) in 4.26s
+     Running tests/migration_cli.rs (target/release/deps/migration_cli-c8a2ed1e0ad1509c)
+
+running 11 tests
+test archive_migration_commands_and_options_execute_end_to_end ... CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2092008
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2092008 elapsed=727.293781ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2092035
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2092035 elapsed=602.093955ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2092037
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2092037 elapsed=501.808135ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2092041
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2092041 elapsed=501.779595ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2092043
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2092043 elapsed=602.085734ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2092044
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2092044 elapsed=501.799854ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2092046
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2092046 elapsed=602.011534ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2092047
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2092047 elapsed=577.051207ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2092048
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2092048 elapsed=602.233017ms status=exit status: 1
+
+thread 'archive_migration_commands_and_options_execute_end_to_end' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  No such file or directory (os error 2)
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test archive_v1_contact_only_migration_uses_keys_from_the_current_vault ... CLI start: test=archive_v1_contact_only_migration_uses_keys_from_the_current_vault pid=2092051
+CLI end: test=archive_v1_contact_only_migration_uses_keys_from_the_current_vault pid=2092051 elapsed=627.125642ms status=exit status: 0
+CLI start: test=archive_v1_contact_only_migration_uses_keys_from_the_current_vault pid=2092301
+CLI end: test=archive_v1_contact_only_migration_uses_keys_from_the_current_vault pid=2092301 elapsed=4.913578434s status=exit status: 0
+ok
+test archive_v1_migrates_end_to_end_with_the_historical_exporter ... CLI start: test=archive_v1_migrates_end_to_end_with_the_historical_exporter pid=2092335
+CLI end: test=archive_v1_migrates_end_to_end_with_the_historical_exporter pid=2092335 elapsed=727.428442ms status=exit status: 0
+CLI start: test=archive_v1_migrates_end_to_end_with_the_historical_exporter pid=2092344
+CLI end: test=archive_v1_migrates_end_to_end_with_the_historical_exporter pid=2092344 elapsed=40.442869901s status=exit status: 0
+ok
+test automatic_historical_exporter_install_hides_cargo_output ... CLI start: test=automatic_historical_exporter_install_hides_cargo_output pid=2092790
+CLI end: test=automatic_historical_exporter_install_hides_cargo_output pid=2092790 elapsed=6.919386244s status=exit status: 0
+ok
+test lockbox_v1_with_description_migrates_and_default_error_names_its_path ... CLI start: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2092856
+CLI end: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2092856 elapsed=727.235809ms status=exit status: 0
+CLI start: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2092863
+CLI end: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2092863 elapsed=25.415182ms status=exit status: 0
+CLI start: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2092864
+CLI end: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2092864 elapsed=326.057059ms status=exit status: 14
+CLI start: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2092878
+CLI end: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2092878 elapsed=40.48780586s status=exit status: 0
+ok
+test migrated_mirror_preserves_configuration_and_update_lifecycle ... CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093314
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093314 elapsed=727.29967ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093321
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093321 elapsed=501.871576ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093390
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093390 elapsed=802.494362ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093412
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093412 elapsed=1.805504025s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093449
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093449 elapsed=802.617274ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093451
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093451 elapsed=2.482193993s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093535
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093535 elapsed=802.436432ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093550
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093550 elapsed=1.203747634s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093570
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093570 elapsed=401.448834ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093571
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093571 elapsed=1.705308165s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093761
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093761 elapsed=401.458793ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093762
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093762 elapsed=401.478114ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093763
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093763 elapsed=401.373743ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093764
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093764 elapsed=401.610386ms status=exit status: 12
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093765
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093765 elapsed=1.304255516s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093787
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093787 elapsed=1.304135375s status=exit status: 1
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093814
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093814 elapsed=401.528925ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093815
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093815 elapsed=401.575836ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093816
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093816 elapsed=401.533685ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093878
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093878 elapsed=401.555015ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093879
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2093879 elapsed=376.463868ms status=exit status: 0
+ok
+test vault_migration_commands_and_options_execute_end_to_end ... CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2093881
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2093881 elapsed=1.028233711s status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2093888
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2093888 elapsed=501.795185ms status=exit status: 1
+
+thread 'vault_migration_commands_and_options_execute_end_to_end' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  No such file or directory (os error 2)
+
+FAILED
+test vault_structure_v2_in_container_v1_migrates_end_to_end ... CLI start: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2093912
+CLI end: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2093912 elapsed=326.385363ms status=exit status: 14
+CLI start: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2093950
+CLI end: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2093950 elapsed=6.994141521s status=exit status: 0
+ok
+test vault_v1_replace_uses_the_explicit_historical_exporter ... CLI start: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2094148
+CLI end: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2094148 elapsed=6.81876457s status=exit status: 0
+CLI start: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2094310
+CLI end: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2094310 elapsed=451.68526ms status=exit status: 0
+ok
+test vault_v2_replace_preserves_profile_keys_and_supports_password_profiles ...     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
+CLI start: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2094322
+CLI end: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2094322 elapsed=426.564902ms status=exit status: 1
+
+thread 'vault_v2_replace_preserves_profile_keys_and_supports_password_profiles' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  No such file or directory (os error 2)
+
+FAILED
+test vault_v3_container_upgrade_preserves_profiles_and_enables_compaction ...    Compiling zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: method `len` is never used
+  --> vendor/zstd-complete/src/fixed_storage.rs:38:19
+   |
+23 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+38 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+   Compiling revault_archive_v3_reader v0.0.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_archive_v3/legacy)
+warning: `zstd-complete` (lib) generated 21 warnings (run `cargo fix --lib -p zstd-complete` to apply 20 suggestions)
+   Compiling revault_vault_v3_reader v0.0.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_archive_v3/legacy_vault)
+   Compiling revault_migrate_archive_v3 v0.0.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_archive_v3)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.18s
+CLI start: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2095388
+CLI end: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2095388 elapsed=426.666213ms status=exit status: 1
+
+thread 'vault_v3_container_upgrade_preserves_profiles_and_enables_compaction' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  No such file or directory (os error 2)
+
+FAILED
+
+failures:
+
+failures:
+    archive_migration_commands_and_options_execute_end_to_end
+    vault_migration_commands_and_options_execute_end_to_end
+    vault_v2_replace_preserves_profile_keys_and_supports_password_profiles
+    vault_v3_container_upgrade_preserves_profiles_and_enables_compaction
+
+test result: FAILED. 7 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 148.62s
+
+error: test failed, to rerun pass `-p revault_cli --test migration_cli`

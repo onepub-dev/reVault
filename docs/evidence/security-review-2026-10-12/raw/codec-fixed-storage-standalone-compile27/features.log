@@ -1,0 +1,4 @@
+error: failed to parse manifest at `/tmp/revault-codec-fixed-storage-compile27/crate/Cargo.toml`
+
+Caused by:
+  cannot specify `resolver` field in both `[workspace]` and `[package]`

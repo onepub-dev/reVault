@@ -1,0 +1,22 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/preparation_journal/compact.rs b/rust/revault_lockbox_api/src/file_format/preparation_journal/compact.rs
+index 28536253..f060d5f4 100644
+--- a/rust/revault_lockbox_api/src/file_format/preparation_journal/compact.rs
++++ b/rust/revault_lockbox_api/src/file_format/preparation_journal/compact.rs
+@@ -111,7 +111,7 @@ fn decode(context: &Context, bytes: &[u8]) -> Result<Stub> {
+         return Err(Error::CorruptRecord);
+     }
+     let body = if let Some(key) = &context.key {
+-        Zeroizing::new(open_with_nonce(
++        crate::page_buffer::ZeroizingBytes::new(open_with_nonce(
+             &bytes[HEADER..STUB_CHECKSUM],
+             key.as_slice(),
+             &bytes[32..44],
+@@ -121,7 +121,7 @@ fn decode(context: &Context, bytes: &[u8]) -> Result<Stub> {
+         if bytes[32..44] != [0; 12] {
+             return Err(Error::CorruptRecord);
+         }
+-        Zeroizing::new(bytes[HEADER..STUB_CHECKSUM].to_vec())
++        crate::page_buffer::ZeroizingBytes::new(bytes[HEADER..STUB_CHECKSUM].to_vec())
+     };
+     let (sequence, previous, base, contents) = match body[0] {
+         0 => {

@@ -90,6 +90,8 @@ function archiveLifecycle() {
   check(box.getSymlinkTarget('/link') === '/renamed.txt', 'symlink'); pass('lockbox_get_symlink_target', 3);
   check(box.list('/', true).length > 0, 'list'); box.stat('/renamed.txt'); pass('lockbox_list', 2); pass('lockbox_stat', 2);
   box.setWorkloadProfile('read-mostly'); box.setWorkerPolicy('single', 1); box.runtimeOptions();
+  box.setCacheLimit('bytes', 8192); check(Number(box.cacheStats().limitBytes) === 8192, 'cache limit');
+  box.setCacheLimit('auto', 0); pass('lockbox_set_cache_limit');
   pass('lockbox_set_workload_profile'); pass('lockbox_set_worker_policy'); pass('lockbox_runtime_options');
   box.commit(); pass('lockbox_commit'); check(Number(box.storageLen()) > 0, 'storage'); pass('lockbox_storage_len');
   const archive = box.toBytes(); pass('lockbox_to_bytes', 2); pass('buffer_free');
@@ -180,6 +182,7 @@ function advancedArchive() {
   const passwordBox = api.lockboxCreatePassword('archive password'); passwordBox.addFile('/password.txt', 'password protected', false); passwordBox.commit();
   const passwordArchive = passwordBox.toBytes(); passwordBox.free(); pass('lockbox_create_password');
   const passwordOpen = api.lockboxOpenPassword(passwordArchive, 'archive password'); passwordOpen.getFile('/password.txt'); passwordOpen.free(); pass('lockbox_open_password', 2);
+  const budgetOpen = api.lockboxOpenPasswordWithBudget(passwordArchive, 'archive password', 1); check(equal(budgetOpen.getFile('/password.txt'), 'password protected'), 'budget open bytes'); budgetOpen.free(); pass('lockbox_open_password_with_budget', 2);
   const contactBox = api.lockboxCreateContact(publicKey); contactBox.addFile('/contact.txt', 'contact protected', false); contactBox.commit();
   const contactArchive = contactBox.toBytes(); contactBox.free(); pass('lockbox_create_contact');
   const contactOpen = api.lockboxOpenContact(contactArchive, contact); contactOpen.getFile('/contact.txt'); contactOpen.free(); pass('lockbox_open_contact', 2);
@@ -188,12 +191,14 @@ function advancedArchive() {
   const signed = api.lockboxCreateWithSigningKey(key, signing); signed.commit(); signed.free(); pass('lockbox_create_with_signing_key', 2);
   const extract = fs.mkdtempSync(path.join(os.tmpdir(), `revault-${language}-extract-`));
   box.extractFile('/account.txt', path.join(extract, 'account.txt'), false); pass('lockbox_extract_file', 2);
+  box.extractFileWithPolicy('/account.txt', path.join(extract, 'account.txt'), 1 << 20, 1 << 20, 1, true, true); check(Buffer.from(fs.readFileSync(path.join(extract, 'account.txt'))).equals(Buffer.from(box.getFile('/account.txt'))), 'policy extraction bytes'); pass('lockbox_extract_file_with_policy', 2);
   const tree = path.join(extract, 'tree'); fs.mkdirSync(tree); box.extractDirectory(tree, 1 << 20, 4 << 20, 100, false, true, false); pass('lockbox_extract_directory', 2);
   box.deleteFormRecord('/account.form'); pass('lockbox_delete_form_record');
   box.free(); publicKey.publicFree(); contact.free(); signing.dispose();
 }
 
 function vaultLifecycle() {
+  const aliasPath = path.resolve(artifactRoot(), 'remembered-alias-target.lbox');
   const root = path.join(artifactRoot(), 'vault'); fs.mkdirSync(root, { recursive: true });
   const password = 'vault password'; const changed = 'new vault password';
   const id = Buffer.from(Array.from({ length: 16 }, (_, index) => 0xa0 + index));
@@ -224,8 +229,14 @@ function vaultLifecycle() {
   pass('vault_directory_list_private_keys'); pass('vault_directory_list_private_key_names'); pass('vault_directory_list_contact_names');
   vault.storeBackup(id, 'encrypted backup bytes'); vault.backupCount(); check(equal(vault.loadBackup(id), 'encrypted backup bytes'), 'backup');
   pass('vault_directory_store_backup'); pass('vault_directory_backup_count'); pass('vault_directory_load_backup', 3);
-  vault.rememberLockbox(id, '/tmp/example.lbox'); vault.listKnownLockboxes();
+  vault.rememberLockbox(id, aliasPath); vault.listKnownLockboxes();
   pass('vault_directory_remember_lockbox'); pass('vault_directory_list_known_lockboxes');
+  vault.setLockboxAlias('portable', id); vault.setLockboxAlias('portable', id);
+  check(vault.listLockboxAliases().length === 1 && vault.listLockboxAliases()[0].name === 'portable', 'alias repeat and list');
+  check(vault.resolveLockboxAlias('portable').path === aliasPath, 'alias resolution');
+  pass('vault_directory_set_lockbox_alias', 2); pass('vault_directory_list_lockbox_aliases', 2); pass('vault_directory_resolve_lockbox_alias');
+  vault.removeLockboxAlias('portable'); vault.removeLockboxAlias('portable');
+  check(vault.listLockboxAliases().length === 0, 'alias removal repeat'); pass('vault_directory_remove_lockbox_alias', 3);
   vault.rememberAccessSlotLabel(id, 7, 'primary'); vault.listAccessSlotLabels(id); vault.findAccessSlotLabels(id, 'primary');
   pass('vault_directory_remember_access_slot_label'); pass('vault_directory_list_access_slot_labels'); pass('vault_directory_find_access_slot_labels');
   vault.rememberPassword(id, password); vault.rememberedPassword(id);
@@ -234,10 +245,11 @@ function vaultLifecycle() {
   pass('vault_directory_define_form'); pass('vault_directory_resolve_form'); pass('vault_directory_list_forms');
   vault.listFormRevisions(vaultForm.typeId); pass('vault_directory_list_form_revisions', 2);
   vault.seedForms(); pass('vault_directory_seed_forms'); vault.listFormAliases(); pass('vault_directory_list_form_aliases');
-  vault.forgetAccessSlotLabel(id, 7); vault.forgetLockbox('/tmp/example.lbox'); vault.deleteContact('bob');
+  vault.forgetAccessSlotLabel(id, 7); vault.forgetLockbox(aliasPath); vault.deleteContact('bob');
   pass('vault_directory_forget_access_slot_label'); pass('vault_directory_forget_lockbox'); pass('vault_directory_delete_contact');
   vault.deletePrivateKey('alice'); vault.restorePrivateKey('alice', profile, owner, true);
   pass('vault_directory_delete_private_key', 2); pass('vault_directory_restore_private_key', 2);
+  vault.rememberLockbox(id, aliasPath); vault.setLockboxAlias('portable', id);
   vault.free(); pass('vault_directory_free');
   // Release the writable vault before an independent path-based probe.
   check(api.vaultDirectoryProbeStructureVersion(root, password) === currentVersion, 'vault structure probe');
@@ -246,6 +258,11 @@ function vaultLifecycle() {
   readonly.listProfileNames(); readonly.listContactNames(); readonly.listFormAliases(); readonly.listKnownLockboxes();
   pass('vault_read_only_list_profile_names', 2); pass('vault_read_only_list_contact_names');
   pass('vault_read_only_list_form_aliases', 2); pass('vault_read_only_list_known_lockboxes');
+  const aliasDispatchBefore = language === 'wasm' ? binding.wasmDispatchCount() : null;
+  check(readonly.listLockboxAliases().length === 1 && readonly.listLockboxAliases()[0].name === 'portable', 'persisted read-only alias');
+  check(readonly.resolveLockboxAlias('portable').path === aliasPath, 'read-only alias resolution');
+  if (language === 'wasm') check(binding.wasmDispatchCount() >= aliasDispatchBefore + 3, 'read-only alias operations dispatch through WASM');
+  pass('vault_read_only_list_lockbox_aliases', 2); pass('vault_read_only_resolve_lockbox_alias');
   readonly.free(); pass('vault_read_only_free');
   api.vaultDirectoryChangePassword(root, password, changed); pass('vault_directory_change_password');
   Vault.open(root, changed).free(); pass('vault_directory_open'); console.log(`ARTIFACT\t${language}\tvault-opened\t${root}`);

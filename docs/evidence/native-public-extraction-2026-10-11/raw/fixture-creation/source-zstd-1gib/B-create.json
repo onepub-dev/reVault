@@ -1,0 +1,34 @@
+{
+  "command": [
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "1800",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-B-native",
+    "/home/bsutton/.cache/revault-native-public-20261011/fixtures/source-zstd-1gib/B/archive.lbox",
+    "create",
+    "--encryption",
+    "none",
+    "--signing",
+    "none",
+    "--compression",
+    "zstd",
+    "--compression-level",
+    "3"
+  ],
+  "environment": {
+    "HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures/source-zstd-1gib/B/private-home",
+    "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures/source-zstd-1gib/B/private-config",
+    "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures/source-zstd-1gib/B/private-cache",
+    "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures/source-zstd-1gib/B/private-state",
+    "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures/source-zstd-1gib/B/private-data",
+    "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/fixtures/source-zstd-1gib/B/private-agent",
+    "LOCKBOX_PLATFORM_SECRET_STORE": "off",
+    "PATH": "/usr/bin:/bin"
+  },
+  "exit_code": 0,
+  "stdout_sha256": "8b8cf1772192103f873326604da06bf2c4eb38c459c070c8bc2fff045615bd0b",
+  "stderr_sha256": "cdcae0913981002b77e9474426158a73aa8de1f84c8db078713023cfc2c8eb6d",
+  "stdout_marker_required": null,
+  "stdout_marker_present": true
+}

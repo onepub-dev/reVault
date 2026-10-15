@@ -1,0 +1,13 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/page.rs b/rust/revault_lockbox_api/src/file_format/page.rs
+index 3a8e6dda..97e6b423 100644
+--- a/rust/revault_lockbox_api/src/file_format/page.rs
++++ b/rust/revault_lockbox_api/src/file_format/page.rs
+@@ -1400,7 +1400,7 @@ fn decode_page_body_plaintext(body: &[u8]) -> Result<Cow<'_, [u8]>> {
+ }
+ 
+ fn encode_object_stream(objects: &[PageObject]) -> Result<Vec<u8>> {
+-    let mut out = Vec::new();
++    let mut out = Vec::with_capacity(encoded_object_stream_len(objects)?);
+     out.extend_from_slice(&(objects.len() as u32).to_le_bytes());
+     for object in objects {
+         out.push(object.kind as u8);

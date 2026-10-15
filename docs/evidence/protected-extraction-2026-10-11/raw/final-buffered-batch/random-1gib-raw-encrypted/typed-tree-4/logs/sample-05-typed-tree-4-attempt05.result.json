@@ -1,0 +1,202 @@
+{
+  "case": "random-1gib-raw-encrypted",
+  "round": 5,
+  "warmup": false,
+  "backend": "typed-tree-4",
+  "worker_count": 4,
+  "input_path": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/tree.lbox",
+  "archive_apparent_bytes": 1155989504,
+  "archive_allocated_bytes": 1155989504,
+  "calibrated_archive_physical_read_bytes": 1155981312,
+  "read_gate_policy": "at least 50% independent cold full-archive calibrated physical read bytes; zero fincore residency required",
+  "output_path": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/extract-output/protected-final/sample-05-typed-tree-4-attempt05",
+  "affinity": "0,1,2,3,4",
+  "durable": false,
+  "requested_reader_tid_parity": 1,
+  "admission_attempt": 5,
+  "command": [
+    "taskset",
+    "-c",
+    "0,1,2,3,4",
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "900",
+    "/home/bsutton/.cache/revault-protected-20261011-bin/revault_lockbox_api_tests",
+    "--exact",
+    "file_format::candidate_files::resource_probe::candidate_file_resource_probe",
+    "--ignored",
+    "--nocapture"
+  ],
+  "environment": {
+    "REVAULT_EXTRACT_DURABLE": "0",
+    "REVAULT_EXTRACT_TID_PARITY": "1",
+    "REVAULT_EXTRACT_PID_NAMESPACE": "pid:[4026531836]",
+    "REVAULT_EXTRACT_BLOCK_DEVICES": "nvme0n1,nvme1n1",
+    "REVAULT_CANDIDATE_ROOT": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted",
+    "REVAULT_CANDIDATE_PHASE": "tree-extract",
+    "REVAULT_CANDIDATE_UNIT": "65536",
+    "REVAULT_EXTRACT_OUTPUT": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/extract-output/protected-final/sample-05-typed-tree-4-attempt05",
+    "REVAULT_READ_WORKERS": "4"
+  },
+  "executable": "/home/bsutton/.cache/revault-protected-20261011-bin/revault_lockbox_api_tests",
+  "executable_sha256_before": "d7443b92d491020df652335c995809a78afe27b15a66bf91edafdd30e893d92c",
+  "cache_gate": {
+    "sync_exit_code": 0,
+    "sync_stderr": "",
+    "fadvise_exit_code": 0,
+    "fadvise_stdout": "",
+    "fadvise_stderr": "",
+    "fincore_exit_code": 0,
+    "fincore_stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1155989504,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+    "fincore_stderr": "",
+    "resident_bytes_after_dontneed": 0,
+    "required_resident_bytes": 0,
+    "success": true,
+    "eviction_attempts": [
+      {
+        "attempt": 0,
+        "sync_exit_code": 0,
+        "sync_stderr": "",
+        "fadvise_exit_code": 0,
+        "fadvise_stdout": "",
+        "fadvise_stderr": "",
+        "fincore_exit_code": 0,
+        "fincore_stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1155989504,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+        "fincore_stderr": "",
+        "resident_bytes_after_dontneed": 0,
+        "required_resident_bytes": 0,
+        "success": true
+      }
+    ],
+    "maximum_eviction_attempts": 3,
+    "inter_attempt_delay_ms": 100,
+    "admission_selection": "exact zero residency only; no extraction started for failed attempts; independent of timing"
+  },
+  "exit_code": 0,
+  "sample": {
+    "backend": "typed-tree",
+    "block_device_io": {
+      "devices": [
+        {
+          "delta": {
+            "read_sectors": 0,
+            "sector_bytes": 512,
+            "write_sectors": 4736
+          },
+          "device": "nvme0n1"
+        },
+        {
+          "delta": {
+            "read_sectors": 2253912,
+            "sector_bytes": 512,
+            "write_sectors": 4736
+          },
+          "device": "nvme1n1"
+        }
+      ],
+      "scope": "global block-device counters around extraction, before output verification; includes unrelated host I/O; sector unit 512 bytes"
+    },
+    "configured_cpu_workers": 4,
+    "directory_syncs": 0,
+    "durability": "write/flush/close; no fsync; directory creation included",
+    "file_syncs": 0,
+    "files": 1,
+    "kind": "filesystem_extraction",
+    "logical_bytes_written": 1073741824,
+    "max_queued_chunks": 32,
+    "mib_per_second": 476.6954865554253,
+    "open_seconds": 0.001896253,
+    "parallel_min_requested_bytes": 131072,
+    "reader_identity": {
+      "namespace_tids": [
+        2388017
+      ],
+      "pid_namespace": "pid:[4026531836]",
+      "process_id": 2388016,
+      "reader_tid": 2388017,
+      "reader_tid_parity": 1,
+      "scope": "IDs visible in this procfs mount; not proof of host-kernel task ID or physical mirror"
+    },
+    "requested_reader_tid_parity": 1,
+    "resources": {
+      "cpu": {
+        "cpu_seconds": 3.7045450000000004,
+        "major_faults": 0,
+        "system_seconds": 1.433422,
+        "user_seconds": 2.2711230000000002
+      },
+      "peak_rss_kib": 16116
+    },
+    "scope": "synthetic regular-file component; excludes CLI startup and permission restoration",
+    "single_chunk_serial_fallback": true,
+    "storage_io": {
+      "cancelled_write_bytes": 0,
+      "read_bytes": 1153949696,
+      "source": "/proc/self/io; process-accounted storage I/O, not logical bytes",
+      "write_bytes": 1073741824
+    },
+    "total_seconds": 2.1481218699999998,
+    "verified": true,
+    "worker_threads": 4
+  },
+  "time_v": {
+    "user_seconds": 2.29,
+    "system_seconds": 1.62,
+    "elapsed_seconds": 2.36,
+    "elapsed_raw": "0:02.36",
+    "maximum_resident_set_kib": 16116
+  },
+  "process_wall_seconds": 2.36,
+  "process_max_rss_kib": 16116,
+  "process_user_seconds": 2.29,
+  "process_system_seconds": 1.62,
+  "output_file_count": 1,
+  "output_total_bytes": 1073741824,
+  "source_and_output_byte_verification": true,
+  "cold_disk_gate_passed": true,
+  "observed_process_storage_read_bytes": 1153949696,
+  "minimum_storage_read_bytes": 577990656,
+  "storage_read_bytes_per_payload_byte": 1.0746994018554688,
+  "durability_description": "write/flush/close; no fsync; directory creation included",
+  "executable_sha256_after": "d7443b92d491020df652335c995809a78afe27b15a66bf91edafdd30e893d92c",
+  "executable_stable_for_sample": true,
+  "postprocess_drain": {
+    "passed": true,
+    "seconds": 0.672301,
+    "scope": "owned output files, output directory and parent after process verification; outside extraction timer",
+    "file_count": 1,
+    "directory_count": 2,
+    "commands": [
+      {
+        "executable": "/usr/bin/sync",
+        "flags": [
+          "--"
+        ],
+        "path_count": 1,
+        "first_owned_path": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/extract-output/protected-final/sample-05-typed-tree-4-attempt05/file-000000.bin",
+        "last_owned_path": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/extract-output/protected-final/sample-05-typed-tree-4-attempt05/file-000000.bin",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "\tCommand being timed: \"timeout 930 /usr/bin/sync -- /home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/extract-output/protected-final/sample-05-typed-tree-4-attempt05/file-000000.bin\"\n\tUser time (seconds): 0.00\n\tSystem time (seconds): 0.04\n\tPercent of CPU this job got: 7%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:00.63\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 8116\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 984\n\tVoluntary context switches: 2745\n\tInvoluntary context switches: 1\n\tSwaps: 0\n\tFile system inputs: 0\n\tFile system outputs: 11808\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n"
+      },
+      {
+        "executable": "/usr/bin/sync",
+        "flags": [
+          "--"
+        ],
+        "path_count": 2,
+        "first_owned_path": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/extract-output/protected-final/sample-05-typed-tree-4-attempt05",
+        "last_owned_path": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/extract-output/protected-final",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "\tCommand being timed: \"timeout 930 /usr/bin/sync -- /home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/extract-output/protected-final/sample-05-typed-tree-4-attempt05 /home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/extract-output/protected-final\"\n\tUser time (seconds): 0.00\n\tSystem time (seconds): 0.01\n\tPercent of CPU this job got: 77%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:00.01\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 8112\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 986\n\tVoluntary context switches: 12\n\tInvoluntary context switches: 0\n\tSwaps: 0\n\tFile system inputs: 0\n\tFile system outputs: 2976\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n"
+      }
+    ],
+    "failure": null
+  },
+  "postprocess_drain_passed": true,
+  "postprocess_drain_seconds": 0.672301,
+  "verified": true,
+  "output_retained_on_failure": false
+}

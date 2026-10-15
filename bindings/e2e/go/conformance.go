@@ -129,6 +129,10 @@ func archiveLifecycle() {
 	must(box.SetWorkloadProfile("read-mostly"))
 	must(box.SetWorkerPolicy("single", 1))
 	check(mustValue(box.RuntimeOptions()).WorkloadProfile != "", "runtime options")
+	must(box.SetCacheLimit("bytes", 8192))
+	check(mustValue(box.CacheStats()).LimitBytes == 8192, "cache limit")
+	must(box.SetCacheLimit("auto", 0))
+	pass("lockbox_set_cache_limit")
 	pass("lockbox_set_workload_profile")
 	pass("lockbox_set_worker_policy")
 	pass("lockbox_runtime_options")
@@ -362,6 +366,10 @@ func advancedArchive() {
 	check(bytes.Equal(mustValue(passwordOpen.GetFile("/password.txt")), []byte("password protected")), "password open")
 	passwordOpen.Close()
 	pass("lockbox_open_password", 2)
+	budgetOpen := mustValue(revault.OpenWithPasswordBudget(passwordArchive, []byte("archive password"), 1))
+	check(bytes.Equal(mustValue(budgetOpen.GetFile("/password.txt")), []byte("password protected")), "budget password bytes")
+	budgetOpen.Close()
+	pass("lockbox_open_password_with_budget", 2)
 	contactBox := mustValue(revault.CreateForContact(public))
 	must(contactBox.AddFile("/contact.txt", []byte("contact protected"), false))
 	must(contactBox.Commit())
@@ -391,6 +399,9 @@ func advancedArchive() {
 	must(box.ExtractFile("/account.txt", filepath.Join(extractRoot, "account.txt"), false))
 	check(fileExists(filepath.Join(extractRoot, "account.txt")), "extract file")
 	pass("lockbox_extract_file", 2)
+	must(box.ExtractFileWithPolicy("/account.txt", filepath.Join(extractRoot, "account.txt"), 1<<20, 1<<20, 1, true, true))
+	check(bytes.Equal(mustValue(os.ReadFile(filepath.Join(extractRoot, "account.txt"))), mustValue(box.GetFile("/account.txt"))), "policy extracted bytes")
+	pass("lockbox_extract_file_with_policy", 2)
 	must(box.ExtractDirectory(filepath.Join(extractRoot, "tree"), 1<<20, 4<<20, 100, false, true, false))
 	check(fileExists(filepath.Join(extractRoot, "tree")), "extract dir")
 	pass("lockbox_extract_directory", 2)
@@ -401,6 +412,7 @@ func advancedArchive() {
 func fileExists(path string) bool { _, err := os.Stat(path); return err == nil }
 
 func vaultLifecycle() {
+	aliasPath := mustValue(filepath.Abs(filepath.Join(artifactRoot(), "remembered-alias-target.lbox")))
 	root := filepath.Join(artifactRoot(), "vault")
 	must(os.MkdirAll(root, 0700))
 	password := []byte("vault password")
@@ -480,10 +492,22 @@ func vaultLifecycle() {
 	pass("vault_directory_store_backup")
 	pass("vault_directory_backup_count")
 	pass("vault_directory_load_backup", 3)
-	must(vault.RememberLockbox(id, "/tmp/example.lbox"))
+	must(vault.RememberLockbox(id, aliasPath))
 	check(len(mustValue(vault.ListKnownLockboxes())) == 1, "known")
 	pass("vault_directory_remember_lockbox")
 	pass("vault_directory_list_known_lockboxes")
+	must(vault.SetLockboxAlias("portable", id))
+	must(vault.SetLockboxAlias("portable", id))
+	aliases := mustValue(vault.ListLockboxAliases())
+	check(len(aliases) == 1 && aliases[0].Name == "portable", "alias repeat and list")
+	check(mustValue(vault.ResolveLockboxAlias("portable")).Path == aliasPath, "alias resolution")
+	pass("vault_directory_set_lockbox_alias", 2)
+	pass("vault_directory_list_lockbox_aliases", 2)
+	pass("vault_directory_resolve_lockbox_alias")
+	must(vault.RemoveLockboxAlias("portable"))
+	must(vault.RemoveLockboxAlias("portable"))
+	check(len(mustValue(vault.ListLockboxAliases())) == 0, "alias removal repeat")
+	pass("vault_directory_remove_lockbox_alias", 3)
 	must(vault.RememberAccessSlotLabel(id, 7, "primary"))
 	check(len(mustValue(vault.ListAccessSlotLabels(id))) == 1, "labels")
 	check(len(mustValue(vault.FindAccessSlotLabels(id, "primary"))) == 1, "label find")
@@ -508,7 +532,7 @@ func vaultLifecycle() {
 	check(len(mustValue(vault.ListFormAliases())) > 0, "aliases")
 	pass("vault_directory_list_form_aliases")
 	must(vault.ForgetAccessSlotLabel(id, 7))
-	must(vault.ForgetLockbox("/tmp/example.lbox"))
+	must(vault.ForgetLockbox(aliasPath))
 	must(vault.DeleteContact("bob"))
 	pass("vault_directory_forget_access_slot_label")
 	pass("vault_directory_forget_lockbox")
@@ -519,6 +543,8 @@ func vaultLifecycle() {
 	check(vault.PrivateKeyExists("alice"), "restored")
 	pass("vault_directory_delete_private_key", 2)
 	pass("vault_directory_restore_private_key", 2)
+	must(vault.RememberLockbox(id, aliasPath))
+	must(vault.SetLockboxAlias("portable", id))
 	vault.Close()
 	pass("vault_directory_free")
 	// Path-based probes require the writable vault handle to be closed.
@@ -530,6 +556,11 @@ func vaultLifecycle() {
 	check(len(mustValue(readonly.ListFormAliases())) > 0, "read-only forms")
 	mustValue(readonly.ListKnownLockboxes())
 	pass("vault_read_only_open")
+	readonlyAliases := mustValue(readonly.ListLockboxAliases())
+	check(len(readonlyAliases) == 1 && readonlyAliases[0].Name == "portable", "persisted read-only alias")
+	check(mustValue(readonly.ResolveLockboxAlias("portable")).Path == aliasPath, "read-only alias resolution")
+	pass("vault_read_only_list_lockbox_aliases", 2)
+	pass("vault_read_only_resolve_lockbox_alias")
 	pass("vault_read_only_list_profile_names", 2)
 	pass("vault_read_only_list_contact_names")
 	pass("vault_read_only_list_form_aliases", 2)
@@ -736,7 +767,10 @@ func interopOpen(producer string) {
 }
 
 func main() {
-	if len(os.Args) == 2 && os.Args[1] == "--loader-lifecycle" { loaderLifecycle(); return }
+	if len(os.Args) == 2 && os.Args[1] == "--loader-lifecycle" {
+		loaderLifecycle()
+		return
+	}
 	if len(os.Args) == 2 && os.Args[1] == "--serve-agent" {
 		must(revault.ServeAgent())
 		return

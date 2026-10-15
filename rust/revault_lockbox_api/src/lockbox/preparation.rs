@@ -309,6 +309,144 @@ mod tests {
     }
 
     #[test]
+    fn pressured_file_writes_bound_cache_and_preserve_commit_abort_in_all_modes() {
+        use crate::{
+            Compression, Encryption, LockboxCreateOptions, LockboxOpen, LockboxProtection,
+            OwnerSigningKeyPair, SecretVec, Signing, WorkerPolicy,
+        };
+        let signer = OwnerSigningKeyPair::generate().unwrap();
+        let original = noise(1024 * 1024 + 17);
+        let replacement = noise(3 * 1024 * 1024 + 31);
+        let limit = 128 * 1024;
+        for encrypted in [false, true] {
+            for signed in [false, true] {
+                for compression in [Compression::None, Compression::default()] {
+                    let open = || {
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        }
+                    };
+                    let mut archive =
+                        Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                            compression,
+                            ..LockboxCreateOptions::new(
+                                if encrypted {
+                                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                                        SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                    ))
+                                } else {
+                                    Encryption::None
+                                },
+                                if signed {
+                                    Signing::Owner(&signer)
+                                } else {
+                                    Signing::None
+                                },
+                            )
+                        })
+                        .unwrap();
+                    archive.set_worker_policy(WorkerPolicy::Single);
+                    archive.page_manager.borrow_mut().trim_to(limit);
+                    archive
+                        .add_file(&path("/keep"), b"committed neighbour", false)
+                        .unwrap();
+                    archive
+                        .add_file(&path("/payload"), &original, false)
+                        .unwrap();
+                    assert!(archive.inspector().cache_stats().used_bytes <= limit);
+                    archive.commit().unwrap();
+                    for commit in [false, true] {
+                        archive
+                            .add_file_from_reader(
+                                &path("/payload"),
+                                std::io::Cursor::new(&replacement),
+                                true,
+                            )
+                            .unwrap();
+                        assert!(archive.inspector().cache_stats().used_bytes <= limit);
+                        assert_eq!(archive.get_file(&path("/payload")).unwrap(), replacement);
+                        if commit {
+                            archive.commit().unwrap();
+                        } else {
+                            archive.abort().unwrap();
+                        }
+                        let reopened = Lockbox::open_bytes(archive.to_bytes(), open()).unwrap();
+                        assert_eq!(
+                            reopened.get_file(&path("/payload")).unwrap(),
+                            if commit { &replacement } else { &original }.as_slice()
+                        );
+                        assert_eq!(
+                            reopened.get_file(&path("/keep")).unwrap(),
+                            b"committed neighbour"
+                        );
+                        reopened.inspector().verify_storage().unwrap();
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn pressured_file_write_failure_preserves_base_at_every_storage_operation() {
+        let mut base = Lockbox::create("secret");
+        let data = noise(384 * 1024);
+        base.add_file(&path("/keep"), b"committed", false).unwrap();
+        base.add_file(&path("/remove"), &data, false).unwrap();
+        base.commit().unwrap();
+        base.delete(&path("/remove")).unwrap();
+        base.commit().unwrap();
+        let sealed_len = base.storage.len().unwrap();
+        let bytes = base.to_bytes();
+        let open = || {
+            let mut archive = recover(bytes.clone());
+            archive.set_worker_policy(crate::WorkerPolicy::Single);
+            archive.page_manager.borrow_mut().trim_to(0);
+            archive
+        };
+        let mut successful = open();
+        successful.storage.reset_memory_operation_count();
+        successful
+            .add_file_from_reader(&path("/abandoned"), std::io::Cursor::new(&data), false)
+            .unwrap();
+        let count = successful.storage.memory_operation_count();
+        assert!(count > 0, "pressure must write before commit");
+        for failure in 0..count {
+            let mut interrupted = open();
+            interrupted
+                .storage
+                .fail_memory_operation_after_successes(failure);
+            assert!(
+                interrupted
+                    .add_file_from_reader(&path("/abandoned"), std::io::Cursor::new(&data), false)
+                    .is_err(),
+                "failure {failure}"
+            );
+            let recovered = recover(interrupted.to_bytes());
+            assert_eq!(
+                recovered.storage.len().unwrap(),
+                sealed_len,
+                "failure {failure}"
+            );
+            assert_eq!(recovered.get_file(&path("/keep")).unwrap(), b"committed");
+            assert!(!recovered.exists(&path("/abandoned")));
+            recovered.inspector().verify_storage().unwrap();
+            for slot in recovered.free_space.slots_by_offset() {
+                assert!(
+                    recovered
+                        .storage
+                        .read_at(slot.offset, slot.len as usize)
+                        .unwrap()
+                        .iter()
+                        .all(|byte| *byte == 0),
+                    "failure {failure}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn abandoned_stream_requires_rollback_and_truncates_on_recovery() {
         let mut lb = Lockbox::create("secret");
         lb.add_file(&path("/keep"), b"committed", false).unwrap();

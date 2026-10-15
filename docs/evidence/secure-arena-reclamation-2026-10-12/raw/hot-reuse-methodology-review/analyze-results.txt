@@ -1,0 +1,4 @@
+Dart analysis commands (each from the existing tools package context, using a temporary copy so the committed evidence files remain in the evidence directory):
+`cp <draft> tools/.hot-runner-analyze.dart && dart analyze tools/.hot-runner-analyze.dart`
+`cp <draft> tools/.hot-analysis-analyze.dart && dart analyze tools/.hot-analysis-analyze.dart`
+Both reported `No issues found!`. The temporary analyzer copies were removed. No runner or sample analyzer was executed.

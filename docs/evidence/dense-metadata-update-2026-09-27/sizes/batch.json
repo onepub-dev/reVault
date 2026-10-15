@@ -1,0 +1,10 @@
+{
+  "revision": "81024436",
+  "binary_sha256": "ecb4474a57c5cb192dc49ae8d5b71c53583089a5fd3a0600d46b323412c0384b",
+  "cycles": 100,
+  "cases": {
+    "small-plain": "/tmp/revault-dense-metadata-lifecycle-file-20260927/small-plain",
+    "small-protected": "/tmp/revault-dense-metadata-lifecycle-file-20260927/small-protected"
+  },
+  "scope": "metadata-only lifecycle size and source-byte verification; no performance or full aging qualification"
+}

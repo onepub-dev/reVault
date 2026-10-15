@@ -1,0 +1,17 @@
+{
+  "rows": [
+    {
+      "case": 0,
+      "stop_exit_code": 0,
+      "socket_absent": true,
+      "passed": true
+    },
+    {
+      "case": 1,
+      "stop_exit_code": 0,
+      "socket_absent": true,
+      "passed": true
+    }
+  ],
+  "passed": true
+}

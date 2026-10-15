@@ -48,6 +48,24 @@ final class ReadOnlyVault extends Owned {
   List<String> listFormAliases() =>
       runtime.operations.vaultReadOnlyListFormAliases(handle);
 
+  /// Lists aliases without opening their target archives.
+  ///
+  /// Example:
+  /// ```dart
+  /// final aliases = vault.listLockboxAliases();
+  /// ```
+  List<LockboxAlias> listLockboxAliases() =>
+      runtime.operations.vaultReadOnlyListLockboxAliases(handle);
+
+  /// Resolves metadata; verify target identity before opening its path.
+  ///
+  /// Example:
+  /// ```dart
+  /// final target = vault.resolveLockboxAlias('team');
+  /// ```
+  KnownLockbox resolveLockboxAlias(String name) =>
+      runtime.operations.vaultReadOnlyResolveLockboxAlias(handle, name);
+
   /// Lists remembered Lockbox identifiers and host paths.
   ///
   /// Example:

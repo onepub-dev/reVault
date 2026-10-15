@@ -1,0 +1,10 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running `rust/target/debug/revault-tool internal check-bindings`
+verified 342 unique public Rust function names have ABI mappings or reviewed Rust-only exclusions
+verified package overviews and repository README links for 16 language bindings
+verified registry quality metadata for 15 package surfaces
+verified the private FlatBuffers transport and stable field ids
+verified documentation for 2915 public binding declarations
+verified removed signing facade names are absent from all public bindings
+verified 88 native buffer result encodings
+verified 230 ABI declarations and 229 operations across all generated binding surfaces

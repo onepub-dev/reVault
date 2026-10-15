@@ -1,0 +1,17 @@
+create_profile,passes,compressed,read_profile,corpus,before_ms,after_ms,speedup,before_over_zip,after_over_zip
+Interactive,1,false,Interactive,pattern,9.422,9.756,0.966,1.164,1.190
+Interactive,1,false,Interactive,random,9.684,9.630,1.006,1.202,1.155
+Interactive,1,false,ReadMostly,pattern,9.328,9.845,0.947,1.146,1.183
+Interactive,1,false,ReadMostly,random,9.873,9.523,1.037,1.208,1.156
+Interactive,1,true,Interactive,pattern,10.057,10.306,0.976,1.176,1.159
+Interactive,1,true,Interactive,random,10.137,9.822,1.032,1.128,1.139
+Interactive,1,true,ReadMostly,pattern,10.393,10.062,1.033,1.187,1.129
+Interactive,1,true,ReadMostly,random,9.818,10.160,0.966,1.124,1.155
+Interactive,2,false,Interactive,pattern,12.672,12.909,0.982,1.158,1.215
+Interactive,2,false,Interactive,random,12.747,13.251,0.962,1.159,1.185
+Interactive,2,false,ReadMostly,pattern,12.944,12.662,1.022,1.160,1.207
+Interactive,2,false,ReadMostly,random,12.505,12.526,0.998,1.179,1.201
+Interactive,2,true,Interactive,pattern,14.146,13.816,1.024,1.181,1.130
+Interactive,2,true,Interactive,random,13.134,12.922,1.016,1.122,1.132
+Interactive,2,true,ReadMostly,pattern,13.912,14.172,0.982,1.095,1.138
+Interactive,2,true,ReadMostly,random,12.639,12.940,0.977,1.088,1.103

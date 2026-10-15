@@ -1,0 +1,113 @@
+{
+  "note": "Hashes of executables named in captured current-run logs, as found after the final unaffected gates; see source manifests for epoch identity. Earlier API run binary hashes are in build-artifacts.after-default.sha256.",
+  "binaries": [
+    {
+      "path": "target/release/deps/archive_locking-8de751311b42ded4",
+      "sha256": "b1dc7a160b577c5629dccf665d9d106e7c7c4be2cbe25e794a60beb6799b8c46"
+    },
+    {
+      "path": "target/release/deps/archive_v4-01564e57ec0f9bb4",
+      "sha256": "018e94491d9137bdce4490de076e38d8adbbf9eded731824264e259273a286dc"
+    },
+    {
+      "path": "target/release/deps/block_layout_checks-3ea9e8067c310e7e",
+      "sha256": "c8ad7e679a44cb6afe7b8c95c85f6a85981d3defabe873d505f28358ccbfff88"
+    },
+    {
+      "path": "target/release/deps/creation_options-415ede9a660e700c",
+      "sha256": "5d7cf519390d91ae88f62f47216ad167f2087066851c1c802fb31c4e05906281"
+    },
+    {
+      "path": "target/release/deps/endian_interop-fc3f4c307fc730dd",
+      "sha256": "3920eb936065c5b1b8783c7193bbf6c50280486483c2ed779dc30c015fc271fa"
+    },
+    {
+      "path": "target/release/deps/evaluation_checks-cf39c2f25ec93144",
+      "sha256": "e3e8d1f41c509c1076c6edb3328bdf81a2e8bb8f6545a383123f6db2a76c366b"
+    },
+    {
+      "path": "target/release/deps/external_source-15f0a1f24f75544d",
+      "sha256": "6b2aca2935889c1adfa9bb9718b22d8237a4424e795ae2843ea764350d579e36"
+    },
+    {
+      "path": "target/release/deps/external_source-396c75f30c3fb7ab",
+      "sha256": "ff895c9c88df6ea4ce4ee91dddab19b051a06fddcb9508977a771b02799075ee"
+    },
+    {
+      "path": "target/release/deps/form_capture_history-4e8088de51494b05",
+      "sha256": "681d462666fc15023cb7cf9525761d4d8bc20818dfe4fcd978062c3a31dbd2fd"
+    },
+    {
+      "path": "target/release/deps/linux_secret_service-4a95a2da0b8aa311",
+      "sha256": "50d49acd2a0d50b6996c25016be1dfe665740d3e2c3ec8b8340bce09cc302006"
+    },
+    {
+      "path": "target/release/deps/migration_flow-2a8e51c084930192",
+      "sha256": "97f66e4f13ce4251d61d1494ccc89f39425fd6d077e9dae0636a78b647924d87"
+    },
+    {
+      "path": "target/release/deps/native_layout-4bf1b56c96fc78c2",
+      "sha256": "b6ef72c98df38f5399fe793554ebed91f36b47888420d96318ec2730b0cd2680"
+    },
+    {
+      "path": "target/release/deps/native_layout-a0ffa2d542ce3f60",
+      "sha256": "cc8535d1ed4c2b7f878d8067771fd4e57332b44e8a9e13d61340b79c000cb968"
+    },
+    {
+      "path": "target/release/deps/public_api_suite-2ff26b66918b7756",
+      "sha256": "0152760287cbc58886ec3bdd779f1d8a64cc19677afadeca71baa12931c73d62"
+    },
+    {
+      "path": "target/release/deps/recovery_commitment_checks-cd740171397c6a4e",
+      "sha256": "482d35067729b09cea5f92366caec3e7fe4217f218aadf5284eadc7ed8398328"
+    },
+    {
+      "path": "target/release/deps/release_candidate-8bafa0a364ea818f",
+      "sha256": "2cda0b52ec12153ae79f268d6b8b6e56a05fdb677b68035c100c64de3238deb3"
+    },
+    {
+      "path": "target/release/deps/revault_lockbox_api-9ff5a2f0178b8ac8",
+      "sha256": "a2dd55fa050fffd370f5017c44fd4a842792335a032ffc2bd19ea3cfcd667255"
+    },
+    {
+      "path": "target/release/deps/revault_migration-d1733fc0b3308a53",
+      "sha256": "f8d2ab043a4b146e8c73f1a75f93794276222fcdb64dfe852efb0b6c41f360f9"
+    },
+    {
+      "path": "target/release/deps/revault_page_api-61a1a71a540c5849",
+      "sha256": "f8d30d41f9edb09499577def9a95565eac2a3f7a5416bc0809eebefd38d6162c"
+    },
+    {
+      "path": "target/release/deps/revault_tool-d9879134ed671099",
+      "sha256": "170878214cc5d973bd5d1e208f9c5993eebcdb8a3007915e22d6e3d904f23364"
+    },
+    {
+      "path": "target/release/deps/revault_vault_api-c9fd78d3ac3b1eb8",
+      "sha256": "ac6acd0be5fcfbd16d3e1a1fce3054de4fdfcae90bff79081942eac09e6ab60a"
+    },
+    {
+      "path": "target/release/deps/shared_layout_checks-22e621da59c6aaa3",
+      "sha256": "72f8d778be69a1e781607e5e15b2e524380168246b4b15c213f5f14d7aeb28f0"
+    },
+    {
+      "path": "target/release/deps/size_padding-1face82e07780bc2",
+      "sha256": "0b48ac3b256e55ef1f383c847aec26bc710ce8afdf7af23fb72b3c91a7b2e8c8"
+    },
+    {
+      "path": "target/release/deps/size_padding-c94e9785fcd57402",
+      "sha256": "a9e5e440a7ec31ea5940ce0ff7da02051ff06d255b851b5f92166698562c4ded"
+    },
+    {
+      "path": "target/release/deps/stream_workspace-ef18b1665a4bd0c3",
+      "sha256": "6f3c8c6a97caa8ab520d83d436719e13829f054a6aa5d3b87e830f5936fc49fc"
+    },
+    {
+      "path": "target/release/deps/vault_api-fc69de6d3f93423a",
+      "sha256": "c8c48e85f14c28d06979ceb92d459c890520eff6ce93873358f666025ae2f8ec"
+    },
+    {
+      "path": "target/release/deps/vault_v3-fa828ef9dd761345",
+      "sha256": "1f945009cd7502efdf9fec9f5439e8d5f9d7cd12cebac306a74af34980ddee25"
+    }
+  ]
+}

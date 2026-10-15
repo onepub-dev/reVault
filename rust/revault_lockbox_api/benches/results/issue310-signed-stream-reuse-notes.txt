@@ -1,0 +1,69 @@
+Issue #310: reuse verified packed frames during canonical content hashing
+Base fc0e068, 2026-09-22.
+
+Plaintext signed archives hash file contents during commit and open. The prior
+code extracted each file independently, reopening and decoding a packed frame
+for every member. Reuse the logical stream's verified frame state across files
+while keeping the original canonical TOC, file-length, symlink, variable, form,
+allocation and cleanup framing. Every file byte still enters SHA-256. Slice and
+whole-file byte counts are checked; no whole-content authentication is skipped.
+One local decoded frame is retained and wiped on drop, with source validation
+before each slice. Do not admit single-file frames just for this one-pass scan.
+No wire-format change, packing-target change, or public API change.
+
+Digest equivalence test compares the new hasher with the original independent
+extract_file_to_writer path. It covers raw/compressed and padded/unpadded signed
+archives, packed files, a multi-frame file, zeros, empty files, directories,
+symlinks, variables, replacements, deletion, commit and read-only reopen. Pending
+file contents are compared separately: the full canonical digest also requires
+persisted allocation metadata. Existing corruption/authentication tests remain.
+The previous failure to recover intact signed neighbors is deliberately unchanged:
+this optimization still requires a valid whole-content digest at normal open.
+
+Benchmark: native zip_read, 512 x 4096-byte pattern files, signed plaintext,
+Interactive reader, logical stream, fresh archive handles, warm OS cache, CPU 2.
+Every returned byte checked; no builds/tests overlap timing. Three consecutive
+before/after pairs with 3 samples/row for BulkImport-created fixtures; one control
+pair with 5 samples/row for default-created fixtures. 16 raw rows represent
+56 measured lockbox operations plus corresponding ZIP measurements.
+
+Commands use TMPDIR under ignored worktree target/issue310-sign-tmp and:
+REVAULT_ZIP_READ_CASE=small REVAULT_ZIP_READ_MODE=signed
+REVAULT_ZIP_READ_ACCESS=stream REVAULT_ZIP_READ_PROFILE=Interactive
+Bulk: REVAULT_ZIP_READ_CREATE_PROFILE=BulkImport REVAULT_ZIP_READ_SAMPLES=3
+Control: CREATE_PROFILE unset; REVAULT_ZIP_READ_SAMPLES=5
+Run each binary under taskset -c 2. Baseline is the fc0e068 implementation built
+before this change, with the same benchmark fixture option.
+SHA256:
+before e3f110ec7a5876498f957446266d7c4b050202fb52016baa370b5694b33ad4c5
+after  7e954351b907c09fe4288ba7753dad3ed22be636ed4255e465d8935965e5d85c
+
+Median of three run medians, milliseconds (bulk fixture):
+                      before total  after total  before open  after open
+raw                        80.382       9.552       75.984       5.950
+compressed               1518.429      11.888     1513.603       7.155
+Archive sizes identical: 2,411,904 raw and 302,464 compressed bytes.
+Read time is essentially unchanged; the improvement is in authenticated open.
+Candidate total times remain slower than the corresponding ZIP readings.
+
+Default-created control, milliseconds:
+raw total         32.086 -> 32.263 (+0.55%)
+compressed total  36.082 -> 36.263 (+0.50%)
+Identical sizes: raw 3,009,920 and compressed 847,232 bytes. A single control pair
+is not a formal non-regression result. No default-layout speedup, confidence
+bound, write timing, encrypted-mode speedup, or broad parity claim.
+
+Remaining gates: signed damaged-archive recovery, native page-cache integration,
+broad read/write/load parity, migration/bindings/release and default activation.
+
+Final validation:
+- Default library: 335 passed, 5 ignored.
+- Native + external-source library: 329 passed, 10 known failures, 5 ignored.
+  Failures remain the two page-cache tests and eight recovery-related tests.
+- Strict Clippy library/tests: default and native + external-source passed.
+Initial development run had a new test incorrectly hashing an uncommitted
+allocation root; corrected to compare pending file bytes independently. Four
+subprocess tests also failed when a concurrent rebuild replaced their running
+executable (spawn ENOENT). The final suites were rerun without replacing live
+executables and those subprocess tests passed. No production integrity check
+was removed to obtain the final results.

@@ -1,6 +1,6 @@
 [package]
 name = "revault_vault_api"
-version = "0.0.43"
+version = "0.0.49"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
@@ -18,7 +18,12 @@ path = "src/lib.rs"
 base64ct = { version = "1", features = ["alloc"] }
 chacha20poly1305 = "0.11"
 getrandom = "0.4"
-revault_lockbox_api = { version = "0.0.42", path = "../revault_lockbox_api", features = ["vault-integration"] }
+# Unicode 17.0 grammar and NFC data are a single pinned contract.
+icu_normalizer = { version = "=2.3.0", default-features = false, features = ["compiled_data"] }
+icu_normalizer_data = "=2.3.0"
+icu_properties = "=2.3.0"
+icu_properties_data = "=2.3.0"
+revault_lockbox_api = { version = "0.0.48", path = "../revault_lockbox_api", features = ["vault-integration"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"
@@ -26,12 +31,16 @@ zeroize = "1.9"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+socket2 = "0.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 async-io = "2"
 futures-lite = "2"
 secret-service = { version = "=5.1.0", features = ["rt-async-io-crypto-rust"] }
 zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
+# Keep fresh edition-2021 consumers compatible with the declared Rust 1.88 MSRV.
+# zbus accepts newer uuid releases whose MSRV exceeds ours.
+uuid = ">=1.8, <1.27"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = { version = "4.2.0", default-features = false, features = ["v1"] }

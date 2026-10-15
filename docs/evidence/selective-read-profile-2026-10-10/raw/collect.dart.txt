@@ -1,0 +1,136 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const out = '/tmp/revault-selective-profile-20261010';
+const fixtureBase = '/tmp/revault-selective-read-20261010/fixtures';
+const binary = '$out/bin/diagnostic';
+const rust = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust';
+const fixtureNames = ['raw8m-random', 'raw64m-random', 'compressed8m-pattern', 'small512-mixed-compressed'];
+
+String sha(String path) {
+  final result = Process.runSync('sha256sum', [path]);
+  if (result.exitCode != 0) throw StateError('sha256sum $path failed: ${result.stderr}');
+  return '${result.stdout}'.split(RegExp(r'\s+')).first;
+}
+
+Map<String, String> hashTree(String dir) {
+  final result = <String, String>{};
+  for (final entity in Directory(dir).listSync(recursive: true, followLinks: false)) {
+    if (entity is File) result[entity.path.substring(dir.length + 1)] = sha(entity.path);
+  }
+  return result;
+}
+
+double median(List<double> values) {
+  final sorted = [...values]..sort();
+  if (sorted.isEmpty) return double.nan;
+  final mid = sorted.length ~/ 2;
+  return sorted.length.isOdd ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+Map<String, dynamic> summarize(Map<String, dynamic> payload) {
+  final observations = (payload['observations'] as List).cast<Map<String, dynamic>>();
+  final phases = <String, dynamic>{};
+  for (final phase in observations.first.keys) {
+    final rows = observations.map((observation) => observation[phase] as Map<String, dynamic>).toList();
+    final times = rows.map((row) => (row['seconds'] as num).toDouble()).toList();
+    final functionNames = <String>{};
+    for (final row in rows) {
+      functionNames.addAll((row['functions'] as Map<String, dynamic>).keys);
+    }
+    final functions = <String, dynamic>{};
+    for (final name in functionNames) {
+      final functionRows = rows.map((row) => (row['functions'] as Map<String, dynamic>)[name] as Map<String, dynamic>).toList();
+      functions[name] = {
+        'median_seconds': median(functionRows.map((r) => (r['seconds'] as num).toDouble()).toList()),
+        'median_calls': median(functionRows.map((r) => (r['calls'] as num).toDouble()).toList()),
+        'median_failures': median(functionRows.map((r) => (r['failures'] as num).toDouble()).toList()),
+      };
+    }
+    phases[phase] = {
+      'median_seconds': median(times),
+      'functions': functions,
+      'median_storage': _medianMaps(rows.map((row) => row['storage'] as Map<String, dynamic>).toList()),
+      if (rows.first.containsKey('received')) 'received_bytes': rows.first['received'],
+    };
+  }
+  return {'verified': payload['verified'], 'archive_sha256': payload['archive_sha256'], 'observations': observations.length, 'phases': phases};
+}
+
+Map<String, dynamic> _medianMaps(List<Map<String, dynamic>> maps) {
+  final keys = <String>{};
+  for (final map in maps) keys.addAll(map.keys);
+  final result = <String, dynamic>{};
+  for (final key in keys) {
+    final values = maps.map((map) => map[key]).toList();
+    if (values.every((value) => value is num)) {
+      result[key] = median(values.cast<num>().map((value) => value.toDouble()).toList());
+    } else if (values.every((value) => value is Map<String, dynamic>)) {
+      result[key] = _medianMaps(values.cast<Map<String, dynamic>>());
+    }
+  }
+  return result;
+}
+
+void main() {
+  final beforeFixtures = {for (final name in fixtureNames) name: hashTree('$fixtureBase/$name')};
+  final sourcePaths = [
+    '$rust/Cargo.lock',
+    '$rust/revault_lockbox_api/src/file_format/mod.rs',
+    '$rust/revault_lockbox_api/src/file_format/diagnostic_timing.rs',
+    '$rust/revault_lockbox_api/src/file_format/authenticated_index.rs',
+    '$rust/revault_lockbox_api/src/file_format/data_extent.rs',
+    '$rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs',
+    '$rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs',
+  ];
+  final beforeSource = {for (final path in sourcePaths) path: sha(path)};
+  final beforeBinary = sha(binary);
+  final summary = <String, dynamic>{};
+  for (final name in fixtureNames) {
+    final root = '$fixtureBase/$name/other';
+    final passes = name == 'raw64m-random' ? '20' : '100';
+    final unit = name == 'compressed8m-pattern' || name == 'small512-mixed-compressed' ? '262144' : '65536';
+    final env = {...Platform.environment,
+      'REVAULT_CANDIDATE_PHASE': 'tree-sample',
+      'REVAULT_CANDIDATE_ROOT': root,
+      'REVAULT_SELECTIVE_DIAGNOSTIC': passes,
+      'REVAULT_CANDIDATE_ACCESS': 'range',
+      'REVAULT_CANDIDATE_UNIT': unit,
+      'REVAULT_CANDIDATE_PASSES': '1',
+    };
+    final result = Process.runSync('taskset', [
+      '-c', '2', binary, '--ignored', '--exact',
+      'file_format::candidate_files::resource_probe::candidate_file_resource_probe',
+      '--nocapture', '--test-threads=1',
+    ], environment: env, workingDirectory: rust);
+    final output = '${result.stdout}${result.stderr}';
+    File('$out/logs/$name.log').writeAsStringSync(output, flush: true);
+    if (result.exitCode != 0) throw StateError('$name diagnostic failed (${result.exitCode}); see $out/logs/$name.log');
+    final marker = 'SELECTIVE_DIAGNOSTIC ';
+    final markerAt = output.indexOf(marker);
+    if (markerAt < 0) throw StateError('$name missing diagnostic JSON');
+    final jsonStart = markerAt + marker.length;
+    final jsonEnd = output.indexOf('\n', jsonStart);
+    final payload = jsonDecode(output.substring(jsonStart, jsonEnd < 0 ? output.length : jsonEnd)) as Map<String, dynamic>;
+    summary[name] = summarize(payload);
+    print('DIAGNOSTIC_OK $name repeats=$passes verified=${payload['verified']} archive=${payload['archive_sha256']}');
+  }
+  final afterFixtures = {for (final name in fixtureNames) name: hashTree('$fixtureBase/$name')};
+  final afterSource = {for (final path in sourcePaths) path: sha(path)};
+  final afterBinary = sha(binary);
+  final audit = {
+    'binary_sha256_before_after': [beforeBinary, afterBinary],
+    'source_sha256_before': beforeSource,
+    'source_sha256_after': afterSource,
+    'fixtures_sha256_before': beforeFixtures,
+    'fixtures_sha256_after': afterFixtures,
+    'stable': beforeBinary == afterBinary && jsonEncode(beforeSource) == jsonEncode(afterSource) && jsonEncode(beforeFixtures) == jsonEncode(afterFixtures),
+    'cpu_affinity': 2,
+    'diagnostics': summary,
+  };
+  File('$out/summary.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(audit), flush: true);
+  if (audit['stable'] != true) throw StateError('frozen source, binary, or fixture hashes changed');
+  print('AUDIT_OK $out/summary.json');
+}

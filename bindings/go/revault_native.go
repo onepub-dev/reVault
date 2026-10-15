@@ -125,6 +125,9 @@ func (native) LockboxStorageLen(handle unsafe.Pointer) C.uint64_t {
 func (native) LockboxSetWorkloadProfile(handle unsafe.Pointer, profile unsafe.Pointer, profile_len C.size_t) C.bool {
 	return C.lockbox_set_workload_profile(handle, (*C.char)(profile), profile_len)
 }
+func (native) LockboxSetCacheLimit(handle unsafe.Pointer, mode unsafe.Pointer, mode_len C.size_t, bytes C.uint64_t) C.bool {
+	return C.lockbox_set_cache_limit(handle, (*C.char)(mode), mode_len, bytes)
+}
 func (native) LockboxSetWorkerPolicy(handle unsafe.Pointer, mode unsafe.Pointer, mode_len C.size_t, jobs C.size_t) C.bool {
 	return C.lockbox_set_worker_policy(handle, (*C.char)(mode), mode_len, jobs)
 }
@@ -491,6 +494,30 @@ func (native) VaultDirectoryRotatePrivateKey(handle unsafe.Pointer, name unsafe.
 func (native) VaultDirectoryRememberLockbox(handle unsafe.Pointer, id unsafe.Pointer, id_len C.size_t, path unsafe.Pointer, path_len C.size_t) C.bool {
 	return C.vault_directory_remember_lockbox(handle, (*C.uint8_t)(id), id_len, (*C.char)(path), path_len)
 }
+func (native) VaultDirectorySetLockboxAlias(handle unsafe.Pointer, name unsafe.Pointer, nameLen C.size_t, id unsafe.Pointer, idLen C.size_t) C.bool {
+	return C.vault_directory_set_lockbox_alias(handle, (*C.char)(name), nameLen, (*C.uint8_t)(id), idLen)
+}
+
+func (native) VaultDirectoryListLockboxAliases(handle unsafe.Pointer) C.RevaultBuffer {
+	return C.vault_directory_list_lockbox_aliases(handle)
+}
+
+func (native) VaultDirectoryRemoveLockboxAlias(handle unsafe.Pointer, name unsafe.Pointer, nameLen C.size_t) C.bool {
+	return C.vault_directory_remove_lockbox_alias(handle, (*C.char)(name), nameLen)
+}
+
+func (native) VaultDirectoryResolveLockboxAlias(handle unsafe.Pointer, name unsafe.Pointer, nameLen C.size_t) C.RevaultBuffer {
+	return C.vault_directory_resolve_lockbox_alias(handle, (*C.char)(name), nameLen)
+}
+
+func (native) VaultReadOnlyListLockboxAliases(handle unsafe.Pointer) C.RevaultBuffer {
+	return C.vault_read_only_list_lockbox_aliases(handle)
+}
+
+func (native) VaultReadOnlyResolveLockboxAlias(handle unsafe.Pointer, name unsafe.Pointer, nameLen C.size_t) C.RevaultBuffer {
+	return C.vault_read_only_resolve_lockbox_alias(handle, (*C.char)(name), nameLen)
+}
+
 func (native) VaultDirectoryListKnownLockboxes(handle unsafe.Pointer) C.RevaultBuffer {
 	return C.vault_directory_list_known_lockboxes(handle)
 }
@@ -676,4 +703,10 @@ func (native) VaultCloseAll(vault unsafe.Pointer) C.bool {
 }
 func (native) VaultFree(vault unsafe.Pointer) {
 	C.vault_free(vault)
+}
+func (native) LockboxOpenPasswordWithBudget(archive unsafe.Pointer, archiveLen C.size_t, password unsafe.Pointer, passwordLen C.size_t, maxDerivations C.uint32_t) unsafe.Pointer {
+	return C.lockbox_open_password_with_budget((*C.uint8_t)(archive), archiveLen, (*C.uint8_t)(password), passwordLen, maxDerivations)
+}
+func (native) LockboxExtractFileWithPolicy(handle unsafe.Pointer, source unsafe.Pointer, sourceLen C.size_t, destination unsafe.Pointer, destinationLen C.size_t, maxFileBytes C.uint64_t, maxTotalBytes C.uint64_t, maxFiles C.size_t, restorePermissions C.bool, overwrite C.bool) C.bool {
+	return C.lockbox_extract_file_with_policy(handle, (*C.char)(source), sourceLen, (*C.char)(destination), destinationLen, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite)
 }

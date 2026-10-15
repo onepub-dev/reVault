@@ -1,0 +1,105 @@
+Creation-time padding implementation and read gate, 2026-09-13
+===========================================================
+Issue #310 remains IN PROGRESS. This checkpoint implements the requested
+creation policy; it does not promote the block-index prototype or claim ZIP
+parity. The shared block-layout production integration is still unfinished.
+
+Native writer/API/CLI
+- Public SizePadding::Default (unchanged behavior) and SizePadding::None in
+  LockboxCreateOptions; reopened LockboxFormatOptions reports the same policy.
+- CLI create --no-size-padding; doctor reports the persisted choice. Runtime
+  options, ordinary mutation and compaction do not change the creation policy.
+- Native format remains v4, migration artifact schema remains 3. Bit 8 of the
+  existing authenticated mode word selects no padding; codec parsing masks
+  that bit separately and rejects unknown bits and a second legacy-zero mode.
+- Physical page flag 0x2 describes an unpadded extent: physical length must
+  equal header plus stored body, including its checksum/AEAD tag. Other
+  content pages must match the archive policy. Public key-directory bootstrap
+  can discover its self-describing extent before the archive header is trusted.
+- This uses the SAME page schema across encryption/signing modes, with no
+  second plaintext-only file index. Signed eager content verification remains.
+- Secure tree sizing uses payload length, not a copy of secret bytes into
+  ordinary heap memory. Variable/form retirement authenticates actual compact
+  extents; padded defaults retain their fixed private-page allocations.
+- Compact control batches append exact-size pages before either free-index
+  snapshot can advertise their extents. Retired bytes remain reusable data
+  space. This is not a promise of zero transaction history or zero free space;
+  control-page reuse/long-running update fragmentation still merits tuning.
+- Recovery failure injection exposed a stale in-memory free-index problem:
+  after cleanup publication, the returning write handle now activates the
+  post-cleanup index. No additional reopen is needed to account for reclaimed
+  storage. Tests cover padded as well as compact archives.
+
+Validation
+- Full lockbox unit suite: 297 passed, 5 deliberately ignored.
+- Creation-options integration: 5 passed (including large cross-frame reads).
+- Padding integration: all 16 combinations of encryption/signing/compression/
+  padding; additions, no-change commit, replacement/growth/shrink/empty files,
+  packed-page survivors, variables, forms, symlinks, deletion, reopen and
+  compaction. Separate password-key bootstrap and file-backed compaction test.
+- Private fault injection checks every commit storage write/sync failure in
+  all 16 combinations. Recovery must select a whole old/new generation, retain
+  neighboring file bytes, preserve policy and pass storage ownership checks.
+- Public CLI lifecycle runs all 16 combinations using separate invocations for
+  persisted policy and byte checks; repeat creation/add and deletion refusal
+  paths are included. No archive internals are manipulated by CLI E2E setup.
+- Migration export/import roundtrips compact v4 in all eight protection/codec
+  combinations, preserving format choices, file bytes and variable metadata.
+- Strict targeted Clippy passed. Formatting is deferred until the commit hook,
+  after tests, as requested.
+
+Measurements
+Release builds, CPU 2, warm filesystem cache, fresh file-backed handles.
+ABBA/BAAB child ordering alternates per pair; cases shuffle within children.
+First child sample discarded. Every returned byte is checked and output buffers
+wiped. Open includes OS handle, archive metadata and required authentication.
+Compression column denotes requested policy; tiny payloads may remain raw.
+
+Padding comparison uses the SAME executable for both sides:
+- 128 bytes: 25 pairs, six child samples (five measured), all 32 mode/read cases.
+- 8 MiB repeating pattern: 15 pairs, three child samples, all 32 cases.
+- No point estimate exceeded +5% for open/read/total in these matrices.
+- All open upper confidence bounds were below +5%. The widest read/total
+  interval was encrypted/Zstd range; a focused 25-pair/six-sample repeat gave
+  read -0.239% [-1.122,+0.480] and total -0.209% [-1.343,+0.566].
+- Small raw unsigned archive: padded 269696 bytes versus unpadded 2773 bytes
+  (plaintext) or 2629 bytes (encrypted). Headers, cryptographic material and
+  history remain, so this is not an exact-content-size archive.
+- Small write CSVs are fixture-creation observations with only one sample;
+  their fsync-heavy timings MUST NOT be treated as a write-performance gate.
+
+Default-reader guard against main 0f9a137 uses identical immutable bytes:
+- 128 bytes: 25 pairs/six samples. Largest open point estimate:
+  signed/raw stream_content +4.392% [3.375,4.581], within the 5% guardrail but
+  not a claim of zero cost.
+- 8 MiB: 15 pairs/three samples. No point estimate over +5%. Two open intervals
+  initially crossed +5%; both retained and followed up with 25 pairs/six samples.
+  encrypted-signed/raw stream_content open +2.061% [-0.030,+2.795];
+  encrypted/raw range open -3.852% [-8.152,-2.442].
+
+Raw paired CSVs, bootstrap summaries and initial fixture-size rows are retained
+beside this note. First padding matrices used executable SHA256
+209d521a407f7c30fa494fd030c2b0646fda8a089e9020c66c37e0e60d4413b3.
+After replacing a legacy record-size re-encoding fallback with the persisted
+extent, repeats/main comparisons used
+03c260e4b353874688bd6c5d2dd8da0fb6212b12647ebecf8600e36644d387a7.
+Neither change introduces a new compression pass.
+Fixture root: /tmp/revault-padding-gate-k05j7w (synthetic data only).
+
+Reproduce with protection_gate:
+write ROOT/default SIZE pattern 1
+REVAULT_GATE_NO_SIZE_PADDING=1 ... write ROOT/none SIZE pattern 1
+REVAULT_GATE_CHILD_SAMPLES=6 ... compare-padding EXE EXE ROOT SIZE pattern 25 all
+... summarize PAIRED_CSV
+Main comparisons use compare MAIN_EXE BRANCH_EXE IMMUTABLE_ROOT ... instead.
+
+Still required before completing #310
+- Native shared block-reader/writer integration for every protection mode,
+  corresponding recovery/migration/binding work, and full ZIP parity matrix.
+- Creation-policy exposure in managed-language bindings (Rust/CLI are wired).
+- Repeated write/encryption gates for this checkpoint, larger/random and
+  many-file read/load gates, and long-running compact-control allocation costs.
+- Smaller compressed output without a second full encoding pass remains
+  unsolved; that experiment was withdrawn and has NOT been reintroduced.
+- Push rebased history under an approved remote branch; existing branch rules
+  reject force pushes. No release, PR or completion label is implied.

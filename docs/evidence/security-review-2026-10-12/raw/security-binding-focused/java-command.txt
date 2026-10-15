@@ -1,0 +1,1 @@
+find bindings/java/src bindings/java/generated -name *.java -print0 | xargs -0 javac --release 22 -Xlint:all,-restricted -Werror -cp /home/bsutton/.gradle/caches/modules-2/files-2.1/com.google.flatbuffers/flatbuffers-java/25.2.10/9bb1a149ec48588fc04a3d00a3cc4e0135273b4e/flatbuffers-java-25.2.10.jar -d /tmp/revault-security-bindings-java-20261013/classes

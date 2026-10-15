@@ -1,0 +1,39 @@
+{
+  "hashes": {
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/lockbox/files.rs": "006a90691df05f7ceb3c4bb22166b6cab9e6e5d4bec1cf31c4a18a9d41ff9fea",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/model/page_object_packer.rs": "1e993b3d5957d28ebc518a9b44faa64f90727e3a4f071f327cda62e620298c48",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/Cargo.toml": "28f46f7a64ed0eb9e13abf0a5596385c16e6773f2d505f4ae385f697cb4aacc6",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/Cargo.lock": "c2f9e9ce9b8fe9ea54c6781ce39d696ae88d7972d886342d03299cff60ce6dd8",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/compression.rs": "e48b68885f95008698045e72286269529de47d5b8c67cc65ebde299a0a7fc936",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/compression/encode_workspace.rs": "d559b08183cf04715176cdfa951bfe05134af3d496f8e443a61dec38403e1ee8",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs": "a4b4a24149ec859ee6981927627290db89ca7f6915469e2e767b9b98d430afad",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli/src/commands/files.rs": "fcf5f8bcc83f987cc5b9b9ed760a9d85ce55747a07dd1e60ba38ba62fbcb216b",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/lockbox.rs": "a5c1e5011f56471f5a4fd2719b1b75acfdc86d1254b5270cdb0198d66ca68b84",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/storage/page_cache.rs": "5312d4492be935d79a65a16ba1f76b36c70544e8e60f456a3b379fea92b3f903",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/Cargo.toml": "beab5d20edb8c69e95f2f330abdbe38e08f11cfc3ea81adc87eadbc557e8167f",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli/Cargo.toml": "8b3444bf2390acec1150d9840bfc3f0bfc02b7f42d4b34df926ce7974b36cdd2",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/single-file-add-cache8-20261012/bin/lockbox-new": "cccc2f00ac09d7c46b98621f782143897d063f543d527eaf0325041fe7a1de36",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/page-flush-ownership-20261012/bin/lockbox-new": "175400ae58c5407f9f4ca7918ea93fcb8b564b3e1ef6dc6645295b6f07549615",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/page-flush-ownership.dart": "b8737b4c52824a16ba6beeb20bb7521702e6c11cb608ebc33854eab37889cb36",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/page-flush-ownership-2026-10-12/README.md": "4a567dbf81dd111450b09fc7fc94d4ee5b6e2165b1a34b5bba02e515b57a1323",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/page-flush-ownership-2026-10-12/raw/cases.json": "8b6e94c916d9c032b600726dffeb35595aced7ed52a7b9820d649c5213398c4c",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/page-flush-ownership-2026-10-12/raw/build-new/manifest.txt": "2184914eeee32766ea4dc3f2c7b46db0e3636592b5dd512dd6e4eb533f0c5024",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/single-file-add-cache8-2026-10-12/raw/build-new/sha256sums.txt": "32294c3fa072e1e89de668eeb72d896657df441c2f4a4a81489959a232f99c1b",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/summarize-page-flush-ownership.dart": "2a5f637a5fce365a6173105e9041835dd50f901fcfb1f294e4003821e346efb3",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/summarize-adaptive-workers.dart": "44a33381aaa2e00a4c8913e9b5cb0c264dada5b67c3be0157f4861a40b6e89fb",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/public-add-2026-10-12/raw/baseline-identities.json": "5fcfa8f56a72631ba6cf24e3636b9f43282c01f28de31b0ebb02e52512dc8da9",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/public-add-2026-10-12/raw/baseline-complete.json": "dbeeff0d02b05d69d3cdb73995824404783ffae1dbb5997f7f2a28f2ae67bf65",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/public-add-serial-2026-10-12/raw/baseline-identities.json": "87445b258150da5b050136165a80e0aa7b681bf52676a1879b63863ccb001c39",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/public-add-serial-2026-10-12/raw/baseline-complete.json": "59dd638164e31ececd7dc1dfa009eb6d801a7697bd688614355c362afc0d1c71",
+    "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/A/source/file-000000.bin": "a90cac77289634f3369065f9037ce2d2f48490e967efaf59d78c3c51508ee77d",
+    "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-1gib/A/source/file-000000.bin": "abefe2d07b94a4f7e266b7df41ed7694856b9d7fc707bbf4d6b2fb4c4e54de96"
+  },
+  "planned_processes": 112,
+  "preparation": 16,
+  "measured": 96,
+  "variants": {
+    "old": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/single-file-add-cache8-20261012/bin/lockbox-new",
+    "new": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/page-flush-ownership-20261012/bin/lockbox-new"
+  },
+  "settings": "Auto workers; retained single-file8MiB cache and BulkImport Auto; affinity0-4; plaintext unsigned Zstd3 defaultpadding; four source/workflow cohorts; create/verify outside timed add"
+}

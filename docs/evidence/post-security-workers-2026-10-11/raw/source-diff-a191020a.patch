@@ -1,0 +1,78 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+index e535d6a6..56c725fe 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+@@ -96,6 +96,15 @@ pub(super) fn run(
+         .unwrap();
+         verify(&mut opened, root, count, bytes);
+         assert_eq!(opened.image.filesystem_metadata().unwrap(), metadata);
++        let mut codec_census = (0u64, 0u64, 0u64, 0u64);
++        for index in 0..count {
++            let row = opened.image.codec_census(TreeImage::<StorageBackend>::stored_name(index).as_bytes()).unwrap();
++            codec_census.0 += row.0;
++            codec_census.1 += row.1;
++            codec_census.2 += row.2;
++            codec_census.3 += row.3;
++        }
++        assert_eq!(codec_census.2, bytes * count as u64);
+         std::fs::OpenOptions::new()
+             .write(true)
+             .create_new(true)
+@@ -108,7 +117,7 @@ pub(super) fn run(
+         std::fs::remove_file(staging_path).unwrap();
+         println!(
+             "CANDIDATE_SAMPLE {}",
+-            json!({"kind":"typed_tree_fixture","layout":"shared-control-typed-tree","archive_bytes":std::fs::metadata(&target).unwrap().len(),"archive_sha256":digest_file(&target),"verified":true,"scope":"fresh direct typed export; construction is not a write-performance sample"})
++            json!({"kind":"typed_tree_fixture","layout":"shared-control-typed-tree","archive_bytes":std::fs::metadata(&target).unwrap().len(),"archive_sha256":digest_file(&target),"verified":true,"codec_census":{"raw_chunks":codec_census.0,"zstd_chunks":codec_census.1,"logical_bytes":codec_census.2,"encoded_bytes":codec_census.3},"scope":"fresh direct typed export; construction and authenticated descriptor census are not timed samples"})
+         );
+         return;
+     }
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
+index a148fca9..5f6c0f57 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
+@@ -153,6 +153,28 @@ impl<S: Storage> ReadImage<S> {
+             .map(|entry| self.file_info(&entry).map(|(_, info)| info))
+             .transpose()
+     }
++    /// Untimed benchmark fixture census from authenticated chunk references.
++    #[cfg(test)]
++    pub(in crate::file_format::candidate_files) fn codec_census(
++        &self,
++        path: &[u8],
++    ) -> Result<(u64, u64, u64, u64)> {
++        let info = self.info(path)?.ok_or(Error::CorruptRecord)?;
++        let mut census = (0u64, 0u64, 0u64, 0u64);
++        for ordinal in 0..info.count() {
++            let selected = self.select_chunk(&info, ordinal, 0, info.len)?;
++            let (raw, encoded_len) = selected.descriptor.benchmark_encoding();
++            if raw {
++                census.0 += 1;
++            } else {
++                census.1 += 1;
++            }
++            census.2 += u64::from(selected.descriptor.logical_len);
++            census.3 += u64::from(encoded_len);
++        }
++        Ok(census)
++    }
++
+     pub fn read_range(
+         &mut self,
+         path: &[u8],
+diff --git a/rust/revault_lockbox_api/src/file_format/data_extent.rs b/rust/revault_lockbox_api/src/file_format/data_extent.rs
+index 610af3d5..4604e62c 100644
+--- a/rust/revault_lockbox_api/src/file_format/data_extent.rs
++++ b/rust/revault_lockbox_api/src/file_format/data_extent.rs
+@@ -27,6 +27,11 @@ pub(crate) struct Descriptor {
+     allocation_len: u32,
+ }
+ impl Descriptor {
++    #[cfg(test)]
++    pub(crate) fn benchmark_encoding(&self) -> (bool, u32) {
++        (self.codec == COMPRESSION_NONE, self.encoded_len)
++    }
++
+     pub(crate) fn encode(&self) -> [u8; 64] {
+         let mut bytes = [0; 64];
+         bytes[..8].copy_from_slice(MAGIC);

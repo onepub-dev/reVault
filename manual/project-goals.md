@@ -9,12 +9,12 @@ use and share files and secrets.
 
 A **Lockbox** brings files, directory metadata, variables and structured records
 into one archive. A **Vault** manages the local identities and credentials used
-to access and share those archives. 
+to access and share those archives.
 
 The CLI and language libraries make the
 same capabilities available to people, applications and automation.
 
-This is the canonical statement of reVault's project goals. 
+This is the canonical statement of reVault's project goals.
 Release documentation states available capabilities and limitations;
 engineering plans define measurable acceptance criteria for each change.
 
@@ -31,14 +31,23 @@ to archives rather than exporting 'rustisms' up through the stack.
 
 
 ## G2. Safety first
-The lockbox archive format is safe by default; encrypted, signed and compressed.
+The lockbox archive format is safe by default: encrypted and compressed, with
+authenticated contents and private metadata. New password archives are to be
+unsigned by default: possession of the password grants read/write access without
+the creator's signing key. New mixed password/contact archives remain signed;
+other creation modes retain their signing policy.
+This approved goal is pending implementation and security qualification in the
+v4 plan; it is not a claim about released defaults.
 
-All meta data is encrypted and signed unless the user opts out of encryption.
+Signing remains an independent choice. Existing signed archives retain their
+verification requirements; adding password access must not silently remove signing.
+Private metadata remains encrypted in encrypted modes; public credential bootstrap
+metadata must be authenticated after unlocking.
 
 The user may choose to opt out of encryption, signing and compression on a per
 lockbox basis when the lockbox is created.
 
-The archive must support read/writing of file content without the file having 
+The archive must support read/writing of file content without the file having
 to be expanded to disk.
 
 Secrets are stored in locked memory so that swapping and hibernation do not
@@ -47,8 +56,8 @@ result in plain text being written to disk.
 
 ## G3. Large files and many files, unlimited forms and variables.
 The archive format should be designed to allow the storage of very large files (TB+)
-and huge numbers of files (millions +) whilst retaining speed of access to indvidiual files 
-and the content of files. 
+and huge numbers of files (millions +) whilst retaining speed of access to indvidiual files
+and the content of files.
 
 There should be no limit (baring disk space) to the number of variables and forms
 that can be stored in an archive.
@@ -82,11 +91,11 @@ Cryptographic mechanisms are part of the core security model and versioned
 format specification.
 
 Content marked as secret must be kept in memory.
-Logs, command arguments, temporary files and language boundaries as small 
-and short-lived as practical. 
+Logs, command arguments, temporary files and language boundaries as small
+and short-lived as practical.
 
-Sharing must grant the intended access without accidentally granting 
-signing authority or exposing deleted or abandoned content to a 
+Sharing must grant the intended access without accidentally granting
+signing authority or exposing deleted or abandoned content to a
 newly authorized recipient. Deleted content must be zeroed out.
 
 ## G6. Preserve data through updates, failure and damage
@@ -111,7 +120,7 @@ whole archive. Small updates should avoid work proportional to unrelated data
 where the security and durability contract permits.
 
 Combine effective compression with bounded memory, reasonable storage overhead,
-space reuse and useful damage boundaries. 
+space reuse and useful damage boundaries.
 
 
 ## G8. Make safe use, sharing and automation straightforward
@@ -133,7 +142,7 @@ usable without silently weakening protection or hanging on an unavailable prompt
 Installation and core CLI use must work on both desktop and headless systems.
 
 The CLI tooling and API must not make a graphical session or its
-development libraries a requirement for ordinary installation or use. 
+development libraries a requirement for ordinary installation or use.
 
 The CLI and libraries should expose consistent domain operations. Callers
 should not have to implement archive allocation, transaction recovery or
@@ -177,7 +186,7 @@ Unencrypted reads and writes should be competitive with ZIP, Encrypted reads and
 writes should be competative with PGP.
 
 The objective is parity, with an aspiration to be at least 10% faster. Measure first
-reads separately from repeated reads of cached decoded data. 
+reads separately from repeated reads of cached decoded data.
 
 Security guarentees must not be compromised for performance.
 
@@ -211,7 +220,7 @@ scope and must not displace unfinished core guarantees.
 
 ## addendum
 The core rust archive library aims to be pure rust with as few unsafe blocks as
-possible. 
+possible.
 Any unsafe blocks must be rigourously tested.
 
 No C dependancies are allowed.

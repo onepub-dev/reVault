@@ -1,0 +1,14 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+error[E0596]: cannot borrow `opened.image` as mutable, as `opened` is not declared as mutable
+  --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs:31:28
+   |
+31 |   let mut bytes=Vec::new();opened.image.read_range(b"/docs/neighbor",0,8,|p|{bytes.extend_from_slice(p);Ok(())}).unwrap();assert_eq!(byte...
+   |                            ^^^^^^^^^^^^ cannot borrow as mutable
+   |
+help: consider changing this to be mutable
+   |
+29 |   let mut opened=TreeImage::open(storage.clone(),archive(),mode,&authority,key(mode)).unwrap();assert_eq!(opened.get_form_record(&record.path).unwrap(),Some(record.clone()));assert_eq!(opened.get_form_definition(&type_id,3).unwrap(),Some(definition.clone()));
+   |       +++
+
+For more information about this error, try `rustc --explain E0596`.
+error: could not compile `revault_lockbox_api` (lib test) due to 1 previous error

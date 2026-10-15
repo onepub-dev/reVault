@@ -409,7 +409,7 @@ fn closed_lockbox_error(path: &str, reason: Option<Error>) -> Box<dyn std::error
                     "Your local vault uses Lockbox container format {found}; this reVault build uses container format {supported}."
                 ),
             ));
-            "Migrate the vault, then retry:\n  lbx doctor migrate vault --replace\nOr migrate the Vault and all known Lockboxes:\n  lbx doctor migrate all --replace".to_string()
+            "Migrate the Vault and all known Lockboxes, then retry:\n  lbx doctor migrate all --replace\nOr migrate only the Vault:\n  lbx doctor migrate vault --replace".to_string()
         }
         Some(Error::UnsupportedFormatVersion {
             artifact: revault_lockbox_api::ArtifactKind::Lockbox,
@@ -834,7 +834,7 @@ pub(crate) fn vault_open_error(error: Error) -> Box<dyn std::error::Error> {
             let next_step = if found > supported {
                 "Use a reVault build that supports this newer format. Automatic downgrade is not supported."
             } else {
-                "Run `lbx doctor migrate vault --replace`, or migrate the Vault and all known Lockboxes with `lbx doctor migrate all --replace`."
+                "Migrate the Vault and all known Lockboxes with `lbx doctor migrate all --replace`, or migrate only the Vault with `lbx doctor migrate vault --replace`."
             };
             cli_diagnostic(
                 ExitCode::UnsupportedFormat,

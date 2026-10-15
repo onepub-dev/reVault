@@ -1,0 +1,20 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/page_buffer.rs b/rust/revault_lockbox_api/src/file_format/page_buffer.rs
+index 6d349a8..25ac8c6 100644
+--- a/rust/revault_lockbox_api/src/file_format/page_buffer.rs
++++ b/rust/revault_lockbox_api/src/file_format/page_buffer.rs
+@@ -17 +17 @@ pub(crate) fn zeroize_bytes(bytes: &mut Vec<u8>) {
+-struct WipeBlock([u64; 8]);
++struct WipeBlock([u64; 32]);
+@@ -142,2 +142,2 @@ mod tests {
+-            for len in 0..129 {
+-                let mut bytes = [0xa5; 192];
++            for len in 0..513 {
++                let mut bytes = [0xa5; 640];
+@@ -156,2 +156,2 @@ mod tests {
+-            for len in 0..129 {
+-                let mut bytes = [MaybeUninit::new(0xa5u8); 192];
++            for len in 0..513 {
++                let mut bytes = [MaybeUninit::new(0xa5u8); 640];
+@@ -189 +189 @@ mod tests {
+-        for len in [0, 1, 7, 8, 31, 1024] {
++        for len in [0, 1, 7, 8, 31, 63, 64, 65, 255, 256, 257, 511, 512, 513, 1024] {

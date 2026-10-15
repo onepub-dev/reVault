@@ -1,0 +1,14 @@
+diff --git a/rust/revault_cli/src/commands/files.rs b/rust/revault_cli/src/commands/files.rs
+index 1b92a998..99284f9a 100644
+--- a/rust/revault_cli/src/commands/files.rs
++++ b/rust/revault_cli/src/commands/files.rs
+@@ -394,7 +394,8 @@ pub(crate) fn extract(args: &[String], access: &Access) -> CliResult<()> {
+                 lb.extract_directory_to(&path, Path::new(dest), &policy)?;
+             }
+             LockboxEntryKind::File => {
+-                lb.set_workload_profile(WorkloadProfile::ReadMostly);
++                // A full-file extraction is a stream, not an interactive read set.
++                lb.set_workload_profile(WorkloadProfile::ExtractMany);
+                 let replace = policy.overwrite && Path::new(dest).exists();
+                 lb.extract_file_to(&path, Path::new(dest), replace)?;
+             }

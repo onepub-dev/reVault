@@ -1,0 +1,46 @@
+0	notFound	/home/bsutton/.cache/rv-pw-20261012-attempt2
+20272336	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/protected-write-current-20261012/bin
+2984640	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/secure-arena-reclamation-2026-10-12
+2241776	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/retained-page-integration-2026-10-12
+954518	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/native-public-extraction-2026-10-11
+2142611925	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release
+29826357	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/secure-arena-reclamation-20261012
+5015371225	directory	/home/bsutton/.cache/rv4-security-20261011
+31821	directory	/tmp/revault-protected-write-baseline-20261012
+226625	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/protected-write-baseline-draft
+777902	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/protected-write-current-2026-10-12
+0	directory	/home/bsutton/.cache/rv-pw-20261012
+594197	directory	/home/bsutton/.cache/rv-zipcmp-20261012
+89493	directory	/home/bsutton/.cache/rv-pagelife-20261012
+40572216	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/public-zip-comparison-20261012/bin
+89493	directory	/home/bsutton/.cache/rv-pagebody-20261012
+20266192	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/page-body-borrow-20261012/bin
+89493	directory	/home/bsutton/.cache/rv-pageown-20261012
+20287944	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/page-flush-ownership-20261012/bin
+45476	directory	/home/bsutton/.cache/rv-addcache8-20261012
+20274920	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/single-file-add-cache8-20261012/bin
+89493	directory	/home/bsutton/.cache/rv-rawown-20261012
+20275168	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/raw-frame-ownership-20261012/bin
+45476	directory	/home/bsutton/.cache/rv-addcache-20261012
+20275208	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/single-file-add-cache-20261012/bin
+89493	directory	/home/bsutton/.cache/rv-win-20261012
+20274496	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/import-window-20261012/bin
+89493	directory	/home/bsutton/.cache/rv-enc-20261012
+20287864	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/page-body-lifetime-20261012/bin
+13916	directory	/home/bsutton/.cache/rv-add1-20261012
+20270392	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/parallel-encoder-reuse-202612/bin
+18364	directory	/home/bsutton/.cache/rv-add-20261012
+20738	directory	/home/bsutton/.cache/rv-single-20261012
+20277568	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/explicit-file-extraction-20261012/bin
+2282658786	directory	/home/bsutton/.cache/rv-many-20261012
+1335948058	directory	/home/bsutton/.cache/rv-many-zstd-20261012
+9661914596	directory	/home/bsutton/.cache/revault-native-public-20261011
+1142190635	directory	/home/bsutton/.cache/rv-credential-20261012
+56351064	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/credential-open-20261012/bin
+20280128	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/parallel-extraction-202612/bin
+86055288	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin
+40810536	directory	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin
+0	notFound	/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/protected-write-retry-2026-10-12
+TOTAL_BYTES=22065845309
+CAP_BYTES=25769803776
+NESTED_PAIRS=0

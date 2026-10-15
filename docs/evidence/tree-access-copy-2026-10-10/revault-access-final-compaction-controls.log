@@ -1,0 +1,29 @@
+    Finished `release` profile [optimized] target(s) in 0.09s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 6 tests
+test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_checks_extent_tail_and_reports_cleanup_failures ... ok
+test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_preserves_authenticated_access_root ... ok
+test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_preserves_selected_history_and_lineage_all_modes ... WHOLE_TREE_COPY mode=0 source=3080192 destination=2424832 payload_bytes=2113181
+WHOLE_TREE_COPY mode=1 source=3080192 destination=2424832 payload_bytes=2113292
+WHOLE_TREE_COPY mode=2 source=3080192 destination=2424832 payload_bytes=2113181
+WHOLE_TREE_COPY mode=3 source=3080192 destination=2424832 payload_bytes=2113292
+WHOLE_TREE_COPY mode=4 source=3080192 destination=2424832 payload_bytes=2113181
+WHOLE_TREE_COPY mode=5 source=3080192 destination=2424832 payload_bytes=2113292
+WHOLE_TREE_COPY mode=6 source=3080192 destination=2424832 payload_bytes=2113181
+WHOLE_TREE_COPY mode=7 source=3080192 destination=2424832 payload_bytes=2113292
+WHOLE_TREE_COPY mode=8 source=8060928 destination=7536640 payload_bytes=7274496
+WHOLE_TREE_COPY mode=9 source=8060928 destination=7536640 payload_bytes=7274496
+WHOLE_TREE_COPY mode=10 source=8060928 destination=7536640 payload_bytes=7274496
+WHOLE_TREE_COPY mode=11 source=8060928 destination=7536640 payload_bytes=7274496
+WHOLE_TREE_COPY mode=12 source=8060928 destination=7536640 payload_bytes=7274496
+WHOLE_TREE_COPY mode=13 source=8060928 destination=7536640 payload_bytes=7274496
+WHOLE_TREE_COPY mode=14 source=8060928 destination=7536640 payload_bytes=7274496
+WHOLE_TREE_COPY mode=15 source=8060928 destination=7536640 payload_bytes=7274496
+ok
+test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_rechecks_source_before_and_after_publication ... ok
+test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_refusals_precede_destination_mutation_all_modes ... ok
+test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_streamed_checksum_matches_existing_wire_domain ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 643 filtered out; finished in 60.03s
+

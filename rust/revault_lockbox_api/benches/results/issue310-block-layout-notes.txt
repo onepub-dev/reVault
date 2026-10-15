@@ -1,0 +1,135 @@
+Issue #310: isolated block-layout experiment, 2026-09-13
+
+This is a benchmark-only storage codec, NOT a new lockbox version. Production
+code, format versions, APIs, production dependencies, bindings and migration tools are
+unchanged. The prototype has a distinct RVEXP001 magic and .exp extension.
+It must never be used to store user data. No integration into main is proposed.
+
+Design tested
+- 16 KiB independently SHA-256-checked raw blocks, binding file ID and ordinal.
+- Fixed-size file descriptors, checked on demand; cache at most 64 descriptors.
+- Open reads only the 64-byte checksummed header and checks file length.
+- Batched physical reads up to approximately 1 MiB, with wiped scratch reuse.
+- Streaming visitor consumes verified slices without a whole-file output copy.
+- Creation-time padding bit in the checksummed header: padded descriptors/data
+  align to 1 KiB; compact mode omits that alignment. This is an experimental
+  policy, NOT a claim of equivalence to current lockbox page packing/privacy.
+- Same wide volatile full-capacity buffer wiping as production, copied locally
+  to avoid exposing a new public API solely for a benchmark.
+
+Method
+Run cargo bench -p revault_lockbox_api --bench block_layout --offline.
+Final executable run with REVAULT_BLOCK_SAMPLES=21 and taskset -c 2.
+Every sample opens a fresh file-backed handle; OS caches remain warm. Rotate
+ZIP/current/padded/compact order each sample. Check all returned bytes, and wipe
+output buffers for all contenders. No builds overlap measurements. Fixtures
+are unsigned, unencrypted and uncompressed; repeating bytes do not invoke any
+compression. Cases: one 128-byte file, 512 x 4 KiB, four x 8 MiB.
+Stream uses bounded buffers/verified visitors; whole reads allocate complete
+files; ranges read up to 8 KiB from each file's midpoint. All traverse reverse
+file order. first_file_us includes open through verification of the first file
+or requested range, not latency to the first byte. total_us includes drop.
+ZIP full reads check CRC; partial stored-ZIP reads do not check full-file CRC.
+
+Results (milliseconds), four 8 MiB raw files
+                         Current     Padded experiment     ZIP
+Streaming                 62.246         23.127             9.214
+Whole files               67.510         30.234             9.204
+8 KiB ranges              43.112          0.125             0.123
+Open (stream sample)       0.143          0.035             0.060
+Compact ranges: 0.086 ms. Compact streaming: 23.321 ms.
+512-small-file streaming: current 6.014, padded 3.876, ZIP 9.956 ms.
+Single 128-byte fixture: current 7488 bytes, padded 2048, compact 288, ZIP 256.
+Padded 512-file prototype grows to 2,655,232 bytes versus current 2,215,232;
+compact is 2,146,368. Padding/packing still requires design work.
+
+Interpretation and load-time guardrail
+Small-range performance is promising and close to ZIP in this run; large
+streaming still misses by about 2.5x. No general parity claim is warranted.
+Run-to-run timing variation is substantial, including open times; CPU affinity
+does not control machine load/frequency. These results use a NEW benchmark
+with different access/output-buffer handling, not the earlier zip_read matrix.
+Do not compare absolute times directly across those benchmark suites.
+
+The prototype omits the production path tree, transactions, crash recovery,
+signing, encryption, compression and other metadata. Numeric IDs deliberately
+isolate layout costs. Its quick open is a feasibility lower bound, NOT proof
+that a complete replacement passes the <=5% production open-time guardrail.
+It also validates only accessed descriptors/blocks, leaving unrelated corruption
+for a future full-verification operation. Authenticated modes will require an
+authenticated index and must not simply adopt unsigned self-checksums.
+
+Validation
+Two targeted tests cover padding persistence, empty files, whole and partial
+reads, multi-batch reads, EOF/overflow/invalid-ID refusals, header/descriptor/data
+corruption, truncation, lazy directory group boundaries and wiped retained
+scratch. Direct file corruption is private codec testing, not CLI E2E.
+Strict targeted clippy and formatting pass. All 36 final benchmark rows verify
+bytes across 21 samples. No production tests or cross-platform suite rerun:
+production implementation was not changed.
+
+Next: investigate remaining verification/copy cost before designing a complete
+versioned index. Preserve production open and first-read benchmarks as gates;
+do not accept a repeatable >5% open regression without user approval. A real
+lockbox format change still requires migration tooling, binding updates and
+protected-mode validation. Issue #310 remains in progress.
+
+Follow-up: bounded parallel verification
+REVAULT_BLOCK_WORKERS defaults to 1; set to 4 for the pool experiment (cap 8).
+Rayon 1.12, already in the workspace dependency graph, is now a direct dev-only
+dependency. No global pool: a per-prototype bounded pool is created lazily only
+for reads >=256 KiB. Startup is included in first_file_us. Small reads and open
+do not create workers. The same SHA-256 checks remain mandatory before delivery.
+Scratch remains fully wiped after every batch, including checksum failure.
+
+With affinity 2,4,6,8 (four distinct physical cores), 21 samples per case:
+Four 8 MiB files, padded, streaming: serial 22.693 ms; four workers 16.591 ms.
+Matching ZIP runs: 8.948 ms and 9.633 ms respectively. First-file completion
+including open: serial 5.829 ms; pool 4.384 ms. Pool sample open 0.036 ms versus
+current lockbox 0.156 ms. Thus there is still NO streaming parity, despite
+spending more CPU resources. No CPU-efficiency or production load-time claim.
+Separate trials with one scoped thread group per batch did not materially
+improve streaming (~24.693 ms), and were removed. Parallel scratch wiping also
+showed no clear benefit (~17.382 ms versus ~16.591 ms pool alone), and was
+removed. Their CSVs are retained explicitly as rejected experiments.
+
+Tests now exercise corruption in a later block in both serial/four-worker
+paths and verify wiped scratch on failure. Test suite passed with both default
+and four-worker configuration; targeted strict clippy and formatting pass.
+The original block-layout CSV predates whole-batch verification/pool support;
+the pool1 and pool4 CSVs are the newer comparison. The prototype still omits
+production metadata/path lookup and must not be presented as a replacement.
+
+Follow-up: immutable mapped fixtures (Unix-only, opt-in)
+REVAULT_BLOCK_MMAP=1 maps the uniquely owned benchmark fixture read-only.
+The private unsafe wrapper requires an unmodified/untruncated file for its
+entire lifetime. Tests close mapped readers before corrupting/truncating files.
+This is NOT a production-safe concurrency design. No production mmap path was
+added. libc was already a direct Unix dependency; no new mapping dependency.
+Mapped persistent bytes do not create plaintext heap scratch, so there is no
+scratch copy/wipe. All SHA-256 checks still run before bytes are delivered;
+owned output buffers still receive full-capacity wiping as before. This does
+not overwrite, erase or otherwise change persistent archive contents.
+
+Mapped batches increased from 63 to 255 blocks (~4 MiB); ordinary I/O remains
+63 blocks. Current CSV output additionally reports first_byte_us, measured
+from before open to the first returned buffer/visitor slice (before the byte
+comparison). For whole-file APIs, this means the complete Vec has returned.
+Old CSV files without first_byte_us retain their original column schema.
+
+Mapped four-worker run (21 samples, CPUs 2,4,6,8), padded, four 8 MiB files:
+Streaming 10.881 ms vs ZIP 8.802 ms; whole 13.626 vs 8.271 ms;
+ranges 0.122 vs 0.136 ms. Streaming open 0.036 ms and first byte 1.021 ms,
+versus current lockbox 0.156 ms and 5.497 ms. Mapping/pool creation and page
+faults are included. No prefaulting or cache shared across reader handles.
+
+Mapped eight-worker run (21 samples, CPUs 0-7), padded, four 8 MiB files:
+Streaming 8.305 ms vs ZIP 9.312 ms; whole 13.202 vs 9.088 ms;
+ranges 0.124 vs 0.131 ms. Streaming open 0.036 ms, first byte 0.831 ms,
+first file 2.081 ms, versus current lockbox 0.149/7.457/12.580 ms.
+This is the first raw streaming win in this simplified layout, but uses up to
+eight verification workers against serial ZIP. Whole-file allocation/copy
+still misses. It is NOT general parity, nor proof of production load times.
+The path tree, protected modes, crash consistency and mutation remain absent.
+The next work is whole-file output/copy cost and a safe production-compatible
+immutable backing strategy; do not promote this fixture-only mmap wrapper.

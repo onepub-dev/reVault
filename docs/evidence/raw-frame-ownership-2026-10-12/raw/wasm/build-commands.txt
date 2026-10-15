@@ -1,0 +1,5 @@
+WASM build command: cargo build --release --locked -p revault_wasm_bindings --target wasm32-unknown-unknown
+wasm-bindgen command: rust/target/security-wasm-tools/bin/wasm-bindgen --target nodejs --out-dir rust/target/raw-frame-ownership-wasm-generated rust/target/wasm32-unknown-unknown/release/revault_wasm_bindings.wasm
+Copied generated artifact: revault_wasm_bindings_bg.wasm only; JS, d.ts and wasm d.ts hashes unchanged from generated output.
+rustc 1.88.0 (6b00bc388 2025-06-23)
+wasm-bindgen 0.2.128

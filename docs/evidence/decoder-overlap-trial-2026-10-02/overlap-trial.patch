@@ -1,0 +1,119 @@
+diff --git a/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete/src/decoding/decode_buffer.rs b/tmp/revault-typed-read-20261002/source/rust/vendor/zstd-complete/src/decoding/decode_buffer.rs
+index c7e4f77..06b7a18 100644
+--- a/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete/src/decoding/decode_buffer.rs
++++ b/tmp/revault-typed-read-20261002/source/rust/vendor/zstd-complete/src/decoding/decode_buffer.rs
+@@ -137,24 +137,20 @@ impl DecodeBuffer {
+     }
+ 
+     fn repeat_in_chunks(&mut self, offset: usize, match_length: usize, start_idx: usize) {
+-        // We have at max offset bytes in one chunk, the last one can be smaller
+-        let mut start_idx = start_idx;
++        // The initialized prefix is periodic with `offset`. Each copy extends
++        // that prefix, so the next copy may reuse all bytes already produced.
++        // This bounds overlapping-copy calls logarithmically, including offset 1.
++        let mut available = offset;
+         let mut copied_counter_left = match_length;
+-        // TODO this can  be optimized further I think.
+-        // Each time we copy a chunk we have a repetiton of length 'offset', so we can copy offset * iteration many bytes from start_idx
+         while copied_counter_left > 0 {
+-            let chunksize = usize::min(offset, copied_counter_left);
++            let chunksize = usize::min(available, copied_counter_left);
+ 
+             // SAFETY: Requirements checked:
+             // 1. start_idx + chunksize must be <= self.buffer.len()
+             //      We know that:
+-            //      1. start_idx starts at buffer.len() - offset
+-            //      2. chunksize <= offset (== offset for each iteration but the last, and match_length modulo offset in the last iteration)
+-            //      3. the buffer grows by offset many bytes each iteration but the last
+-            //      4. start_idx is increased by the same amount as the buffer grows each iteration
+-            //
+-            //      Thus follows: start_idx + chunksize == self.buffer.len() in each iteration but the last, where match_length modulo offset == chunksize < offset
+-            //          Meaning: start_idx + chunksize <= self.buffer.len()
++            //      start_idx remains the original buffer.len() - offset;
++            //      available is exactly buffer.len() - start_idx, and the
++            //      chosen chunk never exceeds that initialized prefix.
+             //
+             // 2. explicitly reserved enough memory for the whole match_length
+             unsafe {
+@@ -162,7 +158,7 @@ impl DecodeBuffer {
+                     .extend_from_within_unchecked(start_idx, chunksize)
+             };
+             copied_counter_left -= chunksize;
+-            start_idx += chunksize;
++            available += chunksize;
+         }
+     }
+ 
+@@ -362,6 +358,34 @@ mod tests {
+     use alloc::vec;
+     use alloc::vec::Vec;
+ 
++    #[test]
++    fn overlapping_matches_match_bytewise_reference_in_static_wrapped_history() {
++        use core::mem::MaybeUninit;
++        const CAPACITY: usize = 262144;
++        for wrapped in [false, true] {
++            for offset in [1, 2, 3, 4, 7, 15, 16, 17, 31, 63, 64, 65, 127, 255, 256, 257] {
++                for length in [offset - 1, offset, offset + 1, 257, 4096, 131071] {
++                    let mut history = vec![MaybeUninit::uninit(); CAPACITY];
++                    let mut decoded = DecodeBuffer::from_static_storage(&mut history, crate::workspace::ReusableVec::new());
++                    let mut expected = Vec::new();
++                    if wrapped {
++                        decoded.push(&vec![0xa5; CAPACITY - 32]);
++                        decoded.buffer.drop_first_n(CAPACITY - 64);
++                        expected.extend_from_slice(&[0xa5; 32]);
++                    }
++                    let seed: Vec<_> = (0..offset).map(|n| (n * 37) as u8).collect();
++                    decoded.push(&seed);
++                    expected.extend_from_slice(&seed);
++                    for _ in 0..length { expected.push(expected[expected.len() - offset]); }
++                    decoded.repeat(offset, length).unwrap();
++                    let mut actual = vec![0; expected.len()];
++                    assert_eq!(decoded.read_all(&mut actual).unwrap(), expected.len());
++                    assert_eq!(actual, expected, "wrapped={wrapped} offset={offset} length={length}");
++                }
++            }
++        }
++    }
++
+     #[test]
+     fn short_writer() {
+         struct ShortWriter {
+diff --git a/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete/tests/workspaces.rs b/tmp/revault-typed-read-20261002/source/rust/vendor/zstd-complete/tests/workspaces.rs
+index b181f0f..3f58716 100644
+--- a/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete/tests/workspaces.rs
++++ b/tmp/revault-typed-read-20261002/source/rust/vendor/zstd-complete/tests/workspaces.rs
+@@ -494,6 +494,33 @@ fn decoder_workspace_recovers_after_errors_without_allocating() {
+     assert_eq!(&output[..decoded_len], input);
+ }
+ 
++#[test]
++fn static_decoder_overlap_errors_preserve_output_bounds_and_checksum() {
++    use std::io::Write;
++    for period in [1, 3, 31, 257] {
++        let input: Vec<_> = (0..131071).map(|n| ((n % period) * 37) as u8).collect();
++        let mut encoder = zstd::stream::Encoder::new(Vec::new(), 3).unwrap();
++        encoder.include_checksum(true).unwrap();
++        encoder.write_all(&input).unwrap();
++        let encoded = encoder.finish().unwrap();
++        let mut scratch = vec![0; StaticDecoderWorkspace::required_size(1 << 18, 0).unwrap()];
++        let mut decoder = StaticDecoderWorkspace::new(&mut scratch, 1 << 18, 0).unwrap();
++        let mut output = vec![0x6d; input.len() + 32];
++        assert!(decoder.decode_into(&encoded, &mut output[..input.len() - 1]).is_err());
++        assert!(output[input.len() - 1..].iter().all(|byte| *byte == 0x6d));
++        for removed in [1, 4, encoded.len() / 2] {
++            assert!(decoder.decode_into(&encoded[..encoded.len() - removed], &mut output[..input.len()]).is_err());
++            assert!(output[input.len()..].iter().all(|byte| *byte == 0x6d));
++        }
++        let mut corrupt = encoded.clone();
++        *corrupt.last_mut().unwrap() ^= 1;
++        assert!(decoder.decode_into(&corrupt, &mut output[..input.len()]).is_err());
++        assert!(output[input.len()..].iter().all(|byte| *byte == 0x6d));
++        assert_eq!(decoder.decode_into(&encoded, &mut output[..input.len()]).unwrap(), input.len());
++        assert_eq!(&output[..input.len()], input);
++    }
++}
++
+ #[test]
+ fn decoder_workspace_handles_concatenated_and_skippable_frames_without_allocating() {
+     let first = alternate_input(24 * 1024, 0xbe54_66cf);

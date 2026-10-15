@@ -1,0 +1,7 @@
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... CANDIDATE_SAMPLE {"archive_bytes":196608,"archive_sha256":"24f98f71f94600cc8bf9f39c413729ff9a5398a9e099b6fd3dafe2873d90acd5","binary_sha256":"3fe7508a072ceee4443571956c9b3e7afe21f934504e908442417a63b09da9e8","bytes_per_file":8388608,"files":1,"kind":"dense_file_image_size","scope":"fresh file-only image; no mutation/public API/migration or performance qualification","verified":true}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 495 filtered out; finished in 0.26s
+

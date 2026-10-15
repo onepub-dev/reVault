@@ -5,6 +5,15 @@
 //! Filter with REVAULT_ZIP_READ_CASE=large and REVAULT_ZIP_READ_MODE=plain.
 //! REVAULT_ZIP_READ_SIZE sets large-file bytes; REVAULT_ZIP_READ_CORPUS=random
 //! selects deterministic high-entropy data instead of the repeating pattern.
+//! Optional COMPRESSION (true/false), PROFILE (Interactive/ReadMostly), and
+//! ACCESS (stream/random/whole/range) filters use the REVAULT_ZIP_READ_ prefix.
+//! PASSES (default 1) repeats reads on the same archive handle within each sample;
+//! record it alongside CSV output when overriding it. Every pass checks all bytes.
+//! CREATE_PROFILE=BulkImport packs small files; default is Interactive. Record
+//! this fixture setting alongside CSV results when overriding it.
+//! FILES sets the small-file count (default 512); record it alongside results.
+//! WRITE_PROFILE=1 emits CSV create/add/commit/close timings on stderr for each
+//! fixture. Read samples still independently reopen and verify all stored bytes.
 use revault_lockbox_api::{
     Compression, ContentStreamOptions, Encryption, Lockbox, LockboxCreateOptions, LockboxOpen,
     LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretVec, Signing, WorkloadProfile,
@@ -61,6 +70,10 @@ fn sample(mut operation: impl FnMut() -> (Duration, Duration)) -> (Duration, Dur
 }
 
 fn run(root: &Path, count: usize, size: usize, compressed: bool) {
+    let passes = std::env::var("REVAULT_ZIP_READ_PASSES")
+        .map(|v| v.parse::<usize>().unwrap())
+        .unwrap_or(1);
+    assert!(passes > 0 && passes <= 1000);
     let corpus = std::env::var("REVAULT_ZIP_READ_CORPUS").unwrap_or_else(|_| "pattern".into());
     assert!(matches!(corpus.as_str(), "pattern" | "random"));
     let payloads: Vec<Vec<u8>> = (0..count)
@@ -118,6 +131,9 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
             continue;
         }
         let archive = root.join(format!("{mode}.lbox"));
+        let write_started = std::env::var("REVAULT_ZIP_READ_WRITE_PROFILE")
+            .is_ok_and(|value| value == "1")
+            .then(Instant::now);
         let mut lockbox = Lockbox::create_file_with_options(
             &archive,
             LockboxCreateOptions {
@@ -143,13 +159,42 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
             },
         )
         .unwrap();
+        let created = write_started.map(|_| Instant::now());
+        if std::env::var("REVAULT_ZIP_READ_CREATE_PROFILE").is_ok_and(|v| v == "BulkImport") {
+            lockbox.set_workload_profile(WorkloadProfile::BulkImport);
+        }
         for (path, payload) in paths.iter().zip(&payloads) {
             lockbox.add_file(path, payload, false).unwrap();
         }
+        let added = write_started.map(|_| Instant::now());
         lockbox.commit().unwrap();
+        let committed = write_started.map(|_| Instant::now());
         drop(lockbox);
+        if let (Some(started), Some(created), Some(added), Some(committed)) =
+            (write_started, created, added, committed)
+        {
+            let closed = Instant::now();
+            let profile = std::env::var("REVAULT_ZIP_READ_CREATE_PROFILE")
+                .unwrap_or_else(|_| "Interactive".into());
+            eprintln!("{count},{size},{compressed},{mode},{profile},{corpus},{:.3},{:.3},{:.3},{:.3},{:.3},{}",
+                created.duration_since(started).as_secs_f64() * 1000.0,
+                added.duration_since(created).as_secs_f64() * 1000.0,
+                committed.duration_since(added).as_secs_f64() * 1000.0,
+                closed.duration_since(committed).as_secs_f64() * 1000.0,
+                closed.duration_since(started).as_secs_f64() * 1000.0,
+                fs::metadata(&archive).unwrap().len());
+        }
         for profile in [WorkloadProfile::Interactive, WorkloadProfile::ReadMostly] {
-            for access in ["stream", "random", "range"] {
+            if std::env::var("REVAULT_ZIP_READ_PROFILE")
+                .is_ok_and(|selected| selected != format!("{profile:?}"))
+            {
+                continue;
+            }
+            for access in ["stream", "random", "whole", "range"] {
+                if std::env::var("REVAULT_ZIP_READ_ACCESS").is_ok_and(|selected| selected != access)
+                {
+                    continue;
+                }
                 if access == "range" && size < 1024 * 1024 {
                     continue;
                 }
@@ -158,47 +203,58 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
                     let mut zip = ZipArchive::new(File::open(&zip_path).unwrap()).unwrap();
                     let open = started.elapsed();
                     let started = Instant::now();
-                    if access == "stream" {
-                        for (index, payload) in payloads.iter().enumerate() {
-                            check(&mut zip.by_index(index).unwrap(), payload);
-                        }
-                    } else if access == "random" {
-                        for &index in &order {
-                            check(
-                                &mut zip.by_name(&paths[index].as_str()[1..]).unwrap(),
-                                &payloads[index],
-                            );
-                        }
-                    } else {
-                        for &index in &order {
-                            for offset in [
-                                (size / 2).saturating_sub(1024),
-                                size.saturating_sub(8192),
-                                0,
-                            ] {
-                                let len = 8192.min(size - offset);
-                                if !compressed {
+                    for _ in 0..passes {
+                        if access == "stream" {
+                            for (index, payload) in payloads.iter().enumerate() {
+                                check(&mut zip.by_index(index).unwrap(), payload);
+                            }
+                        } else if access == "whole" {
+                            for &index in &order {
+                                let mut file = zip.by_name(&paths[index].as_str()[1..]).unwrap();
+                                let mut bytes = Vec::with_capacity(payloads[index].len());
+                                file.read_to_end(&mut bytes).unwrap();
+                                assert_eq!(bytes, payloads[index]);
+                                black_box(bytes);
+                            }
+                        } else if access == "random" {
+                            for &index in &order {
+                                check(
+                                    &mut zip.by_name(&paths[index].as_str()[1..]).unwrap(),
+                                    &payloads[index],
+                                );
+                            }
+                        } else {
+                            for &index in &order {
+                                for offset in [
+                                    (size / 2).saturating_sub(1024),
+                                    size.saturating_sub(8192),
+                                    0,
+                                ] {
+                                    let len = 8192.min(size - offset);
+                                    if !compressed {
+                                        let mut file =
+                                            zip.by_name_seek(&paths[index].as_str()[1..]).unwrap();
+                                        file.seek(SeekFrom::Start(offset as u64)).unwrap();
+                                        check(
+                                            &mut file.take(len as u64),
+                                            &payloads[index][offset..offset + len],
+                                        );
+                                        continue;
+                                    }
                                     let mut file =
-                                        zip.by_name_seek(&paths[index].as_str()[1..]).unwrap();
-                                    file.seek(SeekFrom::Start(offset as u64)).unwrap();
+                                        zip.by_name(&paths[index].as_str()[1..]).unwrap();
+                                    // Deflated ZIP entries must decode their prefix to reach a
+                                    // range; no full-entry CRC is checked for these partial reads.
+                                    std::io::copy(
+                                        &mut file.by_ref().take(offset as u64),
+                                        &mut std::io::sink(),
+                                    )
+                                    .unwrap();
                                     check(
                                         &mut file.take(len as u64),
                                         &payloads[index][offset..offset + len],
                                     );
-                                    continue;
                                 }
-                                let mut file = zip.by_name(&paths[index].as_str()[1..]).unwrap();
-                                // Deflated ZIP entries must decode their prefix to reach a
-                                // range; no full-entry CRC is checked for these partial reads.
-                                std::io::copy(
-                                    &mut file.by_ref().take(offset as u64),
-                                    &mut std::io::sink(),
-                                )
-                                .unwrap();
-                                check(
-                                    &mut file.take(len as u64),
-                                    &payloads[index][offset..offset + len],
-                                );
                             }
                         }
                     }
@@ -218,40 +274,49 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
                     lockbox.set_workload_profile(profile);
                     let open = started.elapsed();
                     let started = Instant::now();
-                    if access == "stream" {
-                        let mut total = 0u64;
-                        lockbox
-                            .stream_content(ContentStreamOptions::default(), |chunk, reader| {
-                                let index = chunk.path.as_str()[6..12].parse::<usize>().unwrap();
-                                let start = chunk.file_offset as usize;
-                                let end = start + chunk.len as usize;
-                                check(reader, &payloads[index][start..end]);
-                                total += chunk.len;
-                                Ok(())
-                            })
-                            .unwrap();
-                        assert_eq!(total, (count * size) as u64);
-                    } else if access == "random" {
-                        for &index in &order {
-                            check(
-                                &mut lockbox.open_file(&paths[index]).unwrap(),
-                                &payloads[index],
-                            );
-                        }
-                    } else {
-                        for &index in &order {
-                            let mut file = lockbox.open_file(&paths[index]).unwrap();
-                            for offset in [
-                                (size / 2).saturating_sub(1024),
-                                size.saturating_sub(8192),
-                                0,
-                            ] {
-                                let len = 8192.min(size - offset);
-                                file.seek(SeekFrom::Start(offset as u64)).unwrap();
+                    for _ in 0..passes {
+                        if access == "stream" {
+                            let mut total = 0u64;
+                            lockbox
+                                .stream_content(ContentStreamOptions::default(), |chunk, reader| {
+                                    let index =
+                                        chunk.path.as_str()[6..12].parse::<usize>().unwrap();
+                                    let start = chunk.file_offset as usize;
+                                    let end = start + chunk.len as usize;
+                                    check(reader, &payloads[index][start..end]);
+                                    total += chunk.len;
+                                    Ok(())
+                                })
+                                .unwrap();
+                            assert_eq!(total, (count * size) as u64);
+                        } else if access == "whole" {
+                            for &index in &order {
+                                let bytes = lockbox.get_file(&paths[index]).unwrap();
+                                assert_eq!(bytes, payloads[index]);
+                                black_box(bytes);
+                            }
+                        } else if access == "random" {
+                            for &index in &order {
                                 check(
-                                    &mut file.by_ref().take(len as u64),
-                                    &payloads[index][offset..offset + len],
+                                    &mut lockbox.open_file(&paths[index]).unwrap(),
+                                    &payloads[index],
                                 );
+                            }
+                        } else {
+                            for &index in &order {
+                                let mut file = lockbox.open_file(&paths[index]).unwrap();
+                                for offset in [
+                                    (size / 2).saturating_sub(1024),
+                                    size.saturating_sub(8192),
+                                    0,
+                                ] {
+                                    let len = 8192.min(size - offset);
+                                    file.seek(SeekFrom::Start(offset as u64)).unwrap();
+                                    check(
+                                        &mut file.by_ref().take(len as u64),
+                                        &payloads[index][offset..offset + len],
+                                    );
+                                }
                             }
                         }
                     }
@@ -276,15 +341,46 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
 }
 
 fn main() {
+    if std::env::var("REVAULT_ZIP_READ_WRITE_PROFILE").is_ok_and(|v| v == "1") {
+        eprintln!("files,bytes_per_file,compressed,mode,create_profile,corpus,create_ms,add_ms,commit_ms,close_ms,total_ms,archive_bytes");
+    }
+    for (name, allowed) in [
+        ("REVAULT_ZIP_READ_COMPRESSION", &["true", "false"][..]),
+        (
+            "REVAULT_ZIP_READ_CREATE_PROFILE",
+            &["Interactive", "BulkImport"][..],
+        ),
+        (
+            "REVAULT_ZIP_READ_PROFILE",
+            &["Interactive", "ReadMostly"][..],
+        ),
+        (
+            "REVAULT_ZIP_READ_ACCESS",
+            &["stream", "random", "whole", "range"][..],
+        ),
+    ] {
+        if let Ok(value) = std::env::var(name) {
+            assert!(allowed.contains(&value.as_str()), "invalid {name}: {value}");
+        }
+    }
     let root = std::env::temp_dir().join(format!("revault-zip-read-{}", std::process::id()));
     fs::create_dir(&root).unwrap();
     println!(
         "files,bytes_per_file,compressed,mode,profile,access,zip_ms,lockbox_ms,lockbox_over_zip,zip_open_ms,zip_read_ms,lockbox_open_ms,lockbox_read_ms,zip_bytes,lockbox_bytes,corpus"
     );
     for compressed in [false, true] {
+        if std::env::var("REVAULT_ZIP_READ_COMPRESSION")
+            .is_ok_and(|selected| selected != compressed.to_string())
+        {
+            continue;
+        }
         let case = std::env::var("REVAULT_ZIP_READ_CASE").unwrap_or_default();
         if case.is_empty() || case == "small" {
-            run(&root, 512, 4096, compressed);
+            let files = std::env::var("REVAULT_ZIP_READ_FILES")
+                .map(|value| value.parse::<usize>().unwrap())
+                .unwrap_or(512);
+            assert!((1..=1_000_000).contains(&files));
+            run(&root, files, 4096, compressed);
         }
         if case.is_empty() || case == "large" {
             let size = std::env::var("REVAULT_ZIP_READ_SIZE")

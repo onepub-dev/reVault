@@ -1,0 +1,26 @@
+diff --git a/bindings/cpp/domain_codec.hpp b/bindings/cpp/domain_codec.hpp
+index b343fbea..384dd556 100644
+--- a/bindings/cpp/domain_codec.hpp
++++ b/bindings/cpp/domain_codec.hpp
+@@ -111,7 +111,7 @@ inline bindings::AgentEntry convert(const internal::AgentEntryT& value) {
+   return {value.id, value.path};
+ }
+ inline bindings::SleepSupport convert(const internal::SleepSupportT& value) {
+-  return {value.suspend_notifications, value.sleep_inhibition, value.supported};
++  return {value.suspend_notifications, value.sleep_inhibition, value.supported, value.cache_clearing_active};
+ }
+ inline bindings::PlatformStatus convert(const internal::PlatformStatusT& value) {
+   return {value.supported, value.disabled, value.scope, value.backend, value.item};
+diff --git a/bindings/lua/revault_flatbuffers.lua b/bindings/lua/revault_flatbuffers.lua
+index b07459ce..5913f4d5 100644
+--- a/bindings/lua/revault_flatbuffers.lua
++++ b/bindings/lua/revault_flatbuffers.lua
+@@ -42,7 +42,7 @@ local schema = {
+   ProfileHistoryList = {{'values','[revault.internal.ProfileHistory]'}},
+   AgentEntry = {{'id','string'}, {'path','string'}},
+   AgentEntryList = {{'values','[revault.internal.AgentEntry]'}},
+-  SleepSupport = {{'suspend_notifications','bool'}, {'sleep_inhibition','bool'}, {'supported','bool'}},
++  SleepSupport = {{'suspend_notifications','bool'}, {'sleep_inhibition','bool'}, {'supported','bool'}, {'cache_clearing_active','bool'}},
+   PlatformStatus = {{'supported','bool'}, {'disabled','bool'}, {'scope','string'}, {'backend','string'}, {'item','string'}},
+   StringValue = {{'value','string'}},
+   VaultBackupManifest = {{'format_version','uint'}, {'created_at_unix_ms','ulong'}, {'vault_file_name','string'}, {'vault_size','ulong'}, {'vault_sha256','string'}},

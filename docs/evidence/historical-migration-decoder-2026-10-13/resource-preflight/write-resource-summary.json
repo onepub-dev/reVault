@@ -1,0 +1,27 @@
+{
+  "setup_cli_peak_bytes": 77225984.0,
+  "setup_conservative_cli_agent_bound_bytes": 85737472.0,
+  "setup_commands": 4,
+  "setup_elapsed_in_operation_timing": false,
+  "operations": [
+    {
+      "case": "source-zstd-1gib",
+      "cli_peak_bytes": 86609920.0,
+      "conservative_cli_agent_bound_bytes": 95035392.0,
+      "hard_cli_failure": false,
+      "recorded_process_bound_below_limit": true
+    },
+    {
+      "case": "random-raw-1gib",
+      "cli_peak_bytes": 78700544.0,
+      "conservative_cli_agent_bound_bytes": 87351296.0,
+      "hard_cli_failure": false,
+      "recorded_process_bound_below_limit": true
+    }
+  ],
+  "hard_failure": false,
+  "completed_prefix": 2,
+  "planned_operations": 2,
+  "limited_screen_only": true,
+  "full_release_gates_satisfied": false
+}

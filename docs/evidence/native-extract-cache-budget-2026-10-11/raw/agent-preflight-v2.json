@@ -1,0 +1,662 @@
+{
+  "complete": true,
+  "rows": [
+    {
+      "case_index": 0,
+      "variant": "A-old",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v0/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v0/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v0/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v0/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v0/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v0/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v0/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v0/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-A-default",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v0/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v0/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 0,
+      "variant": "A-trial",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v1/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v1/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v1/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v1/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v1/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v1/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v1/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v1/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-A-trial",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v1/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v1/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 0,
+      "variant": "B-old",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v2/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v2/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v2/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v2/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v2/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v2/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v2/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v2/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-B-native",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v2/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v2/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 0,
+      "variant": "B-trial",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v3/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v3/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v3/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v3/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v3/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v3/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v3/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v3/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-B-native-trial",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v3/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v3/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 1,
+      "variant": "A-old",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v0/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v0/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v0/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v0/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v0/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v0/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v0/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v0/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-A-default",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v0/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v0/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 1,
+      "variant": "A-trial",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v1/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v1/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v1/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v1/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v1/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v1/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v1/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v1/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-A-trial",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v1/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v1/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 1,
+      "variant": "B-old",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v2/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v2/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v2/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v2/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v2/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v2/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v2/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v2/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-B-native",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v2/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v2/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 1,
+      "variant": "B-trial",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v3/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v3/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v3/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v3/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v3/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v3/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v3/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v3/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-B-native-trial",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v3/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v3/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 2,
+      "variant": "A-old",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v0/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v0/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v0/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v0/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v0/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v0/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v0/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v0/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-A-default",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v0/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v0/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 2,
+      "variant": "A-trial",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v1/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v1/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v1/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v1/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v1/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v1/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v1/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v1/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-A-trial",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v1/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v1/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 2,
+      "variant": "B-old",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v2/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v2/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v2/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v2/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v2/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v2/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v2/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v2/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-B-native",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v2/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v2/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 2,
+      "variant": "B-trial",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v3/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v3/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v3/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v3/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v3/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v3/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v3/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v3/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-B-native-trial",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v3/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v3/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 3,
+      "variant": "A-old",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v0/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v0/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v0/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v0/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v0/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v0/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v0/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v0/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-A-default",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v0/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v0/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 3,
+      "variant": "A-trial",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v1/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v1/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v1/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v1/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v1/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v1/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v1/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v1/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-A-trial",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v1/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v1/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 3,
+      "variant": "B-old",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v2/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v2/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v2/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v2/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v2/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v2/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v2/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v2/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-B-native",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v2/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v2/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    },
+    {
+      "case_index": 3,
+      "variant": "B-trial",
+      "environment": {
+        "HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v3/home",
+        "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v3/private-config",
+        "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v3/private-cache",
+        "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v3/private-state",
+        "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v3/private-data",
+        "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v3/private-agent",
+        "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v3/private-vault",
+        "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+        "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+        "PATH": "/usr/bin:/bin",
+        "LOCKBOX_SESSION_AGENT_LOG": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v3/agent.log"
+      },
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-B-native-trial",
+        "session",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"agent\",\"state\":\"enabled\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"agent\",\"state\":\"running\",\"value\":\"yes\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"scope\",\"value\":\"off\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"auto-open\",\"state\":\"Vault passphrase stored\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n{\"kind\":\"lockbox\",\"state\":\"default\",\"value\":\"no\",\"path\":\"\",\"uuid\":\"\"}\n",
+      "stderr": "",
+      "timed_out": false,
+      "capture_incomplete": false,
+      "agent_running_reported": true,
+      "owned_socket_path": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v3/private-agent/agent.sock",
+      "socket_path_bytes": 84,
+      "socket_type_check_command": [
+        "/usr/bin/test",
+        "-S",
+        "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v3/private-agent/agent.sock"
+      ],
+      "socket_type_check_exit": 0,
+      "passed": true
+    }
+  ],
+  "registered_activity_command": "public session (Vault activity), followed by compatible-agent status and list protocol roundtrip"
+}

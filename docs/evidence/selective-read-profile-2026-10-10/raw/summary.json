@@ -1,0 +1,940 @@
+{
+  "binary_sha256_before_after": [
+    "f5221fa6df474431c9272cafe5d3a7ad9623424df5119a0f9bc8e236f8a83f83",
+    "f5221fa6df474431c9272cafe5d3a7ad9623424df5119a0f9bc8e236f8a83f83"
+  ],
+  "source_sha256_before": {
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/Cargo.lock": "30f035feb33237411a1fe46b2f13656454e7062954223677d2ca569ba7e5a081",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/mod.rs": "0f5a4e8f39c5d759e15b7608c15929c4d658cde81096d2efea8bdd1624e232ff",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/diagnostic_timing.rs": "19dccbc9af9db832ee6bbc0dda04d0ce573fb56fe18ebf2cb219af55bc4a8823",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/authenticated_index.rs": "8ab4d49ad2dd66725266ef2c64e1c7341ef62d4849167593128fdda4c6cf537d",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/data_extent.rs": "b5a1acfe4e8c555f1bbe93bcf3937981413f9dfdec72226a359d3f6bd75423b9",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs": "f8cb042411435f50f2dafd235838e2c0ca4ead5da3f8b2d10b8afe4dfbb39c65",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs": "18773ab1b3efe427fd68075f63dd0105f15a058528916825488a03687cd22200"
+  },
+  "source_sha256_after": {
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/Cargo.lock": "30f035feb33237411a1fe46b2f13656454e7062954223677d2ca569ba7e5a081",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/mod.rs": "0f5a4e8f39c5d759e15b7608c15929c4d658cde81096d2efea8bdd1624e232ff",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/diagnostic_timing.rs": "19dccbc9af9db832ee6bbc0dda04d0ce573fb56fe18ebf2cb219af55bc4a8823",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/authenticated_index.rs": "8ab4d49ad2dd66725266ef2c64e1c7341ef62d4849167593128fdda4c6cf537d",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/data_extent.rs": "b5a1acfe4e8c555f1bbe93bcf3937981413f9dfdec72226a359d3f6bd75423b9",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs": "f8cb042411435f50f2dafd235838e2c0ca4ead5da3f8b2d10b8afe4dfbb39c65",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs": "18773ab1b3efe427fd68075f63dd0105f15a058528916825488a03687cd22200"
+  },
+  "fixtures_sha256_before": {
+    "raw8m-random": {},
+    "raw64m-random": {},
+    "compressed8m-pattern": {},
+    "small512-mixed-compressed": {}
+  },
+  "fixtures_sha256_after": {
+    "raw8m-random": {},
+    "raw64m-random": {},
+    "compressed8m-pattern": {},
+    "small512-mixed-compressed": {}
+  },
+  "stable": true,
+  "cpu_affinity": 2,
+  "diagnostics": {
+    "raw8m-random": {
+      "verified": true,
+      "archive_sha256": "7ee2a3befc88ff9f583f55dbaa7e5ad187f779ad06cd8f0fa7728d067ffb1694",
+      "observations": 100,
+      "phases": {
+        "first_read": {
+          "median_seconds": 0.000049981,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 2.1e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 3.15e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 2.4e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.00003617,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.000045516,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 0.0,
+            "length_seconds": 0.0,
+            "read_calls": 1.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.00000918,
+            "requested_bytes": 65536.0
+          },
+          "received_bytes": 4096
+        },
+        "format_lookup": {
+          "median_seconds": 0.00012951199999999998,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.000080846,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.000129297,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.000046205500000000003,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 1.0,
+            "length_seconds": 8.6e-7,
+            "read_calls": 1.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.00000898,
+            "requested_bytes": 65536.0
+          }
+        },
+        "repeat_read": {
+          "median_seconds": 0.00004924,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 1.9499999999999999e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 2.8e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 2.5e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.00003624,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0000451655,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 0.0,
+            "length_seconds": 0.0,
+            "read_calls": 1.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.0000088105,
+            "requested_bytes": 65536.0
+          },
+          "received_bytes": 4096
+        },
+        "selected_publication": {
+          "median_seconds": 0.000122502,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 3.0,
+            "length_seconds": 0.00000248,
+            "read_calls": 5.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000013110000000000002,
+            "requested_bytes": 73728.0
+          }
+        }
+      }
+    },
+    "raw64m-random": {
+      "verified": true,
+      "archive_sha256": "0c098194eb7cfe027762af2a933f96a814854366773cd3bf6d67f9efeacf6775",
+      "observations": 20,
+      "phases": {
+        "first_read": {
+          "median_seconds": 0.00037070500000000004,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.00018995699999999998,
+              "median_calls": 3.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 0.00009196700000000001,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 0.00009247650000000001,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 0.000138237,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.000031791,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0000408855,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.00012494649999999997,
+              "median_calls": 3.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 3.0,
+            "length_seconds": 0.00000276,
+            "read_calls": 4.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000035096000000000004,
+            "requested_bytes": 262144.0
+          },
+          "received_bytes": 4096
+        },
+        "format_lookup": {
+          "median_seconds": 0.0001870675,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.00009869700000000001,
+              "median_calls": 2.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.0001868225,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.00008294199999999999,
+              "median_calls": 2.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 2.0,
+            "length_seconds": 0.0000016505000000000001,
+            "read_calls": 2.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.00001717,
+            "requested_bytes": 131072.0
+          }
+        },
+        "repeat_read": {
+          "median_seconds": 0.000045150499999999994,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 4.05e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 5.3e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 4.4e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.00003175,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0000400905,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 0.0,
+            "length_seconds": 0.0,
+            "read_calls": 1.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000008140500000000001,
+            "requested_bytes": 65536.0
+          },
+          "received_bytes": 4096
+        },
+        "selected_publication": {
+          "median_seconds": 0.00011912150000000001,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 3.0,
+            "length_seconds": 0.000002385,
+            "read_calls": 5.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000013386,
+            "requested_bytes": 73728.0
+          }
+        }
+      }
+    },
+    "compressed8m-pattern": {
+      "verified": true,
+      "archive_sha256": "6c526254bfdbf96819c355466e40ebbcf6edff708509677f46e3843d805c4c90",
+      "observations": 100,
+      "phases": {
+        "first_read": {
+          "median_seconds": 0.00011391649999999999,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 1.1e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 1.3e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 9e-8,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.00000101,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0001074565,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 0.0,
+            "length_seconds": 0.0,
+            "read_calls": 1.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 9.6e-7,
+            "requested_bytes": 1890.0
+          },
+          "received_bytes": 4096
+        },
+        "format_lookup": {
+          "median_seconds": 0.000068546,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.000027456,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.00006838100000000001,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.0000392355,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 1.0,
+            "length_seconds": 6.6e-7,
+            "read_calls": 1.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000006945,
+            "requested_bytes": 65536.0
+          }
+        },
+        "repeat_read": {
+          "median_seconds": 0.000089756,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 1.65e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 1.5e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 1e-7,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.00000102,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.000083631,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 0.0,
+            "length_seconds": 0.0,
+            "read_calls": 1.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000001175,
+            "requested_bytes": 1890.0
+          },
+          "received_bytes": 4096
+        },
+        "selected_publication": {
+          "median_seconds": 0.0000912415,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 3.0,
+            "length_seconds": 0.0000019,
+            "read_calls": 5.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.00001041,
+            "requested_bytes": 73728.0
+          }
+        }
+      }
+    },
+    "small512-mixed-compressed": {
+      "verified": true,
+      "archive_sha256": "3d9e2d0ce9aab8dc3e6a52b075a701fb67fb9452c24b2efffc13a87e868990c2",
+      "observations": 100,
+      "phases": {
+        "first_read": {
+          "median_seconds": 0.0027662075,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.000044160500000000005,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 0.00023297799999999973,
+              "median_calls": 512.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 0.00014076549999999995,
+              "median_calls": 512.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 0.00008047499999999963,
+              "median_calls": 512.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.0001403159999999994,
+              "median_calls": 512.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0018310959999999986,
+              "median_calls": 512.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.000040460499999999997,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 1.0,
+            "length_seconds": 7.75e-7,
+            "read_calls": 513.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.0003906145000000027,
+            "requested_bytes": 242688.0
+          },
+          "received_bytes": 1048576
+        },
+        "format_lookup": {
+          "median_seconds": 0.00014671699999999998,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.000062101,
+              "median_calls": 2.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.000146472,
+              "median_calls": 1.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.000080281,
+              "median_calls": 2.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 2.0,
+            "length_seconds": 0.00000138,
+            "read_calls": 2.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.0000149,
+            "requested_bytes": 131072.0
+          }
+        },
+        "repeat_read": {
+          "median_seconds": 0.0026362054999999997,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 0.00014691099999999984,
+              "median_calls": 512.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 0.00014067699999999997,
+              "median_calls": 512.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 0.00008032149999999961,
+              "median_calls": 512.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.0001401464999999993,
+              "median_calls": 512.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0017935564999999962,
+              "median_calls": 512.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 0.0,
+            "length_seconds": 0.0,
+            "read_calls": 512.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.00038044950000000254,
+            "requested_bytes": 177152.0
+          },
+          "received_bytes": 1048576
+        },
+        "selected_publication": {
+          "median_seconds": 0.000097816,
+          "functions": {
+            "index_decode": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_file": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_format": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_fragment": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "lookup_pack": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_checksum": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "payload_load": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            },
+            "verified_index_page": {
+              "median_seconds": 0.0,
+              "median_calls": 0.0,
+              "median_failures": 0.0
+            }
+          },
+          "median_storage": {
+            "failed_calls": 0.0,
+            "length_calls": 3.0,
+            "length_seconds": 0.000002035,
+            "read_calls": 5.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000011825,
+            "requested_bytes": 73728.0
+          }
+        }
+      }
+    }
+  }
+}

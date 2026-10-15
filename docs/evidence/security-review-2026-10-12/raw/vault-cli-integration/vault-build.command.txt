@@ -1,0 +1,1 @@
+cargo +1.88.0 test --locked --offline --release -p revault_vault_api@0.0.42 --lib --no-run

@@ -1,0 +1,99 @@
+use std::{error::Error, fs, io, time::Instant};
+use revault_page_api::{allocation_chunk_bytes, weakened_allocation_allowed, Error, SecureVec};
+
+const LOCKED_LIMIT: u64 = 8 * 1024 * 1024;
+fn status_value(status: &str, key: &str) -> Result<u64, Box<dyn Error>> {
+    let line = status.lines().find(|line| line.starts_with(&format!("{key}:")))
+        .ok_or_else(|| io::Error::other(format!("missing {key}")))?;
+    Ok(line.split_whitespace().nth(1).ok_or_else(|| io::Error::other("missing proc value"))?.parse()?)
+}
+fn limits() -> Result<(u64, u64), Box<dyn Error>> {
+    let text = fs::read_to_string("/proc/self/limits")?;
+    let f = text.lines().find(|l| l.starts_with("Max locked memory"))
+        .ok_or_else(|| io::Error::other("missing memlock limit"))?.split_whitespace().collect::<Vec<_>>();
+    if f.len() < 6 || f[5] != "bytes" { return Err(io::Error::other("unexpected memlock limit format").into()); }
+    Ok((f[3].parse()?, f[4].parse()?))
+}
+fn snapshot(variant: &str, pass: usize, index: usize, requested: usize, stage: &str) -> Result<u64, Box<dyn Error>> {
+    let s = fs::read_to_string("/proc/self/status")?;
+    let locked = status_value(&s, "VmLck")?.checked_mul(1024).ok_or_else(|| io::Error::other("VmLck overflow"))?;
+    let rss = status_value(&s, "VmRSS")?;
+    let (soft, hard) = limits()?;
+    if soft != LOCKED_LIMIT || hard != LOCKED_LIMIT { return Err(io::Error::other(format!("memlock limit changed: {soft}/{hard}")).into()); }
+    if locked > LOCKED_LIMIT { return Err(io::Error::other(format!("VmLck exceeded 8 MiB: {locked}")).into()); }
+    if stage == "baseline" && locked != 0 { return Err(io::Error::other(format!("fresh process baseline VmLck was {locked}, expected 0")).into()); }
+    println!("{{\"variant\":\"{variant}\",\"pass\":{pass},\"index\":{index},\"stage\":\"{stage}\",\"requested_bytes\":{requested},\"allocator_capacity_inferred_bytes\":{requested},\"VmLck_bytes\":{locked},\"VmRSS_kib\":{rss},\"memlock_soft_bytes\":{soft},\"memlock_hard_bytes\":{hard},\"weakened_policy\":false}}");
+    Ok(locked)
+}
+fn pressure(variant: &str) -> Result<(), Box<dyn Error>> {
+    if weakened_allocation_allowed() { return Err(io::Error::other("weakened allocation policy was not false").into()); }
+    if allocation_chunk_bytes() != 65536 { return Err(io::Error::other(format!("default allocation chunk was {}", allocation_chunk_bytes())).into()); }
+    if std::env::var("PROFILE_HOST_PAGE_SIZE").ok().as_deref() != Some("4096") { return Err(io::Error::other("wrapper did not verify 4096-byte host page").into()); }
+    snapshot(variant, 0, 0, 0, "baseline")?;
+    let mut completed = 0usize;
+    for pass in 1..=2 {
+        for index in 0..64 {
+            let requested = 8192 + index * 4096;
+            snapshot(variant, pass, index, requested, "before")?;
+            let expected_byte = (((index + (pass - 1) * 64) % 255) + 1) as u8;
+            let input = vec![expected_byte; requested];
+            let value = match SecureVec::try_from_slice(&input) {
+                Ok(value) => value,
+                Err(error) if variant == "old" && error == Error::WeakAllocationDisabled => {
+                    let locked = snapshot(variant, pass, index, requested, "expected_old_refusal")?;
+                    println!("{{\"variant\":\"old\",\"outcome\":\"expected_refusal_not_ignored\",\"pass\":{pass},\"index\":{index},\"requested_bytes\":{requested},\"VmLck_bytes\":{locked},\"error\":\"WeakAllocationDisabled\"}}");
+                    return Ok(());
+                }
+                Err(error) => return Err(error.into()),
+            };
+            if value.len() != requested { return Err(io::Error::other("SecureVec length mismatch").into()); }
+            if !value.with_bytes(|bytes| bytes.len() == requested && bytes.iter().all(|byte| *byte == expected_byte))? {
+                return Err(io::Error::other("scoped byte verification failed").into());
+            }
+            snapshot(variant, pass, index, requested, "live")?;
+            drop(value);
+            snapshot(variant, pass, index, requested, "after_drop")?;
+            completed += 1;
+        }
+    }
+    if variant == "old" { return Err(io::Error::other("expected old allocator natural-pressure refusal did not occur").into()); }
+    println!("{{\"variant\":\"new\",\"outcome\":\"completed\",\"allocations\":{completed},\"passes\":2}}");
+    Ok(())
+}
+fn hot_reuse(variant: &str, size: usize, iterations: usize) -> Result<(), Box<dyn Error>> {
+    if weakened_allocation_allowed() { return Err(io::Error::other("weakened allocation policy was not false").into()); }
+    let (soft, hard) = limits()?;
+    if soft != LOCKED_LIMIT || hard != LOCKED_LIMIT { return Err(io::Error::other("memlock limit differs from 8 MiB").into()); }
+    let input = vec![0u8; size];
+    let pre = SecureVec::try_from_slice(&input)?;
+    if !pre.with_bytes(|b| b == input.as_slice())? { return Err(io::Error::other("prewarm verification failed").into()); }
+    let pre_live = status_value(&fs::read_to_string("/proc/self/status")?, "VmLck")? * 1024;
+    drop(pre);
+    let before = status_value(&fs::read_to_string("/proc/self/status")?, "VmLck")? * 1024;
+    let timer = Instant::now();
+    for _ in 0..iterations {
+        let value = SecureVec::try_from_slice(&input)?;
+        if value.len() != size || !value.with_bytes(|b| b == input.as_slice())? {
+            return Err(io::Error::other("hot-loop content verification failed").into());
+        }
+        drop(value);
+    }
+    let inner_ns = timer.elapsed().as_nanos();
+    let after = status_value(&fs::read_to_string("/proc/self/status")?, "VmLck")? * 1024;
+    if pre_live > LOCKED_LIMIT || after > LOCKED_LIMIT { return Err(io::Error::other("VmLck exceeded unchanged limit").into()); }
+    println!("{{\"kind\":\"hot_reuse\",\"variant\":\"{variant}\",\"size_bytes\":{size},\"iterations\":{iterations},\"prewarm_live_VmLck_bytes\":{pre_live},\"before_inner_VmLck_bytes\":{before},\"after_inner_VmLck_bytes\":{after},\"inner_elapsed_ns\":{inner_ns},\"weak_policy\":false,\"memlock_soft_bytes\":{soft},\"memlock_hard_bytes\":{hard}}}");
+    Ok(())
+}
+fn main() -> Result<(), Box<dyn Error>> {
+    let mut args = std::env::args().skip(1);
+    let variant = args.next().ok_or_else(|| io::Error::other("variant required"))?;
+    match args.next().as_deref() {
+        Some("pressure") => pressure(&variant),
+        Some("hot") => {
+            let size: usize = args.next().ok_or_else(|| io::Error::other("size required"))?.parse()?;
+            let iterations: usize = args.next().ok_or_else(|| io::Error::other("iterations required"))?.parse()?;
+            hot_reuse(&variant, size, iterations)
+        }
+        _ => Err(io::Error::other("expected variant pressure|hot").into()),
+    }
+}

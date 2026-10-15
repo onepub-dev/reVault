@@ -53,6 +53,12 @@ jobs:
       - name: Build and retain the release driver
         if: inputs.mode == 'prepare'
         run: cargo build --locked --release --manifest-path rust/Cargo.toml -p revault_tooling
+      - name: Install historical exporter build dependencies
+        if: inputs.mode == 'prepare' && inputs.scope != 'bindings'
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - name: Verify exact published migration dependencies
+        if: inputs.mode == 'prepare' && inputs.scope != 'bindings'
+        run: rust/target/release/revault-tool internal verify-migration-exporters
       - uses: actions/upload-artifact@v7
         if: inputs.mode == 'prepare'
         with:

@@ -211,6 +211,14 @@ export interface ProfileHistory {
   readonly generations: readonly ProfileGeneration[];
 }
 
+/** A local Vault alias mapping a normalized name to a stable lockbox identity; resolution does not open the target. */
+export interface LockboxAlias {
+  /** Case-sensitive normalized NFC alias name. */
+  readonly name: string;
+  /** Stable binary target identity; verify it when opening the resolved path. */
+  readonly lockboxId: Uint8Array;
+}
+
 /** A lockbox identifier and host path remembered by the local vault for later discovery. */
 export interface KnownLockbox {
   /** Stable binary identifier of the remembered lockbox. */
@@ -293,12 +301,14 @@ export interface AgentEntry {
 
 /** The host capabilities used to protect cached secrets across suspend and sleep. */
 export interface SleepSupport {
-  /** Whether the host reports impending system suspend. */
+  /** Whether suspend notification support is compiled for this host. */
   readonly suspendNotifications: boolean;
-  /** Whether the agent can delay sleep while handling secrets. */
+  /** Whether sleep inhibition support is compiled for this host. */
   readonly sleepInhibition: boolean;
-  /** Whether the host supplies enough integration for safe caching. */
+  /** Whether this build includes the host integration; this is not runtime watcher readiness. */
   readonly supported: boolean;
+  /** Whether the current compatible Session Agent reports an active suspend cache watcher; false when absent or unavailable. Notification delivery is platform-dependent. */
+  readonly cacheClearingActive: boolean;
 }
 
 /** Availability and configuration of the platform credential store used for the Vault passphrase. */

@@ -14,13 +14,14 @@ RUN rustup target add wasm32-unknown-unknown \
 
 FROM node:22-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    dbus-x11 gnome-keyring libsecret-tools libdbus-1-3 python3 \
+    dbus-x11 gnome-keyring libsecret-tools libglib2.0-bin libdbus-1-3 python3 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 COPY . .
 COPY --from=native /tmp/native /tmp/native
 COPY --from=native /workspace/rust/target/release/revault-tool /usr/local/bin/revault-tool
 COPY --from=wasm /tmp/revault-wasm bindings/wasm/generated
+RUN node --test bindings/e2e/javascript/wasm_password_lifecycle.js
 RUN revault-tool internal stage-ecosystems --allow-partial --repository . \
       --version 0.2.0 --output /tmp/ecosystem /tmp/native/*.tar.gz \
     && revault-tool internal assemble-packages --allow-partial --version 0.2.0 \

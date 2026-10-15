@@ -1,0 +1,27 @@
+{
+  "utc_start": "2026-10-10T10:01:50.368385Z",
+  "df_home_available_bytes": 1570704941056,
+  "df_output": "Filesystem      Size  Used Avail Use% Mounted on\n/dev/dm-1       1.9T  392G  1.5T  22% /home\n",
+  "mount_output": "SOURCE            FSTYPE TARGET OPTIONS\n/dev/dm-1[/@home] btrfs  /home  rw,relatime,compress=zstd:1,ssd,space_cache=v2,subvolid=257,subvol=/@home\n",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "runner_sha256": "fc8c419adfc158f44512416b2bd6acf06cf374640f45d90e54a420315a2a879e",
+  "adapter_sha256": "9470bd5cff158782f665216f792ff028ea670a8d083945ed44bd94a1e00cf248",
+  "source_revision": "1db0cb59c7d88609eb1879815a7d4c2c18e53fff",
+  "source_status": " M ../docs/archive_v4_plan.md\n M ../docs/documentation_map.md\n M revault_lockbox_api/src/file_format/preparation_journal/compact.rs\n?? ../docs/evidence/open-admission-profile-2026-10-10/\n",
+  "max_corpus_bytes": 21474836480,
+  "planned_corpus_bytes": 1729101824,
+  "specs": [
+    {
+      "name": "raw-random-1gib",
+      "files": 1,
+      "bytes": 1073741824,
+      "corpus": "random"
+    },
+    {
+      "name": "raw-mixed-10000x64k",
+      "files": 10000,
+      "bytes": 65536,
+      "corpus": "mixed"
+    }
+  ]
+}

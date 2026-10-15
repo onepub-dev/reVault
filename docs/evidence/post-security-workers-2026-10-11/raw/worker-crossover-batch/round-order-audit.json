@@ -1,0 +1,255 @@
+{
+  "complete": true,
+  "audited_utc": "2026-10-11T05:25:59.113453Z",
+  "case_manifest_sha256": "6f4f209bf04bfbfc50cd8e271dd5165480c966f81fe47244d8b60059ba676953",
+  "frozen_cases_in_order": [
+    "source-raw-plain-1mib",
+    "source-zstd-plain-1mib",
+    "source-zstd-encrypted-1mib",
+    "random-zstd-fallback-plain-1mib",
+    "source-raw-plain-16mib",
+    "source-zstd-plain-16mib",
+    "source-zstd-encrypted-16mib",
+    "random-zstd-fallback-plain-16mib",
+    "source-raw-plain-64mib",
+    "source-zstd-plain-64mib",
+    "source-zstd-encrypted-64mib",
+    "random-zstd-fallback-plain-64mib",
+    "source-raw-plain-256mib",
+    "source-zstd-plain-256mib",
+    "source-zstd-encrypted-256mib",
+    "random-zstd-fallback-plain-256mib",
+    "source-raw-plain-1024mib",
+    "source-zstd-plain-1024mib",
+    "source-zstd-encrypted-1024mib",
+    "random-zstd-fallback-plain-1024mib"
+  ],
+  "round_rotation": "(round ~/ 2 + caseIndex) % 2; expected pair is typed-tree-1 then typed-tree-4 for zero, reversed for one",
+  "measured_round_order_counts_by_reader_parity": {
+    "source-raw-plain-1mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-zstd-plain-1mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-zstd-encrypted-1mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "random-zstd-fallback-plain-1mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-raw-plain-16mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-zstd-plain-16mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-zstd-encrypted-16mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "random-zstd-fallback-plain-16mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-raw-plain-64mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-zstd-plain-64mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-zstd-encrypted-64mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "random-zstd-fallback-plain-64mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-raw-plain-256mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-zstd-plain-256mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-zstd-encrypted-256mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "random-zstd-fallback-plain-256mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-raw-plain-1024mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-zstd-plain-1024mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "source-zstd-encrypted-1024mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    },
+    "random-zstd-fallback-plain-1024mib": {
+      "0": [
+        3,
+        3
+      ],
+      "1": [
+        3,
+        3
+      ]
+    }
+  },
+  "round_json_results_equal_samples_jsonl": true,
+  "round_result_rows_checked": 640,
+  "maximum_extraction_peak_rss_kib_all_640_rows": 14636,
+  "maximum_extraction_peak_rss_kib_measured_480_rows": 14636,
+  "compressed_source_cpu_ratio_4_vs_1_16mib_to_1024mib": {
+    "definition": "paired geometric mean CPU-seconds ratio in validated summary; less than one favors four workers",
+    "minimum": {
+      "case": "source-zstd-encrypted-16mib",
+      "ratio": 1.2543960650721417
+    },
+    "maximum": {
+      "case": "source-zstd-plain-1024mib",
+      "ratio": 2.0568791638603674
+    },
+    "cases": {
+      "source-zstd-encrypted-16mib": 1.2543960650721417,
+      "source-zstd-plain-16mib": 1.2775145241246166,
+      "source-zstd-plain-64mib": 1.7087232960082397,
+      "source-zstd-encrypted-64mib": 1.7584988253114948,
+      "source-zstd-encrypted-1024mib": 1.9290962658909996,
+      "source-zstd-plain-256mib": 1.9509400585209014,
+      "source-zstd-encrypted-256mib": 1.9993687651136902,
+      "source-zstd-plain-1024mib": 2.0568791638603674
+    }
+  }
+}

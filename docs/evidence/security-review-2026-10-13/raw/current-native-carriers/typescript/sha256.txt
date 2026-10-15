@@ -1,0 +1,3 @@
+d8608ef36f3722783e458d73ffa5e0cac3634b6e8d60f29cc10e849dcf5508be  /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release/librevault_api.so
+cce44941b54c923b96cdb5c421a8679d89632afbc0f40565891eaf73094e4360  /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/bindings/e2e/typescript/conformance.ts
+280eb2cb11791ac919302e27d1b87f913963ef9dd17fe462aeeb5e59f2cdef19  /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/bindings/typescript/index.ts

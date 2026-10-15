@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use super::Lockbox;
+use crate::file_format::page_commitment::PageCommitment;
 use crate::free_slot::FreeSlot;
 use crate::page::{PageObject, PageObjectKind};
 use crate::page_cache::SecurePageAppend;
@@ -435,6 +436,7 @@ impl<State> Lockbox<State> {
             .clone();
         if variables.is_empty() {
             self.variable_root = None;
+            self.variable_root_commitment = PageCommitment::default();
             self.variable_leaves.clear();
             self.dirty_variables = false;
             return Ok(0);
@@ -443,14 +445,16 @@ impl<State> Lockbox<State> {
         let entries = variable_entries_from_map(&variables);
         let mut leaves = Vec::new();
         for chunk in variable_leaf_groups(&entries)? {
-            let offset = self.write_variable_leaf(chunk)?;
+            let (offset, commitment) = self.write_variable_leaf(chunk)?;
             leaves.push(VariableLeaf {
                 offset,
+                commitment,
                 entries: chunk.to_vec(),
             });
         }
         let root_node = self.write_variable_tree_for_leaves(&leaves)?;
         let root = root_node.offset();
+        self.variable_root_commitment = root_node.commitment();
         self.variable_root = Some(root_node);
         self.variable_leaves = leaves;
         self.dirty_variables = false;
@@ -462,13 +466,15 @@ impl<State> Lockbox<State> {
             return Ok(());
         }
         let mut redactions = Vec::new();
-        self.collect_variable_tree_redactions(self.variable_root_offset, 0, &mut redactions)?;
-        for (offset, _object_id) in redactions {
+        self.collect_variable_tree_redactions(
+            self.variable_root_offset,
+            self.variable_root_commitment,
+            0,
+            &mut redactions,
+        )?;
+        for (offset, page_size) in redactions {
             // Retire the complete physical allocation without overwriting it
             // before publication; cleanup will erase the full original page.
-            // Secure tree pages have a fixed physical allocation, including
-            // padding. Their encoded body length is not the allocation length.
-            let page_size = crate::constants::DEFAULT_METADATA_PAGE_BYTES as u64;
             self.record_ref_counts.remove(&offset);
             self.redacted_free_slots.push(FreeSlot {
                 offset,
@@ -500,7 +506,12 @@ impl<State> Lockbox<State> {
         Vec<VariableLeaf>,
     )> {
         let mut variables = BTreeMap::new();
-        let root = self.decode_variable_node_into(root_offset, &mut variables, 0)?;
+        let root = self.decode_variable_node_into(
+            root_offset,
+            self.variable_root_commitment,
+            &mut variables,
+            0,
+        )?;
         let mut leaves = Vec::new();
         root.collect_leaves(&mut leaves);
         leaves.sort_by(|left, right| {
@@ -522,13 +533,14 @@ impl<State> Lockbox<State> {
     fn decode_variable_node_into(
         &self,
         offset: u64,
+        commitment: PageCommitment,
         variables: &mut BTreeMap<VariableName, VariableValue>,
         depth: usize,
     ) -> Result<VariableTreeNode> {
         if depth > 8 {
             return Err(Error::CorruptRecord);
         }
-        match self.read_variable_node(offset)? {
+        match self.read_variable_node(offset, commitment)? {
             VariableNode::Leaf(entries) => {
                 let leaf_entries = entries.clone();
                 for entry in entries {
@@ -536,6 +548,7 @@ impl<State> Lockbox<State> {
                 }
                 Ok(VariableTreeNode::Leaf(VariableLeaf {
                     offset,
+                    commitment,
                     entries: leaf_entries,
                 }))
             }
@@ -544,20 +557,22 @@ impl<State> Lockbox<State> {
                 for child in children {
                     nodes.push(self.decode_variable_node_into(
                         child.offset,
+                        child.commitment,
                         variables,
                         depth + 1,
                     )?);
                 }
                 Ok(VariableTreeNode::Internal(VariableInternal {
                     offset,
+                    commitment,
                     children: nodes,
                 }))
             }
         }
     }
 
-    fn read_variable_node(&self, offset: u64) -> Result<VariableNode> {
-        let variable_object = self.read_variable_object_secure(offset)?;
+    fn read_variable_node(&self, offset: u64, commitment: PageCommitment) -> Result<VariableNode> {
+        let variable_object = self.read_variable_object_secure(offset, commitment)?;
         if !matches!(
             variable_object.kind,
             PageObjectKind::VariableLeaf | PageObjectKind::VariableInternal
@@ -570,8 +585,12 @@ impl<State> Lockbox<State> {
         decode_variable_node_secure(payload)
     }
 
-    fn read_variable_object_secure(&self, offset: u64) -> Result<PageObject> {
-        self.with_secure_page(offset, |page| {
+    fn read_variable_object_secure(
+        &self,
+        offset: u64,
+        commitment: PageCommitment,
+    ) -> Result<PageObject> {
+        self.with_authenticated_secure_page(offset, commitment, |page| {
             if page.objects.len() != 1 {
                 return Err(Error::CorruptRecord);
             }
@@ -582,20 +601,21 @@ impl<State> Lockbox<State> {
     fn collect_variable_tree_redactions(
         &self,
         offset: u64,
+        commitment: PageCommitment,
         depth: usize,
         redactions: &mut Vec<(u64, u64)>,
     ) -> Result<()> {
         if depth > 8 {
             return Err(Error::CorruptRecord);
         }
-        let variable_object = self.read_variable_object_secure(offset)?;
+        let variable_object = self.read_variable_object_secure(offset, commitment)?;
         if !matches!(
             variable_object.kind,
             PageObjectKind::VariableLeaf | PageObjectKind::VariableInternal
         ) {
             return Err(Error::CorruptRecord);
         }
-        redactions.push((offset, variable_object.id));
+        redactions.push((offset, commitment.physical_len));
         if variable_object.kind == PageObjectKind::VariableInternal {
             let payload = variable_object
                 .secure_payload()
@@ -604,7 +624,12 @@ impl<State> Lockbox<State> {
                 return Err(Error::CorruptRecord);
             };
             for child in children {
-                self.collect_variable_tree_redactions(child.offset, depth + 1, redactions)?;
+                self.collect_variable_tree_redactions(
+                    child.offset,
+                    child.commitment,
+                    depth + 1,
+                    redactions,
+                )?;
             }
         }
         Ok(())
@@ -631,16 +656,18 @@ impl<State> Lockbox<State> {
                 .map(|node| VariableChild {
                     first_name: node.first_name().to_string(),
                     offset: node.offset(),
+                    commitment: node.commitment(),
                 })
                 .collect::<Vec<_>>();
             for chunk in variable_child_groups(&children)? {
-                let offset = self.write_variable_internal(chunk)?;
+                let (offset, commitment) = self.write_variable_internal(chunk)?;
                 let start = child_cursor;
                 let end = start + chunk.len();
                 child_cursor = end;
                 let child_nodes = level[start..end].to_vec();
                 next_level.push(VariableTreeNode::Internal(VariableInternal {
                     offset,
+                    commitment,
                     children: child_nodes,
                 }));
             }
@@ -653,13 +680,16 @@ impl<State> Lockbox<State> {
     fn write_variable_leaf(
         &mut self,
         entries: &[crate::variable_btree::VariableEntry],
-    ) -> Result<u64> {
+    ) -> Result<(u64, PageCommitment)> {
         let payload = encode_variable_leaf_secure(entries)?;
         self.sequence += 1;
         self.append_variable_page_secure(PageObjectKind::VariableLeaf, payload)
     }
 
-    fn write_variable_internal(&mut self, children: &[VariableChild]) -> Result<u64> {
+    fn write_variable_internal(
+        &mut self,
+        children: &[VariableChild],
+    ) -> Result<(u64, PageCommitment)> {
         let payload = SecureVec::try_from_vec(encode_variable_internal(children)?)?;
         self.sequence += 1;
         self.append_variable_page_secure(PageObjectKind::VariableInternal, payload)
@@ -669,12 +699,22 @@ impl<State> Lockbox<State> {
         &mut self,
         kind: PageObjectKind,
         mut payload: SecureVec,
-    ) -> Result<u64> {
+    ) -> Result<(u64, PageCommitment)> {
         let sequence = self.staged.sequence;
         // Keep reservation and secure encoder extents identical. Do not
         // serialize a secret into ordinary heap memory merely to size it.
-        let page_size = crate::constants::DEFAULT_METADATA_PAGE_BYTES as u64;
+        let page_size = crate::page::secure_page_size(payload.len(), self.format_mode)? as u64;
         let page_offset = self.allocate_page_offset(page_size)?;
+        let commitment = PageCommitment::from_page(
+            self.lockbox_id,
+            self.format_mode,
+            page_size,
+            &crate::page::DecodedPage {
+                page_id: page_offset,
+                sequence,
+                objects: vec![PageObject::new_secure(kind, sequence, payload.try_clone()?)],
+            },
+        )?;
         self.begin_preparation()?;
         let mut content_key = self.key.with_bytes(derive_page_content_key)?;
         let result = self
@@ -694,6 +734,104 @@ impl<State> Lockbox<State> {
             );
         content_key.zeroize();
         payload.zeroize()?;
-        result
+        result.map(|offset| (offset, commitment))
+    }
+}
+
+#[cfg(test)]
+mod commitment_lifecycle_tests {
+    use super::*;
+    use crate::storage::StorageBackend;
+
+    #[test]
+    fn authenticated_variable_tree_persists_multiple_pages_and_secret_lifecycle() {
+        let key = b"synthetic-variable-lifecycle-key";
+        let mut archive = Lockbox::create_in_memory_with_options(crate::LockboxCreateOptions::new(
+            crate::Encryption::Encrypted(crate::LockboxProtection::ContentKey(
+                crate::SecretVec::try_from_slice(key).unwrap(),
+            )),
+            crate::Signing::None,
+        ))
+        .unwrap();
+        let initial = "initial-".repeat(128);
+        for index in 0..256 {
+            archive
+                .set_variable(
+                    &VariableName::new(format!("VAR_{index:04}")).unwrap(),
+                    &initial,
+                )
+                .unwrap();
+        }
+        let secret_name = VariableName::new("SECRET").unwrap();
+        archive
+            .set_secret_variable(
+                &secret_name,
+                &SecretString::try_from_slice(b"first-secret").unwrap(),
+            )
+            .unwrap();
+        archive.commit().unwrap();
+        assert!(matches!(
+            archive.variable_root,
+            Some(VariableTreeNode::Internal(_))
+        ));
+        let options = crate::LockboxOptions {
+            cache_limit: crate::CacheLimit::Bytes(0),
+            ..Default::default()
+        };
+        let mut reopened =
+            Lockbox::open_storage(StorageBackend::memory(archive.to_bytes()), key, options)
+                .unwrap();
+        for index in 0..256 {
+            assert_eq!(
+                reopened
+                    .get_variable(&VariableName::new(format!("VAR_{index:04}")).unwrap())
+                    .unwrap()
+                    .as_deref(),
+                Some(initial.as_str())
+            );
+        }
+        reopened
+            .set_variable(&VariableName::new("VAR_0000").unwrap(), "replacement")
+            .unwrap();
+        for index in 1..256 {
+            reopened
+                .delete_variable(&VariableName::new(format!("VAR_{index:04}")).unwrap())
+                .unwrap();
+        }
+        reopened
+            .set_secret_variable(
+                &secret_name,
+                &SecretString::try_from_slice(b"second-secret").unwrap(),
+            )
+            .unwrap();
+        reopened.commit().unwrap();
+        let reopened =
+            Lockbox::open_storage(StorageBackend::memory(reopened.to_bytes()), key, options)
+                .unwrap();
+        assert_eq!(
+            reopened
+                .get_variable(&VariableName::new("VAR_0000").unwrap())
+                .unwrap()
+                .as_deref(),
+            Some("replacement")
+        );
+        for index in 1..256 {
+            assert!(reopened
+                .get_variable(&VariableName::new(format!("VAR_{index:04}")).unwrap())
+                .unwrap()
+                .is_none());
+        }
+        let mut secret = None;
+        reopened
+            .visit_variables(|name, value| {
+                if name == &secret_name {
+                    if let VariableValueRef::Secret(value) = value {
+                        secret = Some(value.with_str(|value| value == "second-secret")?);
+                    }
+                }
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(secret, Some(true));
     }
 }

@@ -1,0 +1,5 @@
+The frozen paired trial recorded `file_import_pipeline.rs` SHA-256 c77b4f9e16fef34c273827bc98fa7330bf2b18b5dc10e160a53dbd0889de62e4. The current full-file SHA-256 is ee24876badd219e9f34fd41e001ed4bd3eb6675c1071b51841fb2ecf2e189dc3.
+
+After retention, the parent added two approved `#[test]` cases inside the existing `#[cfg(test)] mod tests` in this file. This explains the full-file identity difference; no runtime edits followed the trial. A read-only `git diff --unified=0` audit shows the post-HEAD additions in the test module only for this later change, and the runtime section remains as reviewed for the trial. The release WASM build excludes cfg(test) code and was built from the current stable source epoch recorded in source-epoch-before.txt/source-epoch-after.txt. All six current source/build hashes match across those before/after manifests.
+
+The regenerated artifact is therefore identified against the current source epoch, without claiming its full-file hash equals the frozen trial hash.

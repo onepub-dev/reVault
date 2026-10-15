@@ -1,0 +1,63 @@
+Issue #310: current native-versus-default write gate after import wiping
+Source revision: 50cccad. No production changes in this evidence checkpoint.
+Default protection_gate SHA256:
+8dd50e2b529ca8bd3470b8396b0b62ecabcd0cf417cb02894a6ad272da2ae3cc
+Native protection_gate SHA256:
+d84c44a486e61863780fe222b52fa3b2f778ef0b56f8adfbf46639bf306eee3e
+Both builds use identical current source. Only native enables native-block-layout.
+CSV main = default layout; branch = native layout. The import wipe optimisation
+is present in both. Do not confuse these results with before/after-change gains.
+
+Broad protocol: 8 MiB input, pattern/random corpora, all four protection modes,
+raw/compressed, default padding, synthetic content keys and no password KDF.
+Five ABBA/BAAB paired groups, three child samples with the first discarded.
+320 measured rows per corpus, 640 total. CPU 2, warm OS caches. No agent builds
+or tests overlapped. Unrelated host workloads were active.
+REVAULT_GATE_CHILD_SAMPLES=3 taskset -c 2 NATIVE compare-write DEFAULT NATIVE
+ROOT 8388608 pattern|random 5 all
+Each timed create/add/commit/drop is followed by independently reopening the
+archive and comparing every input byte outside the write timer. Key generation
+is excluded. These are not ZIP comparisons or power-loss durability benchmarks.
+
+Broad results: raw pattern cases have central reductions of 38.9-55.8%; all
+random-corpus cases improve 33.8-50.1%. Their bootstrap 95% upper bounds are
+below zero. Compressed-pattern cases have central regressions of 5.9-14.8%;
+uncertainty is wider and some intervals cross zero. The broad data does not
+establish the <=5% non-regression gate for compressed pattern writes.
+
+Prespecified larger follow-up of encrypted-signed/compressed/pattern:
+REVAULT_GATE_CHILD_SAMPLES=6 taskset -c 2 NATIVE compare-write DEFAULT NATIVE
+ROOT 8388608 pattern 15 encrypted-signed/true/write
+300 measured rows, 15 paired groups, first sample discarded from every child.
+Result: +7.773% paired write time, 95% interval [+2.718%, +10.205%].
+Pooled medians: default 31.359 ms, native 34.104 ms.
+This demonstrates a slowdown; the upper bound exceeds the +5% gate.
+The gate remains FAILED, despite the import optimisation improving both writers.
+It does not establish that the true slowdown exceeds 5% with 95% confidence.
+
+Thirty additional exploratory stage observations: 15 default writes followed by
+15 native writes, same case, CPU 2, REVAULT_GATE_WRITE_PROFILE=1. All persisted
+bytes verified. These sequential unpaired observations are diagnostic only,
+not additional gate evidence. Excluding sample zero, median add/commit times:
+  default: add 7.135 ms, commit 9.952 ms, preparation 3.686 ms;
+  native: add 12.663 ms, commit 8.803 ms, preparation 5.625 ms.
+Page-write counters are 0.021 ms default and 2.254 ms native, but are not directly
+comparable: default page encoding/flush can be deferred into commit. Timing
+variation and overlapping counters prevent attribution to a single operation.
+
+Next investigation: control for preparation timing, then examine native's
+per-frame immediate stage/flush boundary against default's deferred encoding.
+Any batching experiment must retain bounded dirty memory, preparation-before-
+write recovery, reused-extent safety, abort behavior and successful public reads
+after add_file returns. These results alone do not justify changing that protocol.
+
+All 940 measured paired writes plus warmups and 30 diagnostic writes completed
+independent persisted byte verification. Both release benchmark builds succeeded.
+No production code changed, so no new correctness test run is claimed here;
+50cccad's default suite and Clippy passed, with the two known native recovery
+failures documented in issue310-import-wipe-notes.txt.
+
+Issue #310 still requests ZIP-like or 10%-better unencrypted many-file reads.
+This write gate complements that objective, not replaces it. Small handle reads,
+large and cold reads, write lifecycles, native signed recovery, and release gates
+remain open. Native layout stays opt-in. No remote publication performed.

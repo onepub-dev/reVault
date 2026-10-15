@@ -1,0 +1,20 @@
+    Finished `release` profile [optimized] target(s) in 0.11s
+     Running tests/release_candidate.rs (target/release/deps/release_candidate-8bafa0a364ea818f)
+
+running 13 tests
+test cancel_active_run_but_leave_completed_run_alone ... ok
+test changed_artifact_or_branch_refuses_publication ... ok
+test changed_checkout_requires_explicit_old_candidate ... ok
+test ctrl_c_stops_local_watch_and_explains_remote_cancellation ... ok
+test empty_job_logs_never_succeed_silently ... ok
+test failed_job_logs_are_available_while_run_continues ... ok
+test failed_or_expired_candidates_never_publish ... ok
+test coordinator_preserves_trusted_publication_workflow_entry_points ... ok
+test published_candidate_is_idempotent ... ok
+test new_publication_dispatches_only_the_frozen_candidate ... ok
+test status_prints_recoverable_candidate_and_publish_command ... ok
+test remembered_candidate_resumes_failed_publication_without_preparing ... ok
+test status_watch_reattaches_without_dispatching ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.02s
+

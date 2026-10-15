@@ -1,0 +1,33 @@
+{
+  "exit_code": 0,
+  "success": true,
+  "sample": {
+    "archive_bytes": 663486464,
+    "archive_sha256": "6b6a9d93223f657e8c85395568a51bbc7081200637ae8b921337f206e579e9c5",
+    "kind": "typed_tree_fixture",
+    "layout": "shared-control-typed-tree",
+    "scope": "fresh direct typed export; construction is not a write-performance sample",
+    "verified": true
+  },
+  "source_inventory_after": {
+    "inventory_sha256": "0604d58abc4497ad3f6c46faf88442040413f1507b98a036b14cc0be9e410529",
+    "file_count": "10000",
+    "aggregate_manifest_sha256": "2687acacda88c58fb2c9e46300e47d0002b50ef656659c48e3c9ddd97f94438a"
+  },
+  "archive_zip_sha256_after": "945a29d3e09fe1bd92df54927bc8f3faf450a09e0a17ca644e0bb8d22c0fd3c7",
+  "candidate_sha256_after": "c3d55a2c59453263e348f986414e784fe03396a8c025f20358742399d89df868",
+  "source_stable": true,
+  "archive_stable": true,
+  "candidate_stable": true,
+  "owned_output_files_and_bytes": {
+    "raw-random-1gib/tree.lbox": 1083703296,
+    "raw-random-1gib/tree.public": 2000,
+    "raw-mixed-10000x64k/tree.lbox": 663486464,
+    "raw-mixed-10000x64k/tree.public": 2000
+  },
+  "owned_output_files_total_bytes": 1747193760,
+  "apparent_logical_artifact_bytes_below_old_root": 6953360216,
+  "owned_output_cap_bytes": 21474836480,
+  "remaining_owned_output_cap_bytes": 14521476264,
+  "log": "/tmp/revault-scale-20261010/raw-mixed-10000x64k/tree-create-2026-10-10T103342266786Z.log"
+}

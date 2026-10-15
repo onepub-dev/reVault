@@ -1,0 +1,44 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+
+const base = '/tmp/revault-tree-index-attribution-20261010';
+const rust = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust';
+const fixtureNames = ['small512-mixed-compressed','raw8m-random','compressed8m-pattern','raw64m-random'];
+double median(List<double> values) { final sorted=[...values]..sort(); return sorted.length.isOdd ? sorted[sorted.length~/2] : (sorted[sorted.length~/2-1]+sorted[sorted.length~/2])/2; }
+String hash(String path) { final r=Process.runSync('sha256sum',[path]); if(r.exitCode!=0) throw StateError('sha256 failed $path'); return r.stdout.toString().split(RegExp(r'\s+')).first; }
+void main(){
+  final cases=<String,Object?>{};
+  for(final name in fixtureNames){
+    final raw=jsonDecode(File('$base/$name.json').readAsStringSync()) as Map<String,dynamic>;
+    final obs=(raw['observations'] as List).cast<Map<String,dynamic>>();
+    if(raw['status']!='passed'||raw['verified']!=true||obs.length!=100) throw StateError('invalid diagnostic $name');
+    final indexStages=obs.map((o)=>((o['stages_seconds'] as Map)['index_walk_and_decode'] as num).toDouble()).toList();
+    final functionRows=<String,Object?>{};
+    for(final fn in ['verified_index_page','index_decode','index_visitor','root_checksum']){
+      final fnCalls=<double>[], fnSeconds=<double>[], failCalls=<double>[];
+      for(final o in obs){
+        final stage=((o['functions_by_stage'] as Map)['index_walk_and_decode'] as Map).cast<String,dynamic>();
+        final x=(stage[fn] as Map).cast<String,dynamic>();
+        fnCalls.add((x['calls'] as num).toDouble()); fnSeconds.add((x['seconds'] as num).toDouble()); failCalls.add((x['failures'] as num).toDouble());
+      }
+      functionRows[fn]={'median_calls':median(fnCalls),'median_seconds_us':median(fnSeconds)*1e6,'median_failures':median(failCalls)};
+    }
+    cases[name]={'verified':true,'archive_sha256':raw['archive_sha256'],'opens':obs.length,'median_index_walk_and_decode_us':median(indexStages)*1e6,'functions_index_stage_only':functionRows,'storage_and_stage_medians':(raw['stages'] as Map)['index_walk_and_decode']};
+  }
+  final hashes=jsonDecode(File('$base/run/hash-before.json').readAsStringSync()) as Map<String,dynamic>;
+  final after=jsonDecode(File('$base/run/hash-after.json').readAsStringSync()) as Map<String,dynamic>;
+  final stable=after['stable']==true;
+  final sourceHashes=<String,String>{
+    'authenticated_index.rs':hash('$rust/revault_lockbox_api/src/file_format/authenticated_index.rs'),
+    'publication_anchor.rs':hash('$rust/revault_lockbox_api/src/file_format/publication_anchor.rs'),
+    'file_format/mod.rs':hash('$rust/revault_lockbox_api/src/file_format/mod.rs'),
+    'resource_probe/tree_probe.rs':hash('$rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs'),
+    'diagnostic_timing.rs':hash('$rust/revault_lockbox_api/src/file_format/diagnostic_timing.rs'),
+    'Cargo.lock':hash('$rust/Cargo.lock'),
+  };
+  final result={'protocol':'single optimized instrumented candidate, 100 opens per existing fixture, CPU 2; no comparison or qualification','revision':hashes['revision'],'worktree_status_at_run':hashes['status'],'rustc':'rustc 1.88.0 (6b00bc388 2025-06-23)','candidate_binary_sha256':hash('$base/bin/diagnostic'),'retained_reference_binary_sha256':hash('$base/bin/baseline-meter'),'complete_source_patch_sha256':hash('$base/source.patch'),'source_sha256':sourceHashes,'fixtures_stable_before_after':stable,'fixture_hashes_before':hashes['fixtures'],'fixture_hashes_after':after['fixtures'],'diagnostic_validation':'Each fixture passed byte verification before and after 100 measured opens; content fixture hash is retained per case.','timing_interpretation':'verified_index_page encloses root_checksum and storage; root_checksum is nested within verified_index_page, so do not add them. index_decode is separate. index_visitor is summed callback duration. Stage-minus-storage residual includes instrumentation, checksum, decoding and visitor work, not pure CPU or pure decoding.','cases':cases};
+  File('$base/final-audit.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(result),flush:true);
+  if(!stable) throw StateError('fixture/source hashes unstable');
+  print('Wrote $base/final-audit.json; stable=$stable');
+}

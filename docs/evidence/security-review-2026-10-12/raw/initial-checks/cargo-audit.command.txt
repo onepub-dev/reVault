@@ -1,0 +1,1 @@
+/usr/bin/timeout --kill-after=30s 900s /home/bsutton/.cargo/bin/cargo-audit audit --file Cargo.lock --format json

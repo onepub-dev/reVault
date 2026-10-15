@@ -1,0 +1,455 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling libc v0.2.189
+   Compiling syn v2.0.119
+   Compiling cfg-if v1.0.4
+   Compiling typenum v1.20.1
+   Compiling syn v3.0.5
+   Compiling zeroize_derive v1.5.0
+   Compiling zeroize v1.9.0
+   Compiling getrandom v0.4.3
+   Compiling rand_core v0.10.1
+   Compiling cmov v0.5.4
+   Compiling ctutils v0.4.2
+   Compiling hybrid-array v0.4.15
+   Compiling const-oid v0.10.2
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling autocfg v1.5.1
+   Compiling subtle v2.6.1
+   Compiling serde_core v1.0.229
+   Compiling pin-project-lite v0.2.17
+   Compiling version_check v0.9.5
+   Compiling generic-array v0.14.7
+   Compiling serde v1.0.229
+   Compiling digest v0.11.3
+   Compiling serde_derive v1.0.229
+   Compiling futures-core v0.3.34
+   Compiling num-traits v0.2.19
+   Compiling crypto-common v0.1.7
+   Compiling itoa v1.0.18
+   Compiling cpufeatures v0.3.1
+   Compiling semver v1.0.28
+   Compiling rustix v1.1.4
+   Compiling once_cell v1.21.4
+   Compiling rustc_version v0.4.1
+   Compiling block-buffer v0.10.4
+   Compiling linux-raw-sys v0.12.1
+   Compiling bitflags v2.13.1
+   Compiling digest v0.10.7
+   Compiling synstructure v0.13.2
+   Compiling parking v2.2.1
+   Compiling winnow v1.0.4
+   Compiling memchr v2.8.3
+   Compiling fastrand v2.5.0
+   Compiling zerofrom-derive v0.1.7
+   Compiling hashbrown v0.17.1
+   Compiling cpufeatures v0.2.17
+   Compiling crossbeam-utils v0.8.23
+   Compiling equivalent v1.0.2
+   Compiling zerofrom v0.1.8
+   Compiling indexmap v2.14.2
+   Compiling toml_parser v1.1.3+spec-1.1.0
+   Compiling yoke-derive v0.8.2
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling stable_deref_trait v1.2.1
+   Compiling base64ct v1.8.3
+   Compiling slab v0.4.12
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling yoke v0.8.3
+   Compiling toml_edit v0.25.13+spec-1.1.0
+   Compiling inout v0.2.2
+   Compiling enumflags2_derive v0.7.12
+   Compiling futures-io v0.3.34
+   Compiling proc-macro-crate v3.5.0
+   Compiling concurrent-queue v2.5.0
+   Compiling zvariant_utils v4.2.0
+   Compiling event-listener v5.4.2
+   Compiling sha2 v0.11.0
+   Compiling zerovec-derive v0.11.6
+   Compiling getrandom v0.2.17
+   Compiling keccak v0.2.2
+   Compiling atomic-waker v1.1.2
+   Compiling zerovec v0.11.8
+   Compiling zvariant_derive v5.15.0
+   Compiling event-listener-strategy v0.5.4
+   Compiling futures-lite v2.6.1
+   Compiling cipher v0.5.2
+   Compiling signature v3.0.0
+   Compiling der v0.8.2
+   Compiling universal-hash v0.6.1
+   Compiling displaydoc v0.2.7
+   Compiling twox-hash v2.1.4
+   Compiling spki v0.8.0
+   Compiling poly1305 v0.9.1
+   Compiling chacha20 v0.10.2
+   Compiling aead v0.6.1
+   Compiling module-lattice v0.2.3
+   Compiling async-io v2.6.0
+   Compiling sponge-cursor v0.1.0
+   Compiling tinyvec_macros v0.1.1
+   Compiling zmij v1.0.23
+   Compiling tinyvec v1.13.2
+   Compiling shake v0.1.0
+   Compiling chacha20poly1305 v0.11.0
+   Compiling pkcs8 v0.11.0
+   Compiling sha3 v0.11.0
+   Compiling enumflags2 v0.7.12
+   Compiling zcheapstr v1.1.0
+   Compiling polling v3.11.0
+   Compiling curve25519-dalek v5.0.0
+   Compiling num-integer v0.1.47
+   Compiling hmac v0.13.0
+   Compiling block-padding v0.3.3
+   Compiling kem v0.3.0
+   Compiling futures-macro v0.3.34
+   Compiling errno v0.3.14
+   Compiling futures-task v0.3.34
+   Compiling serde_json v1.0.151
+   Compiling endi v1.1.1
+   Compiling async-task v4.7.1
+   Compiling zvariant v5.15.0
+   Compiling futures-util v0.3.34
+   Compiling signal-hook-registry v1.4.8
+   Compiling ml-kem v0.3.2
+   Compiling inout v0.1.4
+   Compiling hkdf v0.13.0
+   Compiling ml-dsa v0.1.1
+   Compiling unicode-normalization v0.1.25
+   Compiling tinystr v0.8.4
+   Compiling async-channel v2.5.0
+   Compiling sha2 v0.10.9
+   Compiling log v0.4.34
+   Compiling litemap v0.8.3
+   Compiling smallvec v1.16.0
+   Compiling writeable v0.6.4
+   Compiling icu_locale_core v2.3.0
+   Compiling async-signal v0.2.14
+   Compiling cipher v0.4.4
+   Compiling zbus_names v4.3.4
+   Compiling num-bigint v0.4.8
+   Compiling zerotrie v0.2.5
+   Compiling async-lock v3.4.2
+   Compiling potential_utf v0.1.6
+   Compiling piper v0.2.5
+   Compiling tracing-core v0.1.36
+   Compiling tracing-attributes v0.1.31
+   Compiling icu_properties_data v2.3.0
+   Compiling icu_normalizer_data v2.3.0
+   Compiling shlex v2.0.1
+   Compiling utf8_iter v1.0.4
+   Compiling bytes v1.12.1
+   Compiling find-msvc-tools v0.1.12
+   Compiling cc v1.4.5
+   Compiling http v1.5.0
+   Compiling tracing v0.1.44
+   Compiling icu_collections v2.3.0
+   Compiling blocking v1.7.0
+   Compiling async-process v2.5.0
+   Compiling icu_provider v2.3.1
+   Compiling num-rational v0.4.2
+   Compiling zbus_macros v5.19.0
+   Compiling async-executor v1.14.0
+   Compiling num-iter v0.1.46
+   Compiling ed25519 v3.0.0
+   Compiling async-broadcast v0.7.2
+   Compiling hmac v0.12.1
+   Compiling num-complex v0.4.6
+   Compiling ordered-stream v0.2.0
+   Compiling uuid v1.26.0
+   Compiling serde_repr v0.1.21
+   Compiling async-trait v0.1.92
+   Compiling async-recursion v1.1.1
+   Compiling hex v0.4.3
+   Compiling num v0.4.3
+   Compiling hkdf v0.12.4
+   Compiling zbus v5.19.0
+   Compiling ed25519-dalek v3.0.0
+   Compiling ring v0.17.14
+   Compiling aes v0.8.4
+   Compiling cbc v0.1.2
+   Compiling x25519-dalek v3.0.0
+   Compiling socket2 v0.6.5
+   Compiling io-lifetimes v3.0.1
+   Compiling io-lifetimes v2.0.4
+   Compiling httparse v1.10.1
+   Compiling secret-service v5.1.0
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling phc v0.6.1
+   Compiling io-extras v0.19.0
+   Compiling percent-encoding v2.3.2
+   Compiling password-hash v0.6.1
+   Compiling blake2 v0.11.0
+   Compiling rustls-pki-types v1.15.1
+   Compiling untrusted v0.9.0
+   Compiling cap-primitives v4.0.3
+   Compiling argon2 v0.6.0
+   Compiling fs-set-times v0.20.3
+   Compiling form_urlencoded v1.2.2
+   Compiling rustix-linux-procfs v0.1.1
+   Compiling revault_page_api v0.0.34 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_page_api)
+   Compiling rand_core v0.6.4
+   Compiling utf8parse v0.2.2
+   Compiling ambient-authority v0.0.2
+   Compiling maybe-owned v0.3.4
+   Compiling cap-std v4.0.3
+   Compiling base64 v0.23.1
+   Compiling ipnet v2.12.2
+   Compiling rustls v0.23.45
+   Compiling anstyle-parse v1.0.0
+   Compiling rustls-webpki v0.103.15
+   Compiling idna_adapter v1.2.2
+   Compiling zstd-complete v0.2.0 (/tmp/rv-security-cli-isolated-20261013/source/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+   Compiling anstyle-query v1.1.5
+   Compiling colorchoice v1.0.5
+   Compiling cap-fs-ext v4.0.3
+   Compiling anstyle v1.0.14
+warning: method `len` is never used
+  --> vendor/zstd-complete/src/fixed_storage.rs:38:19
+   |
+23 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+38 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling anstream v1.0.0
+   Compiling idna v1.1.0
+   Compiling password-hash v0.5.0
+   Compiling webpki-roots v1.0.9
+   Compiling blake2 v0.10.6
+   Compiling clap_lex v1.1.0
+   Compiling clap_builder v4.6.6
+   Compiling argon2 v0.5.3
+   Compiling url v2.5.8
+   Compiling ureq-proto v0.6.2
+   Compiling curve25519-dalek v4.1.3
+   Compiling pkg-config v0.3.34
+   Compiling utf8-zero v0.8.1
+   Compiling ureq v3.4.1
+   Compiling libdbus-sys v0.2.7
+   Compiling revault_lockbox_api v0.0.41 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_lockbox_api)
+warning: associated function `new` is never used
+  --> revault_lockbox_api/src/compression/encode_workspace.rs:63:19
+   |
+62 | impl EncoderFrame {
+   | ----------------- associated function in this implementation
+63 |     pub(crate) fn new(input: &[u8], probe: bool) -> Self {
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: associated function `open_bytes_with_password` is never used
+   --> revault_lockbox_api/src/lockbox/key_management.rs:749:19
+    |
+201 | impl Lockbox {
+    | ------------ associated function in this implementation
+...
+749 |     pub(crate) fn open_bytes_with_password(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_compression_frame_manifest` is never used
+  --> revault_lockbox_api/src/model/compression_frame_manifest.rs:49:15
+   |
+49 | pub(crate) fn encode_compression_frame_manifest(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `zstd-complete` (lib) generated 21 warnings (run `cargo fix --lib -p zstd-complete` to apply 20 suggestions)
+   Compiling clap v4.6.6
+   Compiling http-body v1.1.0
+   Compiling tokio-macros v2.7.2
+   Compiling mio v1.2.3
+   Compiling tokio v1.53.1
+   Compiling revault_vault_api v0.0.42 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_vault_api)
+   Compiling revault_publish_protocol v0.0.35 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_publish_protocol)
+   Compiling revault_migration_format v0.0.35 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migration_format)
+warning: `revault_lockbox_api` (lib) generated 3 warnings
+   Compiling keyring-core v1.0.0
+   Compiling ruzstd v0.8.3
+   Compiling tower-service v0.3.3
+   Compiling httpdate v1.0.3
+   Compiling signature v2.2.0
+   Compiling is_executable v1.0.6
+   Compiling clap_complete v4.6.9
+   Compiling ed25519 v2.2.3
+   Compiling revault_migration v0.0.39 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migration)
+   Compiling zbus-secret-service-keyring-store v1.0.1
+   Compiling tempfile v3.27.0
+   Compiling futures-channel v0.3.34
+   Compiling revault_page_api v0.0.4
+   Compiling tower-layer v0.3.3
+   Compiling sync_wrapper v1.0.2
+   Compiling mime v0.3.17
+   Compiling hyper v1.11.1
+   Compiling dbus v0.9.12
+   Compiling keyring v4.2.0
+   Compiling ed25519-dalek v2.2.0
+   Compiling x25519-dalek v2.0.1
+   Compiling http-body-util v0.1.5
+   Compiling sysinfo v0.38.4
+   Compiling revault_page_api v0.0.2
+   Compiling ryu v1.0.23
+   Compiling serde_urlencoded v0.7.1
+   Compiling axum-core v0.5.6
+   Compiling hyper-util v0.1.20
+   Compiling tower v0.5.3
+   Compiling email-encoding v0.4.2
+   Compiling zstd-complete v0.1.0
+   Compiling nom v8.0.0
+   Compiling serde_path_to_error v0.1.20
+   Compiling serde_spanned v1.1.1
+   Compiling hostname v0.4.2
+   Compiling quoted_printable v0.5.2
+   Compiling num-conv v0.2.2
+   Compiling time-core v0.1.9
+   Compiling email_address v0.2.9
+   Compiling toml_writer v1.1.2+spec-1.1.0
+   Compiling matchit v0.8.4
+   Compiling deranged v0.5.8
+   Compiling revault_key_server v0.0.37 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_key_server)
+   Compiling powerfmt v0.2.0
+   Compiling time v0.3.55
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+   Compiling axum v0.8.9
+   Compiling toml v1.1.5+spec-1.1.0
+   Compiling lettre v0.11.23
+   Compiling revault_lockbox_api v0.0.9
+   Compiling revault_lockbox_api v0.0.2
+   Compiling revault_lockbox_api v0.0.6
+   Compiling revault_archive_v3_reader v0.0.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_archive_v3/legacy)
+   Compiling revault_vault_v3_reader v0.0.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_archive_v3/legacy_vault)
+   Compiling revault_vault_api v0.0.6
+   Compiling revault_vault_api v0.0.2
+   Compiling revault_vault_api v0.0.10
+   Compiling revault_lockbox_api v0.0.3
+   Compiling revault_cli v0.5.0-dev.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_cli)
+    Finished `release` profile [optimized] target(s) in 6m 44s
+  Executable tests/migration_cli.rs (/tmp/rv-security-cli-isolated-20261013/target-pinned-188-final/release/deps/migration_cli-c8a2ed1e0ad1509c)
+  Executable tests/publish_integration.rs (/tmp/rv-security-cli-isolated-20261013/target-pinned-188-final/release/deps/publish_integration-f39d119fe7ac2b84)

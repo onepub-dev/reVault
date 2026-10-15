@@ -1,0 +1,8 @@
+{
+  "executable": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release/deps/revault_lockbox_api-1c7cea4cf5a844b2",
+  "head": "cc2909a005f4f7065ace3038a1d9459832432402",
+  "executable_sha256": "a318a1a61e0abd6d407c4513ac2cd56c7c5b8a9e9fed5f7d31b5e1623f93a39c",
+  "inventory_count": 736,
+  "inventory_list_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/security-review-2026-10-13/raw/full-runtime-api-native-recheck/api-native.list",
+  "source_manifest_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/security-review-2026-10-13/raw/full-runtime-api-native-recheck/runtime-source.pre.sha256"
+}

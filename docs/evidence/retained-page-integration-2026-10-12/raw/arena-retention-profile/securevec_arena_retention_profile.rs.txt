@@ -1,0 +1,173 @@
+use std::{error::Error, fs, io};
+
+use revault_page_api::SecureVec;
+
+const PAGE_BYTES: usize = 4096;
+const DEFAULT_CHUNK_BYTES: usize = 64 * 1024;
+const CANARY_BYTES: usize = 32;
+const LOCKED_CAP_BYTES: u64 = 2 * 1024 * 1024;
+
+fn status_value(status: &str, key: &str) -> Result<u64, Box<dyn Error>> {
+    let line = status
+        .lines()
+        .find(|line| line.starts_with(&format!("{key}:")))
+        .ok_or_else(|| io::Error::other(format!("missing {key} in /proc/self/status")))?;
+    let value = line
+        .split_whitespace()
+        .nth(1)
+        .ok_or_else(|| io::Error::other(format!("missing value for {key}")))?
+        .parse::<u64>()?;
+    Ok(value)
+}
+
+fn memlock_limits(limits: &str) -> Result<(String, String), Box<dyn Error>> {
+    let line = limits
+        .lines()
+        .find(|line| line.starts_with("Max locked memory"))
+        .ok_or_else(|| io::Error::other("missing Max locked memory in /proc/self/limits"))?;
+    let fields = line.split_whitespace().collect::<Vec<_>>();
+    if fields.len() < 6 || fields[5] != "bytes" {
+        return Err(io::Error::other("unexpected Max locked memory format").into());
+    }
+    Ok((fields[3].to_owned(), fields[4].to_owned()))
+}
+
+fn snapshot(
+    pass: usize,
+    index: usize,
+    requested: usize,
+    expected_capacity: usize,
+    expected_increment: usize,
+    planned_total: usize,
+    stage: &str,
+    baseline_lck: Option<u64>,
+    reuse_ceiling: Option<u64>,
+) -> Result<u64, Box<dyn Error>> {
+    let status = fs::read_to_string("/proc/self/status")?;
+    let limits = fs::read_to_string("/proc/self/limits")?;
+    let vm_lck_kib = status_value(&status, "VmLck")?;
+    let vm_rss_kib = status_value(&status, "VmRSS")?;
+    let locked_bytes = vm_lck_kib
+        .checked_mul(1024)
+        .ok_or_else(|| io::Error::other("VmLck overflow"))?;
+    if locked_bytes > LOCKED_CAP_BYTES {
+        return Err(io::Error::other(format!("VmLck exceeds 2 MiB bound: {locked_bytes}")).into());
+    }
+    if let Some(base) = baseline_lck {
+        if locked_bytes.saturating_sub(base) > planned_total as u64 {
+            return Err(io::Error::other(format!(
+                "VmLck increase {} exceeds planned backing {planned_total}",
+                locked_bytes.saturating_sub(base)
+            ))
+            .into());
+        }
+    }
+    if let Some(ceiling) = reuse_ceiling {
+        if locked_bytes > ceiling {
+            return Err(io::Error::other(format!(
+                "repeat pass VmLck {locked_bytes} exceeds first-pass plateau {ceiling}"
+            ))
+            .into());
+        }
+    }
+    let (memlock_soft, memlock_hard) = memlock_limits(&limits)?;
+    println!(
+        "{{\"pass\":{pass},\"index\":{index},\"stage\":\"{stage}\",\"requested_bytes\":{requested},\"allocator_capacity_inferred_bytes\":{expected_capacity},\"expected_new_arena_locked_bytes\":{expected_increment},\"planned_cumulative_locked_bytes\":{planned_total},\"VmLck_bytes\":{locked_bytes},\"VmRSS_kib\":{vm_rss_kib},\"memlock_soft_bytes\":\"{memlock_soft}\",\"memlock_hard_bytes\":\"{memlock_hard}\"}}"
+    );
+    Ok(locked_bytes)
+}
+
+fn rounded_page(size: usize) -> usize {
+    (size + PAGE_BYTES - 1) / PAGE_BYTES * PAGE_BYTES
+}
+
+fn inferred_capacity(requested: usize) -> usize {
+    // All profile requests are page-aligned and greater than the largest 4096B size class.
+    requested
+}
+
+fn planned_arena_bytes(requested: usize) -> usize {
+    rounded_page(DEFAULT_CHUNK_BYTES.max(requested + CANARY_BYTES))
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let initial = snapshot(0, 0, 0, 0, 0, 0, "baseline", None, None)?;
+    let initial_lck = initial;
+    let mut planned_total = 0usize;
+    let mut first_pass_plateau = None;
+    for pass in 1..=2 {
+        for index in 0..16 {
+            let requested = 8192 + index * 4096;
+            let expected_capacity = inferred_capacity(requested);
+            let expected_increment = if pass == 1 {
+                planned_arena_bytes(requested)
+            } else {
+                0
+            };
+            if pass == 1 {
+                planned_total = planned_total
+                    .checked_add(expected_increment)
+                    .ok_or_else(|| io::Error::other("planned backing overflow"))?;
+                if planned_total as u64 > LOCKED_CAP_BYTES {
+                return Err(io::Error::other("planned backing exceeds 2 MiB").into());
+                }
+            }
+            snapshot(
+                pass,
+                index,
+                requested,
+                expected_capacity,
+                expected_increment,
+                planned_total,
+                "before",
+                Some(initial_lck),
+                if pass == 2 { first_pass_plateau } else { None },
+            )?;
+            let zeroes = vec![0u8; requested];
+            let value = SecureVec::try_from_slice(&zeroes)?;
+            if value.len() != requested {
+                return Err(io::Error::other("SecureVec length mismatch").into());
+            }
+            let all_zero = value.with_bytes(|bytes| {
+                bytes.len() == requested && bytes.iter().all(|byte| *byte == 0)
+            })?;
+            if !all_zero {
+                return Err(io::Error::other("scoped byte verification failed").into());
+            }
+            let live_lck = snapshot(
+                pass,
+                index,
+                requested,
+                expected_capacity,
+                expected_increment,
+                planned_total,
+                "live",
+                Some(initial_lck),
+                if pass == 2 { first_pass_plateau } else { None },
+            )?;
+            drop(value);
+            let after_lck = snapshot(
+                pass,
+                index,
+                requested,
+                expected_capacity,
+                expected_increment,
+                planned_total,
+                "after_drop",
+                Some(initial_lck),
+                if pass == 2 { first_pass_plateau } else { None },
+            )?;
+            if pass == 1 && index == 15 {
+                first_pass_plateau = Some(after_lck);
+            }
+            if live_lck < initial_lck {
+                return Err(io::Error::other("VmLck unexpectedly decreased while a value was live").into());
+            }
+        }
+    }
+    if planned_total != 1_060_864 {
+        return Err(io::Error::other(format!("unexpected planned locked backing: {planned_total}")).into());
+    }
+    eprintln!("PROFILE_COMPLETE planned_new_locked_backing_bytes={planned_total} cap_bytes={LOCKED_CAP_BYTES}");
+    Ok(())
+}

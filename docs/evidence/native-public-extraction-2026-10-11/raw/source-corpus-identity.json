@@ -1,0 +1,50 @@
+{
+  "source_bundle_path": "/home/bsutton/.cache/revault-protected-20261011/source-bundle.bin",
+  "source_bundle_sha256": "2b61fa08f0ddcafbc0aed21a149ea62c9134aa7a947a859d8dc2dd73e9a1f59e",
+  "source_bundle_bytes": 14341790,
+  "expanded_source_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib.bin",
+  "expanded_source_sha256": "a90cac77289634f3369065f9037ce2d2f48490e967efaf59d78c3c51508ee77d",
+  "expanded_source_bytes": 1073741824,
+  "random_source_path": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/source/file-000000.bin",
+  "random_source_sha256": "abefe2d07b94a4f7e266b7df41ed7694856b9d7fc707bbf4d6b2fb4c4e54de96",
+  "random_source_bytes": 1073741824,
+  "random_original_inventory_sha256": "abefe2d07b94a4f7e266b7df41ed7694856b9d7fc707bbf4d6b2fb4c4e54de96",
+  "case_prefixes": [
+    {
+      "name": "source-zstd-64mib",
+      "input_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib.bin",
+      "input_sha256": "a90cac77289634f3369065f9037ce2d2f48490e967efaf59d78c3c51508ee77d",
+      "source_bytes": 67108864,
+      "variant_source_hashes": [
+        "18d0a72115ed0bf4c9f329de52542cd1f5a7de42360bc7e00c28693aaa00daed"
+      ]
+    },
+    {
+      "name": "source-zstd-1gib",
+      "input_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib.bin",
+      "input_sha256": "a90cac77289634f3369065f9037ce2d2f48490e967efaf59d78c3c51508ee77d",
+      "source_bytes": 1073741824,
+      "variant_source_hashes": [
+        "a90cac77289634f3369065f9037ce2d2f48490e967efaf59d78c3c51508ee77d"
+      ]
+    },
+    {
+      "name": "random-raw-64mib",
+      "input_path": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/source/file-000000.bin",
+      "input_sha256": "abefe2d07b94a4f7e266b7df41ed7694856b9d7fc707bbf4d6b2fb4c4e54de96",
+      "source_bytes": 67108864,
+      "variant_source_hashes": [
+        "34bef3bb1ce80841f85d406982294557ae9221fb0f6e63ca9a28b6a5e6d8cf3a"
+      ]
+    },
+    {
+      "name": "random-raw-1gib",
+      "input_path": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/source/file-000000.bin",
+      "input_sha256": "abefe2d07b94a4f7e266b7df41ed7694856b9d7fc707bbf4d6b2fb4c4e54de96",
+      "source_bytes": 1073741824,
+      "variant_source_hashes": [
+        "abefe2d07b94a4f7e266b7df41ed7694856b9d7fc707bbf4d6b2fb4c4e54de96"
+      ]
+    }
+  ]
+}

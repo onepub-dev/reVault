@@ -1,0 +1,40 @@
+warning: associated function `new` is never used
+  --> revault_lockbox_api/src/compression/encode_workspace.rs:63:19
+   |
+62 | impl EncoderFrame {
+   | ----------------- associated function in this implementation
+63 |     pub(crate) fn new(input: &[u8], probe: bool) -> Self {
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: function `encode_compression_frame_manifest` is never used
+  --> revault_lockbox_api/src/model/compression_frame_manifest.rs:49:15
+   |
+49 | pub(crate) fn encode_compression_frame_manifest(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `install` is never used
+  --> revault_lockbox_api/src/storage/atomic_file_replacement.rs:82:19
+   |
+12 | impl AtomicFileReplacement {
+   | -------------------------- method in this implementation
+...
+82 |     pub(crate) fn install(&self) -> Result<()> {
+   |                   ^^^^^^^
+
+warning: `revault_lockbox_api` (lib) generated 3 warnings
+   Compiling revault_vault_api v0.0.42 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_vault_api)
+error[E0599]: no method named `extend_from_slice` found for struct `revault_lockbox_api::SecretVec` in the current scope
+   --> revault_vault_api/src/agent_protocol.rs:252:13
+    |
+252 |     payload.extend_from_slice(&[u8::from(crate::sleep_watcher::cache_monitor_active())]).map_err(io::Error::other)?;
+    |             ^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `try_extend_from_slice` with a similar name
+    |
+252 |     payload.try_extend_from_slice(&[u8::from(crate::sleep_watcher::cache_monitor_active())]).map_err(io::Error::other)?;
+    |             ++++
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `revault_vault_api` (lib test) due to 1 previous error

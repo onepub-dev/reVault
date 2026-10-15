@@ -1,0 +1,3 @@
+cwd=rust
+command=cargo +1.88.0 test --locked --offline --release -p revault_cli --test agent_flow open_and_open_key_complete_real_session_flows -- --ignored --exact --nocapture --test-threads=1
+timeout=900s + 30s kill grace

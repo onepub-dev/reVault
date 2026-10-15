@@ -1,0 +1,13 @@
+# From worktree rust/ at e3274563 plus the retained packed-index source snapshots.
+cargo test -p revault_lockbox_api --lib file_format:: -- --nocapture
+cargo test -p revault_lockbox_api --lib independent_owner_proof -- --nocapture
+cargo test -p revault_lockbox_api --features native-block-layout --lib independent_owner_proof -- --nocapture
+cargo test -p revault_lockbox_api --lib authenticated_index -- --nocapture
+cargo clippy -p revault_lockbox_api --lib --tests -- -D warnings
+cargo test -p revault_lockbox_api --release --lib --no-run --message-format=json
+# Copy the emitted optimized library test executable to /tmp/revault-packed-index-resource.
+# From repository root:
+rustc --edition 2021 -O docs/evidence/packed-index-2026-09-27/run_series.rs -o /tmp/revault-index-series
+taskset -c 2 /tmp/revault-index-series /tmp/revault-packed-index-resource > /tmp/revault-packed-series.log 2>&1
+# Four preliminary single-process probes used the same exact test name with
+# REVAULT_INDEX_RESOURCE_ENCRYPTED=0|1 and REVAULT_INDEX_RESOURCE_PADDED=0|1.

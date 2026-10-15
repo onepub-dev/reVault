@@ -106,6 +106,19 @@ impl SecureString {
         target.try_extend_from_secure(&self.bytes)
     }
 
+    /// Appends a checked byte range to guarded storage without a normal-memory
+    /// intermediate. Ranges may split UTF-8 code points; the target stores bytes.
+    /// Invalid ranges leave the target unchanged. Nonempty copies retain the
+    /// existing prohibition on mutation during an active secure read scope.
+    pub fn append_range_to_secure_vec(
+        &self,
+        target: &mut SecureVec,
+        offset: usize,
+        len: usize,
+    ) -> Result<()> {
+        target.try_extend_secure_range(&self.bytes, offset, len)
+    }
+
     /// Appends one byte to the secure string.
     ///
     /// This low-level operation does not validate that the resulting value is

@@ -1,0 +1,6 @@
+rust_test_source=/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release/deps/revault_lockbox_api-e3bcc2539127e239
+rust_test_copy=/tmp/revault-tree-read-20261010-final/bin/revault_lockbox_api_tests
+rust_test_sha256=0fda7dd38313e0d35a58f0acc02210fe00b976c615cf6dc25efd357a73ad7012
+bench_source=/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release/deps/archive_evaluation-4921effe0aae5972
+bench_copy=/tmp/revault-tree-read-20261010-final/bin/archive_evaluation
+bench_sha256=fc8c419adfc158f44512416b2bd6acf06cf374640f45d90e54a420315a2a879e

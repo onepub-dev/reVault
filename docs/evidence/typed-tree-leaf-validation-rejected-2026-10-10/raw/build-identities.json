@@ -1,0 +1,23 @@
+{
+  "source_revision": "9fcf3cb0ff4505a588f3e8a98a3454fd5751fe57",
+  "source_tree": "d1356cd05c1ddb24d8428e495a1b8a9b8ed6cdc0",
+  "worktree_status": "",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "cargo_lock_sha256": "30f035feb33237411a1fe46b2f13656454e7062954223677d2ca569ba7e5a081",
+  "cargo_settings": [
+    "+1.88.0",
+    "test",
+    "-p",
+    "revault_lockbox_api",
+    "--release",
+    "--features",
+    "external-source",
+    "--lib",
+    "--no-run",
+    "--message-format=json"
+  ],
+  "cargo_target": "/tmp/revault-tree-open-stages-20261010/target",
+  "artifact_source": "/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239",
+  "frozen_binary": "/tmp/revault-tree-leaf-validation-20261010/bin/before",
+  "frozen_binary_sha256": "2cebc6ceee449e5f111f2af2018f2330dd202376188451e2a76aac9d829aefdb"
+}

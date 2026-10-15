@@ -1,0 +1,2 @@
+rust/revault_migration/tests/retained/archive-v4/native.bin: OK
+rust/revault_migration/tests/retained/vault-v3-container-v4/native.bin: OK

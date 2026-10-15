@@ -21,6 +21,10 @@ impl Fixture {
             .env_remove("LOCKBOX_KEY")
             .env_remove("LOCKBOX_PASSWORD")
             .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+            // These public persistence tests explicitly opt out of OS power
+            // policy; separate headless tests validate capability admission.
+            .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
+            .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
             .env(
                 "LOCKBOX_VAULT_DIR",
                 self.root
@@ -80,6 +84,94 @@ impl Drop for Fixture {
             let _ = self.run(server, &["session", "stop"]);
         }
     }
+}
+
+#[test]
+fn password_profile_default_allows_recipient_writes_without_owner_vault() {
+    let f = Fixture::new();
+    f.ok(false, &["vault", "init"]);
+    f.ok(
+        false,
+        &["vault", "profile", "create", "recipient", "--password"],
+    );
+    f.ok(
+        false,
+        &[
+            "vault",
+            "profile",
+            "password",
+            "recipient",
+            "--output",
+            "credential",
+        ],
+    );
+    f.ok(false, &["shared.lbox", "create", "--for", "recipient"]);
+    let status = f.ok(false, &["shared.lbox", "doctor"]);
+    assert!(String::from_utf8_lossy(&status).contains("signing: none"));
+    let access = f.ok(
+        false,
+        &["shared.lbox", "access", "list", "--format", "json"],
+    );
+    assert!(String::from_utf8_lossy(&access).contains("recipient"));
+    let before_budget_refusal = std::fs::read(f.root.path().join("shared.lbox")).unwrap();
+    let refused = f.run(
+        true,
+        &[
+            "shared.lbox",
+            "open",
+            "--password-file",
+            "credential",
+            "--password-slot-budget",
+            "0",
+        ],
+    );
+    assert!(!refused.status.success());
+    assert!(String::from_utf8_lossy(&refused.stderr).contains("password slot work budget"));
+    assert_eq!(
+        std::fs::read(f.root.path().join("shared.lbox")).unwrap(),
+        before_budget_refusal
+    );
+    f.ok(
+        true,
+        &[
+            "shared.lbox",
+            "open",
+            "--password-file",
+            "credential",
+            "--password-slot-budget",
+            "1",
+        ],
+    );
+    f.ok(true, &["shared.lbox", "close"]);
+    f.open_server("credential");
+    assert!(!f.root.path().join("server-vault/local-vault.lbox").exists());
+    std::fs::write(
+        f.root.path().join("recipient-input"),
+        b"recipient-written bytes",
+    )
+    .unwrap();
+    f.ok(
+        true,
+        &["shared.lbox", "add", "recipient-input", "--to", "/shared"],
+    );
+    assert_eq!(
+        f.ok(false, &["shared.lbox", "cat", "/shared"]),
+        b"recipient-written bytes"
+    );
+    f.ok(
+        true,
+        &["shared.lbox", "variable", "set", "/recipient", "persisted"],
+    );
+    assert!(String::from_utf8_lossy(
+        &f.ok(false, &["shared.lbox", "variable", "get", "/recipient"])
+    )
+    .contains("persisted"));
+    f.ok(true, &["shared.lbox", "close"]);
+    f.open_server("credential");
+    assert_eq!(
+        f.ok(true, &["shared.lbox", "cat", "/shared"]),
+        b"recipient-written bytes"
+    );
 }
 
 #[test]

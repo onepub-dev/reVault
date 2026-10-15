@@ -275,8 +275,9 @@ jobs:
       - plan
       - build-local-artifacts
       - build-global-artifacts
+      - custom-revault-cli-crates
     # Only run if we're "publishing", and only if plan, local and global didn't fail (skipped is fine)
-    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
+    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && needs.custom-revault-cli-crates.result == 'success' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     runs-on: "ubuntu-24.04"
@@ -339,11 +340,13 @@ jobs:
   custom-revault-cli-crates:
     needs:
       - plan
-      - host
-    if: ${{ !fromJson(needs.plan.outputs.val).announcement_is_prerelease || fromJson(needs.plan.outputs.val).publish_prereleases }}
+      - build-local-artifacts
+      - build-global-artifacts
+    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
     uses: ./.github/workflows/revault-cli-crates.yml
     with:
       plan: ${{ needs.plan.outputs.val }}
+      publish: ${{ !fromJson(needs.plan.outputs.val).announcement_is_prerelease || fromJson(needs.plan.outputs.val).publish_prereleases }}
     secrets: inherit
     # publish jobs get escalated permissions
     permissions:
@@ -408,6 +411,12 @@ jobs:
           test "$(jq -r .cli_version manifest/candidate.json)" = "$CLI_VERSION"
           test "$(jq -r .scope manifest/candidate.json)" != bindings
           driver/revault-tool internal candidate tags --candidate "$CANDIDATE" --scope "$(jq -r .scope manifest/candidate.json)" --cli-version "$(jq -r .cli_version manifest/candidate.json)" --bindings-version "$(jq -r .bindings_version manifest/candidate.json)"
+      - id: crates
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish the validated CLI crate dependency chain
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        run: driver/revault-tool internal publish-crates cli --repository . --publish
       - name: Publish the tested CLI archives and installers
         env:
           RELEASE_TAG: revault_cli-v${{ inputs.version }}
@@ -425,9 +434,3 @@ jobs:
           else
             gh release create "$RELEASE_TAG" --verify-tag --title "reVault CLI ${{ inputs.version }}" --notes-file release-notes/candidate.txt artifacts/*
           fi
-      - id: crates
-        uses: rust-lang/crates-io-auth-action@v1
-      - name: Publish the validated CLI crate dependency chain
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
-        run: driver/revault-tool internal publish-crates cli --repository . --publish

@@ -1,0 +1,17 @@
+phase,variant,run,files,bytes_per_file,compressed,mode,profile,access,zip_ms,lockbox_ms,lockbox_over_zip,zip_open_ms,zip_read_ms,lockbox_open_ms,lockbox_read_ms,zip_bytes,lockbox_bytes,corpus
+bulk,before,1,512,4096,false,signed,Interactive,stream,6.292,80.382,12.775,2.976,3.290,76.768,3.611,2151446,2411904,pattern
+bulk,before,1,512,4096,true,signed,Interactive,stream,6.980,1516.378,217.258,2.979,3.976,1511.418,4.715,237078,302464,pattern
+bulk,after,1,512,4096,false,signed,Interactive,stream,6.202,9.552,1.540,2.808,3.369,5.950,3.485,2151446,2411904,pattern
+bulk,after,1,512,4096,true,signed,Interactive,stream,7.154,11.918,1.666,3.185,3.946,7.175,4.635,237078,302464,pattern
+bulk,before,2,512,4096,false,signed,Interactive,stream,6.183,79.557,12.867,2.771,3.385,75.781,3.663,2151446,2411904,pattern
+bulk,before,2,512,4096,true,signed,Interactive,stream,6.929,1518.429,219.140,3.000,3.901,1513.603,4.699,237078,302464,pattern
+bulk,after,2,512,4096,false,signed,Interactive,stream,6.383,9.594,1.503,3.020,3.335,6.002,3.515,2151446,2411904,pattern
+bulk,after,2,512,4096,true,signed,Interactive,stream,6.782,11.859,1.748,2.697,4.059,7.155,4.607,237078,302464,pattern
+bulk,before,3,512,4096,false,signed,Interactive,stream,6.668,80.442,12.063,3.191,3.373,75.984,3.700,2151446,2411904,pattern
+bulk,before,3,512,4096,true,signed,Interactive,stream,7.277,1519.713,208.835,2.947,4.314,1514.536,4.723,237078,302464,pattern
+bulk,after,3,512,4096,false,signed,Interactive,stream,6.646,9.523,1.433,3.248,3.377,5.925,3.462,2151446,2411904,pattern
+bulk,after,3,512,4096,true,signed,Interactive,stream,6.927,11.888,1.716,2.851,4.029,7.150,4.619,237078,302464,pattern
+default,before,1,512,4096,false,signed,Interactive,stream,6.518,32.086,4.922,3.186,3.308,17.447,14.495,2151446,3009920,pattern
+default,before,1,512,4096,true,signed,Interactive,stream,6.791,36.082,5.313,2.728,4.033,19.570,16.353,237078,847232,pattern
+default,after,1,512,4096,false,signed,Interactive,stream,6.572,32.263,4.909,3.216,3.320,17.625,14.507,2151446,3009920,pattern
+default,after,1,512,4096,true,signed,Interactive,stream,7.007,36.263,5.175,2.899,4.094,19.776,16.345,237078,847232,pattern

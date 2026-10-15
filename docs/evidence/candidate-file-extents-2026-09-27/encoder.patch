@@ -1,0 +1,78 @@
+--- zstd-complete-0.2.0/src/huff0/huff0_encoder/weights.rs
++++ corrected/src/huff0/huff0_encoder/weights.rs
+@@ -128,7 +128,7 @@
+     let pairs = weights.chunks_exact(2);
+     let remainder = pairs.remainder();
+     for pair in pairs {
+-        output.push((pair[1] << 4) | pair[0]);
++        output.push((pair[0] << 4) | pair[1]);
+     }
+     if let Some(&weight) = remainder.first() {
+         output.push(weight << 4);
+@@ -218,7 +218,7 @@
+         let weight2 = pair[1];
+         debug_assert!(weight1 < 16);
+         debug_assert!(weight2 < 16);
+-        encoded.push((weight2 << 4) | weight1);
++        encoded.push((weight1 << 4) | weight2);
+     }
+     if let Some(&weight) = remainder.first() {
+         debug_assert!(weight < 16);
+@@ -262,3 +262,57 @@
+     writer.flush();
+     encoded
+ }
++
++#[cfg(test)]
++mod raw_weight_tests {
++    use super::{raw_weight_table_bytes, write_raw_weight_table};
++    use alloc::{vec, vec::Vec};
++
++    #[test]
++    fn raw_huffman_weights_preserve_symbol_order() {
++        for count in 1..=128 {
++            let weights: Vec<u8> = (0..count).map(|symbol| (symbol % 12) as u8).collect();
++            let mut reused = vec![0xff; 80];
++            write_raw_weight_table(&weights, &mut reused);
++            for encoded in [raw_weight_table_bytes(&weights), reused] {
++                assert_eq!(encoded[0] as usize, count + 127);
++                assert_eq!(encoded.len(), 1 + count.div_ceil(2));
++                for (symbol, &weight) in weights.iter().enumerate() {
++                    let byte = encoded[1 + symbol / 2];
++                    let actual = if symbol % 2 == 0 {
++                        byte >> 4
++                    } else {
++                        byte & 15
++                    };
++                    assert_eq!(actual, weight, "count={count} symbol={symbol}");
++                }
++                if count % 2 == 1 {
++                    assert_eq!(encoded[encoded.len() - 1] & 15, 0);
++                }
++            }
++        }
++    }
++
++    #[test]
++    fn raw_huffman_weights_round_trip_asymmetric_valid_tree() {
++        // Two weight-four symbols (8 units each) and sixteen weight-one
++        // symbols form a complete 32-unit tree. Unequal adjacent weights
++        // expose nibble reversal; the last weight is implicit on the wire.
++        let mut weights = [1u8; 18];
++        weights[0] = 4;
++        weights[2] = 4;
++        let encoded = raw_weight_table_bytes(&weights[..weights.len() - 1]);
++        let mut decoder = crate::huff0::HuffmanTable::new();
++        assert_eq!(
++            decoder.build_decoder(&encoded).unwrap() as usize,
++            encoded.len()
++        );
++        assert_eq!(
++            decoder.encoder_weights(),
++            weights
++                .iter()
++                .map(|&weight| usize::from(weight))
++                .collect::<Vec<_>>()
++        );
++    }
++}

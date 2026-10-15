@@ -1,0 +1,5 @@
+765e4ac243bc2991589e83dcab2636867dc8debf
+?? ../docs/evidence/integration-diagnosis-2026-10-12/
+?? ../docs/evidence/public-zip-comparison-2026-10-12/
+?? ../tools/public-zip-comparison.dart
+?? ../tools/summarize-public-zip-comparison.dart

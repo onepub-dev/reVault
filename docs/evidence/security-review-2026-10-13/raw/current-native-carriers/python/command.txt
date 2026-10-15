@@ -1,0 +1,1 @@
+Python 3.14.4 venv=/tmp/revault-python-alias-batch4; PYTHONPATH=<worktree>/bindings/python; REVAULT_E2E_LOAD_PATH=<worktree>/rust/target/release/librevault_api.so; conformance.py --core

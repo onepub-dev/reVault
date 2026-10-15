@@ -1,0 +1,2 @@
+files,bytes_per_file,compressed,mode,profile,access,zip_ms,lockbox_ms,lockbox_over_zip,zip_open_ms,zip_read_ms,lockbox_open_ms,lockbox_read_ms,zip_bytes,lockbox_bytes,corpus
+4,67108864,true,plain,Interactive,stream,76.102,132.628,1.743,0.062,76.048,0.421,132.017,3479856,1967488,pattern

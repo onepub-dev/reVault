@@ -1,0 +1,200 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
+index 86aa16aa..47a224f6 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
+@@ -1,6 +1,7 @@
+ //! Internal selected-tree fixtures: the public CLI cannot construct this adapter.
+ use super::*;
+ mod admission;
++mod compaction;
+ #[cfg(target_os = "linux")]
+ mod aggregate;
+ mod lifecycle;
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs
+index 9fb43dee..40b5fdbd 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs
+@@ -7,6 +7,8 @@ use super::dense_image::Image;
+ use super::*;
+ use crate::file_format::publication_anchor::{shared, FAILURE_REGION, REGION_LEN};
+ use shared::tree::{self, Tree};
++mod compact;
++pub(super) use compact::compact;
+ mod fresh;
+ pub(super) use fresh::from_candidate;
+ pub(super) mod forms;
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared.rs
+index cbb3b043..66b6806a 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared.rs
+@@ -41,7 +41,7 @@ pub(super) fn read_root(
+ }
+ 
+ #[cfg(test)]
+-mod tests;
++pub(crate) mod tests;
+ 
+ mod catalogue;
+ pub(crate) mod ownership;
+@@ -60,6 +60,52 @@ pub(crate) fn initialize(
+     key: Option<&[u8]>,
+     body: &[u8],
+     slots: &[crate::key_slot::KeySlot],
++ ) -> Result<Anchor> {
++    initialize_at(storage, archive, mode, authority, signer, key, body, slots, 1, [0; 32], || Ok(()))
++}
++
++/// Relocate a stable authenticated selected image without resetting its lineage.
++/// The typed caller validates full membership/content and owns destination cleanup.
++#[allow(clippy::too_many_arguments)]
++pub(crate) fn initialize_successor(
++    source: &impl Storage,
++    predecessor: &Anchor,
++    storage: &mut impl Storage,
++    authority: &Authority<'_>,
++    signer: Option<&OwnerSigningKeyPair>,
++    key: Option<&[u8]>,
++    body: &[u8],
++) -> Result<Anchor> {
++    predecessor.validate_in(Layout::Shared)?;
++    if !predecessor.keys.absent() {
++        return Err(Error::InvalidOperation("tree compaction does not translate access roots".into()));
++    }
++    let generation = predecessor.generation.checked_add(1).ok_or_else(|| Error::SecurityLimitExceeded("publication generation exhausted".into()))?;
++    let previous = commitment(predecessor)?;
++    let unchanged = || {
++        let selected = select_in(source, predecessor.archive, predecessor.mode, authority, Layout::Shared)?;
++        if selected.anchor != *predecessor || selected.commitment != previous {
++            return Err(Error::CorruptRecord);
++        }
++        Ok(())
++    };
++    unchanged()?;
++    initialize_at(storage, predecessor.archive, predecessor.mode, authority, signer, key, body, &[], generation, previous, unchanged)
++}
++
++#[allow(clippy::too_many_arguments)]
++fn initialize_at(
++    storage: &mut impl Storage,
++    archive: LockboxId,
++    mode: FormatMode,
++    authority: &Authority<'_>,
++    signer: Option<&OwnerSigningKeyPair>,
++    key: Option<&[u8]>,
++    body: &[u8],
++    slots: &[crate::key_slot::KeySlot],
++    generation: u64,
++    previous: [u8; 32],
++    unchanged: impl Fn() -> Result<()>,
+ ) -> Result<Anchor> {
+     if storage.len()? < REGION_LEN as u64
+         || storage
+@@ -85,7 +131,7 @@ pub(crate) fn initialize(
+     let public = if slots.is_empty() {
+         None
+     } else {
+-        Some(super::bootstrap::directory(archive, 1, slots)?)
++        Some(super::bootstrap::directory(archive, generation, slots)?)
+     };
+     let index = RootRef {
+         primary: PRIVATE_START,
+@@ -101,11 +147,11 @@ pub(crate) fn initialize(
+     });
+     let anchor = Anchor {
+         archive,
+-        generation: 1,
++        generation,
+         mode,
+         sealed_len: storage.len()?,
+         object_root: index.digest,
+-        previous: [0; 32],
++        previous,
+         index,
+         allocation: RootRef::default(),
+         keys,
+@@ -137,6 +183,7 @@ pub(crate) fn initialize(
+         storage, archive, mode, key, base,
+     )?;
+     storage.sync()?;
++    unchanged()?;
+     storage.write_at(0, &encoded)?;
+     storage.sync()?;
+     storage.write_at(FAILURE_REGION, &encoded)?;
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tests.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tests.rs
+index 12cc5fd1..bcfd1e1e 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tests.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tests.rs
+@@ -284,3 +284,32 @@ fn shared_control_image_bootstraps_and_decrypts_after_either_region_is_lost() {
+         }
+     }
+ }
++
++/// Synthetic counter-exhaustion fixture: authenticate the original first, then
++/// rebuild both signed/checksummed anchors and their idle preparation commitment.
++/// No public operation can reach u64::MAX within a bounded test.
++#[allow(clippy::too_many_arguments)]
++pub(crate) fn rewrite_fixture_generation(
++    storage: &mut impl Storage,
++    archive: LockboxId,
++    mode: FormatMode,
++    authority: &Authority<'_>,
++    signer: Option<&OwnerSigningKeyPair>,
++    key: Option<&[u8]>,
++    generation: u64,
++) -> Result<Anchor> {
++    let (mut anchor, _) = open_private(storage, archive, mode, authority, key)?;
++    anchor.previous = commitment(&anchor)?;
++    anchor.generation = generation;
++    let encoded = encode_in(&anchor, authority, signer, Layout::Shared)?;
++    let base = commitment(&anchor)?;
++    let stub = crate::file_format::preparation_journal::compact::initial_stub(archive, mode, key, base)?;
++    for bank in [0, FAILURE_REGION] {
++        storage.write_at(bank + 8192, &stub)?;
++        storage.write_at(bank, &encoded)?;
++    }
++    storage.sync()?;
++    let (reopened, _) = open_private(storage, archive, mode, authority, key)?;
++    if reopened != anchor { return Err(Error::CorruptRecord); }
++    Ok(anchor)
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
+index 34621806..5668fa16 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
+@@ -9,7 +9,7 @@ use ownership::{Graph, Span, Vacant, VacantKind};
+ const MAGIC: &[u8; 8] = b"RV4TRE01";
+ const OWNERSHIP: u8 = 0;
+ const MAX_PAGES: usize = 4096;
+-const MAX_OWNERSHIP_RECORDS: usize = 4096;
++pub(crate) const MAX_OWNERSHIP_RECORDS: usize = 4096;
+ 
+ pub(crate) struct Tree {
+     pub anchor: Anchor,
+diff --git a/rust/revault_lockbox_api/src/keys/crypto.rs b/rust/revault_lockbox_api/src/keys/crypto.rs
+index a7995da8..8fd9f971 100644
+--- a/rust/revault_lockbox_api/src/keys/crypto.rs
++++ b/rust/revault_lockbox_api/src/keys/crypto.rs
+@@ -111,13 +111,20 @@ pub(crate) fn derive_page_content_key(key: &[u8]) -> [u8; 32] {
+ }
+ 
+ pub(crate) fn strong_checksum(data: &[u8]) -> [u8; 32] {
+-    let mut hasher = Sha256::new();
+-    hasher.update(b"lockbox-v1-public-checksum/sha256");
+-    hasher.update((data.len() as u64).to_le_bytes());
++    let mut hasher = strong_checksum_hasher(data.len() as u64);
+     hasher.update(data);
+     hasher.finalize().into()
+ }
+ 
++/// Incremental checksum state with the same domain and total-length binding as
++/// `strong_checksum`. The caller must hash exactly `length` bytes before finalizing.
++pub(crate) fn strong_checksum_hasher(length: u64) -> Sha256 {
++    let mut hasher = Sha256::new();
++    hasher.update(b"lockbox-v1-public-checksum/sha256");
++    hasher.update(length.to_le_bytes());
++    hasher
++}
++
+ pub(crate) fn metadata_auth_tag(key: &[u8], message: &[u8]) -> [u8; 24] {
+     let mut mac = Hmac::<Sha256>::new_from_slice(key).expect("HMAC accepts arbitrary key lengths");
+     mac.update(b"lockbox-v2-header-metadata-auth/hmac-sha256");

@@ -1,5 +1,4 @@
 use super::Lockbox;
-use crate::file_format::write_header;
 use crate::host_path::HostPath;
 use crate::storage::StorageBackend;
 #[cfg(any(test, feature = "migration"))]
@@ -48,9 +47,16 @@ impl Lockbox<crate::Writable> {
         path: impl AsRef<Path>,
         key: crate::SecretVec,
         options: LockboxOptions,
+        backup: Option<&[u8]>,
     ) -> Result<Self> {
         let path = HostPath::new(path);
-        Self::open_storage_with_secret_key(StorageBackend::file(path.as_path())?, key, options)
+        Self::open_storage_with_secret_key_mode_and_backup(
+            StorageBackend::file(path.as_path())?,
+            key,
+            options,
+            false,
+            backup,
+        )
     }
 
     #[cfg(feature = "vault-integration")]
@@ -58,16 +64,16 @@ impl Lockbox<crate::Writable> {
         path: impl AsRef<Path>,
         key: crate::SecretVec,
         options: LockboxOptions,
+        backup: Option<&[u8]>,
     ) -> Result<Self> {
         let path = HostPath::new(path);
-        let mut lockbox = Self::open_storage_with_secret_key_mode(
+        Self::open_storage_with_secret_key_mode_and_backup(
             StorageBackend::file_for_write(path.as_path())?,
             key,
             options,
             true,
-        )?;
-        lockbox.complete_pending_transaction_cleanup()?;
-        Ok(lockbox)
+            backup,
+        )
     }
 
     #[cfg(test)]
@@ -110,8 +116,8 @@ impl Lockbox<crate::Writable> {
         options: LockboxOptions,
     ) -> Result<Self> {
         let path = HostPath::new(path);
-        let mut bytes = vec![0; crate::constants::HEADER_LEN];
-        write_header(&mut bytes, 0, 0, 0, lockbox_id, 0);
+        let bytes =
+            crate::file_format::current_header::authenticated_initial_header(lockbox_id, &key)?;
         let mut lockbox = Self::open_storage_with_secret_key(
             StorageBackend::create_file(path.as_path(), &bytes)?,
             key,

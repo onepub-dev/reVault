@@ -51,11 +51,12 @@ pub(crate) fn command(verbose: bool) -> Command {
         )
         .subcommands([
             archive_command("create", "Create a new lockbox.")
-                .arg(Arg::new("alias").long("alias").value_name("NAME").help("Vault alias (default: filename without its final extension). Uses letters, digits, underscore or hyphen, up to 128 bytes. An existing alias is preserved with a warning; the lockbox is still created."))
+                .arg(Arg::new("alias").long("alias").value_name("NAME").add(ArgValueCompleter::new(completion::alias_name_candidates)).help("Vault alias (default: sanitized filename stem). NFC Unicode letters/numbers, attached marks and ._-; start with a letter, number or underscore. Maximum 128 UTF-8 bytes; no invisible characters. Existing aliases are preserved with a warning."))
                 .arg(Arg::new("encryption").long("encryption").value_parser(["none", "chacha20-poly1305"]).help("Page encryption (default: chacha20-poly1305)."))
-                .arg(Arg::new("signing").long("signing").value_parser(["none", "owner"]).help("Commit signing (default: owner)."))
+                .arg(Arg::new("signing").long("signing").value_parser(["none", "owner"]).help("Commit signing (default: none for password-only creation; owner otherwise)."))
                 .arg(Arg::new("compression").long("compression").value_parser(["none", "zstd"]).help("Content and metadata compression (default: zstd)."))
                 .arg(Arg::new("compression-level").long("compression-level").value_parser(clap::value_parser!(u8).range(1..=22)).help("Zstd compression level, 1–22 (default: 3)."))
+                .arg(Arg::new("no-size-padding").long("no-size-padding").action(clap::ArgAction::SetTrue).help("Omit optional size-hiding padding (creation only; reveals more about small content sizes)."))
                 .override_usage("lockbox [LOCKBOX] create [OPTIONS]")
                 .after_help(verbose_help(
                     verbose,
@@ -117,7 +118,11 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .action(ArgAction::SetTrue)
                         .conflicts_with_all(["password-env", "password-file"])
                         .help("Read the Lockbox password from stdin."),
-                ),
+                )
+                .arg(Arg::new("password-slot-budget")
+                    .long("password-slot-budget")
+                    .value_name("ATTEMPTS")
+                    .help("Maximum KDF attempts per password credential (default 32); raise explicitly only for a trusted archive. Stored profiles are separate credentials.")),
             archive_command("close", "Close the lockbox.")
                 .after_help(verbose_help(
                     verbose,
@@ -205,7 +210,14 @@ pub(crate) fn command(verbose: bool) -> Command {
                     Arg::new("restore-permissions")
                         .long("restore-permissions")
                         .action(ArgAction::SetTrue)
-                        .help("Restore file permissions when extracting a directory."),
+                        .help("Restore stored permissions (default)."),
+                )
+                .arg(
+                    Arg::new("no-restore-permissions")
+                        .long("no-restore-permissions")
+                        .action(ArgAction::SetTrue)
+                        .conflicts_with("restore-permissions")
+                        .help("Use host-created permissions instead of stored permissions."),
                 )
                 .arg(
                     Arg::new("args")
@@ -822,7 +834,14 @@ fn mirror_extract_command() -> Command {
             Arg::new("restore-permissions")
                 .long("restore-permissions")
                 .action(ArgAction::SetTrue)
-                .help("Restore stored permissions when extracting a directory."),
+                .help("Restore stored permissions (default)."),
+        )
+        .arg(
+            Arg::new("no-restore-permissions")
+                .long("no-restore-permissions")
+                .action(ArgAction::SetTrue)
+                .conflicts_with("restore-permissions")
+                .help("Use host-created permissions instead of stored permissions."),
         )
         .arg(
             Arg::new("args")
@@ -1903,7 +1922,7 @@ fn vault_command(verbose: bool) -> Command {
                     .subcommand_required(true)
                     .subcommand(Command::new("set")
                         .about("Set or replace an alias and remember its target path.")
-                        .arg(required("name", "Alias name: ASCII letters, digits, underscore or hyphen."))
+                        .arg(required("name", "NFC alias: start with a Unicode letter, number or underscore; then letters, numbers, attached marks or ._-. Maximum 128 UTF-8 bytes; no invisible characters.").add(ArgValueCompleter::new(completion::alias_name_candidates)))
                         .arg(required("lockbox", "Existing lockbox path or a@alias; defaults to the session lockbox.").required(false).add(ArgValueCompleter::new(completion::lockbox_path_candidates))))
                     .subcommand(Command::new("list").alias("ls").about("List aliases and stable target identities.").arg(output_format_arg()))
                     .subcommand(Command::new("remove").about("Remove an alias without deleting its lockbox.")
