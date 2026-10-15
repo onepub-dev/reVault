@@ -51,6 +51,12 @@ artifacts and environments. Conversely, do not run a local full suite and the
 same candidate full suite solely as ceremony. Use focused local checks while
 developing and one broad integration checkpoint.
 
+The default core job owns the shared core unit suite. The `external-source`
+job compiles the feature-enabled library and runs its feature-specific unit
+tests, integration suite, and doctests; it does not repeat the shared core
+suite. Keep bounded-resource correctness and corruption/recovery tests in the
+default suite even when they are more expensive than ordinary unit tests.
+
 Record which performance-sensitive paths changed and which focused observations
 are warranted. Reuse historical observations only with their original scope,
 revision, workload, and limitations stated. Preserve failed and incomplete

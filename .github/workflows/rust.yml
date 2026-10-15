@@ -160,7 +160,9 @@ jobs:
           - group: secure APIs external-source
             cache: secure-apis-external-source
             command: |
-              cargo test --locked -p "$(cargo pkgid --manifest-path revault_lockbox_api/Cargo.toml)" --features external-source --lib --test external_source
+              # The default job owns shared core tests; exercise the feature's unit and integration coverage here.
+              cargo test --locked -p "$(cargo pkgid --manifest-path revault_lockbox_api/Cargo.toml)" --features external-source --lib external_source::
+              cargo test --locked -p "$(cargo pkgid --manifest-path revault_lockbox_api/Cargo.toml)" --features external-source --test external_source
               cargo test --locked -p "$(cargo pkgid --manifest-path revault_lockbox_api/Cargo.toml)" --features external-source --doc
           # CLI suites run once in cli-e2e, including command coverage enforcement.
           # Includes retained_fixtures: immutable historical bytes -> current, with a version-completeness gate.
