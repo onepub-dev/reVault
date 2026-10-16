@@ -198,7 +198,7 @@ mod imp {
         advise_no_dump_or_fork(data, data_size)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     fn advise_no_dump_or_fork(data: *mut u8, data_size: usize) -> Result<()> {
         // SAFETY: data/data_size describe this process mapping.
         let dont_dump = unsafe { libc::madvise(data.cast(), data_size, libc::MADV_DONTDUMP) };
@@ -211,7 +211,7 @@ mod imp {
         }
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
     fn advise_no_dump_or_fork(_data: *mut u8, _data_size: usize) -> Result<()> {
         Ok(())
     }

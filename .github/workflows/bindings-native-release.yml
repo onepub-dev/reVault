@@ -605,6 +605,112 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  android-native:
+    name: native android-${{ matrix.arch }}
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [aarch64, x86_64]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: ${{ matrix.arch }}-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          shared-key: bindings-native-android-${{ matrix.arch }}
+      - uses: dart-lang/setup-dart@v1
+      - uses: android-actions/setup-android@v3
+      - name: Install Android build tooling
+        run: |
+          sdkmanager "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          dart pub global activate dcli 10.3.0
+          cd tools
+          dart pub get
+      - name: Build Android API 23 carrier and verify 16 KB alignment
+        run: ./tools/build_android_native.dart ${{ matrix.arch }}
+      - name: Package reusable Android SDK
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling -- internal package-native
+          --repository . --version "${{ inputs.version }}" --target android-${{ matrix.arch }}
+          --library rust/target/${{ matrix.arch }}-linux-android/release/librevault_api.so
+          --static-library rust/target/${{ matrix.arch }}-linux-android/release/librevault_api.a
+          --output dist
+      - name: Cross-compile installed C and C++ SDK
+        run: ./tools/test_android_native.dart dist/revault-api-native-${{ inputs.version }}-android-${{ matrix.arch }}.tar.gz ${{ matrix.arch }} build
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-android-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+
+  android-conformance:
+    name: Android installed Dart and C/C++ runtime acceptance (${{ matrix.page_size }} byte pages)
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
+    needs: [android-native, ecosystem-layouts]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: default
+            page_size: 4096
+          - image: google_apis_ps16k
+            page_size: 16384
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          shared-key: bindings-android-acceptance
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - uses: android-actions/setup-android@v3
+      - uses: actions/download-artifact@v8
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: actions/download-artifact@v8
+        with:
+          name: native-android-x86_64
+          path: native
+      - name: Install Android acceptance tooling
+        run: |
+          sdkmanager "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          dart pub global activate dcli 10.3.0
+          cd tools
+          dart pub get
+      - name: Compile Flutter APK with both packaged Android carriers
+        if: matrix.page_size == 4096
+        run: ./tools/test_android_dart.dart packages/dart build
+      - name: Enable emulator acceleration
+        run: sudo --preserve-env=PATH ./tools/enable_android_emulator.dart
+      - name: Verify persisted content inside Android and Flutter app sandbox
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: ${{ matrix.image }}
+          script: |
+            ./tools/test_android_native.dart native/revault-api-native-${{ inputs.version }}-android-x86_64.tar.gz x86_64 emulator-5554 ${{ matrix.page_size }}
+            ./tools/test_android_dart.dart packages/dart emulator-5554
+
   macos-xcframework:
     if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
     needs: native
@@ -887,7 +993,7 @@ jobs:
        github.event_name == 'workflow_dispatch') &&
       ((github.event_name == 'workflow_dispatch' && !inputs.publish) ||
        needs.preflight-artifacts.result == 'success')
-    needs: [native, macos-xcframework, ecosystem-layouts, conformance, package-conformance, preflight-artifacts]
+    needs: [native, android-native, android-conformance, macos-xcframework, ecosystem-layouts, conformance, package-conformance, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -931,7 +1037,7 @@ jobs:
 
   ecosystem-layouts:
     if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
-    needs: native
+    needs: [native, android-native]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -981,6 +1087,8 @@ jobs:
         run: |
           set -euo pipefail
           declare -A libraries=(
+            [android-aarch64]=librevault_api.so
+            [android-x86_64]=librevault_api.so
             [linux-x86_64-gnu]=librevault_api.so
             [linux-aarch64-gnu]=librevault_api.so
             [macos-x86_64]=librevault_api.dylib

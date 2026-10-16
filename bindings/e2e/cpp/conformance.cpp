@@ -815,12 +815,12 @@ int main(int argc, char** argv) {
       for (int index = 2; index < argc; ++index) interop_open(argv[index]);
       return 0;
     }
-    if (argc == 2 && std::strcmp(argv[1], "--core") == 0) {
+    if (argc == 2 && (std::strcmp(argv[1], "--core") == 0 || std::strcmp(argv[1], "--android-core") == 0)) {
       archive_lifecycle();
       key_lifecycle();
       advanced_archive();
       vault_lifecycle();
-      default_vault_lifecycle();
+      if (std::strcmp(argv[1], "--core") == 0) default_vault_lifecycle();
       return 0;
     }
     archive_lifecycle();

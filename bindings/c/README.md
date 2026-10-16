@@ -32,6 +32,36 @@ the operating system's runtime library search path. Static builds contain the
 engine in the application and do not load it at runtime. In either case,
 `api_abi_version()` must return `3`.
 
+### Android NDK
+
+Android SDK archives provide the same C ABI for `arm64-v8a` and `x86_64`, with
+minimum API level 23 and 16 KB page alignment. Use the Android archive matching
+the application's ABI; desktop Linux libraries are not Android libraries.
+Link the matching SDK library through the application's NDK build and package
+the shared library under the corresponding Android ABI directory when linking
+dynamically. ARM32 is not supported.
+
+File creation also requires kernel and filesystem support for atomic
+`renameat2(RENAME_NOREPLACE)` (Linux 3.15 or later, or a vendor backport).
+Some older vendor kernels lack it even when the Android API level is sufficient;
+those operations fail without overwriting an existing destination.
+
+After unpacking the SDK, add its root to `CMAKE_PREFIX_PATH` and use the
+included CMake package from the application's Android NDK build:
+
+```cmake
+find_package(revault-api CONFIG REQUIRED)
+target_link_libraries(my_native_library PRIVATE revault-api::revault-api)
+```
+
+For C++, the SDK's `cpp/` directory contains the facade sources and CMake
+project. Build those with the same Android ABI and API level as the application.
+
+Use explicit paths in app-private writable storage and supply Vault passphrases
+explicitly. Android Keystore automatic unlock, the desktop Session Agent, and
+CLI migration tools are not included. Archive and Vault formats remain
+compatible with desktop releases in the same compatibility line.
+
 ```c
 #include <stdint.h>
 #include <stdlib.h>

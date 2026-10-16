@@ -107,7 +107,7 @@ For a concise language-to-registry reference, see
 
 All foreign-language packages use the same versioned C ABI library. Canonical
 native archives contain the dynamic and static libraries, the Windows DLL
-import library where applicable, the target-built Ruby ABI adapter, C header,
+import library where applicable, the target-built Ruby ABI adapter on desktop, C header,
 private FlatBuffers schema, license, target
 metadata, SPDX SBOM, and SHA-256 sidecar. Linux requires
 the system `libdbus-1` runtime; macOS and Windows use their native platform credential store
@@ -138,8 +138,20 @@ argument. The source-native Rust and WebAssembly APIs do not load the C ABI.
 | C | GitHub Releases, vcpkg, Homebrew, Debian and RPM | canonical SDK archive and `revault_api.h` |
 | C++ | ConanCenter, vcpkg, Homebrew, Debian and RPM | class facade over the canonical C ABI |
 
-The six canonical targets are Linux glibc x86-64/ARM64, macOS x86-64/ARM64,
-and Windows MSVC x86-64/ARM64. Registry credentials are release authority and
+The six desktop targets are Linux glibc x86-64/ARM64, macOS x86-64/ARM64,
+and Windows MSVC x86-64/ARM64. Android adds ARM64 and x86-64 native SDK
+artifacts for Dart/Flutter and C/C++ only, with minimum API level 23 and 16 KB
+page alignment. Other language packages retain their existing desktop target
+sets. In particular, the Java/Kotlin bindings use Java 22's foreign-function
+API and require a separate Android bridge before they can support Android;
+bundling an Android library in their desktop packages is insufficient.
+
+Android callers use app-private paths and explicit Vault passphrases. Android
+Keystore integration, the desktop Session Agent service, and CLI migration
+tools are outside this Android support. See the [Dart Android guide](dart/README.md#android)
+and [C Android SDK notes](c/README.md#android-ndk).
+
+Registry credentials are release authority and
 must use trusted publishing/OIDC where available, otherwise environment-scoped
 least-privilege secrets. Credentials are never committed.
 
@@ -158,7 +170,7 @@ inputs consumed by the Rust tool rather than release scripts.
 
 ### Release acceptance and order
 
-1. Build release-mode native libraries for all six targets and create immutable,
+1. Build release-mode native libraries for the six desktop and two Android targets and create immutable,
    deterministic native archives with `revault-tool release package-native`.
 2. Verify and securely unpack those archives, then stage and assemble every
    ecosystem package exclusively from them.
@@ -176,8 +188,9 @@ inputs consumed by the Rust tool rather than release scripts.
    facades second, and hosted WASM last. Registry publication is never used as
    a substitute for pre-publication package installation tests.
 
-The full claimed package matrix contains 94 combinations: every language on
-all six native targets except Swift's two unclaimed Windows targets. A missing
+The desktop package matrix contains 94 combinations: every language on
+all six desktop targets except Swift's two unclaimed Windows targets. Android
+acceptance is separate and covers Dart/Flutter and the C/C++ SDK. A missing
 runtime or preview runner blocks publication; it is not converted to a skip or
 ABI-only smoke test. The detailed operation contract is in
 [`e2e/CONFORMANCE.md`](e2e/CONFORMANCE.md).
@@ -275,8 +288,9 @@ git tag -s revault-dart-v0.3.2 -m "Release revault_api 0.3.2"
 git push origin revault-dart-v0.3.2
 ```
 
-The Dart-scoped tag still builds, attests, and package-tests all six native
-targets. It publishes `revault_api` to pub.dev and creates the corresponding
+The Dart-scoped tag still builds and attests the six desktop and two Android
+native targets, with desktop package tests and Android runtime acceptance.
+It publishes `revault_api` to pub.dev and creates the corresponding
 GitHub release, but it does not publish or promote any other language package.
 
 Do not rerun publication by changing an existing tag. Registry versions and

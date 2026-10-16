@@ -51,7 +51,7 @@ pub enum InternalCommand {
     Candidate(crate::release_candidate::Ci),
     /// Create a deterministic native SDK archive and SHA-256 sidecar.
     PackageNative(PackageNative),
-    /// Verify and expand all six native archives into ecosystem layouts.
+    /// Verify and expand all native archives into supported ecosystem layouts.
     StageEcosystems(StageEcosystems),
     /// Assemble publishable language package trees from a staged layout.
     AssemblePackages(AssemblePackages),
@@ -171,8 +171,10 @@ struct NativeMetadata {
     go_static_library: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     go_static_library_sha256: Option<String>,
-    ruby_shim: String,
-    ruby_shim_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ruby_shim: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ruby_shim_sha256: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     import_library: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -440,12 +442,14 @@ fn package_native(args: PackageNative) -> Result {
         .unwrap_or(315_532_800);
     let prefix = format!("revault-api-native-{}-{}", args.version, args.target);
     let temporary = TempDir::new()?;
-    let ruby_shim = build_ruby_shim(&repository, row, temporary.path())?;
+    let ruby_shim = if row.os == "android" {
+        None
+    } else {
+        Some(build_ruby_shim(&repository, row, temporary.path())?)
+    };
     let ruby_shim_name = ruby_shim
-        .file_name()
-        .ok_or("Ruby shim has no file name")?
-        .to_string_lossy()
-        .into_owned();
+        .as_ref()
+        .map(|path| path.file_name().unwrap().to_string_lossy().into_owned());
     let metadata = NativeMetadata {
         name: "revault-api-native".into(),
         version: args.version.clone(),
@@ -465,7 +469,7 @@ fn package_native(args: PackageNative) -> Result {
             .map(|path| sha256(path))
             .transpose()?,
         ruby_shim: ruby_shim_name.clone(),
-        ruby_shim_sha256: sha256(&ruby_shim)?,
+        ruby_shim_sha256: ruby_shim.as_ref().map(|path| sha256(path)).transpose()?,
         import_library: row.import_library.clone(),
         import_library_sha256: import_library
             .as_ref()
@@ -498,7 +502,6 @@ fn package_native(args: PackageNative) -> Result {
             static_library,
             format!("{prefix}/lib/{}", row.static_library),
         ),
-        (ruby_shim, format!("{prefix}/lib/{ruby_shim_name}")),
         (
             repository.join("rust/revault_bindings/revault_api.h"),
             format!("{prefix}/include/revault_api.h"),
@@ -514,6 +517,41 @@ fn package_native(args: PackageNative) -> Result {
         (metadata_path, format!("{prefix}/metadata.json")),
         (sbom_path, format!("{prefix}/sbom.spdx.json")),
     ];
+    if let (Some(source), Some(name)) = (ruby_shim, ruby_shim_name) {
+        files.push((source, format!("{prefix}/lib/{name}")));
+    }
+    if row.os == "android" {
+        let config = temporary.path().join("revault-api-config.cmake");
+        fs::write(&config, concat!(
+            "get_filename_component(_revault_prefix \"${CMAKE_CURRENT_LIST_DIR}/../../..\" ABSOLUTE)\n",
+            "if(NOT TARGET revault-api::revault-api)\n",
+            "  add_library(revault-api::revault-api SHARED IMPORTED)\n",
+            "  set_target_properties(revault-api::revault-api PROPERTIES\n",
+            "    IMPORTED_LOCATION \"${_revault_prefix}/lib/librevault_api.so\"\n",
+            "    INTERFACE_INCLUDE_DIRECTORIES \"${_revault_prefix}/include\")\n",
+            "endif()\n",
+        ))?;
+        files.push((
+            config,
+            format!("{prefix}/lib/cmake/revault-api/revault-api-config.cmake"),
+        ));
+        // Ship the maintained C++ facade sources with the reusable Android SDK.
+        for relative in [
+            "CMakeLists.txt",
+            "revault_api.cpp",
+            "revault_api.hpp",
+            "domain_models.hpp",
+            "domain_codec.hpp",
+            "LICENSE",
+            "README.md",
+            "generated/flatbuffers/revault_bindings_generated.h",
+        ] {
+            files.push((
+                repository.join("bindings/cpp").join(relative),
+                format!("{prefix}/cpp/{relative}"),
+            ));
+        }
+    }
     if let (Some(source), Some(name)) = (import_library, &row.import_library) {
         files.push((source, format!("{prefix}/lib/{name}")));
     }
@@ -569,6 +607,26 @@ fn stage_ecosystems(args: StageEcosystems) -> Result {
         let library = root.join("lib").join(&row.library);
         let static_library = root.join("lib").join(&row.static_library);
         let target = &metadata.target;
+        // Android carriers serve Dart and the standalone C ABI SDK. Desktop
+        // language packages are not Android runtimes (notably Java uses FFM).
+        if row.os == "android" {
+            copy_file(
+                &library,
+                &args
+                    .output
+                    .join("dart/lib/src/native")
+                    .join(target)
+                    .join(&row.library),
+            )?;
+            manifest.push(ManifestTarget {
+                target: target.clone(),
+                library: row.library.clone(),
+                sha256: metadata.library_sha256,
+                static_library: row.static_library.clone(),
+                static_sha256: metadata.static_library_sha256,
+            });
+            continue;
+        }
         copy_file(
             &root.join("include/revault_api.h"),
             &args.output.join("swift/include/revault_api.h"),
@@ -619,14 +677,24 @@ fn stage_ecosystems(args: StageEcosystems) -> Result {
             )?;
         }
         copy_file(
-            &root.join("lib").join(&metadata.ruby_shim),
+            &root.join("lib").join(
+                metadata
+                    .ruby_shim
+                    .as_ref()
+                    .ok_or("desktop archive missing Ruby shim")?,
+            ),
             &args
                 .output
                 .join("ruby")
                 .join(target)
                 .join("native")
                 .join(target)
-                .join(&metadata.ruby_shim),
+                .join(
+                    metadata
+                        .ruby_shim
+                        .as_ref()
+                        .ok_or("desktop archive missing Ruby shim")?,
+                ),
         )?;
         copy_file(
             &library,
@@ -704,13 +772,19 @@ fn assemble_packages(args: AssemblePackages) -> Result {
     let bindings = source.join("bindings");
     let manifest: NativeManifest =
         serde_json::from_slice(&fs::read(layout.join("native-manifest.json"))?)?;
+    let manifest_targets: BTreeSet<_> = manifest
+        .targets
+        .iter()
+        .map(|entry| entry.target.clone())
+        .collect();
     if manifest.version != args.version
         || manifest.abi != NATIVE_ABI_VERSION
-        || (!args.allow_partial && manifest.targets.len() != 6)
+        || manifest_targets.len() != manifest.targets.len()
+        || (!args.allow_partial && manifest_targets != target_rows(&source)?.into_keys().collect())
         || manifest.targets.is_empty()
     {
         return Err(
-            "layout must contain the requested version, ABI 2, and required native targets".into(),
+            "layout must contain the requested version, ABI, and required native targets".into(),
         );
     }
     let output = &args.output;
@@ -737,6 +811,9 @@ fn assemble_packages(args: AssemblePackages) -> Result {
     )?;
     for entry in &manifest.targets {
         let target = &entry.target;
+        if target.starts_with("android-") {
+            continue;
+        }
         let python = output.join("python").join(target);
         copy_tree(&bindings.join("python"), &python)?;
         copy_tree(
@@ -1028,6 +1105,9 @@ fn assemble_go(source: &Path, layout: &Path, output: &Path, manifest: &NativeMan
         fs::write(file, text)?;
     }
     for entry in &manifest.targets {
+        if entry.target.starts_with("android-") {
+            continue;
+        }
         let (os, arch, system) = go_platform(&entry.target)?;
         let library_flags = go_library_flags(&entry.target, &entry.static_library);
         fs::write(
@@ -1099,9 +1179,17 @@ fn extract_verified(archive: &Path, destination: &Path) -> Result<(PathBuf, Nati
     let static_library = root.join("lib").join(&metadata.static_library);
     if sha256(&library)? != metadata.library_sha256
         || sha256(&static_library)? != metadata.static_library_sha256
-        || sha256(&root.join("lib").join(&metadata.ruby_shim))? != metadata.ruby_shim_sha256
     {
         return Err(format!("native library checksum mismatch: {}", metadata.target).into());
+    }
+    match (&metadata.ruby_shim, &metadata.ruby_shim_sha256) {
+        (Some(name), Some(expected)) if metadata.os != "android" => {
+            if sha256(&root.join("lib").join(name))? != *expected {
+                return Err(format!("Ruby shim checksum mismatch: {}", metadata.target).into());
+            }
+        }
+        (None, None) if metadata.os == "android" => {}
+        _ => return Err("invalid Ruby shim metadata for native target".into()),
     }
     if let (Some(name), Some(expected)) =
         (&metadata.import_library, &metadata.import_library_sha256)
@@ -1803,6 +1891,66 @@ fn run_process(command: &mut Command) -> Result {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn android_sdk_round_trip_stages_only_supported_ecosystems() {
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .unwrap();
+        for arch in ["aarch64", "x86_64"] {
+            let temporary = TempDir::new().unwrap();
+            let library = temporary.path().join("librevault_api.so");
+            let static_library = temporary.path().join("librevault_api.a");
+            fs::write(&library, b"fixture shared carrier").unwrap();
+            fs::write(&static_library, b"fixture static carrier").unwrap();
+            let target = format!("android-{arch}");
+            package_native(PackageNative {
+                version: "0.5.99".into(),
+                target: target.clone(),
+                library,
+                static_library,
+                go_static_library: None,
+                output: temporary.path().join("dist"),
+                repository: repository.clone(),
+            })
+            .unwrap();
+            let archive = temporary
+                .path()
+                .join(format!("dist/revault-api-native-0.5.99-{target}.tar.gz"));
+            let (root, metadata) =
+                extract_verified(&archive, &temporary.path().join("unpack")).unwrap();
+            assert_eq!(metadata.os, "android");
+            assert_eq!(metadata.rust_target, format!("{arch}-linux-android"));
+            assert!(metadata.ruby_shim.is_none());
+            assert!(root.join("cpp/revault_api.hpp").is_file());
+            assert!(root
+                .join("lib/cmake/revault-api/revault-api-config.cmake")
+                .is_file());
+            let layout = temporary.path().join("layout");
+            stage_ecosystems(StageEcosystems {
+                version: "0.5.99".into(),
+                output: layout.clone(),
+                repository: repository.clone(),
+                archives: vec![archive],
+                allow_partial: true,
+            })
+            .unwrap();
+            assert_eq!(
+                fs::read(layout.join(format!("dart/lib/src/native/{target}/librevault_api.so")))
+                    .unwrap(),
+                b"fixture shared carrier"
+            );
+            for unsupported in [
+                "npm", "nuget", "maven", "python", "ruby", "lua", "php", "go",
+            ] {
+                assert!(
+                    !layout.join(unsupported).exists(),
+                    "unexpected Android {unsupported} package"
+                );
+            }
+        }
+    }
 
     #[test]
     fn migration_dependency_gate_uses_exact_public_registry_versions() {

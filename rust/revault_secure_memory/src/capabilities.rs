@@ -51,8 +51,8 @@ pub fn secure_memory_capabilities() -> SecureMemoryCapabilities {
             memory_locked: true,
             page_protected: true,
             guard_pages: true,
-            dump_excluded: cfg!(target_os = "linux"),
-            fork_excluded: cfg!(target_os = "linux"),
+            dump_excluded: cfg!(any(target_os = "linux", target_os = "android")),
+            fork_excluded: cfg!(any(target_os = "linux", target_os = "android")),
         }
     }
 

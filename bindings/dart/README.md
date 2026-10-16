@@ -24,7 +24,8 @@ optional session agent. The native core is implemented in Rust, while the
 public API uses Dart domain objects and explicitly owned secret values.
 
 The Dart package supports Dart and Flutter desktop applications on Linux,
-macOS, and Windows, on both x86-64 and ARM64. It does not currently support
+macOS, and Windows, on both x86-64 and ARM64, and Flutter Android applications
+on ARM64 devices and x86-64 emulators. It does not currently support
 Dart web applications: this binding uses `dart:ffi` and `dart:io`. Projects
 targeting browsers or WebAssembly should use the
 [JavaScript/WASM package](https://github.com/onepub-dev/reVault/tree/main/bindings/wasm).
@@ -48,9 +49,44 @@ Future<void> main() async {
 }
 ```
 
-The current release is `0.3.11`. Normal applications do not need to download a
-native library or set an environment variable; the package build hook bundles
+Normal applications do not need to download a native library or set an
+environment variable; the package build hook bundles
 the correct native library.
+
+## Android
+
+The native library requires API level 23 or later; the app must also meet its
+Flutter SDK's minimum (API level 24 for Flutter 3.47). Keep the Flutter minimum
+when it is higher. The supported ABIs are `arm64-v8a`
+and `x86_64`; 32-bit `armeabi-v7a` is not supported. Build only the supported
+architectures, for example:
+
+```console
+flutter build apk --target-platform android-arm64,android-x64
+```
+
+The package bundles Android NDK libraries, including alignment for 16 KB memory
+pages. The native-assets hook selects the Android library automatically;
+Linux libraries cannot be substituted. This binding has no Kotlin Gradle
+plugin and does not require a built-in Kotlin migration.
+
+File creation requires a kernel and filesystem supporting atomic
+`renameat2(RENAME_NOREPLACE)` (Linux 3.15 or later, or a vendor backport).
+The API level alone does not guarantee this on older devices. Unsupported
+systems fail the operation without overwriting an existing destination.
+
+Pass an explicit writable path inside the application's private storage to
+`Vault.openOrCreate` or `Vault.open`, and use app-accessible paths for Lockboxes.
+Do not rely on desktop home-directory defaults or the process working directory.
+Supply the Vault passphrase explicitly: Android Keystore integration and
+platform-store automatic unlock are not provided. Lockbox credentials can
+still be remembered inside the encrypted Vault after it is opened.
+
+Use process-local Vault and Lockbox handles on Android. The desktop Session
+Agent service and CLI migration tools are not part of Android support. Migrate
+historical archives on a supported desktop before importing them into the app.
+Android and desktop use the same archive and Vault formats within a release
+compatibility line.
 
 ## Create a Vault and Lockbox in Dart
 
@@ -236,7 +272,7 @@ For services launched with `sudo`, see
 
 The pub.dev package uses Dart native assets. Its build hook selects the library
 for the application's operating system and architecture and bundles it into
-Dart CLI and Flutter desktop builds. `Revault.load()` opens that bundled
+Dart CLI, Flutter desktop, and Flutter Android builds. `Revault.load()` opens that bundled
 library. An application that maintains its own copy can provide its path
 explicitly:
 

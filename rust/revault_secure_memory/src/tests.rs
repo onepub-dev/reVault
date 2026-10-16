@@ -161,8 +161,11 @@ fn assert_secure_vec_round_trip_with_len(len: usize) {
 }
 
 #[test]
-fn allocation_chunk_defaults_to_64k() {
+fn allocation_chunk_defaults_match_platform_budget() {
+    #[cfg(not(target_os = "android"))]
     assert_eq!(allocation_chunk_bytes(), 64 * 1024);
+    #[cfg(target_os = "android")]
+    assert_eq!(allocation_chunk_bytes(), page_size());
 }
 
 #[test]
@@ -192,8 +195,14 @@ fn capabilities_match_target_family() {
         assert!(!capabilities.guard_pages);
     }
 
-    assert_eq!(capabilities.dump_excluded, cfg!(target_os = "linux"));
-    assert_eq!(capabilities.fork_excluded, cfg!(target_os = "linux"));
+    assert_eq!(
+        capabilities.dump_excluded,
+        cfg!(any(target_os = "linux", target_os = "android"))
+    );
+    assert_eq!(
+        capabilities.fork_excluded,
+        cfg!(any(target_os = "linux", target_os = "android"))
+    );
 }
 
 #[test]

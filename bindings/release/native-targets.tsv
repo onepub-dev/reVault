@@ -1,4 +1,6 @@
 target	os	arch	rust_target	runner	library	static_library	import_library	archive
+android-aarch64	android	aarch64	aarch64-linux-android	ubuntu-24.04	librevault_api.so	librevault_api.a		tar.gz
+android-x86_64	android	x86_64	x86_64-linux-android	ubuntu-24.04	librevault_api.so	librevault_api.a		tar.gz
 linux-x86_64-gnu	linux	x86_64	x86_64-unknown-linux-gnu	ubuntu-24.04	librevault_api.so	librevault_api.a		tar.gz
 linux-aarch64-gnu	linux	aarch64	aarch64-unknown-linux-gnu	ubuntu-24.04-arm	librevault_api.so	librevault_api.a		tar.gz
 macos-x86_64	macos	x86_64	x86_64-apple-darwin	macos-15-intel	librevault_api.dylib	librevault_api.a		tar.gz

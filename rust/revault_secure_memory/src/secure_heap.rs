@@ -482,7 +482,7 @@ impl Drop for PageReprotectGuard {
 
 fn slot_size_for(capacity: usize) -> Result<usize> {
     if capacity == 0 {
-        return Ok(64);
+        return Ok(SIZE_CLASSES[0]);
     }
     if let Some(size) = SIZE_CLASSES.iter().copied().find(|size| capacity <= *size) {
         return Ok(size);
@@ -498,6 +498,23 @@ fn slot_size_for(capacity: usize) -> Result<usize> {
 mod reclamation_tests {
     use super::*;
     use crate::memory_region::MemoryRegion;
+
+    #[cfg(target_os = "android")]
+    #[test]
+    fn android_key_sizes_share_locked_pages() {
+        let mut heap = SecureHeap::new();
+        let mut allocations = Vec::new();
+        for capacity in [0, 32, 64, 128, 256, 512, 1024, 4096] {
+            allocations.push(heap.allocate(capacity).unwrap());
+        }
+        assert_eq!(heap.arenas.len(), 3);
+        assert_eq!(allocations[0].arena, allocations[4].arena);
+        assert_eq!(allocations[5].arena, allocations[6].arena);
+        for allocation in allocations {
+            heap.check_canaries(allocation).unwrap();
+            heap.free(allocation).unwrap();
+        }
+    }
 
     #[test]
     fn pressure_reclaims_only_empty_backing_and_preserves_live_and_stale_identity() {

@@ -1,6 +1,8 @@
 import 'dart:io';
 
 const _targets = <String, String>{
+  'android-aarch64': 'librevault_api.so',
+  'android-x86_64': 'librevault_api.so',
   'linux-x86_64-gnu': 'librevault_api.so',
   'linux-aarch64-gnu': 'librevault_api.so',
   'macos-x86_64': 'librevault_api.dylib',
@@ -9,7 +11,7 @@ const _targets = <String, String>{
   'windows-aarch64-msvc': 'revault_api.dll',
 };
 
-/// Copies the six prebuilt Revault carriers into the Dart publication tree.
+/// Copies the eight prebuilt Revault carriers into the Dart publication tree.
 ///
 /// The native-assets hook only declares the files. It cannot build or download
 /// them, so this tool must run before `dart pub publish` or `pub_release`.
@@ -55,7 +57,7 @@ void main(List<String> arguments) {
     }
     stderr.writeln(
       'Provide --source or REVAULT_DART_NATIVE_SOURCE pointing to a '
-      'directory containing all six target directories.',
+      'directory containing all eight target directories.',
     );
     exitCode = 1;
   }

@@ -1630,12 +1630,12 @@ int main(int argc, char **argv) {
     for (int index = 2; index < argc; index++) interop_open(argv[index]);
     return 0;
   }
-  if (argc == 2 && strcmp(argv[1], "--core") == 0) {
+  if (argc == 2 && (strcmp(argv[1], "--core") == 0 || strcmp(argv[1], "--android-core") == 0)) {
     archive_lifecycle();
     key_lifecycle();
     archive_advanced();
     vault_lifecycle();
-    default_vault_lifecycle();
+    if (strcmp(argv[1], "--core") == 0) default_vault_lifecycle();
     return 0;
   }
   if (argc == 2 && strcmp(argv[1], "--last-error") == 0) {

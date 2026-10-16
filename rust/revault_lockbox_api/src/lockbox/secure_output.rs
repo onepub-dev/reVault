@@ -358,23 +358,35 @@ mod native {
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid output name"))?;
         let new = std::ffi::CString::new(new.as_bytes())
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid output name"))?;
-        // Android exposes the constant as c_int but renameat2 takes c_uint.
-        #[cfg(target_os = "android")]
-        let flags = libc::RENAME_NOREPLACE as libc::c_uint;
-        #[cfg(not(target_os = "android"))]
-        let flags = libc::RENAME_NOREPLACE;
         // SAFETY: both directory descriptors are held live by the borrowed Dir
         // handles, and both C strings remain valid for the duration of this call.
-        if unsafe {
+        #[cfg(target_os = "linux")]
+        let result = unsafe {
             libc::renameat2(
                 from.as_raw_fd(),
                 old.as_ptr(),
                 to.as_raw_fd(),
                 new.as_ptr(),
-                flags,
+                libc::RENAME_NOREPLACE,
             )
-        } != 0
-        {
+        };
+        // Bionic only exports renameat2 from API 30. Use the kernel ABI on
+        // Android so the carrier can load on API 23. Preserve exclusive atomic
+        // publication; kernels without this syscall fail rather than clobber.
+        // SAFETY: the descriptors and C strings satisfy the same lifetimes
+        // above, and these are the documented renameat2 syscall arguments.
+        #[cfg(target_os = "android")]
+        let result = unsafe {
+            libc::syscall(
+                libc::SYS_renameat2,
+                from.as_raw_fd(),
+                old.as_ptr(),
+                to.as_raw_fd(),
+                new.as_ptr(),
+                libc::RENAME_NOREPLACE as libc::c_uint,
+            )
+        };
+        if result != 0 {
             return Err(io::Error::last_os_error());
         }
         Ok(())

@@ -30,6 +30,18 @@ with the matching C ABI library from the same SDK. Shared builds require that
 library on the operating system's runtime search path; static builds include
 the engine in the application.
 
+### Android NDK
+
+The Android SDK archives support `arm64-v8a` and `x86_64` on API level 23 or
+later. Build the C++20 facade with the Android NDK and link the matching Android
+C ABI library. The supplied native libraries have 16 KB page alignment.
+Desktop Linux libraries and ARM32 are not supported Android carriers.
+
+Use explicit app-private writable paths and explicit Vault passphrases.
+Android Keystore automatic unlock, the desktop Session Agent, and CLI migration
+tools are not included. The [C API Android notes](../c/README.md#android-ndk)
+describe native packaging and compatibility.
+
 ```cpp
 #include <revault_api.hpp>
 

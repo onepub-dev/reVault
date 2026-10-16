@@ -1,3 +1,13 @@
+## Unreleased
+
+- Add Android native assets for ARM64 devices and x86-64 emulators, requiring
+  native API level 23 or later and supporting 16 KB page alignment. Apps must
+  also meet their Flutter SDK's minimum API level. ARM32 is excluded.
+- Document app-private storage paths and explicit Vault passphrases on Android;
+  Android Keystore automatic unlock and the desktop Session Agent are not included.
+- Adapt Android secure-memory pools to the app's locked-memory budget while
+  retaining memory locking, guard pages, and dump/fork exclusions.
+
 ## 0.5.1
 
 - Prepare frozen exporter dependencies before offline CLI tests

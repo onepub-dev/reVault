@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add Android ARM64 and x86-64 native SDK artifacts for Dart/Flutter and C/C++,
+  with API level 23 minimum and 16 KB page alignment. Other language packages
+  retain their desktop support; Android Java/Kotlin requires a separate bridge.
 - Keep the native library selected by the runtime loader across facade
   factories and explicit reloads, including relocated installations and
   inherited library overrides.
