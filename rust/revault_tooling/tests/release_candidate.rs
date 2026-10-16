@@ -65,6 +65,12 @@ impl Fixture {
         );
         write(root, "runs.json", json!({"workflow_runs":[]}));
         write(root, "ref.json", json!({"object":{"sha":sha}}));
+        write(root, "commit.json", json!({"message":"Reviewed source"}));
+        write(
+            root,
+            "tag-refs.json",
+            json!([{"ref":"refs/tags/revault-dart-v0.5.2","object":{"type":"commit","sha":sha}}]),
+        );
         write(
             root,
             "main-comparison.json",
@@ -127,6 +133,20 @@ fn succeeds(result: std::process::Output) {
         String::from_utf8_lossy(&result.stderr)
     );
 }
+#[test]
+fn candidate_with_ci_skip_cannot_publish() {
+    let f = Fixture::new();
+    write(
+        f.dir.path(),
+        "commit.json",
+        json!({"message":"Release [skip ci]"}),
+    );
+    let result = f.run(&["publish"]);
+    assert!(!result.status.success());
+    assert!(String::from_utf8_lossy(&result.stderr).contains("CI skip directive"));
+    assert!(!f.calls().contains("POST"));
+}
+
 #[test]
 fn remembered_candidate_resumes_failed_publication_without_preparing() {
     let f = Fixture::new();

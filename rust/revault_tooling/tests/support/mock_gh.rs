@@ -52,6 +52,10 @@ fn main() {
                 get("runs.json");
             } else if path.contains("git/ref/heads/") {
                 get("ref.json");
+            } else if path.contains("git/commits/") {
+                get("commit.json");
+            } else if path.contains("git/matching-refs/tags/") {
+                get("tag-refs.json");
             } else if path.contains("/compare/") {
                 get("main-comparison.json");
             } else {

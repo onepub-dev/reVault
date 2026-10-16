@@ -629,6 +629,8 @@ jobs:
           shared-key: bindings-native-android-${{ matrix.arch }}
       - uses: dart-lang/setup-dart@v1
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - name: Install Android build tooling
         run: |
           sdkmanager "ndk;28.2.13676358"
@@ -681,6 +683,8 @@ jobs:
         with:
           channel: stable
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - uses: actions/download-artifact@v8
         with:
           name: revault-api-publication-trees
