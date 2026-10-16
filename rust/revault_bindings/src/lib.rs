@@ -8592,6 +8592,38 @@ mod tests {
     use std::ffi::CStr;
 
     #[test]
+    fn future_lockbox_format_has_structured_upgrade_error() {
+        // No future-format writer exists yet. Only the discriminator is known;
+        // its remaining header layout deliberately has no current checksum.
+        let mut archive = vec![0; 384];
+        archive[..10].copy_from_slice(b"LBX5HDR\0\x05\0");
+        let key = [0_u8; 32];
+        unsafe {
+            assert_eq!(
+                lockbox_probe_format_version(archive.as_ptr(), archive.len()),
+                5
+            );
+            assert!(
+                lockbox_open(archive.as_ptr(), archive.len(), key.as_ptr(), key.len()).is_null()
+            );
+            let buffer = buffer_last_error_details();
+            assert!(!buffer.ptr.is_null());
+            let bytes = std::slice::from_raw_parts(buffer.ptr, buffer.len);
+            let details = flatbuffers::root::<bindings_transport::ErrorDetails>(bytes).unwrap();
+            assert_eq!(details.category(), Some("unsupported_format_version"));
+            assert_eq!(details.artifact_kind(), Some("lockbox"));
+            assert_eq!(details.found_version(), 5);
+            assert_eq!(details.supported_version(), 4);
+            assert_eq!(
+                details.guidance(),
+                Some("Install a newer reVault release, then retry.")
+            );
+            assert!(!details.message().unwrap().contains("corrupt"));
+            buffer_free(buffer);
+        }
+    }
+
+    #[test]
     fn alias_abi_persisted_normalized_rebind_and_read_only_lifecycle() {
         unsafe fn take(value: RevaultBuffer) -> Vec<u8> {
             assert!(!value.ptr.is_null());

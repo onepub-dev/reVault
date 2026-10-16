@@ -121,7 +121,7 @@ pub(crate) fn recover_header_root_pointer(
 
 pub(crate) fn read_header_for_scan(bytes: &[u8]) -> Result<LockboxHeader> {
     let header = read_header(bytes);
-    if header.is_err() {
+    if header.is_err() && !matches!(header, Err(Error::UnsupportedFormatVersion { .. })) {
         if let Some(repaired) = recover_header_magic(bytes) {
             return read_header(&repaired);
         }
@@ -189,13 +189,34 @@ pub(crate) fn publish_header(
     Ok(next_slot)
 }
 
-// Inspect only the checksummed discriminator, never future payload fields.
+// A newer magic identifies an unsupported format, not a valid archive. Its
+// checksum and layout may have changed, so never try to validate or decode it
+// using this build's layout. Require agreement with the version field to avoid
+// treating a single damaged magic byte as a format upgrade.
+fn future_magic_version(bytes: &[u8]) -> Option<u16> {
+    let prefix = bytes.get(..10)?;
+    let version = u16::from_le_bytes([prefix[8], prefix[9]]);
+    (prefix[..3] == *b"LBX"
+        && prefix[4..8] == *b"HDR\0"
+        && prefix[3].is_ascii_digit()
+        && u16::from(prefix[3] - b'0') == version
+        && version > LOCKBOX_FORMAT_VERSION)
+        .then_some(version)
+}
+
 // Refuse a future slot even if the other slot remains readable by this build.
+// If the magic is unchanged, require the existing checksummed discriminator.
 fn future_format_version(bytes: &[u8]) -> Option<u16> {
     bytes
-        .chunks_exact(192)
+        .chunks(192)
         .take(2)
         .filter_map(|slot| {
+            if let Some(version) = future_magic_version(slot) {
+                return Some(version);
+            }
+            if slot.len() < 192 {
+                return None;
+            }
             let version = u16::from_le_bytes([slot[8], slot[9]]);
             (slot[..8] == *b"LBX4HDR\0"
                 && version > LOCKBOX_FORMAT_VERSION
@@ -205,7 +226,10 @@ fn future_format_version(bytes: &[u8]) -> Option<u16> {
         .max()
 }
 
-/// Read a checksummed native format discriminator without opening its contents.
+/// Read a native format discriminator without opening its contents.
+///
+/// Known layouts require a valid checksum. A newer versioned magic is reported
+/// without validating its unknown layout; this does not establish integrity.
 pub fn probe_lockbox_format_version(bytes: &[u8]) -> Result<u16> {
     if let Some(version) = future_format_version(bytes) {
         return Ok(version);
@@ -253,6 +277,44 @@ pub fn read_lockbox_id(bytes: &[u8]) -> Result<LockboxId> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn future_magic_does_not_require_the_current_layout_or_checksum() {
+        let prefix = b"LBX5HDR\0\x05\0";
+        assert_eq!(probe_lockbox_format_version(prefix).unwrap(), 5);
+        for offset in [0, header_v2::SLOT_LEN] {
+            let mut bytes = Vec::new();
+            write_header(&mut bytes, 100, 4, 200, LockboxId::from_bytes([7; 16]), 300);
+            bytes[offset..offset + prefix.len()].copy_from_slice(prefix);
+            let unchanged = bytes.clone();
+            assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 5);
+            assert!(matches!(
+                read_header(&bytes),
+                Err(Error::UnsupportedFormatVersion {
+                    found: 5,
+                    supported: 4,
+                    ..
+                })
+            ));
+            assert!(matches!(
+                read_header_for_scan(&bytes),
+                Err(Error::UnsupportedFormatVersion { found: 5, .. })
+            ));
+            assert_eq!(bytes, unchanged);
+        }
+        let mut bytes = vec![0; HEADER_LEN];
+        bytes[..prefix.len()].copy_from_slice(prefix);
+        bytes[header_v2::SLOT_LEN..header_v2::SLOT_LEN + 10].copy_from_slice(b"LBX9HDR\0\x09\0");
+        assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 9);
+    }
+
+    #[test]
+    fn future_magic_requires_a_complete_matching_discriminator() {
+        for prefix in [b"LBX5HDR\0\x04\0", b"LBX4HDR\0\x05\0", b"XYZ5HDR\0\x05\0"] {
+            assert!(probe_lockbox_format_version(prefix).is_err());
+        }
+        assert!(probe_lockbox_format_version(b"LBX5HDR\0").is_err());
+    }
 
     #[test]
     fn future_discriminator_requires_checksum_and_refuses_either_slot() {

@@ -283,6 +283,32 @@ mod tests {
     }
 
     #[test]
+    fn future_lockbox_format_path_is_refused_without_modification() {
+        let root = std::env::temp_dir().join(format!(
+            "revault-future-format-{}",
+            revault_lockbox_api::LockboxId::new_random().unwrap()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let path = root.join("future.lbox");
+        // A synthetic discriminator is necessary: no public future writer exists.
+        let mut archive = vec![0; 384];
+        archive[..10].copy_from_slice(b"LBX5HDR\0\x05\0");
+        std::fs::write(&path, &archive).unwrap();
+        for mode in ["read", "write"] {
+            assert!(file(&path, mode, ptr::null()).is_null());
+            let error = diagnostic();
+            assert!(
+                error.contains("unsupported lockbox format version 5"),
+                "{error}"
+            );
+            assert!(error.contains("supports version 4"), "{error}");
+            assert!(error.contains("Install a newer reVault release"), "{error}");
+            assert_eq!(std::fs::read(&path).unwrap(), archive);
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn password_file_defaults_and_explicit_access_survive_reopen() {
         let root = std::env::temp_dir().join(format!(
             "revault-ffi-password-access-{}",
