@@ -1,4 +1,4 @@
-## Unreleased
+## 0.5.2
 
 - Add Android native assets for ARM64 devices and x86-64 emulators, requiring
   native API level 23 or later and supporting 16 KB page alignment. Apps must
@@ -7,6 +7,8 @@
   Android Keystore automatic unlock and the desktop Session Agent are not included.
 - Adapt Android secure-memory pools to the app's locked-memory budget while
   retaining memory locking, guard pages, and dump/fork exclusions.
+- Report lockboxes written by newer unsupported formats with a clear upgrade
+  error while preserving the original archive.
 
 ## 0.5.1
 
