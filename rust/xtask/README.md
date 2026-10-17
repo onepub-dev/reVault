@@ -8,8 +8,8 @@ Run tasks from the `rust/` workspace directory:
 
 ```text
 cargo xtask help
-cargo xtask install-cli
 cargo xtask dev-tools
+revault-tool install
 revault-tool dev check-required
 revault-tool dev upgrade-deps
 ```
@@ -33,3 +33,6 @@ release preparation/publication, binding generation and checks, conformance
 tests, and the `dev` namespace for repository validation tasks. The xtask
 binary remains the bootstrap layer because it can build and install the hub
 before the hub itself exists on `PATH`.
+
+`revault-tool install` installs the local CLI and migration executables from
+source in this checkout. Run it from the repository or a child directory.

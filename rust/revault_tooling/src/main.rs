@@ -23,6 +23,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Install the local CLI and migration executables from source.
+    Install,
     /// Prepare, publish and inspect releases.
     Release {
         #[command(subcommand)]
@@ -143,6 +145,7 @@ fn main() {
 fn run() -> Result {
     let cli = Cli::parse();
     match cli.command {
+        Command::Install => run_dev(DevCommand::InstallCli),
         Command::Release { command } => release::run(command),
         Command::Bindings { command } => repository::run(command),
         Command::Test { command } => match command {
@@ -254,6 +257,7 @@ mod command_tests {
     #[test]
     fn public_command_structure() {
         for args in [
+            vec!["install"],
             vec!["release", "prepare"],
             vec!["release", "prepare", "cli"],
             vec!["release", "prepare", "bindings"],
