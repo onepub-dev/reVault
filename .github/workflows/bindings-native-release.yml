@@ -700,9 +700,14 @@ jobs:
           dart pub global activate dcli_sdk 10.3.0 --overwrite
           cd tools
           dart pub get
+      - name: Compile Android acceptance runners
+        working-directory: tools
+        run: |
+          dart compile exe test_android_native.dart -o test_android_native
+          dart compile exe test_android_dart.dart -o test_android_dart
       - name: Compile Flutter APK with both packaged Android carriers
         if: matrix.page_size == 4096
-        run: ./tools/test_android_dart.dart packages/dart build
+        run: ./tools/test_android_dart packages/dart build
       - name: Enable emulator acceleration
         run: sudo --preserve-env=PATH ./tools/enable_android_emulator.dart
       - name: Verify persisted content inside Android and Flutter app sandbox
@@ -712,8 +717,8 @@ jobs:
           arch: x86_64
           target: ${{ matrix.image }}
           script: |
-            ./tools/test_android_native.dart native/revault-api-native-${{ inputs.version }}-android-x86_64.tar.gz x86_64 emulator-5554 ${{ matrix.page_size }}
-            ./tools/test_android_dart.dart packages/dart emulator-5554
+            ./tools/test_android_native native/revault-api-native-${{ inputs.version }}-android-x86_64.tar.gz x86_64 emulator-5554 ${{ matrix.page_size }}
+            ./tools/test_android_dart packages/dart emulator-5554
 
   macos-xcframework:
     if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
