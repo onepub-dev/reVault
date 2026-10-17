@@ -25,6 +25,9 @@ use crate::{
 };
 use zeroize::Zeroizing;
 
+#[path = "recovery_ranges.rs"]
+mod ranges;
+
 /// Scans damaged lockbox storage and reports or salvages recoverable content.
 ///
 /// Recovery is intentionally separated from `Lockbox` because it operates on
@@ -41,6 +44,7 @@ impl RecoveryScanner {
                 intact_files: Vec::new(),
                 intact_file_count: 0,
                 partial_files: 0,
+                partial_file_details: Vec::new(),
                 corrupt_records: 1,
                 toc_recovered: false,
                 variables_recovered: false,
@@ -55,6 +59,11 @@ impl RecoveryScanner {
     /// Scan lockbox storage bytes and report recoverable entries.
     pub fn scan_bytes(bytes: Vec<u8>, key: impl AsRef<[u8]>) -> RecoveryReport {
         recover_bytes(bytes, key)
+    }
+
+    /// Scan borrowed storage bytes without making another archive-sized copy.
+    pub fn scan_slice(bytes: &[u8], key: impl AsRef<[u8]>) -> RecoveryReport {
+        RecoverySession::new(bytes, key.as_ref()).report()
     }
 
     /// Salvage a damaged lockbox from storage bytes into a new opened lockbox.
@@ -140,19 +149,28 @@ impl<'a> RecoverySession<'a> {
         let mut intact_files = Vec::new();
         let mut intact_file_count = 0;
         let mut partial_files = 0;
+        let mut partial_file_details = Vec::new();
         for entry in toc_entries.values().filter(|entry| !entry.deleted) {
-            let complete = match entry.node_kind {
-                NodeKind::File => read_page_file_bytes(&self.scanner, entry)
-                    .map(crate::page_buffer::ZeroizingBytes::new)
-                    .is_ok(),
-                NodeKind::Symlink => recover_symlink_target(&self.scanner, entry).is_ok(),
-                NodeKind::Directory => true,
+            let result = match entry.node_kind {
+                NodeKind::File => read_page_file_bytes(&self.scanner, entry).map(|bytes| {
+                    let _bytes = crate::page_buffer::ZeroizingBytes::new(bytes);
+                }),
+                NodeKind::Symlink => recover_symlink_target(&self.scanner, entry).map(|_| ()),
+                NodeKind::Directory => Ok(()),
             };
-            if complete {
+            if result.is_ok() {
                 intact_file_count += 1;
             } else {
                 partial_files += 1;
                 corrupt_records += 1;
+                let reason = match result.unwrap_err() {
+                    Error::InvalidKey => "payload authentication failed",
+                    Error::Truncated => "file data is truncated",
+                    Error::SecurityLimitExceeded(_) => "file exceeds recovery safety limits",
+                    _ => "file metadata or content failed integrity validation",
+                };
+                partial_file_details.push((entry.path.to_string(), reason.to_owned()));
+                continue;
             }
             intact_files.push(LockboxEntry {
                 path: entry.path.clone(),
@@ -166,6 +184,7 @@ impl<'a> RecoverySession<'a> {
             intact_files,
             intact_file_count,
             partial_files,
+            partial_file_details,
             corrupt_records,
             toc_recovered,
             variables_recovered: metadata.variables.is_some(),

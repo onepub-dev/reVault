@@ -53,12 +53,23 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args = env::args().skip(1).collect::<Vec<_>>();
     if args.as_slice() == ["capabilities"] {
         println!(
-            "{{\"protocol\":3,\"artifact\":\"archive\",\"native_version\":2,\"migration_schema\":3,\"recovery\":true}}"
+            "{{\"protocol\":3,\"artifact\":\"archive\",\"native_version\":2,\"migration_schema\":3,\"recovery\":true,\"recovery_directory_protocol\":1}}"
         );
         return Ok(());
     }
     if args.starts_with(&["migrate".into(), "archive".into(), "recover".into()]) {
-        return recover(&args);
+        return recover(&args).map_err(|error| {
+            use crate::archive_reader::Error;
+            let category = match error.downcast_ref::<Error>() {
+                Some(Error::InvalidKey) => "authentication",
+                Some(Error::CorruptHeader | Error::CorruptRecord | Error::Truncated) => "integrity",
+                Some(Error::InvalidOperation(_)) => "mutation",
+                Some(Error::Io(_)) => "io",
+                _ => "other",
+            };
+            eprintln!("REVAULT_RECOVERY_EVENT {}", serde_json::json!({"stage":"helper_failed","error_category":category,"version":env!("CARGO_PKG_VERSION")}));
+            error
+        });
     }
     if !args.starts_with(&["migrate".into(), "archive".into(), "export".into()]) {
         return Err("unsupported historical migration command".into());
@@ -168,6 +179,15 @@ fn authenticated_source_error(error: crate::archive_reader::Error) -> Box<dyn st
     }
 }
 
+fn recovery_event(stage: &'static str, progress: Option<(u64, u64)>) {
+    let mut event = serde_json::json!({"stage":stage,"version":env!("CARGO_PKG_VERSION")});
+    if let Some((done, total)) = progress {
+        event["completed_files"] = done.into();
+        event["total_files"] = total.into();
+    }
+    eprintln!("REVAULT_RECOVERY_EVENT {event}");
+}
+
 fn recover(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     use crate::archive_reader::vault_integration::VaultOpen;
     use crate::archive_reader::{OwnerSigningKeyPair, RecoveryScanner, ScopedFileLock};
@@ -191,6 +211,7 @@ fn recover(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             secrets.next().ok_or("missing owner key")?,
         )?);
     }
+    recovery_event("reading_source", None);
     let guard = ScopedFileLock::read_archive(&source)?;
     let bytes = guard.read_archive_bytes()?;
     if crate::archive_reader::probe_lockbox_format_version(&bytes)? != 2 {
@@ -199,6 +220,7 @@ fn recover(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let working = tempfile::tempdir()?;
     let copy = working.path().join("source.lbox");
     std::fs::write(&copy, &bytes)?;
+    recovery_event("unlocking", None);
     let mut key = raw_key;
     for record in secrets {
         if key.is_some() {
@@ -217,9 +239,67 @@ fn recover(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let key = key.ok_or("no supplied credential can unlock the historical access directory")?;
     let raw = key.with_bytes(|bytes| Zeroizing::new(bytes.to_vec()))?;
     let expected = RecoveryScanner::owner_fingerprint_for_recovery(&bytes, &raw)?;
-    let report = RecoveryScanner::scan_bytes(bytes.clone(), &*raw);
-    let report_json = serde_json::json!({"intact_files": report.intact_file_count, "partial_files": report.partial_files, "corrupt_records": report.corrupt_records});
+    if args.iter().any(|arg| arg == "--recovery-directory") {
+        use current_migration_format::{ArtifactKind, ArtifactWriter, MigrationHeader};
+        let dry_run = args.iter().any(|arg| arg == "--dry-run");
+        let password = artifact_password.with_bytes(|bytes| Zeroizing::new(bytes.to_vec()))?;
+        let mut writer = if dry_run {
+            None
+        } else {
+            Some(ArtifactWriter::new(
+                std::io::BufWriter::new(
+                    std::fs::OpenOptions::new()
+                        .write(true)
+                        .create_new(true)
+                        .open(&output)?,
+                ),
+                MigrationHeader {
+                    artifact_kind: ArtifactKind::Journal,
+                    source_native_version: 2,
+                    migration_schema_version: 3,
+                    target_native_version: None,
+                    operation_id: random_id()?,
+                },
+                &password,
+            )?)
+        };
+        let plan = RecoveryScanner::recover_ranges(&bytes, &raw, |id, offset, data| {
+            if let Some(writer) = writer.as_mut() {
+                let mut frame = Zeroizing::new(Vec::with_capacity(16 + data.len()));
+                frame.extend_from_slice(&id.to_le_bytes());
+                frame.extend_from_slice(&offset.to_le_bytes());
+                frame.extend_from_slice(data);
+                writer
+                    .write_raw(&frame)
+                    .map_err(|error| crate::archive_reader::Error::Io(error.to_string()))?;
+            }
+            Ok(())
+        })?;
+        if let Some(mut writer) = writer {
+            writer.write_json(&plan)?;
+            writer.finish()?;
+        }
+        println!("{plan}");
+        return Ok(());
+    }
+    recovery_event("scanning_records", None);
+    let (report, partial_file_details) = RecoveryScanner::report_with_file_details(&bytes, &raw);
+    let mut report_json = serde_json::json!({
+        "intact_files": report.intact_file_count,
+        "partial_files": report.partial_files,
+        "corrupt_records": report.corrupt_records,
+        "toc_recovered": report.toc_recovered,
+        "partial_file_details": partial_file_details.iter().map(|(path, reason)| serde_json::json!({"path": path, "reason": reason})).collect::<Vec<_>>(),
+        "unidentified_partial_files": report.partial_files.saturating_sub(partial_file_details.len()),
+    });
     if args.iter().any(|arg| arg == "--dry-run") {
+        report_json["file_recovery_plan"] = RecoveryScanner::plan_file_fragments_and_progress(
+            &bytes,
+            &raw,
+            None,
+            |_, _, _| Ok(()),
+            |done, total| recovery_event("verifying_files", Some((done, total))),
+        )?;
         println!("{report_json}");
         return Ok(());
     }
@@ -230,8 +310,45 @@ fn recover(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 .is_ok_and(|fingerprint| fingerprint == expected)
         })
         .ok_or("the established archive owner's signing key is unavailable")?;
-    let recovered = RecoveryScanner::salvage_bytes_with_secret_key(bytes, &key, &signer)?;
     let artifact_password = artifact_password.with_bytes(|bytes| Zeroizing::new(bytes.to_vec()))?;
+    let partial_output =
+        option(args, "--partial-output").ok_or("recovery requires an encrypted partial output")?;
+    let mut partial_writer = current_migration_format::ArtifactWriter::new(
+        std::io::BufWriter::new(
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(partial_output)?,
+        ),
+        current_migration_format::MigrationHeader {
+            artifact_kind: current_migration_format::ArtifactKind::Journal,
+            source_native_version: 2,
+            migration_schema_version: 3,
+            target_native_version: None,
+            operation_id: random_id()?,
+        },
+        &artifact_password,
+    )?;
+    recovery_event("restoring_archive", None);
+    let (recovered, plan) = RecoveryScanner::salvage_with_file_fragments_and_progress(
+        &bytes,
+        &raw,
+        &signer,
+        |id, offset, data| {
+            let mut frame = Zeroizing::new(Vec::with_capacity(16 + data.len()));
+            frame.extend_from_slice(&id.to_le_bytes());
+            frame.extend_from_slice(&offset.to_le_bytes());
+            frame.extend_from_slice(data);
+            partial_writer
+                .write_raw(&frame)
+                .map_err(|error| crate::archive_reader::Error::Io(error.to_string()))
+        },
+        |done, total| recovery_event("verifying_files", Some((done, total))),
+    )?;
+    partial_writer.write_json(&plan)?;
+    partial_writer.finish()?;
+    report_json["file_recovery_plan"] = plan;
+    recovery_event("exporting_archive", None);
     export_archive(
         &recovered,
         &output,

@@ -456,7 +456,13 @@ fn alias_selectors(current: &OsStr) -> Vec<CompletionCandidate> {
             .and_then(|vault| vault.list_lockbox_aliases().ok())
             .unwrap_or_default()
             .into_iter()
-            .map(|alias| format!("a@{}", alias.name)),
+            .flat_map(|alias| {
+                let mut selectors = vec![format!("a@{}", alias.name)];
+                if super::aliases::is_bare_name(&alias.name) {
+                    selectors.push(alias.name);
+                }
+                selectors
+            }),
     )
 }
 

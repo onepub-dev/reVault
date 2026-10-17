@@ -15,6 +15,8 @@ mod mirror;
 mod mirror_index;
 mod output;
 mod recovery;
+mod recovery_directory;
+mod recovery_telemetry;
 mod session;
 mod variables;
 mod vault;

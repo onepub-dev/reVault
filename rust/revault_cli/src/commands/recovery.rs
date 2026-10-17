@@ -17,21 +17,92 @@ use std::path::{Path, PathBuf};
 
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     let options = RecoverOptions::from_matches(matches)?;
-    run_options(options, access)
+    if let Some(path) = &options.diagnostics {
+        let identity = |path: &Path| -> std::io::Result<PathBuf> {
+            let absolute = std::path::absolute(path)?;
+            Ok(fs::canonicalize(&absolute).unwrap_or_else(|_| {
+                let parent = absolute.parent().unwrap_or(Path::new("/"));
+                fs::canonicalize(parent)
+                    .unwrap_or_else(|_| parent.to_owned())
+                    .join(absolute.file_name().unwrap_or_default())
+            }))
+        };
+        let diagnostic = identity(Path::new(path))?;
+        let output = options
+            .output
+            .clone()
+            .unwrap_or_else(|| default_recovered_path(&options.lockbox_path));
+        let directory =
+            options
+                .directory
+                .clone()
+                .map(PathBuf::from)
+                .unwrap_or(default_recovery_directory(Path::new(
+                    &options.lockbox_path,
+                ))?);
+        if [
+            Path::new(&options.lockbox_path),
+            Path::new(&output),
+            directory.as_path(),
+        ]
+        .iter()
+        .any(|path| identity(path).is_ok_and(|path| path == diagnostic))
+        {
+            return Err(cli_error("diagnostics must use a separate new file, not the source or a recovery destination"));
+        }
+    }
+    let mut telemetry = super::recovery_telemetry::RecoveryTelemetry::new(
+        options.diagnostics.as_deref().map(Path::new),
+        options.quiet,
+    )?;
+    let result = std::thread::scope(|scope| {
+        let (stop, stopped) = std::sync::mpsc::channel();
+        let monitor_telemetry = &telemetry;
+        let monitor = scope.spawn(move || {
+            while matches!(
+                stopped.recv_timeout(std::time::Duration::from_secs(5)),
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+            ) {
+                monitor_telemetry.heartbeat();
+            }
+        });
+        telemetry.event("starting", None);
+        let result = run_options(options, access, &telemetry);
+        let _ = stop.send(());
+        let _ = monitor.join();
+        result
+    });
+    if let Err(error) = telemetry.finish(result.as_ref().err().map(|error| &**error)) {
+        if result.is_ok() {
+            return Err(error);
+        }
+        eprintln!("Recovery diagnostic report could not be completed: {error}");
+    }
+    result
 }
 
-fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
+fn run_options(
+    options: RecoverOptions,
+    access: &Access,
+    telemetry: &super::recovery_telemetry::RecoveryTelemetry,
+) -> CliResult<()> {
+    telemetry.event("reading_source", None);
+    let output = options
+        .output
+        .clone()
+        .unwrap_or_else(|| default_recovered_path(&options.lockbox_path));
+    let directory = match options.directory.as_deref() {
+        Some(path) => std::path::absolute(path)?,
+        None => default_recovery_directory(Path::new(&options.lockbox_path))?,
+    };
     let mut header = Vec::new();
     fs::File::open(&options.lockbox_path)?
         .take(384)
         .read_to_end(&mut header)?;
     match revault_lockbox_api::probe_lockbox_format_version(&header) {
         Ok(2) => {
-            let output = options.output.as_deref().map(Path::new);
+            let output = Path::new(&output);
             if !options.dry_run {
-                let output = output.ok_or_else(|| cli_error(
-                    "historical recovery requires a separate --output <recovered.lbox>; the original is retained",
-                ))?;
                 if same_existing_path(Path::new(&options.lockbox_path), output) {
                     return Err(cli_error("historical recovery requires a separate output; the original must be retained"));
                 }
@@ -40,12 +111,12 @@ fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
                 }
             }
             return super::migrate::recover_historical_archive(
-                Path::new(&options.lockbox_path), output, options.overwrite,
+                Path::new(&options.lockbox_path), Some(output), options.overwrite,
                 options.dry_run, match options.format {
                     OutputFormat::Table => "table",
                     OutputFormat::Tsv => "tsv",
                     OutputFormat::Json => "json",
-                }, options.quiet, access,
+                }, options.quiet, access, Some(&directory), telemetry,
             );
         }
         Ok(1) => return Err(cli_error("format-1 recovery is not supported by this build's recovery scanner; retain the original and restore a known-good backup. Migration can read intact format-1 archives, but cannot repair damaged ones")),
@@ -56,32 +127,60 @@ fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
         Ok(_) | Err(Error::CorruptHeader | Error::CorruptRecord | Error::Truncated) => {}
         Err(error) => return Err(error.into()),
     }
-    match inspect_pending_cleanup(&options.lockbox_path, access) {
-        Ok(Some(status)) => {
-            if options.dry_run {
-                print_pending_cleanup(&status, options.format)?;
-                return Ok(());
+    if options.overwrite && same_existing_path(Path::new(&options.lockbox_path), Path::new(&output))
+    {
+        match inspect_pending_cleanup(&options.lockbox_path, access) {
+            Ok(Some(status)) => {
+                if options.dry_run {
+                    print_pending_cleanup(&status, options.format)?;
+                    return Ok(());
+                }
+                return recover_pending_cleanup(
+                    &options.lockbox_path,
+                    access,
+                    &status,
+                    options.quiet,
+                );
             }
-            return recover_pending_cleanup(&options.lockbox_path, access, &status, options.quiet);
+            Ok(None) => {}
+            Err(err)
+                if matches!(
+                    err.downcast_ref::<Error>(),
+                    Some(Error::CorruptHeader | Error::CorruptRecord | Error::Truncated)
+                ) => {}
+            Err(err) => return Err(err),
         }
-        Ok(None) => {}
-        Err(err)
-            if matches!(
-                err.downcast_ref::<Error>(),
-                Some(Error::CorruptHeader | Error::CorruptRecord | Error::Truncated)
-            ) => {}
-        Err(err) => return Err(err),
     }
     if options.dry_run {
+        telemetry.event("scanning_records", None);
         let report = scan_report(&options.lockbox_path, access, options.quiet)?;
         print_report(&report, options.format)?;
+        let key = match access {
+            Access::ContentKey(key) => key.try_clone()?,
+            Access::CacheOnly => cached_key(&options.lockbox_path)?,
+            Access::PromptPassword => {
+                return Err(cli_error("recover requires --key or an open lockbox"))
+            }
+        };
+        let bytes = read_recovery_bytes(&options.lockbox_path, options.quiet)?;
+        let raw = key.with_bytes(|key| zeroize::Zeroizing::new(key.to_vec()))?;
+        let mut plan = RecoveryScanner::plan_file_fragments_and_progress(
+            &bytes,
+            &raw,
+            None,
+            |_, _, _| Ok(()),
+            |done, total| telemetry.event("verifying_files", Some((done, total))),
+        )?;
+        telemetry.counts(&plan);
+        super::recovery_directory::set_archive_destination(
+            &mut plan,
+            Path::new(&output),
+            &directory,
+            true,
+        )?;
+        super::recovery_directory::print_plan(&plan, options.format)?;
         return Ok(());
     }
-
-    let output = options
-        .output
-        .clone()
-        .unwrap_or_else(|| default_recovered_path(&options.lockbox_path));
     let output_path = Path::new(&output);
     let input_path = Path::new(&options.lockbox_path);
     let in_place = same_existing_path(input_path, output_path);
@@ -103,17 +202,43 @@ fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
         ScopedFileLock::read_archive(input_path)?
     };
     let bytes = source_guard.read_archive_bytes()?;
+    telemetry.event("scanning_records", None);
     recovery_stage(options.quiet, "scanning readable encrypted records.");
-    let recovered = salvage_bytes(
-        &options.lockbox_path,
-        bytes,
-        &Access::ContentKey(recovery_key),
+    let raw = recovery_key.with_bytes(|key| zeroize::Zeroizing::new(key.to_vec()))?;
+    let source_report = RecoveryScanner::scan_slice(&bytes, &raw);
+    let signing_key = default_vault()?.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
+    let mut partial_writer = None;
+    telemetry.event("restoring_archive", None);
+    let (recovered, mut plan) = RecoveryScanner::salvage_with_file_fragments_and_progress(
+        &bytes,
+        &raw,
+        &signing_key,
+        |id, offset, data| {
+            if partial_writer.is_none() {
+                partial_writer = Some(
+                    super::recovery_directory::DirectoryWriter::new(&directory)
+                        .map_err(|error| Error::Io(error.to_string()))?,
+                );
+            }
+            partial_writer
+                .as_mut()
+                .unwrap()
+                .range(id, offset, data)
+                .map_err(|error| Error::Io(error.to_string()))
+        },
+        |done, total| telemetry.event("verifying_files", Some((done, total))),
     )?;
+    telemetry.counts(&plan);
+    super::recovery_directory::set_archive_destination(&mut plan, output_path, &directory, false)?;
+    if super::recovery_directory::has_partial_files(&plan) && partial_writer.is_none() {
+        partial_writer = Some(super::recovery_directory::DirectoryWriter::new(&directory)?);
+    }
     let parent = output_path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
     let mut staged = tempfile::NamedTempFile::new_in(parent)?;
+    telemetry.event("writing_archive", None);
     use std::io::Write;
     staged.write_all(&recovered.try_to_bytes()?)?;
     staged.as_file().sync_all()?;
@@ -139,46 +264,69 @@ fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
     } else {
         None
     };
-    if options.overwrite {
-        #[cfg(windows)]
-        {
-            // tempfile uses MoveFileExW alone. std::fs::rename also supports
-            // replacing an open destination via FileRenameInfoEx on Windows.
-            // Keep the archive guards held throughout publication.
-            let (_file, path) = staged.keep().map_err(|err| err.error)?;
-            let path = tempfile::TempPath::try_from_path(path)?;
-            fs::rename(&path, output_path).map_err(|err| {
-                Error::Io(format!(
-                    "publish recovered lockbox {}: {err}",
-                    output_path.display()
-                ))
-            })?;
-        }
-        #[cfg(not(windows))]
-        staged.persist(output_path).map_err(|err| err.error)?;
-    } else {
-        staged
-            .persist_noclobber(output_path)
-            .map_err(|err| err.error)?;
+    if let Some(writer) = partial_writer {
+        writer.finish(plan.clone())?;
     }
+    telemetry.event("publishing_outputs", None);
+    let publication = (|| -> CliResult<()> {
+        if options.overwrite {
+            #[cfg(windows)]
+            {
+                // tempfile uses MoveFileExW alone. std::fs::rename also supports
+                // replacing an open destination via FileRenameInfoEx on Windows.
+                // Keep the archive guards held throughout publication.
+                let (_file, path) = staged.keep().map_err(|err| err.error)?;
+                let path = tempfile::TempPath::try_from_path(path)?;
+                fs::rename(&path, output_path).map_err(|err| {
+                    Error::Io(format!(
+                        "publish recovered lockbox {}: {err}",
+                        output_path.display()
+                    ))
+                })?;
+            }
+            #[cfg(not(windows))]
+            staged.persist(output_path).map_err(|err| err.error)?;
+        } else {
+            staged
+                .persist_noclobber(output_path)
+                .map_err(|err| err.error)?;
+        }
+        Ok(())
+    })();
+    publication.map_err(|error| {
+        cli_error(format!(
+            "could not publish recovered Lockbox: {error}; partial-file recovery retained at {}",
+            plan["recovery_directory"]
+                .as_str()
+                .unwrap_or("(none required)")
+        ))
+    })?;
     #[cfg(unix)]
     fs::File::open(parent)?.sync_all()?;
     drop(destination_guard);
     drop(source_guard);
     drop(replacement_guard);
     let report = scan_report(&output, access, options.quiet)?;
-    let rows = report_rows(&report, Some(&output), damaged_original.as_deref());
-    print_records(&["field", "value"], rows, options.format)?;
+    telemetry.event("complete", None);
+    let mut rows = report_rows(&source_report, Some(&output), damaged_original.as_deref());
+    rows.push(vec![
+        "output_intact_file_count".to_owned(),
+        report.intact_file_count.to_string(),
+    ]);
+    super::output::print_recovery_records(rows, options.format)?;
+    super::recovery_directory::print_plan(&plan, options.format)?;
     Ok(())
 }
 
 struct RecoverOptions {
     lockbox_path: String,
+    directory: Option<String>,
     output: Option<String>,
     overwrite: bool,
     dry_run: bool,
     quiet: bool,
     format: OutputFormat,
+    diagnostics: Option<String>,
 }
 
 impl RecoverOptions {
@@ -188,6 +336,11 @@ impl RecoverOptions {
             .map(|value| super::aliases::resolve(value).map(|(path, _)| path))
             .transpose()?;
         let overwrite = matches.get_flag("overwrite");
+        if overwrite && output.is_none() {
+            return Err(cli_error(
+                "--overwrite requires --output; file recovery always creates a new directory",
+            ));
+        }
         let dry_run = matches.get_flag("dry-run");
         if dry_run && output.is_some() {
             return Err(
@@ -202,13 +355,40 @@ impl RecoverOptions {
         }
         Ok(Self {
             lockbox_path: optional_lockbox_value(matches, "lockbox")?,
+            directory: matches.get_one::<String>("directory").cloned(),
             output,
             overwrite,
             dry_run,
             quiet: matches.get_flag("quiet"),
             format: output_format_from_matches(matches)?,
+            diagnostics: matches.get_one::<String>("diagnostics").cloned(),
         })
     }
+}
+
+fn default_recovery_directory(source: &Path) -> CliResult<PathBuf> {
+    let source = std::path::absolute(source)?;
+    let name = source
+        .file_name()
+        .ok_or_else(|| cli_error("recovery source has no file name"))?
+        .to_string_lossy();
+    let parent = source
+        .parent()
+        .ok_or_else(|| cli_error("recovery source has no parent directory"))?;
+    for index in 0u64.. {
+        let suffix = if index == 0 {
+            String::new()
+        } else {
+            format!(".{index}")
+        };
+        let candidate = parent.join(format!("{name}.recovered-files{suffix}"));
+        match fs::symlink_metadata(&candidate) {
+            Ok(_) => continue,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(candidate),
+            Err(error) => return Err(error.into()),
+        }
+    }
+    unreachable!()
 }
 
 fn inspect_pending_cleanup(
@@ -404,32 +584,6 @@ fn scan_bytes_with_secret_key(bytes: Vec<u8>, key: &SecretVec) -> CliResult<Reco
     Ok(report)
 }
 
-fn salvage_bytes(
-    lockbox_path: &str,
-    bytes: Vec<u8>,
-    access: &Access,
-) -> CliResult<revault_lockbox_api::Lockbox> {
-    let signing_key = default_vault()?.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
-    match access {
-        Access::ContentKey(key) => Ok(RecoveryScanner::salvage_bytes_with_secret_key(
-            bytes,
-            key,
-            &signing_key,
-        )?),
-        Access::CacheOnly => {
-            let key = cached_key(lockbox_path)?;
-            Ok(RecoveryScanner::salvage_bytes_with_secret_key(
-                bytes,
-                &key,
-                &signing_key,
-            )?)
-        }
-        Access::PromptPassword => {
-            Err(Error::InvalidInput("recover requires --key or an open lockbox".to_string()).into())
-        }
-    }
-}
-
 fn cached_key(lockbox_path: &str) -> CliResult<SecretVec> {
     let lockbox_id = VaultOpen::read_lockbox_id(Path::new(lockbox_path)).map_err(|_| {
         cli_error(format!(
@@ -451,7 +605,7 @@ fn cached_key_if_available(lockbox_path: &str) -> CliResult<Option<SecretVec>> {
 }
 
 fn print_report(report: &RecoveryReport, format: OutputFormat) -> CliResult<()> {
-    print_records(&["field", "value"], report_rows(report, None, None), format)
+    super::output::print_recovery_records(report_rows(report, None, None), format)
 }
 
 fn report_rows(
@@ -465,7 +619,7 @@ fn report_rows(
             report.intact_file_count.to_string(),
         ],
         vec![
-            "partial_files".to_string(),
+            "source_partial_files".to_string(),
             report.partial_files.to_string(),
         ],
         vec![
@@ -497,6 +651,24 @@ fn report_rows(
             report.form_record_count.to_string(),
         ],
     ];
+    rows.push(vec![
+        "partial_file_details".to_owned(),
+        serde_json::Value::Array(
+            report
+                .partial_file_details
+                .iter()
+                .map(|(path, reason)| serde_json::json!({"path": path, "reason": reason}))
+                .collect(),
+        )
+        .to_string(),
+    ]);
+    rows.push(vec![
+        "unidentified_partial_files".to_owned(),
+        report
+            .partial_files
+            .saturating_sub(report.partial_file_details.len())
+            .to_string(),
+    ]);
     if let Some(output) = output {
         rows.push(vec!["output".to_string(), output.to_string()]);
     }

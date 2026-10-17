@@ -10,6 +10,9 @@ pub struct RecoveryReport {
     pub intact_file_count: usize,
     /// Number of file records that were only partially recoverable.
     pub partial_files: usize,
+    /// Paths and failure categories for entries that could not be read completely.
+    /// Paths whose metadata could not be recovered are not invented here.
+    pub partial_file_details: Vec<(String, String)>,
     /// Number of corrupt records encountered.
     pub corrupt_records: usize,
     /// Whether the latest TOC could be read.
@@ -86,6 +89,17 @@ impl RecoveryReport {
                     "  Partial files detected: {}\n",
                     self.partial_files
                 ));
+                for (path, reason) in &self.partial_file_details {
+                    out.push_str(&format!("  {path}: {reason}\n"));
+                }
+                let unidentified = self
+                    .partial_files
+                    .saturating_sub(self.partial_file_details.len());
+                if unidentified > 0 {
+                    out.push_str(&format!(
+                        "  Partial files without recovered paths: {unidentified}\n"
+                    ));
+                }
             }
             if self.corrupt_records > 0 {
                 out.push_str(&format!(

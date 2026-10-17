@@ -15,6 +15,22 @@ mod vault_reader;
 pub fn run_archive() {
     archive_command::main();
 }
+
+/// Synthetic authenticated stale-index fixture; never used by published tools.
+#[cfg(feature = "test-support")]
+pub fn stale_reference_recovery_fixture(
+    password: &[u8],
+    signing_record: &[u8],
+    partial: bool,
+    mirror_root: Option<&str>,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    Ok(archive_reader::RecoveryScanner::stale_reference_fixture(
+        password,
+        signing_record,
+        partial,
+        mirror_root,
+    )?)
+}
 mod vault_command;
 /// Runs the isolated format-2 vault export command.
 pub fn run_vault() {

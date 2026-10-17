@@ -189,6 +189,95 @@ struct Fixture {
     root: tempfile::TempDir,
     raw_key: bool,
 }
+
+#[test]
+fn alias_listing_tracks_current_paths_and_reports_missing_targets() {
+    let f = Fixture::new();
+    let listing = || {
+        String::from_utf8(
+            f.ok(&["vault", "lockbox", "alias", "list", "--format", "json"])
+                .stdout,
+        )
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+        .filter(|row| row["alias"] == "dev")
+        .collect::<Vec<_>>()
+    };
+    let before = listing();
+    let id = before[0]["lockbox_id"].as_str().unwrap().to_owned();
+    assert_eq!(before[0]["state"], "present");
+    assert!(before[0]["path"].as_str().unwrap().ends_with("dev.lbox"));
+    f.ok(&["vault", "lockbox", "move", "a@dev", "./moved.lbox"]);
+    let after = listing();
+    assert_eq!(after[0]["lockbox_id"], id);
+    let path = after[0]["path"].as_str().unwrap();
+    assert!(path.ends_with("moved.lbox"));
+    assert_eq!(f.read("TOKEN"), b"synthetic-token");
+    for format in ["table", "tsv"] {
+        let output = f.ok(&["vault", "lockbox", "alias", "list", "--format", format]);
+        let text = String::from_utf8(output.stdout).unwrap();
+        assert!(
+            text.contains(&id) && text.contains(path) && text.contains("present"),
+            "{text}"
+        );
+    }
+    // External removal is required to create a stale registry path; the CLI
+    // normally updates its registry when moving or forgetting an archive.
+    std::fs::remove_file(f.root.path().join("moved.lbox")).unwrap();
+    let missing = listing();
+    assert_eq!(missing[0]["state"], "missing");
+    assert_eq!(missing[0]["path"], path);
+    assert_eq!(missing[0]["lockbox_id"], id);
+    f.ok(&["replacement.lbox", "create"]);
+    // Replacement outside the CLI is required to leave the old UUID's
+    // remembered location unchanged, instead of updating the registry.
+    std::fs::copy(
+        f.root.path().join("replacement.lbox"),
+        f.root.path().join("moved.lbox"),
+    )
+    .unwrap();
+    let replaced = listing();
+    assert_eq!(replaced[0]["state"], "identity_mismatch");
+    assert_eq!(replaced[0]["path"], path);
+}
+
+#[test]
+fn installed_bash_completion_completes_bare_aliases() {
+    let f = Fixture::new();
+    let bash = std::env::var_os("REVAULT_TEST_BASH").unwrap_or_else(|| "bash".into());
+    if !Command::new(&bash)
+        .args(["-c", "test -n \"$BASH_VERSION\""])
+        .output()
+        .is_ok_and(|output| output.status.success())
+    {
+        assert!(std::env::var_os("CI").is_none(), "Bash required in CI");
+        return;
+    }
+    f.ok(&["vault", "lockbox", "alias", "set", "garden", "./dev.lbox"]);
+    let script = f.root.path().join("completion.bash");
+    f.ok(&[
+        "completion",
+        "install",
+        "--shell",
+        "bash",
+        "--path",
+        script.to_str().unwrap(),
+    ]);
+    // Exercise the installed function with Bash's actual completion inputs.
+    let script_path = script.to_string_lossy().replace('\\', "/");
+    let output = f.command(bash.to_str().unwrap(), &[
+        "-c",
+        "source \"$1\" && COMP_WORDS=(lbx g) && COMP_CWORD=1 && COMP_LINE='lbx g' && COMP_POINT=5 && COMP_TYPE=9 && _clap_complete_lbx lbx g lbx && printf '%s\\n' \"${COMPREPLY[@]}\"",
+        "completion-test", &script_path,
+    ]).test_output().unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let candidates = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        candidates.lines().any(|line| line.trim() == "garden"),
+        "{candidates}"
+    );
+}
 impl Fixture {
     fn new() -> Self {
         Self::with_raw_key(true)

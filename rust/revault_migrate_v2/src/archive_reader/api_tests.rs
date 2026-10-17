@@ -3122,7 +3122,12 @@ fn recovery_reports_partial_when_file_record_is_corrupt_but_toc_survives() {
     let first_page_offset = page_offsets(&damaged).into_iter().next().unwrap();
     damaged[first_page_offset + 23] ^= 0xaa;
 
+    let (detailed_report, details) = RecoveryScanner::report_with_file_details(&damaged, KEY);
+    assert_eq!(details.len(), 1);
+    assert_eq!(details[0].0, "/docs/a.txt");
+    assert!(!details[0].1.is_empty());
     let report = RecoveryScanner::scan_bytes(damaged, KEY);
+    assert_eq!(detailed_report, report);
     assert!(report.toc_recovered);
     assert_eq!(report.intact_file_count, 4);
     assert_eq!(report.partial_files, 1);

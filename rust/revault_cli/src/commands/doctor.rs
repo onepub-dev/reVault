@@ -431,7 +431,7 @@ fn print_encrypted_content(
             ) {
                 println!("  state: cleanup required");
                 println!("  preview: lbx {lockbox_path} doctor recover --dry-run");
-                println!("  recover: lbx {lockbox_path} doctor recover");
+                println!("  complete cleanup: lbx {lockbox_path} doctor recover --output {lockbox_path} --overwrite");
                 return;
             }
             if super::error_output::exit_code(err.as_ref())

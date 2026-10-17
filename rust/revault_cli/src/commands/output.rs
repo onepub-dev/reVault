@@ -45,6 +45,46 @@ pub(crate) fn print_records(
     Ok(())
 }
 
+pub(crate) fn print_recovery_records(
+    mut rows: Vec<Vec<String>>,
+    format: OutputFormat,
+) -> CliResult<()> {
+    if format != OutputFormat::Table {
+        return print_records(&["field", "value"], rows, format);
+    }
+    let mut failures = Vec::new();
+    rows.retain(|row| {
+        if row
+            .first()
+            .is_some_and(|field| field == "partial_file_details")
+        {
+            if let Some(value) = row
+                .get(1)
+                .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
+            {
+                if let Some(details) = value.as_array() {
+                    for detail in details {
+                        if let (Some(path), Some(reason)) =
+                            (detail["path"].as_str(), detail["reason"].as_str())
+                        {
+                            failures.push(vec![path.to_owned(), reason.to_owned()]);
+                        }
+                    }
+                }
+            }
+            false
+        } else {
+            true
+        }
+    });
+    print_records(&["field", "value"], rows, format)?;
+    if !failures.is_empty() {
+        println!("\nSource scan issues (final recovery outcome below):");
+        print_records(&["path", "reason"], failures, format)?;
+    }
+    Ok(())
+}
+
 fn print_table(headers: &[&str], rows: &[Vec<String>]) {
     let mut widths = headers
         .iter()

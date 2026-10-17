@@ -97,6 +97,7 @@ windows-sys = { version = "0.61", features = [
 ] }
 
 [dev-dependencies]
+revault_migrate_v2 = { path = "../revault_migrate_v2", features = ["test-support"] }
 archive_v3 = { package = "revault_archive_v3_reader", path = "../revault_migrate_archive_v3/legacy" }
 vault_v3 = { package = "revault_vault_v3_reader", path = "../revault_migrate_archive_v3/legacy_vault" }
 revault_vault_api_structure_v2 = { package = "revault_vault_api", version = "=0.0.10" }

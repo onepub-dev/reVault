@@ -240,13 +240,44 @@ fn lockbox_alias_matches(matches: &ArgMatches) -> CliResult<()> {
             Ok(())
         }
         "list" => {
-            let aliases = default_vault()?.list_lockbox_aliases()?;
+            let vault = default_vault()?;
+            let aliases = vault.list_lockbox_aliases()?;
+            let mut locations = std::collections::HashMap::<_, Vec<String>>::new();
+            for known in vault.list_known_lockboxes()? {
+                locations
+                    .entry(known.lockbox_id)
+                    .or_default()
+                    .push(known.path);
+            }
             let rows = aliases
                 .into_iter()
-                .map(|alias| vec![alias.name, alias.lockbox_id.to_string()])
+                .map(|alias| {
+                    let (path, state) = match locations.get(&alias.lockbox_id) {
+                        None => (String::new(), "unlocated"),
+                        Some(paths) if paths.len() != 1 => (String::new(), "ambiguous"),
+                        Some(paths) => match Lockbox::inspect_file(&paths[0]) {
+                            Ok(inspection) if inspection.lockbox_id == alias.lockbox_id => {
+                                (paths[0].clone(), "present")
+                            }
+                            Ok(_) => (paths[0].clone(), "identity_mismatch"),
+                            Err(_) => match fs::metadata(&paths[0]) {
+                                Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                                    (paths[0].clone(), "missing")
+                                }
+                                _ => (paths[0].clone(), "unavailable"),
+                            },
+                        },
+                    };
+                    vec![
+                        alias.name,
+                        alias.lockbox_id.to_string(),
+                        path,
+                        state.to_string(),
+                    ]
+                })
                 .collect();
             print_records(
-                &["alias", "lockbox_id"],
+                &["alias", "lockbox_id", "path", "state"],
                 rows,
                 output_format_from_matches(sub)?,
             )

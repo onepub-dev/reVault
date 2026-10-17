@@ -445,12 +445,19 @@ fn archive_command(name: &'static str, about: &'static str) -> Command {
 
 fn recovery_command(verbose: bool) -> Command {
     Command::new("recover")
-        .about("Recover a lockbox using the safest applicable operation.")
+        .about("Recover a lockbox and preserve incomplete file fragments separately.")
         .after_help(verbose_help(
             verbose,
-            "Examples:\n  lockbox damaged.lbox doctor recover\n  lockbox damaged.lbox doctor recover --output recovered.lbox\n  lockbox damaged.lbox doctor recover --dry-run --format table",
-            "Context:\n  Recover supports format 2 and current-format Lockboxes without installing an older CLI. It unlocks the access directory using Vault profiles or a pass phrase, so a normal open is not required. Format-2 recovery requires a separate --output destination and writes a current-format copy. For current formats, authenticated interrupted cleanup is completed in place; otherwise readable entries are salvaged to <name>.recovered.lbox by default. Use --dry-run to inspect without changing files. Recovery can omit damaged entries: verify the recovered content and retain the original.",
+            "Examples:\n  lockbox damaged.lbox doctor recover\n  lockbox damaged.lbox doctor recover --directory recovered-files\n  lockbox damaged.lbox doctor recover --output recovered.lbox\n  lockbox damaged.lbox doctor recover --dry-run --format table",
+            "Context:\n  Recover supports format 2 and current-format Lockboxes. It creates <name>.recovered.lbox by default, preserving fully recovered files and recoverable archive metadata. Only incomplete files need a separate private directory, created automatically when needed and reported with a manifest of verified ranges and gaps. --output selects the recovered Lockbox; --directory selects the incomplete-file directory. --dry-run reports planned outputs without writing. The original is retained by default. Explicit in-place --output with --overwrite can complete pending transaction cleanup. Retain the original and verify recovered content.",
         ))
+        .arg(
+            Arg::new("directory")
+                .long("directory")
+                .value_name("RECOVERY_DIRECTORY")
+                .value_hint(ValueHint::DirPath)
+                .help("Choose the incomplete-file sidecar directory; created only when needed, otherwise a unique sibling is selected automatically."),
+        )
         .arg(
             Arg::new("output")
                 .long("output")
@@ -480,6 +487,8 @@ fn recovery_command(verbose: bool) -> Command {
                 .action(ArgAction::SetTrue)
                 .help("Suppress progress messages; recovery output is unchanged."),
         )
+        .arg(Arg::new("diagnostics").long("diagnostics").value_name("NEW_REPORT_FILE").value_hint(ValueHint::FilePath)
+            .help("Write a private diagnostic report containing stages, timings, versions, counts and opaque entry IDs; excludes paths, names, content, credentials and raw errors. Reveals archive structure counts."))
         .arg(output_format_arg())
 }
 

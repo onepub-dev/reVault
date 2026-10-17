@@ -782,14 +782,12 @@ fn archive_source_error(
     if !corrupt {
         return error;
     }
-    let recovered = source.with_extension("recovered.lbox");
     let source_arg = recovery_command_path(source);
-    let recovered_arg = recovery_command_path(&recovered);
     super::context::cli_diagnostic(
         super::error_output::ExitCode::CorruptData,
         "Migration could not read damaged source Lockbox data; the source was not replaced",
         vec![("Lockbox".into(), source.display().to_string()), ("Cause".into(), error.to_string())],
-        format!("Inspect recoverable content with this reVault build:\n  lbx {source_arg} doctor recover --dry-run\nRecover to a separate current-format copy:\n  lbx {source_arg} doctor recover --output {recovered_arg}\nRecovery may omit damaged entries. Verify the recovered files before using the copy; retain the original. If that output already exists, choose another filename."),
+        format!("Inspect recoverable content with this reVault build:\n  lbx {source_arg} doctor recover --dry-run\nRecover to a new Lockbox, retaining incomplete fragments separately when needed:\n  lbx {source_arg} doctor recover\nRecovery reports the recovered Lockbox and any partial-file directory with a manifest of missing ranges. Verify recovered content and retain the original. Use --output to choose the recovered Lockbox path."),
     )
 }
 
@@ -910,7 +908,7 @@ fn run_historical_archive_exporter(
     let status = child.wait()?;
     if !status.success() {
         if status.code() == Some(42) {
-            return Err(archive_source_error(source, Box::new(revault_migration::MigrationError::SourceCorrupt("historical exporter could unlock the archive but could not authenticate its reachable contents".into()))));
+            return Err(archive_source_error(source, Box::new(revault_migration::MigrationError::SourceCorrupt("historical exporter could unlock the archive but its reachable contents failed authentication or integrity validation".into()))));
         }
         return Err(cli_error(format!(
             "historical lockbox exporter exited with {status}"
@@ -988,8 +986,18 @@ pub(crate) fn recover_historical_archive(
     format: &str,
     quiet: bool,
     access: &Access,
+    directory: Option<&Path>,
+    telemetry: &super::recovery_telemetry::RecoveryTelemetry,
 ) -> CliResult<()> {
+    telemetry.event("selecting_exporter", None);
     let exporter = resolve_exporter(ArtifactKind::Archive, 2, None)?;
+    if directory.is_some() {
+        let capabilities = Command::new(&exporter).arg("capabilities").output()?;
+        let capabilities: serde_json::Value = serde_json::from_slice(&capabilities.stdout)?;
+        if capabilities["recovery_directory_protocol"] != 1 {
+            return Err(cli_error("the installed format-2 exporter does not support recovery directories; use an exporter build with recovery-directory protocol 1"));
+        }
+    }
     let password = vault_password_without_open()?;
     let vault = open_default_vault_with_password(&password)?;
     let artifact_key = SecretString::from_secure_vec(generated_migration_key()?);
@@ -1018,32 +1026,101 @@ pub(crate) fn recover_historical_archive(
     keys.extend(migration_contact_keys(&vault)?);
     let temporary = tempfile::tempdir()?;
     let artifact = temporary.path().join("recovery.migration");
+    let partial_artifact = temporary.path().join("partial.migration");
     let mut command = Command::new(exporter);
     command
         .args(["migrate", "archive", "recover"])
         .arg(source)
         .arg("--output")
         .arg(&artifact)
+        .arg("--partial-output")
+        .arg(&partial_artifact)
         .arg("--signing-key-count")
         .arg(signing_count.to_string())
         .arg("--raw-key")
         .arg(if has_raw_key { "true" } else { "false" })
         .stdin(Stdio::piped())
-        .stdout(Stdio::piped());
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     if dry_run {
         command.arg("--dry-run");
     }
     let mut child = command.spawn()?;
     write_subprocess_secrets(&mut child, &[&password, &artifact_key], &keys)?;
-    let result = child.wait_with_output()?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| cli_error("missing exporter error stream"))?;
+    let result = std::thread::scope(|scope| {
+        let reader = scope.spawn(move || -> std::io::Result<()> {
+            use std::io::BufRead;
+            for line in std::io::BufReader::new(stderr).lines() {
+                let line = line?;
+                if !telemetry.helper_event(&line) {
+                    eprintln!("{line}");
+                }
+            }
+            Ok(())
+        });
+        let result = child.wait_with_output();
+        let _ = reader.join();
+        result
+    })?;
     if !result.status.success() {
         return Err(cli_error(format!(
             "historical recovery exporter exited with {}; the source was not changed",
             result.status
         )));
     }
-    let report: serde_json::Value = serde_json::from_slice(&result.stdout)?;
+    let mut report: serde_json::Value = serde_json::from_slice(&result.stdout)?;
+    telemetry.counts(&report["file_recovery_plan"]);
+    let mut partial_writer = None;
+    if let Some(directory) = directory {
+        if !dry_run && super::recovery_directory::has_partial_files(&report["file_recovery_plan"]) {
+            let mut reader = revault_migration::ArtifactReader::new_with_passphrase(
+                File::open(&partial_artifact)?,
+                &artifact_key,
+            )?;
+            if reader.header().artifact_kind != ArtifactKind::Journal
+                || reader.header().source_native_version != 2
+            {
+                return Err(cli_error("unexpected recovery-range artifact"));
+            }
+            let mut writer = super::recovery_directory::DirectoryWriter::new(directory)?;
+            let mut manifest = None;
+            while let Some((kind, bytes)) = reader.next_frame()? {
+                let bytes = zeroize::Zeroizing::new(bytes);
+                if manifest.is_some() {
+                    return Err(cli_error("unexpected data after recovery manifest"));
+                }
+                match kind {
+                    revault_migration::RAW_FRAME_TYPE if bytes.len() > 16 => {
+                        let id = u64::from_le_bytes(bytes[..8].try_into().unwrap());
+                        let offset = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+                        writer.range(id, offset, &bytes[16..])?;
+                    }
+                    revault_migration::JSON_FRAME_TYPE => {
+                        manifest = Some(serde_json::from_slice::<serde_json::Value>(&bytes)?)
+                    }
+                    _ => return Err(cli_error("invalid recovery-range artifact frame")),
+                }
+            }
+            if manifest.as_ref() != Some(&report["file_recovery_plan"]) {
+                return Err(cli_error(
+                    "recovery artifact manifest disagrees with the report",
+                ));
+            }
+            partial_writer = Some(writer);
+        }
+        super::recovery_directory::set_archive_destination(
+            &mut report["file_recovery_plan"],
+            output.ok_or_else(|| cli_error("missing recovery archive destination"))?,
+            directory,
+            dry_run,
+        )?;
+    }
     if !dry_run {
+        telemetry.event("importing_archive", None);
         verify_archive_artifact(&artifact, &artifact_key)?;
         let fingerprint = revault_migration::archive_owner_fingerprint(&artifact, &artifact_key)?
             .ok_or_else(|| {
@@ -1061,6 +1138,7 @@ pub(crate) fn recover_historical_archive(
         let staged = tempfile::tempdir_in(parent)?;
         let staged_path = staged.path().join("recovered.lbox");
         import_archive(&artifact, &artifact_key, &staged_path, &signer)?;
+        telemetry.event("verifying_archive", None);
         revault_migration::verify_imported_archive(&artifact, &artifact_key, &staged_path)?;
         if let Some(expected) = super::COMMAND_LOCKBOX_ID.with(|id| *id.borrow()) {
             if Lockbox::inspect_file(&staged_path)?.lockbox_id != expected {
@@ -1070,27 +1148,76 @@ pub(crate) fn recover_historical_archive(
             }
         }
         fs::File::open(&staged_path)?.sync_all()?;
-        if overwrite {
-            fs::rename(&staged_path, destination)?;
-        } else {
-            fs::hard_link(&staged_path, destination)?;
+        telemetry.event("publishing_outputs", None);
+        if let Some(writer) = partial_writer {
+            writer.finish(report["file_recovery_plan"].clone())?;
         }
+        let publication = if overwrite {
+            fs::rename(&staged_path, destination)
+        } else {
+            fs::hard_link(&staged_path, destination)
+        };
+        publication.map_err(|error| cli_error(format!("could not publish recovered archive: {error}; any completed partial-file recovery remains at {}", directory.map_or_else(|| "(none)".to_owned(), |path| path.display().to_string()))))?;
         #[cfg(unix)]
         fs::File::open(parent)?.sync_all()?;
     }
+    telemetry.event("complete", None);
     let output_format = match format {
         "json" => super::output::OutputFormat::Json,
         "tsv" => super::output::OutputFormat::Tsv,
         _ => super::output::OutputFormat::Table,
     };
     if !quiet || dry_run {
-        let rows = ["intact_files", "partial_files", "corrupt_records"]
-            .into_iter()
-            .map(|name| vec![name.to_owned(), report[name].to_string()])
-            .collect();
-        super::output::print_records(&["field", "value"], rows, output_format)?;
+        super::output::print_recovery_records(
+            historical_recovery_report_rows(&report),
+            output_format,
+        )?;
+    }
+    if report.get("file_recovery_plan").is_some() {
+        super::recovery_directory::print_plan(&report["file_recovery_plan"], output_format)?;
     }
     Ok(())
+}
+
+fn historical_recovery_report_rows(report: &serde_json::Value) -> Vec<Vec<String>> {
+    let mut rows: Vec<Vec<String>> = ["intact_files", "partial_files", "corrupt_records"]
+        .into_iter()
+        .map(|name| {
+            vec![
+                if name == "partial_files" {
+                    "source_partial_files".to_owned()
+                } else {
+                    name.to_owned()
+                },
+                report[name].to_string(),
+            ]
+        })
+        .collect();
+    let details = report
+        .get("partial_file_details")
+        .and_then(serde_json::Value::as_array);
+    if let Some(toc_recovered) = report
+        .get("toc_recovered")
+        .and_then(serde_json::Value::as_bool)
+    {
+        rows.push(vec!["toc_recovered".to_owned(), toc_recovered.to_string()]);
+    }
+    rows.push(vec![
+        "partial_file_details".to_owned(),
+        details.map_or_else(
+            || "[]".to_owned(),
+            |details| serde_json::Value::Array(details.clone()).to_string(),
+        ),
+    ]);
+    let unidentified = report["partial_files"]
+        .as_u64()
+        .unwrap_or(0)
+        .saturating_sub(details.map_or(0, |details| details.len() as u64));
+    rows.push(vec![
+        "unidentified_partial_files".to_owned(),
+        unidentified.to_string(),
+    ]);
+    rows
 }
 
 fn migration_password() -> CliResult<SecretString> {
@@ -1167,13 +1294,115 @@ fn load_or_create_journal<P: MigrationPassphrase + ?Sized>(
     path: &Path,
     passphrase: &P,
     initial: MigrationJournal,
-) -> revault_migration::Result<MigrationJournal> {
+) -> CliResult<MigrationJournal> {
     if path.exists() {
-        MigrationJournal::load(path, passphrase)
-    } else {
-        initial.save(path, passphrase)?;
-        Ok(initial)
+        let saved = MigrationJournal::load(path, passphrase)?;
+        if !restart_obsolete_migration(path, &saved, &initial)? {
+            return Ok(saved);
+        }
     }
+    initial.save(path, passphrase)?;
+    Ok(initial)
+}
+
+/// Retain an obsolete attempt intact before exporting the original source again.
+/// Never reuse its artifacts or key: their schema and destination format belong
+/// to the release that created the journal.
+fn restart_obsolete_migration(
+    path: &Path,
+    saved: &MigrationJournal,
+    initial: &MigrationJournal,
+) -> CliResult<bool> {
+    if saved.artifact_kind != initial.artifact_kind
+        || saved.source_path != initial.source_path
+        || saved.source_format_version != initial.source_format_version
+        || saved.source_fingerprint != initial.source_fingerprint
+        || saved.temporary_paths != initial.temporary_paths
+        || !initial.source_path.exists()
+    {
+        return Ok(false);
+    }
+    // Future journals and containers must still fail without changing anything.
+    if saved.target_format_version > initial.target_format_version
+        || saved.source_format_version > initial.target_format_version
+    {
+        return Ok(false);
+    }
+    let output = initial
+        .temporary_paths
+        .last()
+        .ok_or_else(|| cli_error("migration journal has no destination"))?;
+    let work = path
+        .parent()
+        .ok_or_else(|| cli_error("migration journal has no directory"))?;
+    let retained_output = work.join("previous-output");
+    if initial.source_path.starts_with(output)
+        || output.starts_with(&initial.source_path)
+        || work.starts_with(output)
+        || output.starts_with(work)
+    {
+        return Err(cli_error(
+            "migration destination overlaps the source or migration state",
+        ));
+    }
+    if output.exists() {
+        let resolved_output = fs::canonicalize(output)?;
+        for protected in [initial.source_path.as_path(), work] {
+            let protected = fs::canonicalize(protected)?;
+            if protected.starts_with(&resolved_output) || resolved_output.starts_with(&protected) {
+                return Err(cli_error(
+                    "migration destination overlaps the source or migration state",
+                ));
+            }
+        }
+    }
+    let probe_output = if output.exists() {
+        output
+    } else {
+        &retained_output
+    };
+    let container = if saved.artifact_kind == ArtifactKind::Vault {
+        probe_output.join("local-vault.lbox")
+    } else {
+        probe_output.clone()
+    };
+    let output_version = if container.exists() {
+        let mut header = Vec::new();
+        File::open(&container)?.take(384).read_to_end(&mut header)?;
+        probe_lockbox_format_version(&header).ok()
+    } else {
+        None
+    };
+    if output_version.is_some_and(|version| version > LOCKBOX_FORMAT_VERSION) {
+        return Ok(false);
+    }
+    if saved.target_format_version == initial.target_format_version
+        && !output_version.is_some_and(|version| version < LOCKBOX_FORMAT_VERSION)
+    {
+        return Ok(false);
+    }
+    // The output is normally beside the work directory, including --output.
+    // Moving it into that directory first makes an interrupted preservation
+    // retry safe: the saved journal remains available until the final rename.
+    if output.exists() {
+        if retained_output.exists() {
+            return Err(cli_error(
+                "cannot preserve obsolete migration: previous-output already exists",
+            ));
+        }
+        fs::rename(output, &retained_output)?;
+    }
+    let preserved = work.with_file_name(format!(
+        ".revault-preserved-migration-{}",
+        hex_id(random_id()?)
+    ));
+    fs::rename(work, &preserved)?;
+    fs::create_dir(work)?;
+    println!(
+        "Preserved the previous migration at {}; restarting from the unchanged source for the current format.",
+        preserved.display()
+    );
+    Ok(true)
 }
 
 fn validate_resume(
@@ -1506,6 +1735,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn older_recovery_helper_reports_unidentified_partial_files() {
+        let rows = historical_recovery_report_rows(&serde_json::json!({
+            "intact_files": 66, "partial_files": 3, "corrupt_records": 0,
+        }));
+        assert!(rows.contains(&vec!["partial_file_details".to_owned(), "[]".to_owned()]));
+        assert!(rows.contains(&vec![
+            "unidentified_partial_files".to_owned(),
+            "3".to_owned()
+        ]));
+    }
+
+    #[test]
     fn source_corruption_guidance_is_typed_and_does_not_mislabel_io_failures() {
         let source = Path::new("/tmp/source.lbox");
         let corrupt = archive_source_error(
@@ -1553,6 +1794,106 @@ mod tests {
                 fingerprint,
             )
         );
+    }
+
+    #[test]
+    fn obsolete_attempt_restarts_and_preserves_source_artifacts_and_output() {
+        for stage in [
+            MigrationStage::Export,
+            MigrationStage::Import,
+            MigrationStage::Replace,
+        ] {
+            let temp = tempfile::tempdir().unwrap();
+            let source = temp.path().join("source.lbox");
+            fs::write(&source, b"unchanged original").unwrap();
+            let fingerprint = fingerprint_path(&source).unwrap();
+            let work = temp.path().join(".revault-migration-test");
+            fs::create_dir(&work).unwrap();
+            let path = work.join("archive.migration-state");
+            let artifact = work.join("archive.migration");
+            fs::write(&artifact, b"encrypted old artifact").unwrap();
+            // A user-selected output is outside the working directory.
+            let output = temp.path().join("explicit-output.lbox");
+            fs::write(&output, b"old output").unwrap();
+            let make_initial = || {
+                new_journal(
+                    [1; 16],
+                    ArtifactKind::Archive,
+                    source.clone(),
+                    2,
+                    u32::from(LOCKBOX_FORMAT_VERSION),
+                    fingerprint,
+                    vec![artifact.clone(), output.clone()],
+                )
+                .unwrap()
+            };
+            let mut old = make_initial();
+            old.target_format_version = 3;
+            old.current_stage = stage;
+            old.source_fingerprint = [0; 32];
+            assert!(!restart_obsolete_migration(&path, &old, &make_initial()).unwrap());
+            assert_eq!(fs::read(&output).unwrap(), b"old output");
+            old.source_fingerprint = fingerprint;
+            old.target_format_version = u32::from(LOCKBOX_FORMAT_VERSION) + 1;
+            assert!(!restart_obsolete_migration(&path, &old, &make_initial()).unwrap());
+            assert_eq!(fs::read(&output).unwrap(), b"old output");
+            old.target_format_version = 3;
+            old.save(&path, b"test password").unwrap();
+            let old_bytes = fs::read(&path).unwrap();
+            if stage == MigrationStage::Replace {
+                // Simulate interruption between preserving the output and
+                // renaming the old working directory.
+                fs::rename(&output, work.join("previous-output")).unwrap();
+            }
+            let resumed = load_or_create_journal(&path, b"test password", make_initial()).unwrap();
+            assert_eq!(resumed.current_stage, MigrationStage::Export);
+            assert_eq!(
+                resumed.target_format_version,
+                u32::from(LOCKBOX_FORMAT_VERSION)
+            );
+            assert!(old
+                .artifact_key
+                .with_bytes(|old_key| resumed
+                    .artifact_key
+                    .with_bytes(|new_key| old_key != new_key)
+                    .unwrap())
+                .unwrap());
+            assert_eq!(fs::read(&source).unwrap(), b"unchanged original");
+            assert!(!output.exists());
+            assert!(!artifact.exists());
+            let preserved = fs::read_dir(temp.path())
+                .unwrap()
+                .map(|entry| entry.unwrap().path())
+                .find(|entry| {
+                    entry
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .starts_with(".revault-preserved-migration-")
+                })
+                .unwrap();
+            assert_eq!(
+                fs::read(preserved.join("archive.migration-state")).unwrap(),
+                old_bytes
+            );
+            assert_eq!(
+                fs::read(preserved.join("archive.migration")).unwrap(),
+                b"encrypted old artifact"
+            );
+            assert_eq!(
+                fs::read(preserved.join("previous-output")).unwrap(),
+                b"old output"
+            );
+            // A repeat resumes the new attempt with the same key.
+            let repeated = load_or_create_journal(&path, b"test password", make_initial()).unwrap();
+            assert!(resumed
+                .artifact_key
+                .with_bytes(|key| repeated
+                    .artifact_key
+                    .with_bytes(|other| key == other)
+                    .unwrap())
+                .unwrap());
+        }
     }
 
     #[test]
@@ -1708,6 +2049,24 @@ mod tests {
                     // an incomplete output. Assert that stage separately too.
                     journal.current_stage = MigrationStage::Import;
                     assert!(validate_resume(&journal, kind, &source, 1, [7; 32], &output).is_err());
+                    // With a present original, the restart helper must also
+                    // preserve a future-format output before resume rejects it.
+                    fs::write(&source, b"original source").unwrap();
+                    let initial = new_journal(
+                        journal.operation_id,
+                        kind,
+                        source.clone(),
+                        1,
+                        current_target,
+                        [7; 32],
+                        vec![output.clone()],
+                    )
+                    .unwrap();
+                    assert!(
+                        !restart_obsolete_migration(&journal_path, &journal, &initial).unwrap()
+                    );
+                    assert_eq!(fs::read(&source).unwrap(), b"original source");
+                    fs::remove_file(&source).unwrap();
                     assert!(!source.exists());
                     assert_eq!(fs::read(&container).unwrap(), future);
                     assert_eq!(fs::read(&backup).unwrap(), b"original backup");
@@ -1790,6 +2149,34 @@ mod tests {
             assert_eq!(fs::read(&container).unwrap(), bytes);
             assert_eq!(fs::read(&backup).unwrap(), b"original backup");
             assert_eq!(fs::read(&journal_path).unwrap(), journal_bytes);
+
+            // Once an intact original is available, the high-level loader can
+            // safely restart even when a Vault's structure target is unchanged
+            // but its saved output uses an older container format.
+            let source_container = if kind == ArtifactKind::Vault {
+                fs::create_dir(&source).unwrap();
+                source.join("local-vault.lbox")
+            } else {
+                source.clone()
+            };
+            fs::write(&source_container, b"original source").unwrap();
+            journal.source_fingerprint = fingerprint_path(&source_container).unwrap();
+            journal.save(&journal_path, b"resume password").unwrap();
+            let initial = new_journal(
+                journal.operation_id,
+                kind,
+                source.clone(),
+                1,
+                target,
+                journal.source_fingerprint,
+                vec![output.clone()],
+            )
+            .unwrap();
+            let restarted =
+                load_or_create_journal(&journal_path, b"resume password", initial).unwrap();
+            assert_eq!(restarted.current_stage, MigrationStage::Export);
+            assert!(!output.exists());
+            assert_eq!(fs::read(&source_container).unwrap(), b"original source");
         }
     }
 

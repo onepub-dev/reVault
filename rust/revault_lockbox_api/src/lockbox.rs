@@ -2377,6 +2377,7 @@ fn corrupt_recovery_report() -> RecoveryReport {
         intact_files: Vec::new(),
         intact_file_count: 0,
         partial_files: 0,
+        partial_file_details: Vec::new(),
         corrupt_records: 1,
         toc_recovered: false,
         variables_recovered: false,

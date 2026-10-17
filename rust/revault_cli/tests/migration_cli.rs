@@ -1163,11 +1163,7 @@ fn damaged_format_two_recovers_with_current_cli_and_original_credentials() {
         let migrated = run(&["doctor", "migrate", "lockbox", path(&source), "--replace"]);
         assert_failure_contains(&migrated, "damaged source Lockbox");
         assert_failure_contains(&migrated, "doctor recover --dry-run");
-        assert_failure_contains(&migrated, "doctor recover --output");
-        assert_failure_contains(
-            &run(&[path(&source), "doctor", "recover"]),
-            "separate --output",
-        );
+        assert_failure_contains(&migrated, "incomplete fragments separately");
         assert_failure_contains(
             &run(&[
                 path(&source),
@@ -1223,7 +1219,97 @@ fn damaged_format_two_recovers_with_current_cli_and_original_credentials() {
             assert!(!wrong.status.success());
             assert!(!recovered.exists());
         }
-        assert_success(&run(&[path(&source), "doctor", "recover", "--dry-run"]));
+        let dry_run = run(&[path(&source), "doctor", "recover", "--dry-run"]);
+        assert_success(&dry_run);
+        if !contact_only {
+            assert_success(&dry_run);
+            let rendered = String::from_utf8_lossy(&dry_run.stdout);
+            assert!(
+                rendered.contains("Planned partial-file directory:"),
+                "{rendered}"
+            );
+            assert!(rendered.contains("/damaged.bin"), "{rendered}");
+            assert!(rendered.contains("reason"), "{rendered}");
+            let json = run(&[
+                path(&source),
+                "doctor",
+                "recover",
+                "--dry-run",
+                "--format",
+                "json",
+            ]);
+            assert_success(&json);
+            let rows: Vec<serde_json::Value> = String::from_utf8_lossy(&json.stdout)
+                .lines()
+                .map(|line| serde_json::from_str(line).unwrap())
+                .collect();
+            let destination = rows
+                .iter()
+                .find(|row| row["field"] == "recovery_directory")
+                .unwrap();
+            let directory = std::path::PathBuf::from(destination["value"].as_str().unwrap());
+            assert!(directory.is_absolute());
+            assert!(!directory.exists());
+            let preview = run(&[
+                path(&source),
+                "doctor",
+                "recover",
+                "--directory",
+                path(&directory),
+                "--dry-run",
+                "--format",
+                "json",
+            ]);
+            assert_success(&preview);
+            assert!(!directory.exists());
+            let exported = run(&[path(&source), "doctor", "recover", "--format", "json"]);
+            assert_success(&exported);
+            let manifest: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(directory.join("manifest.json")).unwrap())
+                    .unwrap();
+            let files = manifest["files"].as_array().unwrap();
+            assert!(!files.iter().any(|file| file["path"] == "/intact.bin"));
+            let default_archive = source.with_extension("recovered.lbox");
+            assert_success(&run(&[path(&default_archive), "open"]));
+            let intact = run(&[path(&default_archive), "cat", "/intact.bin"]);
+            assert_success(&intact);
+            assert_eq!(intact.stdout, payload);
+            assert!(!run(&[path(&default_archive), "cat", "/damaged.bin"])
+                .status
+                .success());
+            let missing = files
+                .iter()
+                .find(|file| file["path"] == "/damaged.bin")
+                .unwrap();
+            assert_eq!(missing["status"], "unrecoverable");
+            assert!(missing.get("output").is_none());
+            assert!(!run(&[
+                path(&source),
+                "doctor",
+                "recover",
+                "--directory",
+                path(&directory)
+            ])
+            .status
+            .success());
+            let repeated_archive = fixture.root.join("another-recovered.lbox");
+            let repeated = run(&[
+                path(&source),
+                "doctor",
+                "recover",
+                "--output",
+                path(&repeated_archive),
+                "--format",
+                "tsv",
+            ]);
+            assert_success(&repeated);
+            assert!(String::from_utf8_lossy(&repeated.stdout)
+                .contains("damaged.lbox.recovered-files.1"));
+            assert!(fixture
+                .root
+                .join("damaged.lbox.recovered-files.1/manifest.json")
+                .exists());
+        }
         assert!(!recovered.exists());
         assert_eq!(std::fs::read(&source).unwrap(), damaged);
         assert_success(&run(&[
@@ -1280,6 +1366,183 @@ fn recovery_refuses_future_formats_without_writing_output() {
     assert_failure_contains(&result, "newer format");
     assert!(!output.exists());
     assert_eq!(std::fs::read(&source).unwrap(), bytes);
+}
+
+#[test]
+fn recovery_restores_verified_alternatives_to_archive_and_only_partial_ranges_to_sidecar() {
+    for partial in [false, true] {
+        let fixture = Fixture::new("verified-recovery");
+        fixture.init_current_vault();
+        fixture.success(&["session", "auto-open", "disable", "--yes"]);
+        let signer = fixture.historical_v2_signer();
+        let record = signer.private_key_record().unwrap();
+        // No public CLI can write an authenticated inconsistent historical
+        // index. This narrow test-support fixture creates that failure only.
+        let record = record
+            .with_bytes(|record| zeroize::Zeroizing::new(record.to_vec()))
+            .unwrap();
+        let source_bytes = revault_migrate_v2::stale_reference_recovery_fixture(
+            b"migration-test-content-key",
+            &record,
+            partial,
+            None,
+        )
+        .unwrap();
+        let source = fixture.root.join("source.lbox");
+        std::fs::write(&source, &source_bytes).unwrap();
+        let run = |args: &[&str]| fixture.command(args).test_output().unwrap();
+        let preview = run(&[
+            path(&source),
+            "doctor",
+            "recover",
+            "--dry-run",
+            "--format",
+            "json",
+        ]);
+        assert_success(&preview);
+        let recovered = source.with_extension("recovered.lbox");
+        let sidecar = fixture.root.join("source.lbox.recovered-files");
+        assert!(!recovered.exists() && !sidecar.exists());
+        let result = run(&[path(&source), "doctor", "recover", "--format", "json"]);
+        assert_success(&result);
+        let rows: Vec<serde_json::Value> = String::from_utf8_lossy(&result.stdout)
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        for (field, expected) in [
+            ("recovered_files", if partial { "0" } else { "1" }),
+            ("partial_files", if partial { "1" } else { "0" }),
+            ("not_recovered_files", "0"),
+        ] {
+            assert!(
+                rows.iter()
+                    .any(|row| row["field"] == field && row["value"] == expected),
+                "{rows:?}"
+            );
+        }
+        assert_eq!(std::fs::read(&source).unwrap(), source_bytes);
+        let metadata = run(&[path(&recovered), "variable", "get", "KEPT"]);
+        assert_success(&metadata);
+        assert_eq!(metadata.stdout, b"preserved metadata\n");
+        let content = run(&[path(&recovered), "cat", "/restored.bin"]);
+        if partial {
+            assert!(!content.status.success());
+            let manifest: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(sidecar.join("manifest.json")).unwrap())
+                    .unwrap();
+            let file = &manifest["files"][0];
+            assert_eq!(file["status"], "partial");
+            assert_eq!(file["permissions"], 0o640);
+            assert_eq!(file["missing_ranges"][0]["offset"], 2 * 1024 * 1024);
+            let range = &file["ranges"][0];
+            assert_eq!(range["offset"], 0);
+            assert_eq!(
+                range["output"],
+                "files/restored.bin.part-offset-00000000000000000000"
+            );
+            assert_eq!(
+                std::fs::read(sidecar.join(range["output"].as_str().unwrap())).unwrap(),
+                vec![42; 2 * 1024 * 1024]
+            );
+            let second = fixture.root.join("second.lbox");
+            assert!(!run(&[
+                path(&source),
+                "doctor",
+                "recover",
+                "--output",
+                path(&second),
+                "--directory",
+                path(&sidecar)
+            ])
+            .status
+            .success());
+            assert!(!second.exists());
+            let chosen = fixture.root.join("chosen-partials");
+            assert_success(&run(&[
+                path(&source),
+                "doctor",
+                "recover",
+                "--output",
+                path(&second),
+                "--directory",
+                path(&chosen),
+            ]));
+            assert!(chosen.join("manifest.json").exists());
+        } else {
+            assert_success(&content);
+            assert_eq!(content.stdout, vec![42; 3 * 1024 * 1024]);
+            assert!(!sidecar.exists());
+        }
+    }
+}
+
+#[test]
+fn historical_recovery_restores_root_and_nested_mirrors_without_disabling_protection() {
+    for root in ["/", "/managed"] {
+        let fixture = Fixture::new("mirror-recovery");
+        fixture.init_current_vault();
+        let signer = fixture.historical_v2_signer();
+        let record = signer
+            .private_key_record()
+            .unwrap()
+            .with_bytes(|bytes| zeroize::Zeroizing::new(bytes.to_vec()))
+            .unwrap();
+        // The current CLI cannot create an authenticated stale historical
+        // index; only fixture construction uses the frozen test-support writer.
+        let bytes = revault_migrate_v2::stale_reference_recovery_fixture(
+            b"migration-test-content-key",
+            &record,
+            false,
+            Some(root),
+        )
+        .unwrap();
+        let source = fixture.root.join("mirror.lbox");
+        std::fs::write(&source, &bytes).unwrap();
+        let diagnostic = fixture.root.join("diagnostic.json");
+        let result = fixture.run(&[
+            path(&source),
+            "doctor",
+            "recover",
+            "--diagnostics",
+            path(&diagnostic),
+            "--quiet",
+        ]);
+        assert_success(&result);
+        assert!(
+            result.stderr.is_empty(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        let diagnostic_text = std::fs::read_to_string(&diagnostic).unwrap();
+        let diagnostic: serde_json::Value = serde_json::from_str(&diagnostic_text).unwrap();
+        assert_eq!(diagnostic["status"], "complete");
+        assert!(diagnostic["helper_version"].is_string());
+        assert!(!diagnostic_text.contains(".home.lbx.lock"));
+        assert!(!diagnostic_text.contains("restored.bin"));
+        assert!(!diagnostic_text.contains("migration-test-content-key"));
+        let recovered = source.with_extension("recovered.lbox");
+        let stored_path = format!("{}/restored.bin", root.trim_end_matches('/'));
+        let content = fixture.run(&[path(&recovered), "cat", &stored_path]);
+        assert_success(&content);
+        assert_eq!(content.stdout, vec![42; 3 * 1024 * 1024]);
+        let lock_path = format!("{}/.home.lbx.lock", root.trim_end_matches('/'));
+        let lock_content = fixture.run(&[path(&recovered), "cat", &lock_path]);
+        assert_success(&lock_content);
+        assert!(lock_content.stdout.is_empty());
+        let mirrors = fixture.run(&[path(&recovered), "mirror", "projects"]);
+        assert_success(&mirrors);
+        assert!(String::from_utf8_lossy(&mirrors.stdout).contains("home"));
+        let input = fixture.root.join("forbidden.txt");
+        std::fs::write(&input, b"ordinary mutation").unwrap();
+        let destination = format!("{}/forbidden.txt", root.trim_end_matches('/'));
+        let refused = fixture.run(&[path(&recovered), "add", path(&input), "--to", &destination]);
+        assert_failure_contains(&refused, "managed by mirror");
+        let retained = fixture.run(&[path(&recovered), "cat", &stored_path]);
+        assert_success(&retained);
+        assert_eq!(retained.stdout, content.stdout);
+        assert_eq!(std::fs::read(&source).unwrap(), bytes);
+        assert!(!fixture.root.join("mirror.lbox.recovered-files").exists());
+    }
 }
 
 #[test]
@@ -1584,6 +1847,50 @@ fn older_archive_is_refused_normally_then_explicitly_migrated() {
         // refusal has not changed the historical source.
         assert_eq!(std::fs::read(&source).unwrap(), original);
     }
+    // The current CLI cannot create an interrupted format-3 migration. Inject
+    // only that encrypted historical state; migration and persisted reads below
+    // exercise the public CLI. Opaque snapshots verify preservation.
+    use revault_migration::{ArtifactKind, MigrationJournal, MigrationStage};
+    use sha2::{Digest, Sha256};
+    let fingerprint: [u8; 32] = Sha256::digest(&original).into();
+    let mut digest = Sha256::new();
+    digest.update(b"archive");
+    digest.update(source.as_os_str().as_encoded_bytes());
+    digest.update([0]);
+    digest.update(output.as_os_str().as_encoded_bytes());
+    digest.update(fingerprint);
+    let mut operation_id = [0; 16];
+    operation_id.copy_from_slice(&digest.finalize()[..16]);
+    let id: String = operation_id
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    let work = fixture.root.join(format!(".revault-migration-{id}"));
+    std::fs::create_dir(&work).unwrap();
+    let artifact = work.join("archive.migration");
+    std::fs::write(&artifact, b"old encrypted migration artifact").unwrap();
+    std::fs::write(&output, b"old incomplete output").unwrap();
+    let journal_path = work.join("archive.migration-state");
+    let journal = MigrationJournal {
+        operation_id,
+        artifact_kind: ArtifactKind::Archive,
+        source_path: source.clone(),
+        source_format_version: 2,
+        source_fingerprint: fingerprint,
+        target_format_version: 3,
+        current_stage: MigrationStage::Import,
+        temporary_paths: vec![
+            artifact,
+            work.join("archive.latest.migration"),
+            output.clone(),
+        ],
+        exporter_version: None,
+        artifact_key: SecretVec::try_from_slice(&[42; 32]).unwrap(),
+    };
+    journal
+        .save(&journal_path, VAULT_PASSWORD.as_bytes())
+        .unwrap();
+    let journal_bytes = std::fs::read(&journal_path).unwrap();
     let migrated = fixture.run(&[
         source_arg,
         "doctor",
@@ -1593,6 +1900,31 @@ fn older_archive_is_refused_normally_then_explicitly_migrated() {
         output.to_str().unwrap(),
     ]);
     assert_success(&migrated);
+    assert!(
+        String::from_utf8_lossy(&migrated.stdout).contains("restarting from the unchanged source")
+    );
+    let preserved = std::fs::read_dir(&fixture.root)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .find(|path| {
+            path.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with(".revault-preserved-migration-")
+        })
+        .unwrap();
+    assert_eq!(
+        std::fs::read(preserved.join("archive.migration-state")).unwrap(),
+        journal_bytes
+    );
+    assert_eq!(
+        std::fs::read(preserved.join("archive.migration")).unwrap(),
+        b"old encrypted migration artifact"
+    );
+    assert_eq!(
+        std::fs::read(preserved.join("previous-output")).unwrap(),
+        b"old incomplete output"
+    );
     let bytes = fixture.run(&[output.to_str().unwrap(), "cat", "/payload"]);
     assert_success(&bytes);
     assert_eq!(bytes.stdout, payload);

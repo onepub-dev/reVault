@@ -31,6 +31,13 @@ use crate::archive_reader::{
 };
 use zeroize::Zeroizing;
 
+// Report-only extension; the historical reader and salvage algorithms below
+// remain frozen. Keep new diagnostic behavior outside the bundled source tree.
+#[path = "../../recovery_diagnostics.rs"]
+mod diagnostics;
+#[path = "../../range_recovery.rs"]
+mod range_recovery;
+
 /// Scans damaged lockbox storage and reports or salvages recoverable content.
 ///
 /// Recovery is intentionally separated from `Lockbox` because it operates on
@@ -135,6 +142,15 @@ impl<'a> RecoverySession<'a> {
     }
 
     fn report(&self) -> RecoveryReport {
+        self.report_with_details(None)
+    }
+
+    // Additive reporting observer: the original scan, membership selection and
+    // completeness decisions remain unchanged.
+    fn report_with_details(
+        &self,
+        mut details: Option<&mut Vec<(String, String)>>,
+    ) -> RecoveryReport {
         let mut toc_entries = BTreeMap::new();
         let mut toc_recovered = false;
         let mut metadata = RecoveredMetadata::default();
@@ -172,15 +188,29 @@ impl<'a> RecoverySession<'a> {
         let mut intact_file_count = 0;
         let mut partial_files = 0;
         for entry in toc_entries.values().filter(|entry| !entry.deleted) {
-            let complete = match entry.node_kind {
-                NodeKind::File => read_page_file_bytes(&self.scanner, entry).is_ok(),
-                NodeKind::Symlink => recover_symlink_target(&self.scanner, entry).is_ok(),
-                NodeKind::Directory => true,
+            let result = match entry.node_kind {
+                NodeKind::File => read_page_file_bytes(&self.scanner, entry).map(|bytes| {
+                    let _bytes = Zeroizing::new(bytes);
+                }),
+                NodeKind::Symlink => recover_symlink_target(&self.scanner, entry).map(|_| ()),
+                NodeKind::Directory => Ok(()),
             };
-            if complete {
+            if result.is_ok() {
                 intact_file_count += 1;
             } else {
                 partial_files += 1;
+                if let Some(details) = details.as_deref_mut() {
+                    details.push((
+                        entry.path.to_string(),
+                        diagnostics::failure_reason(
+                            self.bytes,
+                            &self.scanner,
+                            entry,
+                            result.unwrap_err(),
+                        )
+                        .to_owned(),
+                    ));
+                }
             }
             intact_files.push(LockboxEntry {
                 path: entry.path.clone(),

@@ -3718,7 +3718,20 @@ fn recovery_reports_partial_when_file_record_is_corrupt_but_toc_survives() {
     assert!(report.toc_recovered);
     assert_eq!(report.intact_file_count, 4);
     assert_eq!(report.partial_files, 1);
-    assert!(report.intact_files.iter().any(|e| e.path == "/docs/a.txt"));
+    assert!(!report.intact_files.iter().any(|e| e.path == "/docs/a.txt"));
+    assert_eq!(report.partial_file_details.len(), 1);
+    assert_eq!(report.partial_file_details[0].0, "/docs/a.txt");
+    assert!(!report.partial_file_details[0].1.is_empty());
+    let rendered = report.render(&RecoveryReportOptions {
+        verbose: true,
+        max_intact_entries: None,
+    });
+    assert_eq!(rendered.matches("/docs/a.txt").count(), 1);
+    assert!(rendered
+        .split("Attention required:")
+        .nth(1)
+        .unwrap()
+        .contains("/docs/a.txt"));
 }
 
 #[test]

@@ -969,9 +969,8 @@ fn form_definitions_and_records_flow() {
     let report = run_output(bin, &[&lockbox, "doctor", "recover", "--dry-run"]);
     assert_success(&report);
     let report = String::from_utf8_lossy(&report.stdout);
-    assert!(report.contains("variables_recovered"));
-    assert!(report.contains("forms_recovered"));
-    assert!(report.contains("form_record_count"));
+    assert!(report.contains("Planned recovered Lockbox:"));
+    assert!(report.contains("dry_run"));
 }
 
 #[test]
@@ -2753,6 +2752,200 @@ fn list_commands_support_table_tsv_and_json_formats() {
 }
 
 #[test]
+fn recovery_output_report_retains_partial_source_paths() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = unique_dir_named("recover-partial-report");
+    fs::create_dir_all(&dir).unwrap();
+    let archive = dir.join("source.lbox");
+    let output = dir.join("recovered.lbox");
+    let input = dir.join("input.bin");
+    run(bin, &[archive.to_str().unwrap(), "create"]);
+    fs::write(&input, vec![42; 256 * 1024]).unwrap();
+    run(
+        bin,
+        &[
+            archive.to_str().unwrap(),
+            "add",
+            input.to_str().unwrap(),
+            "--to",
+            "/damaged.bin",
+        ],
+    );
+    fs::write(&input, b"retained content").unwrap();
+    run(
+        bin,
+        &[
+            archive.to_str().unwrap(),
+            "add",
+            input.to_str().unwrap(),
+            "--to",
+            "/intact.bin",
+        ],
+    );
+    // The public CLI cannot deliberately damage a page. Inspect solely to
+    // target one data page; setup, recovery and content verification use CLI.
+    let mut bytes = fs::read(&archive).unwrap();
+    let opened = revault_lockbox_api::Lockbox::open_bytes(
+        bytes.clone(),
+        revault_lockbox_api::LockboxOpen::ContentKey(
+            revault_lockbox_api::SecretVec::try_from_slice(b"test-key").unwrap(),
+        ),
+    )
+    .unwrap();
+    let pages = opened.inspector().inspect_pages().unwrap();
+    let page = pages
+        .iter()
+        .filter(|page| {
+            page.objects
+                .iter()
+                .any(|object| object.kind == "file-data" || object.kind == "packed-file-data")
+        })
+        .min_by_key(|page| page.sequence)
+        .unwrap();
+    bytes[page.offset as usize + 23] ^= 0xaa;
+    fs::write(&archive, &bytes).unwrap();
+    let first_sidecar = dir.join("first-partials");
+    let recovered = run_output(
+        bin,
+        &[
+            archive.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--output",
+            output.to_str().unwrap(),
+            "--directory",
+            first_sidecar.to_str().unwrap(),
+            "--format",
+            "json",
+        ],
+    );
+    assert_success(&recovered);
+    let rows: Vec<serde_json::Value> = String::from_utf8_lossy(&recovered.stdout)
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert!(rows
+        .iter()
+        .any(|row| row["field"] == "source_partial_files" && row["value"] == "1"));
+    let details = rows
+        .iter()
+        .find(|row| row["field"] == "partial_file_details")
+        .unwrap();
+    assert!(details["value"].as_str().unwrap().contains("/damaged.bin"));
+    let content = run_output(bin, &[output.to_str().unwrap(), "cat", "/intact.bin"]);
+    assert_success(&content);
+    assert_eq!(content.stdout, b"retained content");
+    assert_eq!(fs::read(&archive).unwrap(), bytes);
+    let directory = dir.join(format!(
+        "{}.recovered-files",
+        archive.file_name().unwrap().to_string_lossy()
+    ));
+    let preview = run_output(
+        bin,
+        &[
+            archive.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--dry-run",
+            "--format",
+            "json",
+        ],
+    );
+    assert_success(&preview);
+    assert!(!directory.exists());
+    let default_archive = archive.with_extension("recovered.lbox");
+    let table_preview = run_output(
+        bin,
+        &[archive.to_str().unwrap(), "doctor", "recover", "--dry-run"],
+    );
+    assert_success(&table_preview);
+    let text = String::from_utf8_lossy(&table_preview.stdout);
+    assert!(
+        text.contains(&format!(
+            "Planned recovered Lockbox: {}",
+            std::path::absolute(&default_archive).unwrap().display()
+        )),
+        "{text}"
+    );
+    assert!(
+        text.contains(&format!(
+            "Planned partial-file directory: {}",
+            std::path::absolute(&directory).unwrap().display()
+        )),
+        "{text}"
+    );
+    assert!(!directory.exists() && !default_archive.exists());
+    let export = run_output(bin, &[archive.to_str().unwrap(), "doctor", "recover"]);
+    assert_success(&export);
+    let text = String::from_utf8_lossy(&export.stdout);
+    assert!(
+        text.contains(&format!(
+            "Recovered Lockbox: {}",
+            std::path::absolute(&default_archive).unwrap().display()
+        )),
+        "{text}"
+    );
+    assert!(
+        text.contains(&format!(
+            "Partial-file directory: {}",
+            std::path::absolute(&directory).unwrap().display()
+        )),
+        "{text}"
+    );
+    assert!(!text.contains("Planned recovered Lockbox:"));
+    let rows: Vec<serde_json::Value> = String::from_utf8_lossy(&preview.stdout)
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    for (field, expected) in [
+        ("recovered_files", "1"),
+        ("partial_files", "0"),
+        ("not_recovered_files", "1"),
+    ] {
+        assert!(
+            rows.iter()
+                .any(|row| row["field"] == field && row["value"] == expected),
+            "{rows:?}"
+        );
+    }
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(directory.join("manifest.json")).unwrap()).unwrap();
+    let files = manifest["files"].as_array().unwrap();
+    assert!(!files.iter().any(|file| file["path"] == "/intact.bin"));
+    let intact = run_output(
+        bin,
+        &[default_archive.to_str().unwrap(), "cat", "/intact.bin"],
+    );
+    assert_success(&intact);
+    assert_eq!(intact.stdout, b"retained content");
+    assert!(!run_output(
+        bin,
+        &[default_archive.to_str().unwrap(), "cat", "/damaged.bin"]
+    )
+    .status
+    .success());
+    let missing = files
+        .iter()
+        .find(|file| file["path"] == "/damaged.bin")
+        .unwrap();
+    assert_eq!(missing["status"], "unrecoverable");
+    assert!(missing.get("output").is_none());
+    assert!(!run_output(
+        bin,
+        &[
+            archive.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--directory",
+            directory.to_str().unwrap()
+        ]
+    )
+    .status
+    .success());
+    assert_eq!(fs::read(&archive).unwrap(), bytes);
+}
+
+#[test]
 fn recover_reports_and_writes_recovered_lockbox() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let dir = unique_dir_named("recover-write");
@@ -2791,16 +2984,71 @@ fn recover_reports_and_writes_recovered_lockbox() {
         ],
     );
     assert_success(&report);
-    assert!(String::from_utf8_lossy(&report.stdout).contains("\"field\":\"intact_file_count\""));
+    assert!(String::from_utf8_lossy(&report.stdout).contains("\"field\":\"recovery_directory\""));
 
     let default_recovered = dir.join("damaged.recovered.lbox");
+    assert!(!default_recovered.exists());
+    let unchanged = fs::read(&damaged).unwrap();
     let default_output = run_output(bin, &[damaged.to_str().unwrap(), "doctor", "recover"]);
     assert_success(&default_output);
     assert!(damaged.exists());
     assert!(default_recovered.exists());
     assert!(String::from_utf8_lossy(&default_output.stdout)
         .contains(default_recovered.to_str().unwrap()));
-    fs::remove_file(&default_recovered).unwrap();
+    let text = String::from_utf8_lossy(&default_output.stdout);
+    assert!(text.contains(&format!(
+        "Recovered Lockbox: {}",
+        std::path::absolute(&default_recovered).unwrap().display()
+    )));
+    assert!(
+        !text.contains("Partial-file directory:")
+            && !text.contains("Planned partial-file directory:")
+    );
+    let content = run_output(
+        bin,
+        &[default_recovered.to_str().unwrap(), "cat", "/docs/a.txt"],
+    );
+    assert_success(&content);
+    assert_eq!(content.stdout, b"alpha");
+    assert!(!dir.join("damaged.lbox.recovered-files").exists());
+    let repeated = run_output(
+        bin,
+        &[
+            damaged.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--format",
+            "tsv",
+        ],
+    );
+    assert!(!repeated.status.success());
+    let explicit_directory = dir.join("chosen-files");
+    let extra_archive = dir.join("extra.lbox");
+    assert_success(&run_output(
+        bin,
+        &[
+            damaged.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--output",
+            extra_archive.to_str().unwrap(),
+            "--directory",
+            explicit_directory.to_str().unwrap(),
+        ],
+    ));
+    assert!(!explicit_directory.exists());
+    assert_eq!(fs::read(&damaged).unwrap(), unchanged);
+    assert!(!run_output(
+        bin,
+        &[
+            damaged.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--overwrite"
+        ]
+    )
+    .status
+    .success());
 
     let output = run_output(
         bin,
@@ -2876,6 +3124,200 @@ fn recover_reports_and_writes_recovered_lockbox() {
 }
 
 #[test]
+fn recovery_progress_and_private_diagnostics_keep_sensitive_data_out() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = unique_dir_named("recovery-telemetry");
+    fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("PRIVATE_ARCHIVE_SENTINEL.lbox");
+    let input = dir.join("input");
+    fs::write(&input, b"PRIVATE_CONTENT_SENTINEL").unwrap();
+    run(bin, &[source.to_str().unwrap(), "create"]);
+    run(
+        bin,
+        &[
+            source.to_str().unwrap(),
+            "add",
+            input.to_str().unwrap(),
+            "--to",
+            "/PRIVATE_FILENAME_SENTINEL",
+        ],
+    );
+    let original = fs::read(&source).unwrap();
+    let diagnostic = dir.join("diagnostic.json");
+    let preview = run_output(
+        bin,
+        &[
+            source.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--dry-run",
+            "--format",
+            "json",
+            "--diagnostics",
+            diagnostic.to_str().unwrap(),
+        ],
+    );
+    assert_success(&preview);
+    assert!(String::from_utf8_lossy(&preview.stderr).contains("Recovery:"));
+    for line in String::from_utf8_lossy(&preview.stdout)
+        .lines()
+        .filter(|line| !line.is_empty())
+    {
+        serde_json::from_str::<serde_json::Value>(line).unwrap();
+    }
+    let diagnostic_bytes = fs::read(&diagnostic).unwrap();
+    let report: serde_json::Value = serde_json::from_slice(&diagnostic_bytes).unwrap();
+    assert_eq!(report["status"], "complete");
+    assert_eq!(report["counts"]["recovered"], 1);
+    for sentinel in [
+        "PRIVATE_ARCHIVE_SENTINEL",
+        "PRIVATE_CONTENT_SENTINEL",
+        "PRIVATE_FILENAME_SENTINEL",
+        "test-key",
+        "test-vault-password",
+    ] {
+        assert!(!String::from_utf8_lossy(&diagnostic_bytes).contains(sentinel));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            fs::metadata(&diagnostic).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
+    let refused = run_output(
+        bin,
+        &[
+            source.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--dry-run",
+            "--diagnostics",
+            diagnostic.to_str().unwrap(),
+        ],
+    );
+    assert!(!refused.status.success());
+    assert_eq!(fs::read(&diagnostic).unwrap(), diagnostic_bytes);
+    let collision = run_output(
+        bin,
+        &[
+            source.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--dry-run",
+            "--diagnostics",
+            source.to_str().unwrap(),
+        ],
+    );
+    assert!(!collision.status.success());
+    let quiet = run_output(
+        bin,
+        &[
+            source.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--dry-run",
+            "--quiet",
+        ],
+    );
+    assert_success(&quiet);
+    assert!(
+        quiet.stderr.is_empty(),
+        "{}",
+        String::from_utf8_lossy(&quiet.stderr)
+    );
+    assert!(String::from_utf8_lossy(&quiet.stdout).contains("1 recovered"));
+    assert_eq!(fs::read(&source).unwrap(), original);
+    assert!(!source.with_extension("recovered.lbox").exists());
+    let missing = dir.join("PRIVATE_MISSING_SENTINEL.lbox");
+    let failure_report = dir.join("failure.json");
+    let failed = run_output(
+        bin,
+        &[
+            missing.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--quiet",
+            "--diagnostics",
+            failure_report.to_str().unwrap(),
+        ],
+    );
+    assert!(!failed.status.success());
+    let failure = fs::read_to_string(failure_report).unwrap();
+    assert!(!failure.contains("PRIVATE_MISSING_SENTINEL"));
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&failure).unwrap()["status"],
+        "failed"
+    );
+}
+
+#[test]
+fn recovery_preserves_root_and_nested_mirror_metadata_and_mutation_guards() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    for (index, root) in ["/", "/managed"].into_iter().enumerate() {
+        let dir = unique_dir_named(&format!("recover-mirror-{index}"));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("host")).unwrap();
+        let input = dir.join("host/content.txt");
+        fs::write(&input, b"verified mirrored bytes").unwrap();
+        let source = dir.join("source.lbox");
+        run(bin, &[source.to_str().unwrap(), "create"]);
+        let stored_path = format!("{}/.home.lbx.lock", root.trim_end_matches('/'));
+        run(
+            bin,
+            &[
+                source.to_str().unwrap(),
+                "add",
+                input.to_str().unwrap(),
+                "--to",
+                &stored_path,
+            ],
+        );
+        run(
+            bin,
+            &[
+                source.to_str().unwrap(),
+                "mirrors",
+                "home",
+                "create",
+                "--from",
+                dir.join("host").to_str().unwrap(),
+                "--to",
+                root,
+                "--adopt",
+            ],
+        );
+        let original = fs::read(&source).unwrap();
+        run(bin, &[source.to_str().unwrap(), "doctor", "recover"]);
+        let recovered = source.with_extension("recovered.lbox");
+        let content = run_output(bin, &[recovered.to_str().unwrap(), "cat", &stored_path]);
+        assert_success(&content);
+        assert_eq!(content.stdout, b"verified mirrored bytes");
+        let projects = run_output(bin, &[recovered.to_str().unwrap(), "mirrors", "projects"]);
+        assert_success(&projects);
+        assert!(String::from_utf8_lossy(&projects.stdout).contains("home"));
+        let destination = format!("{}/forbidden.txt", root.trim_end_matches('/'));
+        let refused = run_output(
+            bin,
+            &[
+                recovered.to_str().unwrap(),
+                "add",
+                input.to_str().unwrap(),
+                "--to",
+                &destination,
+            ],
+        );
+        assert!(!refused.status.success());
+        assert!(String::from_utf8_lossy(&refused.stderr).contains("managed by mirror"));
+        let retained = run_output(bin, &[recovered.to_str().unwrap(), "cat", &stored_path]);
+        assert_success(&retained);
+        assert_eq!(retained.stdout, content.stdout);
+        assert_eq!(fs::read(&source).unwrap(), original);
+    }
+}
+
+#[test]
 fn doctor_recover_detects_and_completes_interrupted_cleanup() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let dir = unique_dir_named("recover-transaction");
@@ -2899,7 +3341,8 @@ fn doctor_recover_detects_and_completes_interrupted_cleanup() {
         lockbox.display()
     )));
     assert!(diagnosis_stdout.contains(&format!(
-        "recover: lbx {} doctor recover",
+        "complete cleanup: lbx {} doctor recover --output {} --overwrite",
+        lockbox.display(),
         lockbox.display()
     )));
 
@@ -2918,14 +3361,30 @@ fn doctor_recover_detects_and_completes_interrupted_cleanup() {
     assert_success(&preview);
     assert!(preview.stderr.is_empty());
     let preview = String::from_utf8_lossy(&preview.stdout);
-    assert!(preview.contains("\"field\":\"operation\""));
-    assert!(preview.contains("\"value\":\"complete_pending_cleanup\""));
+    assert!(preview.contains("\"field\":\"recovery_directory\""));
+    assert!(preview.contains("\"field\":\"dry_run\",\"value\":\"true\""));
 
     let still_pending = run_output(bin, &[lockbox.to_str().unwrap(), "doctor"]);
     assert_success(&still_pending);
     assert!(String::from_utf8_lossy(&still_pending.stdout).contains("state: cleanup required"));
 
-    let recovered = run_output(bin, &[lockbox.to_str().unwrap(), "doctor", "recover"]);
+    let unchanged = fs::read(&lockbox).unwrap();
+    assert_success(&run_output(
+        bin,
+        &[lockbox.to_str().unwrap(), "doctor", "recover"],
+    ));
+    assert_eq!(fs::read(&lockbox).unwrap(), unchanged);
+    let recovered = run_output(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--output",
+            lockbox.to_str().unwrap(),
+            "--overwrite",
+        ],
+    );
     assert_success(&recovered);
     let stderr = String::from_utf8_lossy(&recovered.stderr);
     assert!(stderr.contains("Lockbox cleanup is required"));
@@ -6016,7 +6475,7 @@ fn session_default_lockbox_applies_to_lockbox_argument_variants() {
         &agent_root,
     );
     assert_success(&report);
-    assert!(String::from_utf8_lossy(&report.stdout).contains("file_count"));
+    assert!(String::from_utf8_lossy(&report.stdout).contains("file_recovery_plan"));
 
     run_in(
         bin,
@@ -6763,8 +7222,8 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     );
     assert_success(&report);
     let report = String::from_utf8_lossy(&report.stdout);
-    assert!(report.contains("variables_recovered\ttrue"));
-    assert!(report.contains("variable_count\t9"));
+    assert!(report.contains("recovery_directory\t"));
+    assert!(report.contains("dry_run\ttrue"));
 
     let token_output = dir.join("api-token.txt");
     run(
