@@ -635,7 +635,7 @@ jobs:
         run: |
           sdkmanager "ndk;28.2.13676358"
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
-          dart pub global activate dcli 10.3.0
+          dart pub global activate dcli_sdk 10.3.0 --overwrite
           cd tools
           dart pub get
       - name: Build Android API 23 carrier and verify 16 KB alignment
@@ -697,7 +697,7 @@ jobs:
         run: |
           sdkmanager "ndk;28.2.13676358"
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
-          dart pub global activate dcli 10.3.0
+          dart pub global activate dcli_sdk 10.3.0 --overwrite
           cd tools
           dart pub get
       - name: Compile Flutter APK with both packaged Android carriers
