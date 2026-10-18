@@ -794,6 +794,82 @@ fn helpers_read_normal_and_secret_fields_and_reject_invalid_destinations() {
 }
 
 #[test]
+fn helper_variable_errors_explain_the_actual_selector_problem() {
+    let f = Fixture::new();
+    f.ok(&["session", "default", "a@dev"]);
+    f.ok(&[
+        "a@dev",
+        "variable",
+        "set",
+        "/production/TOKEN",
+        "grouped-token",
+    ]);
+    assert_eq!(f.read("TOKEN"), b"synthetic-token");
+    assert_eq!(f.read("/production/TOKEN"), b"grouped-token");
+    for (selector, reason) in [
+        ("/production/", "empty name component"),
+        ("/production/..", "component \"..\" is not a variable name"),
+        ("BAD-NAME", "character '-' (U+002D)"),
+        ("BAD\nNAME", "character '\\n' (U+000A)"),
+        ("BAD\u{200b}NAME", "character '\\u{200b}' (U+200B)"),
+        ("1TOKEN", "character '1' (U+0031) at the start"),
+    ] {
+        let failed = f.run(VALUE, &[selector]);
+        assert!(!failed.status.success(), "{failed:?}");
+        assert!(failed.stdout.is_empty(), "{failed:?}");
+        let error = String::from_utf8_lossy(&failed.stderr);
+        assert!(error.contains("invalid variable name"), "{error}");
+        assert!(error.contains(reason), "{error}");
+        assert!(!error.contains("absolute logical"), "{error}");
+        assert!(!error.contains("unsafe Unicode"), "{error}");
+    }
+    let root = f
+        .command(VALUE, &["/"])
+        .env_remove("LOCKBOX_KEY")
+        .env_remove("LOCKBOX_VAULT_PASSWORD")
+        .test_output()
+        .unwrap();
+    assert_eq!(root.status.code(), Some(2), "{root:?}");
+    assert!(root.stdout.is_empty(), "{root:?}");
+    let error = String::from_utf8_lossy(&root.stderr);
+    assert!(error.contains("Incomplete lbxv invocation"), "{error}");
+    assert!(
+        error.contains("host root directory or the lockbox root"),
+        "{error}"
+    );
+    assert!(!error.contains("invalid variable name"), "{error}");
+}
+
+#[test]
+fn helper_root_operand_fails_before_accessing_a_vault_or_session() {
+    let root = tempfile::tempdir().unwrap();
+    let output = Command::new(VALUE)
+        .arg("/")
+        .env("LOCKBOX_VAULT_DIR", root.path().join("no-vault"))
+        .env("LOCKBOX_SESSION_AGENT_DIR", root.path().join("no-session"))
+        .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env_remove("LOCKBOX_KEY")
+        .env_remove("LOCKBOX_VAULT_PASSWORD")
+        .env_remove("COMPLETE")
+        .test_output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    assert!(output.stdout.is_empty(), "{output:?}");
+    let error = String::from_utf8_lossy(&output.stderr);
+    for expected in [
+        "Incomplete lbxv invocation",
+        "host root directory or the lockbox root",
+        "neither a lockbox file nor a variable or form field",
+        "lbxv ./dev.lbox TOKEN",
+        "lbxv TOKEN",
+    ] {
+        assert!(error.contains(expected), "missing {expected}: {error}");
+    }
+    assert!(!root.path().join("no-vault").exists());
+    assert!(!root.path().join("no-session").exists());
+}
+
+#[test]
 fn environment_child() {
     if std::env::var("REVAULT_ALIAS_TEST_CHILD").as_deref() != Ok("1") {
         return;
@@ -825,12 +901,12 @@ fn helper_help_is_useful_without_a_vault_or_session() {
             let help = String::from_utf8_lossy(&output.stdout);
             for expected in [
                 "Usage:",
-                "session default",
-                "a@NAME",
-                "--lockbox NAME",
-                "/full/path/dev.lbox",
-                "never prompt",
-                "Examples:",
+                "default lockbox",
+                "a@dev",
+                "--lockbox <LOCKBOX>",
+                "/path/dev.lbox",
+                "never asks for a password",
+                "Examples",
             ] {
                 assert!(help.contains(expected), "missing {expected}: {help}");
             }
@@ -1298,7 +1374,7 @@ fn completion_exposes_names_only_and_retains_assignment_destination() {
         assert!(!text.contains("synthetic"));
         assert!(!text.contains("alice"));
     }
-    for binary in [VALUE, EXEC] {
+    for binary in [LBX, env!("CARGO_BIN_EXE_lbx")] {
         let output = f.run(binary, &["completion", "generate", "--shell", "bash"]);
         assert!(output.status.success(), "{output:?}");
         assert!(String::from_utf8_lossy(&output.stdout).contains("_clap_complete_"));

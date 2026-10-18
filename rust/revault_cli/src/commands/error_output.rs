@@ -173,11 +173,7 @@ fn render_api_error(error: &Error, colour: bool) -> String {
             Some(error.guidance()),
         ),
         Error::InvalidInput(detail) => ("Invalid input".to_string(), detail.clone(), None),
-        Error::InvalidPath(detail) => (
-            "Invalid lockbox path".to_string(),
-            detail.clone(),
-            Some(error.guidance()),
-        ),
+        Error::InvalidPath(detail) => ("Invalid path".to_string(), detail.clone(), None),
         Error::NotFound(detail) => (
             "Lockbox entry not found".to_string(),
             detail.clone(),

@@ -146,12 +146,12 @@ fn validate_variable_glob(pattern: &str) -> Result<String> {
         || pattern.contains('\0')
         || pattern.contains(':')
     {
-        return Err(Error::InvalidPath(pattern.to_string()));
+        return Err(invalid_variable_glob(pattern));
     }
     let pattern = pattern.strip_prefix('/').unwrap_or(pattern);
     for component in pattern.split('/') {
         if component.is_empty() || component == "." || component == ".." {
-            return Err(Error::InvalidPath(pattern.to_string()));
+            return Err(invalid_variable_glob(pattern));
         }
         if component == "**" {
             continue;
@@ -162,10 +162,60 @@ fn validate_variable_glob(pattern: &str) -> Result<String> {
                 .chars()
                 .all(|ch| ch == '_' || ch == '*' || ch == '?' || ch.is_ascii_alphanumeric())
         {
-            return Err(Error::InvalidPath(pattern.to_string()));
+            return Err(invalid_variable_glob(pattern));
         }
     }
     Ok(pattern.to_string())
+}
+
+fn invalid_variable_glob(pattern: &str) -> Error {
+    let reason = if pattern.is_empty() || pattern == "/" {
+        "a variable filter is required; use '**' to match all variables".to_string()
+    } else if pattern.ends_with('/') || pattern.starts_with("//") {
+        "variable filter contains an empty component; remove repeated or trailing '/' separators"
+            .to_string()
+    } else {
+        let mut reason = None;
+        for component in pattern.strip_prefix('/').unwrap_or(pattern).split('/') {
+            if component.is_empty() {
+                reason = Some(
+                    "variable filter contains an empty component; remove repeated '/' separators"
+                        .to_string(),
+                );
+            } else if component == "." || component == ".." {
+                reason = Some(format!(
+                    "variable filter contains unsupported component {component:?}"
+                ));
+            } else if let Some(ch) = component
+                .strip_prefix('.')
+                .unwrap_or(component)
+                .chars()
+                .find(|ch| !matches!(ch, '_' | '*' | '?') && !ch.is_ascii_alphanumeric())
+            {
+                reason = Some(format!("variable filter contains unsupported character '{}' (U+{:04X}); use ASCII letters, digits, '_', '*' or '?' within a component", ch.escape_default(), ch as u32));
+            }
+            if reason.is_some() {
+                break;
+            }
+        }
+        reason.expect("invalid variable glob must have a validation reason")
+    };
+    Error::InvalidPath(reason)
+}
+
+#[cfg(test)]
+#[test]
+fn invalid_variable_filters_explain_the_actual_failure() {
+    for (pattern, expected) in [
+        ("/production/*/", "empty component"),
+        ("/production//TOKEN*", "empty component"),
+        ("/production/../TOKEN*", "unsupported component \"..\""),
+        ("/production/BAD-*", "character '-' (U+002D)"),
+        ("/production/BAD\n*", "character '\\n' (U+000A)"),
+    ] {
+        let error = VariableNamePattern::new(pattern).unwrap_err().to_string();
+        assert!(error.contains(expected), "{pattern:?}: {error}");
+    }
 }
 
 fn glob_matches(pattern: &str, text: &str) -> bool {

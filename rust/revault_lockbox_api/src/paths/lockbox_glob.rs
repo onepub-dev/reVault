@@ -31,7 +31,7 @@ impl LockboxGlob {
                 .split('/')
                 .any(|component| component.is_empty() || component == "." || component == "..")
         {
-            return Err(Error::InvalidPath(pattern.to_string()));
+            return Err(invalid_glob(pattern));
         }
         if pattern.is_ascii() {
             Ok(Self(pattern.to_string()))
@@ -50,6 +50,53 @@ impl LockboxGlob {
         let pattern_parts = self.0.split('/').collect::<Vec<_>>();
         let path_parts = path.as_ref().split('/').collect::<Vec<_>>();
         match_parts(&pattern_parts, &path_parts)
+    }
+}
+
+fn invalid_glob(pattern: &str) -> Error {
+    let reason = if pattern.is_empty() {
+        "a filter pattern is required; use '*' to match entries".to_string()
+    } else if pattern.len() > MAX_PATH_BYTES {
+        format!("filter pattern exceeds {MAX_PATH_BYTES} bytes")
+    } else if pattern.starts_with('/') {
+        "filter patterns are relative to the listing directory; remove the leading '/'".to_string()
+    } else if let Some(ch) = pattern
+        .chars()
+        .find(|ch| matches!(ch, '\\' | ':') || is_forbidden_unicode(*ch))
+    {
+        format!(
+            "filter pattern contains unsupported character '{}' (U+{:04X})",
+            ch.escape_default(),
+            ch as u32
+        )
+    } else {
+        let component = pattern
+            .split('/')
+            .find(|component| component.is_empty() || *component == "." || *component == "..")
+            .expect("invalid glob must have an invalid component");
+        if component.is_empty() {
+            "filter pattern contains an empty component; remove repeated or trailing '/' separators"
+                .to_string()
+        } else {
+            format!("filter pattern contains unsupported component {component:?}; specify the pattern relative to the listing directory without '.' or '..'")
+        }
+    };
+    Error::InvalidPath(reason)
+}
+
+#[cfg(test)]
+#[test]
+fn invalid_globs_explain_pattern_rules() {
+    for (pattern, expected) in [
+        ("", "a filter pattern is required"),
+        ("/docs/*", "relative to the listing directory"),
+        ("docs//*", "empty component"),
+        ("docs/../*", "unsupported component \"..\""),
+        ("docs/\\*", "character '\\\\' (U+005C)"),
+        ("docs/\u{200b}*", "character '\\u{200b}' (U+200B)"),
+    ] {
+        let error = LockboxGlob::new(pattern).unwrap_err().to_string();
+        assert!(error.contains(expected), "{pattern:?}: {error}");
     }
 }
 

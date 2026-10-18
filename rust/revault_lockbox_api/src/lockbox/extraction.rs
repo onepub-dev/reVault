@@ -235,7 +235,13 @@ impl<State: Send> Lockbox<State> {
                 .path
                 .as_str()
                 .strip_prefix(source)
-                .ok_or_else(|| Error::InvalidPath(entry.path.to_string()))?
+                .ok_or_else(|| {
+                    Error::InvalidPath(format!(
+                        "cannot extract entry {:?}: it is outside the selected source {:?}",
+                        entry.path.as_str(),
+                        source,
+                    ))
+                })?
                 .trim_start_matches('/');
             self.extract_entry_to_root(entry, &root, Path::new(relative), policy)?;
         }
@@ -602,7 +608,9 @@ fn checked_destination(root: &Path, lockbox_path: &str) -> Result<PathBuf> {
     for component in Path::new(relative).components() {
         match component {
             Component::Normal(part) => out.push(part),
-            _ => return Err(Error::InvalidPath(lockbox_path.to_string())),
+            _ => return Err(Error::InvalidPath(format!(
+                "cannot extract lockbox path {lockbox_path:?}: component {component:?} is not a normal filename on this operating system",
+            ))),
         }
     }
     if !out.starts_with(root) {

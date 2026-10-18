@@ -35,7 +35,9 @@ impl LockboxPath {
     /// Return the parent lockbox path, or `None` for the lockbox root.
     pub fn parent(&self) -> Result<Option<Self>> {
         let Some(index) = self.0.rfind('/') else {
-            return Err(Error::InvalidPath(self.0.clone()));
+            return Err(Error::InvalidPath(
+                "cannot find a parent: path inside the lockbox has no '/' separator".to_string(),
+            ));
         };
         if index == 0 {
             return Ok(None);
@@ -157,7 +159,9 @@ pub(crate) fn canonicalize_stored_path(path: &str, allow_dir: bool) -> Result<St
     }
     let normalized = path.nfc().collect::<String>();
     if normalized != path {
-        return Err(Error::InvalidPath(path.to_string()));
+        return Err(Error::InvalidPath(
+            "stored path inside the lockbox is not in canonical Unicode (NFC) form".to_string(),
+        ));
     }
     validate_lockbox_path(path, allow_dir)?;
     Ok(normalized)
@@ -178,7 +182,7 @@ fn validate_lockbox_path(path: &str, allow_dir: bool) -> Result<()> {
         return validate_ascii_lockbox_path(path, allow_dir);
     }
 
-    let invalid = || Error::InvalidPath(path.to_string());
+    let invalid = || invalid_lockbox_path(path, allow_dir);
     let path = if allow_dir && path.len() > 1 {
         path.trim_end_matches('/')
     } else {
@@ -223,7 +227,7 @@ fn validate_lockbox_path(path: &str, allow_dir: bool) -> Result<()> {
 }
 
 fn validate_ascii_lockbox_path(path: &str, allow_dir: bool) -> Result<()> {
-    let invalid = || Error::InvalidPath(path.to_string());
+    let invalid = || invalid_lockbox_path(path, allow_dir);
     let path = if allow_dir && path.len() > 1 {
         path.trim_end_matches('/')
     } else {
@@ -267,6 +271,65 @@ fn validate_ascii_lockbox_path(path: &str, allow_dir: bool) -> Result<()> {
     Ok(())
 }
 
+// Called only after validation fails, keeping diagnostic work off the success path.
+fn invalid_lockbox_path(path: &str, allow_dir: bool) -> Error {
+    let path = if allow_dir && path.len() > 1 {
+        path.trim_end_matches('/')
+    } else {
+        path
+    };
+    let reason = if path.is_empty() {
+        "a path inside the lockbox is required".to_string()
+    } else if path.len() > MAX_PATH_BYTES {
+        format!("path inside the lockbox exceeds {MAX_PATH_BYTES} bytes")
+    } else if !path.starts_with('/') {
+        "path inside the lockbox must start with '/' to identify the lockbox root; use a path such as /docs/file.txt".to_string()
+    } else if path.starts_with("//") {
+        "path inside the lockbox starts with repeated '/' separators; use a single leading '/'"
+            .to_string()
+    } else if let Some(ch) = path
+        .chars()
+        .find(|ch| matches!(ch, '\\' | ':') || is_forbidden_unicode(*ch))
+    {
+        format!(
+            "path inside the lockbox contains unsupported character '{}' (U+{:04X})",
+            ch.escape_default(),
+            ch as u32
+        )
+    } else if !allow_dir && path == "/" {
+        "this operation requires a file path inside the lockbox; '/' names its root directory"
+            .to_string()
+    } else if !allow_dir && path.ends_with('/') {
+        "this operation requires a file path inside the lockbox; a trailing '/' denotes a directory"
+            .to_string()
+    } else {
+        let mut reason = None;
+        for (index, component) in path.split('/').skip(1).enumerate() {
+            reason = if component.is_empty() {
+                Some("path inside the lockbox contains an empty component; remove repeated '/' separators".to_string())
+            } else if component == "." || component == ".." {
+                Some(format!("path inside the lockbox contains unsupported component {component:?}; specify the entry from the lockbox root without '.' or '..'"))
+            } else if component.len() > MAX_COMPONENT_BYTES {
+                Some(format!(
+                    "path component {} exceeds {MAX_COMPONENT_BYTES} bytes",
+                    index + 1
+                ))
+            } else if index >= MAX_PATH_DEPTH {
+                Some(format!(
+                    "path inside the lockbox exceeds {MAX_PATH_DEPTH} components"
+                ))
+            } else {
+                None
+            };
+            if reason.is_some() {
+                break;
+            }
+        }
+        reason.expect("invalid path must have a validation reason")
+    };
+    Error::InvalidPath(reason)
+}
+
 pub(super) fn is_forbidden_unicode(ch: char) -> bool {
     matches!(
         ch,
@@ -287,6 +350,50 @@ pub(super) fn is_forbidden_unicode(ch: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn invalid_paths_explain_the_actual_failure() {
+        for (path, allow_dir, expected) in [
+            ("", true, "a path inside the lockbox is required"),
+            (
+                "docs/file.txt",
+                true,
+                "must start with '/' to identify the lockbox root",
+            ),
+            ("//docs", true, "repeated '/' separators"),
+            ("/", false, "requires a file path"),
+            ("/docs/", false, "trailing '/' denotes a directory"),
+            ("/docs//file", false, "empty component"),
+            ("/docs/../file", false, "unsupported component \"..\""),
+            ("/bad:name", false, "character ':' (U+003A)"),
+            ("/bad\\name", false, "character '\\\\' (U+005C)"),
+            ("/bad\nname", false, "character '\\n' (U+000A)"),
+            ("/bad\u{200b}name", false, "character '\\u{200b}' (U+200B)"),
+        ] {
+            let error = validate_lockbox_path(path, allow_dir)
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains(expected), "{path:?}: {error}");
+            if !expected.contains("character") {
+                assert!(!error.contains("character"), "{error}");
+            }
+        }
+        let oversized = format!("/{}", "a".repeat(MAX_COMPONENT_BYTES + 1));
+        assert!(LockboxPath::new(oversized)
+            .unwrap_err()
+            .to_string()
+            .contains("component 1 exceeds"));
+        let deep = "/a".repeat(MAX_PATH_DEPTH + 1);
+        assert!(LockboxPath::new(deep)
+            .unwrap_err()
+            .to_string()
+            .contains("components"));
+        let long = format!("/{}", "a".repeat(MAX_PATH_BYTES));
+        assert!(LockboxPath::new(long)
+            .unwrap_err()
+            .to_string()
+            .contains("path inside the lockbox exceeds"));
+    }
 
     #[test]
     fn symlink_validation_requires_lockbox_paths() {

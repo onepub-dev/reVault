@@ -1,5 +1,6 @@
 //! Small, noninteractive consumers of variables and form fields.
-use super::context::{cli_error, open_existing_read_only, Access, CliResult};
+use super::context::{cli_diagnostic, cli_error, open_existing_read_only, Access, CliResult};
+use super::error_output::ExitCode;
 use clap::{Arg, Command};
 use clap_complete::engine::ArgValueCompleter;
 use revault_lockbox_api::{
@@ -7,6 +8,50 @@ use revault_lockbox_api::{
 };
 use std::io::Write;
 use zeroize::Zeroizing;
+
+// The parser shares one positional argument for the optional lockbox and both
+// selector forms. Describe those forms separately while keeping parsing intact.
+const LBXX_HELP_TEMPLATE: &str = "{about}
+
+Usage: {usage}
+
+Arguments:
+  [LOCKBOX]     Lockbox file path or alias. Accepts dev, dev.lbox,
+                ./dev.lbox, /path/dev.lbox, or a@dev.
+                Omit to use the session's default lockbox.
+  VAR           Stored variable name, such as TOKEN
+  FORM_FIELD    Form path and field, such as /work/github@token
+  <COMMAND>...  Command and its arguments
+
+Options:
+  --lockbox <LOCKBOX>
+      Explicitly identify the lockbox when its name could also be a
+      variable name. All positional values then select variables or fields.
+      Accepts the same forms as [LOCKBOX].
+
+  -h, --help     Print help
+  -V, --version  Print version
+
+{after-help}";
+
+const LBXV_HELP_TEMPLATE: &str = "{about}
+
+Usage: {usage}
+
+Arguments:
+  [LOCKBOX]   Lockbox file path or alias. Accepts dev, dev.lbox,
+              ./dev.lbox, /path/dev.lbox, or a@dev.
+              Omit to use the session's default lockbox.
+  VAR         Stored variable name, such as TOKEN
+  FORM_FIELD  Form path and field, such as /work/github@token
+
+Options:
+  --lockbox <LOCKBOX>  Explicitly specify the lockbox by file path or alias.
+                       Accepts the same forms as [LOCKBOX].
+  -h, --help           Print help
+  -V, --version        Print version
+
+{after-help}";
 
 pub(crate) fn form_selector(value: &str) -> CliResult<(&str, &str)> {
     let (path, field) = value
@@ -21,27 +66,71 @@ pub(crate) fn form_selector(value: &str) -> CliResult<(&str, &str)> {
 pub(crate) fn command(exec: bool) -> Command {
     let command = Command::new(if exec { "lbxx" } else { "lbxv" })
         .version(env!("CARGO_PKG_VERSION"))
-        .subcommand_negates_reqs(true)
-        .subcommand(super::help::completion_command())
-        .about(if exec { "Run a command with selected values in its environment." } else { "Write one variable or form field value, without a trailing newline." })
-        .override_usage(if exec { "lbxx [OPTIONS] [LOCKBOX] <SELECTION>... -- <COMMAND>..." } else { "lbxv [OPTIONS] [LOCKBOX] <SELECTOR>" })
-        .arg(Arg::new("lockbox").long("lockbox").value_name("LOCKBOX").help("Lockbox filename, bare alias or a@alias (overrides the session default)").add(ArgValueCompleter::new(super::completion::lockbox_path_candidates)))
-        .arg(Arg::new("selection").required(true).value_name(if exec { "SELECTION" } else { "SELECTOR" }).help(if exec { "Optional lockbox, then NAME, /form/path@field or ENV=selector" } else { "Optional lockbox, then NAME or /form/path@field" }).num_args(1..=if exec { usize::MAX } else { 2 }).add(ArgValueCompleter::new(super::completion::helper_candidates)))
+        .about(if exec { "Run a command with lockbox values as environment variables." } else { "Write a lockbox variable or form field value to standard output for use\nin shell commands and scripts, without adding a newline." })
+        .override_usage(if exec { "lbxx [OPTIONS] [LOCKBOX] <VAR|FORM_FIELD>... -- <COMMAND>..." } else { "lbxv [OPTIONS] [LOCKBOX] <VAR|FORM_FIELD>" })
+        .arg(Arg::new("lockbox").long("lockbox").value_name("LOCKBOX").help(if exec { "Use a lockbox file or alias instead of the session default" } else { "Lockbox filename, bare alias or a@alias (overrides the session default)" }).add(ArgValueCompleter::new(super::completion::lockbox_path_candidates)))
+        .arg(Arg::new("selection").required(true).value_name("VAR|FORM_FIELD").help(if exec { "NAME, /form/path@field or ENV=selector" } else { "Optional lockbox, then NAME or /form/path@field" }).num_args(1..=if exec { usize::MAX } else { 2 }).add(ArgValueCompleter::new(super::completion::helper_candidates)))
         .after_help(if exec {
-            "Omit LOCKBOX to use `lbx session default`. Paths and aliases override it.\nBare lockbox names select a known alias or local file (including NAME.lbox).\nUse --lockbox NAME when a bare name could be a value selection.\nIf an alias and local file differ, use a@NAME for the alias, or ./ or .lbox for the file.\nOpen the lockbox first with lbx; these helpers never prompt.\nSelections: NAME or /form/path@field; ENV=selector renames the environment variable.\nThe child receives the selected values, and lbxx returns its exit status.\n\nExamples:\n  lbxx TOKEN REGION -- dart pub get\n  lbxx --lockbox dev TOKEN=/work/github@token -- dart pub get\n  lbxx /full/path/dev.lbox TOKEN -- dart pub get"
+            "Environment variables:
+  Variables use their stored names; form fields use their field names.
+  Prefix either with ENV= to choose a different environment variable name.
+
+Examples:
+  lbxx TOKEN REGION -- dart pub get
+  lbxx GITHUB_TOKEN=/work/github@token -- gh repo list
+  lbxx dev TOKEN -- dart pub get
+  lbxx --lockbox dev TOKEN -- dart pub get
+
+If an alias and file share a name, use a@dev for the alias
+or ./dev.lbox for the file.
+
+For encrypted lockboxes, run `lbx [LOCKBOX] open` first.
+For password-protected lockboxes, this asks for the password when needed.
+Omit LOCKBOX to open the session’s default lockbox.
+
+Alternatively, set the LOCKBOX_KEY environment variable to an existing
+decryption key. Passwords must be provided through `lbx open`.
+
+lbxx never asks for a password. Unencrypted lockboxes need no key.
+
+Returns the command's exit status."
         } else {
-            "Omit LOCKBOX to use `lbx session default`. Paths and aliases override it.\nBare lockbox names select an alias or local file (including NAME.lbox).\nUse --lockbox NAME to make the lockbox operand explicit.\nIf an alias and local file differ, use a@NAME for the alias, or ./ or .lbox for the file.\nOpen the lockbox first with lbx; these helpers never prompt.\nWrites the selected normal or secret value exactly, without a trailing newline.\n\nExamples:\n  lbxv TOKEN\n  lbxv dev /work/github@token\n  lbxv /full/path/dev.lbox TOKEN"
+            r#"Examples (Bash):
+  Read a variable into a shell variable:
+    TOKEN="$(lbxv ./dev.lbox TOKEN)"
+
+  Read a form field using a lockbox alias:
+    GITHUB_TOKEN="$(lbxv a@dev /work/github@token)"
+
+  Pass a value as a command argument:
+    mycommand --token "$(lbxv ./dev.lbox TOKEN)"
+
+Writes the selected value exactly, whether normal or secret.
+
+If an alias and file share a name, use a@dev for the alias
+or ./dev.lbox for the file.
+
+For encrypted lockboxes, run `lbx [LOCKBOX] open` first.
+For password-protected lockboxes, this asks for the password when needed.
+Omit LOCKBOX to open the session's default lockbox.
+
+Alternatively, set the LOCKBOX_KEY environment variable to an existing
+decryption key. Passwords must be provided through `lbx open`.
+
+lbxv never asks for a password. Unencrypted lockboxes need no key."#
         });
     if exec {
-        command.arg(
+        command.help_template(LBXX_HELP_TEMPLATE).arg(
             Arg::new("command")
+                .value_name("COMMAND")
+                .help("Command and arguments to run after --")
                 .required(true)
                 .last(true)
                 .num_args(1..)
                 .value_parser(clap::builder::OsStringValueParser::new()),
         )
     } else {
-        command
+        command.help_template(LBXV_HELP_TEMPLATE)
     }
 }
 
@@ -73,7 +162,10 @@ fn value(lockbox: &Lockbox<ReadOnly>, selector: &str) -> CliResult<SecretString>
             FormValue::Secret(value) => Ok(value.try_clone()?),
         };
     }
-    let name = VariableName::new(selector)?;
+    let name = VariableName::new(selector).map_err(|error| match error {
+        revault_lockbox_api::Error::InvalidPath(detail) => cli_error(detail),
+        other => other.into(),
+    })?;
     match lockbox.variable_sensitivity(&name)? {
         Some(VariableSensitivity::Normal) => Ok(SecretString::try_from_bytes(
             lockbox
@@ -125,13 +217,25 @@ pub(crate) fn run(binary: &str) -> CliResult<()> {
         return Ok(());
     }
     let matches = command(exec).try_get_matches()?;
-    if let Some(("completion", matches)) = matches.subcommand() {
-        return super::completion::run_matches(matches);
-    }
     let mut selections = matches
         .get_many::<String>("selection")
         .expect("required")
         .collect::<Vec<_>>();
+    if !exec
+        && selections.len() == 1
+        && selections[0] == "/"
+        && matches.get_one::<String>("lockbox").is_none()
+    {
+        return Err(cli_diagnostic(
+            ExitCode::Usage,
+            "Incomplete lbxv invocation",
+            vec![(
+                "Details".to_string(),
+                "'/' names the host root directory or the lockbox root.\nIt identifies neither a lockbox file nor a variable or form field.".to_string(),
+            )],
+            "Specify a lockbox and value, e.g. `lbxv ./dev.lbox TOKEN`,\nor use `lbxv TOKEN` with a session default.",
+        ));
+    }
     let explicit = matches.get_one::<String>("lockbox").cloned().or_else(|| {
         if (is_lockbox_argument(selections[0])
             && (!super::aliases::is_bare_name(selections[0]) || selections.len() > 1))

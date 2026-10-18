@@ -133,7 +133,7 @@ impl Error {
                 "Pass replace = true only when intentionally replacing an existing lockbox entry."
             }
             Error::InvalidPath(_) => {
-                "Use an absolute logical lockbox path such as /docs/file.txt; host paths, '..', control characters, and unsafe Unicode are rejected."
+                "Check the path expected by this operation and the error details."
             }
             Error::InvalidInput(_) => {
                 "Check the supplied value and use the documented input format."
@@ -228,7 +228,7 @@ impl fmt::Display for Error {
                 write!(f, "lockbox entry already exists: {path}")
             }
             Error::InvalidPath(path) => {
-                write!(f, "invalid lockbox path: {path}")
+                write!(f, "invalid path: {path}")
             }
             Error::InvalidInput(message) => {
                 write!(f, "invalid input: {message}")
@@ -270,10 +270,10 @@ mod tests {
     #[test]
     fn display_errors_are_concise_and_guidance_is_explicit() {
         let invalid_path = Error::InvalidPath("../secret".to_string()).to_string();
-        assert_eq!(invalid_path, "invalid lockbox path: ../secret");
+        assert_eq!(invalid_path, "invalid path: ../secret");
         assert!(Error::InvalidPath("../secret".to_string())
             .guidance()
-            .contains("Use an absolute logical lockbox path"));
+            .contains("Check the path expected by this operation"));
 
         let missing = Error::NotFound("/missing".to_string()).to_string();
         assert_eq!(missing, "lockbox entry not found: /missing");

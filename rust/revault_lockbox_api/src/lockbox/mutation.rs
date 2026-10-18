@@ -232,7 +232,10 @@ impl<State> Lockbox<State> {
             return Ok(());
         }
         if to_path.is_descendant_of(from_path) {
-            return Err(Error::InvalidPath(to_path.to_string()));
+            return Err(Error::InvalidPath(format!(
+                "cannot move directory {:?} inside itself at {:?}; choose a destination outside that directory",
+                from_path.as_str(), to_path.as_str(),
+            )));
         }
         self.ensure_parent_directory(to_path)?;
         if self.live_entry(to_path).is_some() {

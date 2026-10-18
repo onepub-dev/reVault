@@ -99,8 +99,7 @@ fn assert_shell_registration(script: &str, shell: &str, binary: &str) {
 #[test]
 fn completion_default_install_refreshes_and_uninstalls_all_commands() {
     let bin = env!("CARGO_BIN_EXE_lbx");
-    let lbxv = env!("CARGO_BIN_EXE_lbxv");
-    let lbxx = env!("CARGO_BIN_EXE_lbxx");
+    let lockbox = env!("CARGO_BIN_EXE_lockbox");
     let temp = TestTempDir::new("completion-all-defaults");
     let home = temp.path().join("home");
     fs::create_dir_all(&home).unwrap();
@@ -132,12 +131,12 @@ fn completion_default_install_refreshes_and_uninstalls_all_commands() {
             assert_eq!(first.matches("# END revault dynamic completion").count(), 1);
             assert_all_binary_registrations(&first, shell);
 
-            let repeated = run_in_home(lbxv, &install_args, &vault_dir, &home);
+            let repeated = run_in_home(lockbox, &install_args, &vault_dir, &home);
             assert!(repeated.status.success(), "{shell}: {repeated:?}");
             assert_eq!(fs::read_to_string(powershell_profile).unwrap(), first);
 
             fs::write(powershell_profile, first.replace("lbxv", "stale-lbxv")).unwrap();
-            let refreshed = run_in_home(lbxx, &install_args, &vault_dir, &home);
+            let refreshed = run_in_home(bin, &install_args, &vault_dir, &home);
             assert!(refreshed.status.success(), "{shell}: {refreshed:?}");
             let refreshed = fs::read_to_string(powershell_profile).unwrap();
             assert!(!refreshed.contains("stale-lbxv"));
@@ -180,7 +179,7 @@ fn completion_default_install_refreshes_and_uninstalls_all_commands() {
             assert_shell_registration(script, shell, binary);
         }
 
-        let repeated = run_in_home(lbxv, &install_args, &vault_dir, &home);
+        let repeated = run_in_home(lockbox, &install_args, &vault_dir, &home);
         assert!(repeated.status.success(), "{shell}: {repeated:?}");
         for (path, script) in paths.iter().zip(&first_contents) {
             assert_eq!(
@@ -191,7 +190,7 @@ fn completion_default_install_refreshes_and_uninstalls_all_commands() {
             fs::write(path, "outdated completion content\n").unwrap();
         }
 
-        let refreshed = run_in_home(lbxx, &install_args, &vault_dir, &home);
+        let refreshed = run_in_home(bin, &install_args, &vault_dir, &home);
         assert!(refreshed.status.success(), "{shell}: {refreshed:?}");
         for (path, binary) in paths.iter().zip(COMPLETION_BINARIES) {
             let script = fs::read_to_string(path).unwrap();

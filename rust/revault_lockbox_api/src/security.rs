@@ -12,53 +12,79 @@ pub(crate) fn validate_permissions(permissions: u32) -> Result<u32> {
 }
 
 pub(crate) fn validate_variable_name(name: &str) -> Result<String> {
-    if name.is_empty() || name.len() > MAX_VARIABLE_NAME_BYTES {
-        return Err(Error::InvalidPath(name.to_string()));
+    if name.is_empty() {
+        return Err(invalid_variable_name(
+            "a variable name is required; use a name such as TOKEN",
+        ));
+    }
+    if name.len() > MAX_VARIABLE_NAME_BYTES {
+        return Err(variable_name_too_long());
     }
     let canonical = if name.starts_with('/') {
         validate_variable_path(name)?;
         name.to_string()
     } else {
-        validate_variable_component(name, name)?;
+        validate_variable_component(name)?;
         format!("/{name}")
     };
     if canonical.len() > MAX_VARIABLE_NAME_BYTES {
-        return Err(Error::InvalidPath(name.to_string()));
+        return Err(variable_name_too_long());
     }
     Ok(canonical)
 }
 
 fn validate_variable_path(path: &str) -> Result<()> {
-    if path.len() == 1
-        || path.ends_with('/')
-        || path.starts_with("//")
-        || path.contains('\\')
-        || path.contains('\0')
-        || path.contains(':')
-    {
-        return Err(Error::InvalidPath(path.to_string()));
+    if path == "/" {
+        return Err(invalid_variable_name(
+            "'/' names the root inside the lockbox, not a variable; select a variable such as TOKEN or /production/TOKEN",
+        ));
     }
     for component in path.split('/').skip(1) {
-        validate_variable_component(component, path)?;
+        validate_variable_component(component)?;
     }
     Ok(())
 }
 
-fn validate_variable_component(component: &str, original: &str) -> Result<()> {
+fn invalid_variable_name(reason: &str) -> Error {
+    Error::InvalidPath(format!("invalid variable name: {reason}"))
+}
+
+fn variable_name_too_long() -> Error {
+    invalid_variable_name(&format!(
+        "name exceeds {MAX_VARIABLE_NAME_BYTES} bytes, including its leading '/'"
+    ))
+}
+
+fn validate_variable_component(component: &str) -> Result<()> {
+    if component.is_empty() {
+        return Err(invalid_variable_name(
+            "empty name component; remove repeated or trailing '/' separators",
+        ));
+    }
+    if component == "." || component == ".." {
+        return Err(invalid_variable_name(&format!(
+            "component {component:?} is not a variable name"
+        )));
+    }
     let visible = component.strip_prefix('.').unwrap_or(component);
-    if component.is_empty()
-        || component == "."
-        || component == ".."
-        || visible.is_empty()
-        || !visible
-            .chars()
-            .next()
-            .is_some_and(|ch| ch == '_' || ch.is_ascii_alphabetic())
-        || !visible
-            .chars()
-            .all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
-    {
-        return Err(Error::InvalidPath(original.to_string()));
+    for (index, ch) in visible.chars().enumerate() {
+        if ch != '_' && !(ch.is_ascii_alphabetic() || index > 0 && ch.is_ascii_digit()) {
+            let position = if index == 0 {
+                "at the start of a name component"
+            } else {
+                "in a name component"
+            };
+            let allowed = if index == 0 {
+                "an ASCII letter or '_'"
+            } else {
+                "an ASCII letter, digit or '_'"
+            };
+            return Err(invalid_variable_name(&format!(
+                "character '{}' (U+{:04X}) {position}; use {allowed}",
+                ch.escape_default(),
+                ch as u32,
+            )));
+        }
     }
     Ok(())
 }

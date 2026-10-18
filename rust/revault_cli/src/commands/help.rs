@@ -61,7 +61,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault init\n  lockbox secrets.lbox create\n  lockbox ./project-secrets.lbox create --alias project\n  lockbox a@project list\n  lockbox secrets.lbox create --password\n  lockbox secrets.lbox create --for alice",
-                    "Context:\n  Use create when starting a new encrypted archive. Omit LOCKBOX to use the session default path, including a previously deleted file. Existing targets are always refused. By default it creates a lockbox for the vault's default profile. Use --password when you need a password-protected lockbox. An alias is registered in an available Vault after creation, using the filename without its final extension unless --alias is supplied. Standalone unsigned creation succeeds with a warning if no unlocked Vault is available; explicit --alias requires Vault access. For filenames containing dots or other invalid alias characters, supply a valid --alias. If the alias already exists, creation succeeds with a warning and preserves the existing mapping.",
+                    "Context:\n  Use create when starting a new encrypted archive. Omit LOCKBOX to use the session default path, including a previously deleted file. Existing targets are always refused. Without --for, encrypted creation uses the profile literally named `default`, unless --password or a raw content key is supplied. `lockbox vault init` creates this profile; there is no configurable default-profile setting. --encryption none does not use a decryption profile. Use --password when you need a password-protected lockbox. An alias is registered in an available Vault after creation, using the filename without its final extension unless --alias is supplied. Standalone unsigned creation succeeds with a warning if no unlocked Vault is available; explicit --alias requires Vault access. For filenames containing dots or other invalid alias characters, supply a valid --alias. If the alias already exists, creation succeeds with a warning and preserves the existing mapping.",
                 ))
                 .arg(
                     Arg::new("password")
@@ -75,7 +75,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .long("for")
                         .conflicts_with("password")
                         .value_name("PROFILE_OR_CONTACT")
-                        .help("Create the lockbox for one of your profiles or a saved contact.")
+                        .help("Create for a profile or saved contact. When omitted, use the profile named `default`, except in password, raw-key or unencrypted mode.")
                         .add(ArgValueCompleter::new(completion::named_candidates)),
                 )
                 .arg(
