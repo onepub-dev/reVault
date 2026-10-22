@@ -255,6 +255,13 @@ function vaultLifecycle() {
   check(api.vaultDirectoryProbeStructureVersion(root, password) === currentVersion, 'vault structure probe');
   pass('vault_directory_probe_structure_version', 2);
   const readonly = api.vaultReadOnlyOpen(root, password); pass('vault_read_only_open');
+  const readKey = readonly.loadPrivateKey('alice'); check(readKey.private().length > 0, 'read-only private key'); readKey.close(); pass('vault_read_only_load_private_key');
+  const readHistory = readonly.loadPrivateKeyGeneration('alice', 1); check(readHistory.private().length > 0, 'read-only private key history'); readHistory.close(); pass('vault_read_only_load_private_key_generation');
+  const readSigner = readonly.loadProfileSigningKey('alice'); check(readSigner.publicBytes().length > 0, 'read-only signer'); readSigner.dispose(); pass('vault_read_only_load_owner_signing_key');
+  const readSignerHistory = readonly.loadProfileSigningKeyGeneration('alice', 1); check(readSignerHistory.publicBytes().length > 0, 'read-only signer history'); readSignerHistory.dispose(); pass('vault_read_only_load_owner_signing_key_generation');
+  let missingPassword = false; try { readonly.withProfilePassword('missing', () => {}); } catch { missingPassword = true; }
+  check(missingPassword, 'read-only missing password profile'); pass('vault_read_only_load_profile_password');
+  check(readonly.withRememberedPassword(id, secret => secret.length > 0) === true, 'read-only remembered password'); pass('vault_read_only_remembered_password');
   readonly.listProfileNames(); readonly.listContactNames(); readonly.listFormAliases(); readonly.listKnownLockboxes();
   pass('vault_read_only_list_profile_names', 2); pass('vault_read_only_list_contact_names');
   pass('vault_read_only_list_form_aliases', 2); pass('vault_read_only_list_known_lockboxes');

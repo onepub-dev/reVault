@@ -245,6 +245,18 @@ def vault_lifecycle
   check(API.vault_directory_probe_structure_version(root, password) == current, 'vault probe')
   pass('vault_directory_probe_structure_version', 2)
   readonly = API.vault_read_only_open(root, password)
+  read_key = readonly.load_private_key('alice'); check(!read_key.private_record.empty?, 'read-only private key'); read_key.free; pass('vault_read_only_load_private_key')
+  read_history = readonly.load_private_key_generation('alice', 1); check(!read_history.private_record.empty?, 'read-only private-key history'); read_history.free; pass('vault_read_only_load_private_key_generation')
+  read_signer = readonly.load_profile_signing_key('alice'); check(!read_signer.public.empty?, 'read-only signer'); read_signer.free; pass('vault_read_only_load_owner_signing_key')
+  signer_history = readonly.load_profile_signing_key_generation('alice', 1); check(!signer_history.public.empty?, 'read-only signer history'); signer_history.free; pass('vault_read_only_load_owner_signing_key_generation')
+  missing_password = false
+  begin
+    readonly.with_profile_password('missing') { |_bytes, _length| nil }
+  rescue Revault::RevaultError
+    missing_password = true
+  end
+  check(missing_password, 'read-only missing password profile'); pass('vault_read_only_load_profile_password')
+  check(readonly.with_remembered_password(id) { |_bytes, length| length.positive? }, 'read-only remembered password'); pass('vault_read_only_remembered_password')
   readonly.list_profile_names; readonly.list_contact_names; readonly.list_form_aliases; readonly.list_known_lockboxes
   pass('vault_read_only_open'); pass('vault_read_only_list_profile_names', 2); pass('vault_read_only_list_contact_names')
   pass('vault_read_only_list_form_aliases', 2); pass('vault_read_only_list_known_lockboxes')

@@ -1363,8 +1363,8 @@ func (vault *vaultStore) ListFormRevisions(typeID string) ([]FormDefinition, err
 	return decodeResult(C.vault_directory_list_form_revisions(vault.handle, charPointer(typeID), C.size_t(len(typeID))), decodeFormDefinitionList)
 }
 
-// ReadOnlyVault lists local metadata for discovery or diagnostics
-// without loading an owner signing key or exposing mutation operations.
+// ReadOnlyVault reads stored credentials and metadata without modifying records.
+// A caller with the Vault passphrase can retrieve private keys and passwords.
 type ReadOnlyVault struct{ handle unsafe.Pointer }
 
 // openReadOnlyVault opens read only vault directory.
@@ -1376,7 +1376,7 @@ func openReadOnlyVault(root string, password []byte) (*ReadOnlyVault, error) {
 	return &ReadOnlyVault{handle: h}, nil
 }
 
-// OpenReadOnlyVault opens an existing Vault for metadata discovery.
+// OpenReadOnlyVault opens an existing Vault for concurrent credential and metadata reads.
 func OpenReadOnlyVault(root string, vaultPassphrase []byte) (*ReadOnlyVault, error) {
 	return openReadOnlyVault(root, vaultPassphrase)
 }
@@ -1390,9 +1390,66 @@ func openDefaultReadOnlyVault(password []byte) (*ReadOnlyVault, error) {
 	return &ReadOnlyVault{handle: h}, nil
 }
 
-// OpenDefaultReadOnlyVault opens the default Vault for metadata discovery.
+// OpenDefaultReadOnlyVault opens the default Vault for concurrent credential and metadata reads.
 func OpenDefaultReadOnlyVault(vaultPassphrase []byte) (*ReadOnlyVault, error) {
 	return openDefaultReadOnlyVault(vaultPassphrase)
+}
+
+// LoadPrivateKey returns an existing profile private key; close the returned key after use.
+func (vault *ReadOnlyVault) LoadPrivateKey(name string) (*ContactKeyPair, error) {
+	h := C.vault_read_only_load_private_key(vault.handle, charPointer(name), C.size_t(len(name)))
+	if h == nil {
+		return nil, lastError()
+	}
+	return &ContactKeyPair{handle: h}, nil
+}
+
+// LoadPrivateKeyGeneration returns one stored historical private key.
+func (vault *ReadOnlyVault) LoadPrivateKeyGeneration(name string, index uint16) (*ContactKeyPair, error) {
+	h := C.vault_read_only_load_private_key_generation(vault.handle, charPointer(name), C.size_t(len(name)), C.uint16_t(index))
+	if h == nil {
+		return nil, lastError()
+	}
+	return &ContactKeyPair{handle: h}, nil
+}
+
+// LoadProfileSigningKey returns an existing signing key or a NotFound error; it never generates one.
+func (vault *ReadOnlyVault) LoadProfileSigningKey(name string) (*ProfileSigningKeyPair, error) {
+	h := C.vault_read_only_load_owner_signing_key(vault.handle, charPointer(name), C.size_t(len(name)))
+	if h == nil {
+		return nil, lastError()
+	}
+	return &ProfileSigningKeyPair{handle: h}, nil
+}
+
+// LoadProfileSigningKeyGeneration returns a stored historical signing key.
+func (vault *ReadOnlyVault) LoadProfileSigningKeyGeneration(name string, index uint16) (*ProfileSigningKeyPair, error) {
+	h := C.vault_read_only_load_owner_signing_key_generation(vault.handle, charPointer(name), C.size_t(len(name)), C.uint16_t(index))
+	if h == nil {
+		return nil, lastError()
+	}
+	return &ProfileSigningKeyPair{handle: h}, nil
+}
+
+// WithProfilePassword gives callback temporary plaintext bytes from a stored password profile.
+func (vault *ReadOnlyVault) WithProfilePassword(name string, callback func([]byte) error) error {
+	h := C.vault_read_only_load_profile_password(vault.handle, charPointer(name), C.size_t(len(name)))
+	if h == nil {
+		return lastError()
+	}
+	return withSecret(func(output *unsafe.Pointer) bool { *output = h; return true }, callback)
+}
+
+// WithRememberedPassword gives callback a remembered password if it exists and clears the transfer bytes.
+func (vault *ReadOnlyVault) WithRememberedPassword(id []byte, callback func([]byte) error) (bool, error) {
+	present := false
+	err := withSecret(func(output *unsafe.Pointer) bool {
+		return bool(C.vault_read_only_remembered_password(vault.handle, bytePointer(id), C.size_t(len(id)), output))
+	}, func(secret []byte) error {
+		present = true
+		return callback(secret)
+	})
+	return present, err
 }
 
 // ListProfileNames lists profile names.

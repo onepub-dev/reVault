@@ -120,6 +120,12 @@ module Revault
     extern 'void vault_directory_free(void *)'
     extern 'void * vault_read_only_open(void *, size_t, void *, size_t)'
     extern 'void * vault_read_only_open_default(void *, size_t)'
+    extern 'void * vault_read_only_load_private_key(void *, void *, size_t)'
+    extern 'void * vault_read_only_load_private_key_generation(void *, void *, size_t, uint16_t)'
+    extern 'void * vault_read_only_load_owner_signing_key(void *, void *, size_t)'
+    extern 'void * vault_read_only_load_owner_signing_key_generation(void *, void *, size_t, uint16_t)'
+    extern 'void * vault_read_only_load_profile_password(void *, void *, size_t)'
+    extern 'bool vault_read_only_remembered_password(void *, void *, size_t, void *)'
     extern 'void vault_read_only_free(void *)'
     extern 'bool vault_agent_serve(void)'
     extern 'bool vault_agent_verify_transport(void)'
@@ -1019,6 +1025,31 @@ module Revault
 
     def vault_read_only_open_default(password)
       require_handle(Native.vault_read_only_open_default(Fiddle::Pointer[password], password.bytesize))
+    end
+
+    def vault_read_only_load_private_key(handle, name)
+      require_handle(Native.vault_read_only_load_private_key(handle, Fiddle::Pointer[name], name.bytesize))
+    end
+
+    def vault_read_only_load_private_key_generation(handle, name, index)
+      require_handle(Native.vault_read_only_load_private_key_generation(handle, Fiddle::Pointer[name], name.bytesize, index))
+    end
+
+    def vault_read_only_load_owner_signing_key(handle, name)
+      require_handle(Native.vault_read_only_load_owner_signing_key(handle, Fiddle::Pointer[name], name.bytesize))
+    end
+
+    def vault_read_only_load_owner_signing_key_generation(handle, name, index)
+      require_handle(Native.vault_read_only_load_owner_signing_key_generation(handle, Fiddle::Pointer[name], name.bytesize, index))
+    end
+
+    def vault_read_only_load_profile_password(handle, name, &callback)
+      secret = require_handle(Native.vault_read_only_load_profile_password(handle, Fiddle::Pointer[name], name.bytesize))
+      with_secret(->(output) { output[0, Fiddle::SIZEOF_VOIDP] = [secret.to_i].pack('J'); true }, &callback)
+    end
+
+    def vault_read_only_remembered_password(handle, id, &callback)
+      with_secret(->(output) { Native.vault_read_only_remembered_password(handle, Fiddle::Pointer[id], id.bytesize, output) }, &callback)
     end
 
     def vault_read_only_list_profile_names(handle)

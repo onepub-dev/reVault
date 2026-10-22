@@ -572,6 +572,24 @@ func (native) VaultReadOnlyOpen(root unsafe.Pointer, root_len C.size_t, password
 func (native) VaultReadOnlyOpenDefault(password unsafe.Pointer, password_len C.size_t) unsafe.Pointer {
 	return C.vault_read_only_open_default((*C.uint8_t)(password), password_len)
 }
+func (native) VaultReadOnlyLoadPrivateKey(handle unsafe.Pointer, name unsafe.Pointer, nameLen C.size_t) unsafe.Pointer {
+	return C.vault_read_only_load_private_key(handle, (*C.char)(name), nameLen)
+}
+func (native) VaultReadOnlyLoadPrivateKeyGeneration(handle unsafe.Pointer, name unsafe.Pointer, nameLen C.size_t, index C.uint16_t) unsafe.Pointer {
+	return C.vault_read_only_load_private_key_generation(handle, (*C.char)(name), nameLen, index)
+}
+func (native) VaultReadOnlyLoadOwnerSigningKey(handle unsafe.Pointer, name unsafe.Pointer, nameLen C.size_t) unsafe.Pointer {
+	return C.vault_read_only_load_owner_signing_key(handle, (*C.char)(name), nameLen)
+}
+func (native) VaultReadOnlyLoadOwnerSigningKeyGeneration(handle unsafe.Pointer, name unsafe.Pointer, nameLen C.size_t, index C.uint16_t) unsafe.Pointer {
+	return C.vault_read_only_load_owner_signing_key_generation(handle, (*C.char)(name), nameLen, index)
+}
+func (native) VaultReadOnlyLoadProfilePassword(handle unsafe.Pointer, name unsafe.Pointer, nameLen C.size_t) unsafe.Pointer {
+	return C.vault_read_only_load_profile_password(handle, (*C.char)(name), nameLen)
+}
+func (native) VaultReadOnlyRememberedPassword(handle unsafe.Pointer, id unsafe.Pointer, idLen C.size_t, output *unsafe.Pointer) C.bool {
+	return C.vault_read_only_remembered_password(handle, (*C.uint8_t)(id), idLen, (*unsafe.Pointer)(output))
+}
 func (native) VaultReadOnlyListProfileNames(handle unsafe.Pointer) C.RevaultBuffer {
 	return C.vault_read_only_list_profile_names(handle)
 }

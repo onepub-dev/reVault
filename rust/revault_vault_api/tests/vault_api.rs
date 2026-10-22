@@ -1266,6 +1266,133 @@ fn standalone_vault_file_can_be_created_and_reopened() {
     let _ = fs::remove_dir_all(root);
 }
 
+#[test]
+fn read_only_vault_reads_credentials_without_creating_missing_signer() {
+    let root = unique_dir("read-only-credentials");
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    let path = root.join("credentials.lbox");
+    let password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+    let profile = ContactKeyPair::generate().unwrap();
+    let profile_password = SecretString::try_from_bytes(b"profile-password".to_vec()).unwrap();
+    let remembered = SecretString::try_from_bytes(b"lockbox-password".to_vec()).unwrap();
+    let lockbox_id = revault_lockbox_api::LockboxId::new_random().unwrap();
+
+    let vault = VaultDirectory::create_file(&path, &password).unwrap();
+    vault.store_private_key("legacy", &profile).unwrap();
+    vault
+        .store_password_profile("service", &profile_password, false)
+        .unwrap();
+    vault
+        .remember_lockbox_password(lockbox_id, &remembered)
+        .unwrap();
+    let signer = vault.load_owner_signing_key("legacy").unwrap();
+    let container_signer = vault.load_owner_signing_key("default").unwrap();
+    drop(vault);
+
+    let first = ReadOnlyVaultDirectory::open_file(&path, &password).unwrap();
+    let second = ReadOnlyVaultDirectory::open_file(&path, &password).unwrap();
+    assert_eq!(
+        first
+            .load_private_key("legacy")
+            .unwrap()
+            .private_key_record()
+            .unwrap(),
+        profile.private_key_record().unwrap()
+    );
+    assert_eq!(
+        second
+            .load_private_key_generation("legacy", 1)
+            .unwrap()
+            .private_key_record()
+            .unwrap(),
+        profile.private_key_record().unwrap()
+    );
+    assert_eq!(
+        first.load_owner_signing_key("legacy").unwrap().public_key(),
+        signer.public_key()
+    );
+    assert_eq!(
+        second
+            .load_owner_signing_key_generation("legacy", 1)
+            .unwrap()
+            .public_key(),
+        signer.public_key()
+    );
+    assert_eq!(
+        first
+            .load_profile_password("service")
+            .unwrap()
+            .with_bytes(|bytes| bytes.to_vec())
+            .unwrap(),
+        b"profile-password"
+    );
+    assert_eq!(
+        second
+            .remembered_lockbox_password(lockbox_id)
+            .unwrap()
+            .unwrap()
+            .with_bytes(|bytes| bytes.to_vec())
+            .unwrap(),
+        b"lockbox-password"
+    );
+    let writer_path = path.clone();
+    let (started_tx, started_rx) = mpsc::channel();
+    let (opened_tx, opened_rx) = mpsc::channel();
+    let writer = std::thread::spawn(move || {
+        let writer_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+        started_tx.send(()).unwrap();
+        let result = VaultDirectory::open_file(&writer_path, &writer_password).map(|_| ());
+        opened_tx.send(result).unwrap();
+    });
+    started_rx
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .unwrap();
+    assert!(opened_rx
+        .recv_timeout(std::time::Duration::from_millis(200))
+        .is_err());
+    drop(first);
+    drop(second);
+    opened_rx
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .unwrap()
+        .unwrap();
+    writer.join().unwrap();
+
+    let mut raw =
+        Lockbox::open_for_write(&path, LockboxOpen::Password(&password), &container_signer)
+            .unwrap();
+    let signing_variable = VariableName::new("LOCKBOX_VAULT_SIGNING_KEY_6C6567616379").unwrap();
+    raw.delete_variable(&signing_variable).unwrap();
+    raw.commit().unwrap();
+    drop(raw);
+    let _ = revault_vault_api::forget_owner_signing_key(&path.to_string_lossy(), "legacy");
+    let before = fs::read(&path).unwrap();
+    let view = ReadOnlyVaultDirectory::open_file(&path, &password).unwrap();
+    assert!(matches!(
+        view.load_owner_signing_key("legacy"),
+        Err(Error::NotFound(_))
+    ));
+    drop(view);
+    assert_eq!(fs::read(&path).unwrap(), before);
+    let raw = Lockbox::open(&path, LockboxOpen::Password(&password)).unwrap();
+    assert!(raw
+        .variable_sensitivity(&signing_variable)
+        .unwrap()
+        .is_none());
+    drop(raw);
+    let reopened = VaultDirectory::open_file(&path, &password).unwrap();
+    let replacement = reopened.load_owner_signing_key("legacy").unwrap();
+    drop(reopened);
+    let view = ReadOnlyVaultDirectory::open_file(&path, &password).unwrap();
+    assert_eq!(
+        view.load_owner_signing_key("legacy").unwrap().public_key(),
+        replacement.public_key()
+    );
+    drop(view);
+    let _ = fs::remove_dir_all(root);
+}
+
 fn unique_path(label: &str) -> PathBuf {
     unique_dir(label).join("test.lbox")
 }

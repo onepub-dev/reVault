@@ -68,13 +68,13 @@ public final class Vault extends Revault.VaultHandle {
     return create(root, vaultPassphrase);
   }
 
-  /** Opens the metadata-only view for an existing Vault. */
+  /** Opens an existing Vault for concurrent credential and metadata reads. */
   public static ReadOnlyVault openReadOnly(Path root, byte[] vaultPassphrase) {
     var runtime = Revault.load();
     return new ReadOnlyVault(runtime, runtime.openReadOnlyVault(root.toString(), vaultPassphrase));
   }
 
-  /** Opens the metadata-only view for the platform-default Vault. */
+  /** Opens the platform-default Vault for concurrent credential and metadata reads. */
   public static ReadOnlyVault openReadOnly(byte[] vaultPassphrase) {
     var runtime = Revault.load();
     return new ReadOnlyVault(runtime, runtime.openDefaultReadOnlyVault(vaultPassphrase));

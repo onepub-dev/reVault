@@ -263,6 +263,13 @@ function vaultLifecycle(ApiRuntime $api): void {
     check($api->vaultDirectoryProbeStructureVersion($root, $password) === $current, 'vault probe');
     pass('vault_directory_probe_structure_version', 2);
     $readonly = $api->vaultReadOnlyOpen($root, $password); $readonly->listProfileNames(); $readonly->listContactNames(); $readonly->listFormAliases(); $readonly->listKnownLockboxes();
+    $readKey = $readonly->loadPrivateKey('alice'); check(strlen($readKey->privateRecord()) > 0, 'read-only private key'); $readKey->free(); pass('vault_read_only_load_private_key');
+    $readHistory = $readonly->loadPrivateKeyGeneration('alice', 1); check(strlen($readHistory->privateRecord()) > 0, 'read-only private-key history'); $readHistory->free(); pass('vault_read_only_load_private_key_generation');
+    $readSigner = $readonly->loadProfileSigningKey('alice'); check(strlen($readSigner->public()) > 0, 'read-only signer'); $readSigner->free(); pass('vault_read_only_load_owner_signing_key');
+    $signerHistory = $readonly->loadProfileSigningKeyGeneration('alice', 1); check(strlen($signerHistory->public()) > 0, 'read-only signer history'); $signerHistory->free(); pass('vault_read_only_load_owner_signing_key_generation');
+    $missingPassword = false; try { $readonly->withProfilePassword('missing', fn($bytes, $length) => $length); } catch (\Revault\RevaultError $expected) { $missingPassword = true; }
+    check($missingPassword, 'read-only missing password profile'); pass('vault_read_only_load_profile_password');
+    check($readonly->withRememberedPassword($id, fn($bytes, $length) => $length > 0) === true, 'read-only remembered password'); pass('vault_read_only_remembered_password');
     pass('vault_read_only_open'); pass('vault_read_only_list_profile_names', 2); pass('vault_read_only_list_contact_names'); pass('vault_read_only_list_form_aliases', 2); pass('vault_read_only_list_known_lockboxes');
     $persistedAliases = $readonly->listLockboxAliases()->values;
     check(count($persistedAliases) === 1 && $persistedAliases[0]->name === 'portable', 'persisted read-only alias');

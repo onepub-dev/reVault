@@ -158,11 +158,11 @@ pub struct VaultDirectory {
     _guard: VaultFileLock,
 }
 
-/// Read-only view of encrypted vault metadata.
+/// Read-only view of an encrypted vault, including stored credentials.
 ///
-/// This type deliberately opens the vault with [`Lockbox::open`] and never
-/// attaches or loads an owner-signing key. It is intended for completion,
-/// diagnostics, and other metadata-only consumers.
+/// Opening does not load a signing key. Credential reads never create a
+/// missing key or write to the vault, and the handle retains a shared archive
+/// lock until it is dropped.
 #[derive(Debug)]
 pub struct ReadOnlyVaultDirectory {
     lockbox: RefCell<Lockbox<ReadOnly>>,
@@ -270,6 +270,62 @@ impl ReadOnlyVaultDirectory {
         }
         out.sort_by(|left, right| left.path.cmp(&right.path));
         Ok(out)
+    }
+
+    /// Loads a stored profile private key without changing the vault.
+    pub fn load_private_key(&self, name: &str) -> Result<ContactKeyPair> {
+        if self
+            .lockbox
+            .borrow()
+            .variable_sensitivity(&password_profiles::variable(name)?)?
+            .is_some()
+        {
+            return Err(Error::InvalidOperation(format!(
+                "profile {name} uses a password; this operation requires a key-pair profile"
+            )));
+        }
+        let variable_name = private_key_variable_name(name)?;
+        load_private_key_from_variable(&self.lockbox.borrow(), &variable_name, name)
+    }
+
+    /// Loads an existing historical private-key generation without migration.
+    pub fn load_private_key_generation(&self, name: &str, index: u16) -> Result<ContactKeyPair> {
+        let variable_name = private_key_generation_variable_name(name, index)?;
+        load_private_key_from_variable(&self.lockbox.borrow(), &variable_name, name)
+    }
+
+    /// Loads an existing profile signing key without generating or caching one.
+    ///
+    /// A legacy profile without a stored signing key returns [`Error::NotFound`].
+    pub fn load_owner_signing_key(&self, name: &str) -> Result<OwnerSigningKeyPair> {
+        load_owner_signing_key_existing_from_lockbox(&self.lockbox.borrow(), name)
+    }
+
+    /// Loads an existing historical profile signing-key generation.
+    pub fn load_owner_signing_key_generation(
+        &self,
+        name: &str,
+        index: u16,
+    ) -> Result<OwnerSigningKeyPair> {
+        load_owner_signing_key_from_variable(
+            &self.lockbox.borrow(),
+            &owner_signing_key_generation_variable_name(name, index)?,
+        )
+    }
+
+    /// Loads a remembered Lockbox password, if present, without writing.
+    pub fn remembered_lockbox_password(
+        &self,
+        lockbox_id: LockboxId,
+    ) -> Result<Option<SecretString>> {
+        Ok(self
+            .lockbox
+            .borrow()
+            .with_secret_variable(
+                &lockbox_password_variable_name(lockbox_id)?,
+                SecretString::try_clone,
+            )?
+            .transpose()?)
     }
 }
 
@@ -719,15 +775,7 @@ impl VaultDirectory {
             )));
         }
         let variable_name = private_key_variable_name(name)?;
-        let secret = self
-            .lockbox
-            .borrow()
-            .with_secret_variable(&variable_name, SecretString::try_clone)?
-            .transpose()?
-            .ok_or_else(|| Error::NotFound(format!("vault private key {name}")))?;
-        let mut bytes = SecretVec::new();
-        secret.append_to_secure_vec(&mut bytes)?;
-        import_private_key(bytes)
+        load_private_key_from_variable(&self.lockbox.borrow(), &variable_name, name)
     }
 
     /// Loads the owner signing key associated with a vault profile.
@@ -1793,6 +1841,20 @@ fn load_owner_signing_key_existing_from_lockbox<State>(
     name: &str,
 ) -> Result<OwnerSigningKeyPair> {
     load_owner_signing_key_from_variable(lockbox, &owner_signing_key_variable_name(name)?)
+}
+
+fn load_private_key_from_variable<State>(
+    lockbox: &Lockbox<State>,
+    variable_name: &VariableName,
+    name: &str,
+) -> Result<ContactKeyPair> {
+    let secret = lockbox
+        .with_secret_variable(variable_name, SecretString::try_clone)?
+        .transpose()?
+        .ok_or_else(|| Error::NotFound(format!("vault private key {name}")))?;
+    let mut bytes = SecretVec::new();
+    secret.append_to_secure_vec(&mut bytes)?;
+    import_private_key(bytes)
 }
 
 fn load_owner_signing_key_from_variable<State>(

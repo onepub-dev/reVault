@@ -1257,6 +1257,50 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.vault_read_only_open_default((IntPtr)passwordPointer, (nuint)password.Length)); }
     }
 
+    public unsafe IntPtr VaultReadOnlyLoadPrivateKey(IntPtr handle, string name)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* pointer = nameBytes)
+        { return Require(RevaultNative.vault_read_only_load_private_key(handle, (IntPtr)pointer, (nuint)nameBytes.Length)); }
+    }
+
+    public unsafe IntPtr VaultReadOnlyLoadPrivateKeyGeneration(IntPtr handle, string name, ushort index)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* pointer = nameBytes)
+        { return Require(RevaultNative.vault_read_only_load_private_key_generation(handle, (IntPtr)pointer, (nuint)nameBytes.Length, index)); }
+    }
+
+    public unsafe IntPtr VaultReadOnlyLoadOwnerSigningKey(IntPtr handle, string name)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* pointer = nameBytes)
+        { return Require(RevaultNative.vault_read_only_load_owner_signing_key(handle, (IntPtr)pointer, (nuint)nameBytes.Length)); }
+    }
+
+    public unsafe IntPtr VaultReadOnlyLoadOwnerSigningKeyGeneration(IntPtr handle, string name, ushort index)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* pointer = nameBytes)
+        { return Require(RevaultNative.vault_read_only_load_owner_signing_key_generation(handle, (IntPtr)pointer, (nuint)nameBytes.Length, index)); }
+    }
+
+    public unsafe T? VaultReadOnlyLoadProfilePassword<T>(IntPtr handle, string name, SecretCallback<T> callback)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* pointer = nameBytes)
+        { return WithSecret(Require(RevaultNative.vault_read_only_load_profile_password(handle, (IntPtr)pointer, (nuint)nameBytes.Length)), callback); }
+    }
+
+    public unsafe T? VaultReadOnlyRememberedPassword<T>(IntPtr handle, byte[] id, SecretCallback<T> callback)
+    {
+        fixed (byte* pointer = id)
+        {
+            Require(RevaultNative.vault_read_only_remembered_password(handle, (IntPtr)pointer, (nuint)id.Length, out var secret));
+            return WithSecret(secret, callback);
+        }
+    }
+
     public unsafe IReadOnlyList<string> VaultReadOnlyListProfileNames(IntPtr handle)
     {
         return Frame(RevaultNative.vault_read_only_list_profile_names(handle), DomainCodec.StringList);

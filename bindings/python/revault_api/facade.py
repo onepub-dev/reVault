@@ -104,6 +104,9 @@ def _with_secret(owner, getter, callback):
     handle = ctypes.c_void_p()
     if not getter(ctypes.byref(handle)): raise RevaultError(_error(owner._lib))
     if not handle.value: return None
+    return _with_secret_handle(owner, handle, callback)
+
+def _with_secret_handle(owner, handle, callback):
     try:
         length = ctypes.c_size_t()
         if not owner._lib.secret_len(handle, ctypes.byref(length)):
@@ -310,10 +313,10 @@ class VaultDirectory(_OwnedHandle):
     pass
 
 class ReadOnlyVaultDirectory(_OwnedHandle):
-    """A restricted metadata view for listing profiles, contacts, and lockboxes.
+    """Read stored credentials and metadata without changing Vault records.
 
-    Use it for discovery screens and diagnostics that must not load owner
-    signing keys or change local metadata.
+    Supplying the Vault passphrase grants access to private keys and passwords.
+    Close the handle promptly so a waiting writer can proceed.
     """
     pass
 
@@ -1299,6 +1302,43 @@ def _VaultDirectory_free(self):
     return _call(self, 'vault_directory_free', ())
 VaultDirectory.free = _VaultDirectory_free
 
+def _ReadOnlyVaultDirectory_load_private_key(self, name):
+    """Load an existing private key; use ``with view.load_private_key('alice') as key`` to close it."""
+    return _call(self, 'vault_read_only_load_private_key', (name,))
+ReadOnlyVaultDirectory.load_private_key = _ReadOnlyVaultDirectory_load_private_key
+
+def _ReadOnlyVaultDirectory_load_private_key_generation(self, name, index):
+    """Load a stored historical private key, e.g. ``view.load_private_key_generation('alice', 1)``."""
+    return _call(self, 'vault_read_only_load_private_key_generation', (name, index))
+ReadOnlyVaultDirectory.load_private_key_generation = _ReadOnlyVaultDirectory_load_private_key_generation
+
+def _ReadOnlyVaultDirectory_load_profile_signing_key(self, name):
+    """Load an existing signing key, e.g. ``view.load_profile_signing_key('alice')``; a missing key raises."""
+    return _call(self, 'vault_read_only_load_owner_signing_key', (name,))
+ReadOnlyVaultDirectory.load_profile_signing_key = _ReadOnlyVaultDirectory_load_profile_signing_key
+
+def _ReadOnlyVaultDirectory_load_profile_signing_key_generation(self, name, index):
+    """Load a stored historical signer, e.g. ``view.load_profile_signing_key_generation('alice', 1)``."""
+    return _call(self, 'vault_read_only_load_owner_signing_key_generation', (name, index))
+ReadOnlyVaultDirectory.load_profile_signing_key_generation = _ReadOnlyVaultDirectory_load_profile_signing_key_generation
+
+def _ReadOnlyVaultDirectory_with_profile_password(self, name, callback):
+    """Pass temporary plaintext bytes to callback, e.g. ``view.with_profile_password('server', authenticate)``."""
+    raw = name.encode()
+    name_buffer = ctypes.create_string_buffer(raw, max(1, len(raw)))
+    handle = self._lib.vault_read_only_load_profile_password(self._handle, name_buffer, len(raw))
+    if not handle: raise RevaultError(_error(self._lib))
+    return _with_secret_handle(self, ctypes.c_void_p(handle), callback)
+ReadOnlyVaultDirectory.with_profile_password = _ReadOnlyVaultDirectory_with_profile_password
+
+def _ReadOnlyVaultDirectory_with_remembered_password(self, lockbox_id, callback):
+    """Supply a remembered password when present, e.g. ``view.with_remembered_password(box.id, open_box)``."""
+    raw = bytes(lockbox_id)
+    id_buffer = ctypes.create_string_buffer(raw, max(1, len(raw)))
+    return _with_secret(self, lambda output: self._lib.vault_read_only_remembered_password(
+        self._handle, id_buffer, len(raw), output), callback)
+ReadOnlyVaultDirectory.with_remembered_password = _ReadOnlyVaultDirectory_with_remembered_password
+
 def _ReadOnlyVaultDirectory_list_profile_names(self):
     """Returns the names."""
     return _call(self, 'vault_read_only_list_profile_names', ())
@@ -1727,6 +1767,12 @@ _ROUTES = {
     'vault_directory_free': (('handle',), 'void', True),
     'vault_read_only_open': (('text', 'bytes'), 'handle:ReadOnlyVault', False),
     'vault_read_only_open_default': (('bytes',), 'handle:ReadOnlyVault', False),
+    'vault_read_only_load_private_key': (('handle', 'text'), 'handle:ContactKeyPair', False),
+    'vault_read_only_load_private_key_generation': (('handle', 'text', 'value'), 'handle:ContactKeyPair', False),
+    'vault_read_only_load_owner_signing_key': (('handle', 'text'), 'handle:ProfileSigningKeyPair', False),
+    'vault_read_only_load_owner_signing_key_generation': (('handle', 'text', 'value'), 'handle:ProfileSigningKeyPair', False),
+    'vault_read_only_load_profile_password': (('handle', 'text'), 'value', False),
+    'vault_read_only_remembered_password': (('handle', 'bytes', 'value'), 'bool', False),
     'vault_read_only_list_profile_names': (('handle',), 'message:StringList', False),
     'vault_read_only_list_contact_names': (('handle',), 'message:StringList', False),
     'vault_read_only_list_form_aliases': (('handle',), 'message:StringList', False),

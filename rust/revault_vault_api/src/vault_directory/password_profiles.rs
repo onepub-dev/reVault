@@ -2,9 +2,20 @@ use super::*;
 
 const PREFIX: &str = "LOCKBOX_VAULT_PASSWORD_PROFILE_";
 
-fn variable(name: &str) -> Result<VariableName> {
+pub(super) fn variable(name: &str) -> Result<VariableName> {
     validate_vault_record_name(name)?;
     VariableName::new(format!("{PREFIX}{}", crate::encode_hex(name.as_bytes())))
+}
+
+impl ReadOnlyVaultDirectory {
+    /// Retrieves an existing password profile into protected memory.
+    pub fn load_profile_password(&self, name: &str) -> Result<SecretString> {
+        self.lockbox
+            .borrow()
+            .with_secret_variable(&variable(name)?, SecretString::try_clone)?
+            .transpose()?
+            .ok_or_else(|| Error::NotFound(format!("password profile {name}")))
+    }
 }
 
 impl VaultDirectory {

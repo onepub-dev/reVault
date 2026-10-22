@@ -81,7 +81,6 @@ open_password_read_only	CLI headless session orchestration that caches a content
 open_lockbox_with_read_only	CLI explicit-credential Session Agent orchestration with backup fallback and cache lifetime; foreign callers use their existing read-only open and Vault cache operations.
 create_password_profile	CLI-managed server credential profile creation; foreign profile APIs continue to manage key-pair profiles, with password profile management reserved for the CLI in this release.
 store_password_profile	CLI password profile backup and migration restoration; foreign profile APIs continue to manage key-pair profiles in this release.
-load_profile_password	CLI explicit server credential provisioning; foreign profile APIs continue to manage key-pair profiles in this release.
 password_profile_exists	CLI password profile type discovery; foreign profile APIs continue to manage key-pair profiles in this release.
 profile_exists	CLI mixed profile namespace discovery; foreign profile APIs continue to manage key-pair profiles in this release.
 list_profiles	CLI mixed profile namespace enumeration; foreign profile APIs continue to manage key-pair profiles in this release.
@@ -105,3 +104,9 @@ open_password_read_only_with_budget	CLI headless session orchestration matching 
 derive_lockbox_alias_name	Rust/CLI display and derived-name policy; foreign alias CRUD uses the same core normalization and validation at its native boundary.
 normalize_lockbox_alias_name	Rust/CLI display and derived-name policy; foreign alias CRUD uses the same core normalization and validation at its native boundary.
 normalize_lockbox_alias_prefix	Rust/CLI display and derived-name policy; foreign alias CRUD uses the same core normalization and validation at its native boundary.
+scan_slice	Borrowed-byte recovery optimization; foreign recovery_scan already accepts caller-owned bytes through the C ABI.
+salvage_with_file_fragments	CLI directory-recovery pipeline with fragment callback and mutable recovered archive; no foreign callback or partial-file ownership contract.
+salvage_with_file_fragments_and_progress	CLI directory-recovery pipeline with fragment and progress callbacks; no foreign callback or partial-file ownership contract.
+plan_file_fragments	CLI directory-recovery planning with optional mutable archive and sidecar callback; no foreign partial-file ownership contract.
+plan_file_fragments_and_progress	CLI directory-recovery planning with progress and sidecar callbacks; no foreign partial-file ownership contract.
+recover_file_ranges	CLI authenticated partial-file extraction with streamed sidecar callback; no foreign partial-file ownership contract.

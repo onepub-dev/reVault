@@ -203,6 +203,14 @@ func vaultLifecycle() throws {
     try check(try api.probeVaultStructureVersion(root, password) == current, "vault probe")
     pass("vault_directory_probe_structure_version", 2)
     let readonly = try api.openReadOnlyVault(root, password); _ = try readonly.listProfileNames(); _ = try readonly.listContactNames(); _ = try readonly.listFormAliases(); _ = try readonly.listKnownLockboxes()
+    let readKey = try readonly.loadPrivateKey("alice"); try check(!readKey.privateBytes().isEmpty, "read-only private key"); try readKey.free(); pass("vault_read_only_load_private_key")
+    let readHistory = try readonly.loadPrivateKeyGeneration("alice", 1); try check(!readHistory.privateBytes().isEmpty, "read-only private-key history"); try readHistory.free(); pass("vault_read_only_load_private_key_generation")
+    let readSigner = try readonly.loadProfileSigningKey("alice"); try check(!readSigner.publicBytes().isEmpty, "read-only signer"); try readSigner.free(); pass("vault_read_only_load_owner_signing_key")
+    let signerHistory = try readonly.loadProfileSigningKeyGeneration("alice", 1); try check(!signerHistory.publicBytes().isEmpty, "read-only signer history"); try signerHistory.free(); pass("vault_read_only_load_owner_signing_key_generation")
+    var missingPassword = false
+    do { _ = try readonly.withProfilePassword("missing") { _ in true } } catch { missingPassword = true }
+    try check(missingPassword, "read-only missing password profile"); pass("vault_read_only_load_profile_password")
+    try check(try readonly.withRememberedPassword(id) { !$0.isEmpty } == true, "read-only remembered password"); pass("vault_read_only_remembered_password")
     pass("vault_read_only_open"); pass("vault_read_only_list_profile_names", 2); pass("vault_read_only_list_contact_names"); pass("vault_read_only_list_form_aliases", 2); pass("vault_read_only_list_known_lockboxes")
     let persistedAliases = try readonly.listLockboxAliases()
     try check(persistedAliases.count == 1 && persistedAliases[0].name == "portable", "persisted read-only alias")

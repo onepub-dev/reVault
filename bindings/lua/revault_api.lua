@@ -208,6 +208,12 @@ RevaultBuffer vault_restore_default(const char * path, size_t path_len, bool ove
 void vault_directory_free(void * handle);
 void * vault_read_only_open(const char * root, size_t root_len, const uint8_t * password, size_t password_len);
 void * vault_read_only_open_default(const uint8_t * password, size_t password_len);
+void * vault_read_only_load_private_key(const void * handle, const char * name, size_t name_len);
+void * vault_read_only_load_private_key_generation(const void * handle, const char * name, size_t name_len, uint16_t index);
+void * vault_read_only_load_owner_signing_key(const void * handle, const char * name, size_t name_len);
+void * vault_read_only_load_owner_signing_key_generation(const void * handle, const char * name, size_t name_len, uint16_t index);
+void * vault_read_only_load_profile_password(const void * handle, const char * name, size_t name_len);
+bool vault_read_only_remembered_password(const void * handle, const uint8_t * id, size_t id_len, void ** output);
 RevaultBuffer vault_read_only_list_profile_names(const void * handle);
 RevaultBuffer vault_read_only_list_contact_names(const void * handle);
 RevaultBuffer vault_read_only_list_form_aliases(const void * handle);
@@ -1380,6 +1386,38 @@ function Operations:vault_read_only_open_default(password)
   return value
 end
 
+local function required_read_only_key(value)
+  if value == nil then error(last_error(), 3) end
+  return value
+end
+
+function Operations:vault_read_only_load_private_key(handle, name)
+  return required_read_only_key(native.vault_read_only_load_private_key(handle, name, #name))
+end
+
+function Operations:vault_read_only_load_private_key_generation(handle, name, index)
+  return required_read_only_key(native.vault_read_only_load_private_key_generation(handle, name, #name, index))
+end
+
+function Operations:vault_read_only_load_owner_signing_key(handle, name)
+  return required_read_only_key(native.vault_read_only_load_owner_signing_key(handle, name, #name))
+end
+
+function Operations:vault_read_only_load_owner_signing_key_generation(handle, name, index)
+  return required_read_only_key(native.vault_read_only_load_owner_signing_key_generation(handle, name, #name, index))
+end
+
+function Operations:vault_read_only_load_profile_password(handle, name, callback)
+  local secret = required_read_only_key(native.vault_read_only_load_profile_password(handle, name, #name))
+  return with_secret(function(output) output[0] = secret; return true end, callback)
+end
+
+function Operations:vault_read_only_remembered_password(handle, id, callback)
+  return with_secret(function(output)
+    return native.vault_read_only_remembered_password(handle, id, #id, output)
+  end, callback)
+end
+
 function Operations:vault_read_only_list_profile_names(handle)
   return Models.StringList.decode(take(native.vault_read_only_list_profile_names(handle)))
 end
@@ -1622,7 +1660,7 @@ local ProfileSigningPublicKey = owned("ProfileSigningPublicKey")
 --- Password-protected storage for Profile keys, contacts, forms, backups, and lockbox paths.
 -- @type VaultStore
 local VaultStore = owned("VaultStore")
---- A metadata view for discovery that never loads an owner signing key.
+--- A read-only Vault view that can retrieve stored credentials.
 -- @type ReadOnlyVault
 local ReadOnlyVault = owned("ReadOnlyVault")
 --- Client for the session service that temporarily caches unlock and signing keys.
@@ -2577,6 +2615,36 @@ end
 --- Lists profile names.
 function ReadOnlyVault:list_profile_names()
   return self.operations:vault_read_only_list_profile_names(self.handle)
+end
+
+--- Loads an existing private key; free the returned key after use.
+function ReadOnlyVault:load_private_key(name)
+  return ContactKeyPair.new(self.operations, self.operations:vault_read_only_load_private_key(self.handle, name))
+end
+
+--- Loads a stored historical private-key generation.
+function ReadOnlyVault:load_private_key_generation(name, index)
+  return ContactKeyPair.new(self.operations, self.operations:vault_read_only_load_private_key_generation(self.handle, name, index))
+end
+
+--- Loads an existing Profile signing key without creating one.
+function ReadOnlyVault:load_profile_signing_key(name)
+  return ProfileSigningKeyPair.new(self.operations, self.operations:vault_read_only_load_owner_signing_key(self.handle, name))
+end
+
+--- Loads a stored historical Profile signing-key generation.
+function ReadOnlyVault:load_profile_signing_key_generation(name, index)
+  return ProfileSigningKeyPair.new(self.operations, self.operations:vault_read_only_load_owner_signing_key_generation(self.handle, name, index))
+end
+
+--- Uses a password profile during the callback and wipes temporary bytes.
+function ReadOnlyVault:with_profile_password(name, callback)
+  return self.operations:vault_read_only_load_profile_password(self.handle, name, callback)
+end
+
+--- Uses a remembered Lockbox password, or returns nil when absent.
+function ReadOnlyVault:with_remembered_password(lockbox_id, callback)
+  return self.operations:vault_read_only_remembered_password(self.handle, lockbox_id, callback)
 end
 
 --- Lists contact names.

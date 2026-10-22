@@ -1093,9 +1093,27 @@ export class Vault extends OwnedHandle {
 
 }
 
-/** A restricted local metadata view for discovery without signing-key access. */
-/** Read-only persistent Vault view for discovery and diagnostics. */
+/** Read-only persistent Vault view for discovery and stored credential reads.
+ * Close it promptly to release its shared lock for waiting writers. */
 export class ReadOnlyVault extends OwnedHandle {
+  /** Loads an existing private key; close the returned key after use. */
+  loadPrivateKey(name) { return new ContactKeyPair(this.operations, this.operations.vaultReadOnlyLoadPrivateKey(this.nativeHandle, name)); }
+
+  /** Loads a stored historical private-key generation. */
+  loadPrivateKeyGeneration(name, index) { return new ContactKeyPair(this.operations, this.operations.vaultReadOnlyLoadPrivateKeyGeneration(this.nativeHandle, name, index)); }
+
+  /** Loads an existing Profile signing key without creating one. */
+  loadProfileSigningKey(name) { return new ProfileSigningKeyPair(this.operations, this.operations.vaultReadOnlyLoadOwnerSigningKey(this.nativeHandle, name)); }
+
+  /** Loads a stored historical Profile signing-key generation. */
+  loadProfileSigningKeyGeneration(name, index) { return new ProfileSigningKeyPair(this.operations, this.operations.vaultReadOnlyLoadOwnerSigningKeyGeneration(this.nativeHandle, name, index)); }
+
+  /** Uses temporary password-profile bytes during a callback, then wipes them. */
+  withProfilePassword(name, callback) { return this.operations.vaultReadOnlyLoadProfilePassword(this.nativeHandle, name, callback); }
+
+  /** Uses a remembered Lockbox password during a callback, or returns undefined. */
+  withRememberedPassword(lockboxId, callback) { return this.operations.vaultReadOnlyRememberedPassword(this.nativeHandle, lockboxId, callback); }
+
   /** Lists profile names. */
   listProfileNames() {
     return this.operations.vaultReadOnlyListProfileNames(this.nativeHandle);

@@ -979,6 +979,36 @@ static void vault_lifecycle(void) {
   vault_directory_free(alias_writer);
   void *read_only = vault_read_only_open(root, strlen(root), password, sizeof(password) - 1);
   CHECK(read_only != NULL, "open read-only vault");
+  void *read_private = vault_read_only_load_private_key(read_only, "alice", 5);
+  CHECK(read_private != NULL, "read-only private key");
+  RevaultBuffer read_private_record = key_contact_private(read_private);
+  CHECK(read_private_record.ptr != NULL && read_private_record.len > 0, "read-only private record");
+  buffer_free(read_private_record);
+  key_contact_free(read_private);
+  PASS(vault_read_only_load_private_key, 1);
+  void *read_generation = vault_read_only_load_private_key_generation(read_only, "alice", 5, 1);
+  CHECK(read_generation != NULL, "read-only private-key history");
+  key_contact_free(read_generation);
+  PASS(vault_read_only_load_private_key_generation, 1);
+  void *read_signer = vault_read_only_load_owner_signing_key(read_only, "alice", 5);
+  CHECK(read_signer != NULL, "read-only signing key");
+  key_signing_free(read_signer);
+  PASS(vault_read_only_load_owner_signing_key, 1);
+  void *read_signer_generation = vault_read_only_load_owner_signing_key_generation(read_only, "alice", 5, 1);
+  CHECK(read_signer_generation != NULL, "read-only signing-key history");
+  key_signing_free(read_signer_generation);
+  PASS(vault_read_only_load_owner_signing_key_generation, 1);
+  CHECK(vault_read_only_load_profile_password(read_only, "missing", 7) == NULL,
+        "read-only missing password profile");
+  PASS(vault_read_only_load_profile_password, 1);
+  void *read_password = NULL;
+  CHECK(vault_read_only_remembered_password(read_only, id, sizeof(id), &read_password)
+        && read_password != NULL, "read-only remembered password");
+  size_t read_password_length = 0;
+  CHECK(secret_len(read_password, &read_password_length) && read_password_length > 0,
+        "read-only remembered password length");
+  secret_free(read_password);
+  PASS(vault_read_only_remembered_password, 1);
   expect_alias_count(vault_read_only_list_lockbox_aliases(read_only), 1);
   expect_alias_target(vault_read_only_resolve_lockbox_alias(read_only, "portable", 8), id, sizeof(id), alias_path);
   PASS(vault_read_only_list_lockbox_aliases, 1); PASS(vault_read_only_resolve_lockbox_alias, 2);

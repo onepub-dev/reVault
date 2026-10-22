@@ -196,6 +196,12 @@ final class RevaultNativeApi {
   public final MethodHandle vault_directory_free;
   public final MethodHandle vault_read_only_open;
   public final MethodHandle vault_read_only_open_default;
+  public final MethodHandle vault_read_only_load_private_key;
+  public final MethodHandle vault_read_only_load_private_key_generation;
+  public final MethodHandle vault_read_only_load_owner_signing_key;
+  public final MethodHandle vault_read_only_load_owner_signing_key_generation;
+  public final MethodHandle vault_read_only_load_profile_password;
+  public final MethodHandle vault_read_only_remembered_password;
   public final MethodHandle vault_read_only_list_profile_names;
   public final MethodHandle vault_read_only_list_contact_names;
   public final MethodHandle vault_read_only_list_form_aliases;
@@ -432,6 +438,12 @@ final class RevaultNativeApi {
     vault_directory_free = linker.downcallHandle(symbols.find("vault_directory_free").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
     vault_read_only_open = linker.downcallHandle(symbols.find("vault_read_only_open").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     vault_read_only_open_default = linker.downcallHandle(symbols.find("vault_read_only_open_default").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    vault_read_only_load_private_key = linker.downcallHandle(symbols.find("vault_read_only_load_private_key").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    vault_read_only_load_private_key_generation = linker.downcallHandle(symbols.find("vault_read_only_load_private_key_generation").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_SHORT));
+    vault_read_only_load_owner_signing_key = linker.downcallHandle(symbols.find("vault_read_only_load_owner_signing_key").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    vault_read_only_load_owner_signing_key_generation = linker.downcallHandle(symbols.find("vault_read_only_load_owner_signing_key_generation").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_SHORT));
+    vault_read_only_load_profile_password = linker.downcallHandle(symbols.find("vault_read_only_load_profile_password").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    vault_read_only_remembered_password = linker.downcallHandle(symbols.find("vault_read_only_remembered_password").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
     vault_read_only_list_profile_names = linker.downcallHandle(symbols.find("vault_read_only_list_profile_names").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS));
     vault_read_only_list_contact_names = linker.downcallHandle(symbols.find("vault_read_only_list_contact_names").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS));
     vault_read_only_list_form_aliases = linker.downcallHandle(symbols.find("vault_read_only_list_form_aliases").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS));

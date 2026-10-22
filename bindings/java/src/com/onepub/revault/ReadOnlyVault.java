@@ -4,11 +4,10 @@ import java.nio.file.Path;
 import java.util.Objects;
 
 /**
- * A metadata-only view of a persistent Vault.
+ * A read-only view of a persistent Vault, including stored credentials.
  *
- * <p>This facade can discover profiles, contacts, forms, and known Lockbox
- * paths without loading private signing material. It owns a native handle and
- * should be used with try-with-resources.
+ * <p>It owns a shared-lock native handle and should be used with
+ * try-with-resources so waiting writers can proceed when reads finish.
  */
 public final class ReadOnlyVault extends Revault.ReadOnlyVaultHandle {
   private final Revault runtime;
