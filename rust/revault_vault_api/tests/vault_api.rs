@@ -1172,6 +1172,77 @@ fn vault_lock_process_helper() {
 }
 
 #[test]
+fn read_only_vault_credential_readers_share_locks_across_processes() {
+    let _env_guard = ENV_LOCK.lock().unwrap();
+    let _timeout_guard = EnvVarGuard::set("LOCKBOX_LOCK_TIMEOUT_MS", "150");
+    let root = unique_dir("vault-read-only-process-lock");
+    fs::create_dir_all(&root).unwrap();
+    let path = root.join("credentials.lbox");
+    let password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+    let profile_password = SecretString::try_from_bytes(b"profile-password".to_vec()).unwrap();
+    let vault = VaultDirectory::create_file(&path, &password).unwrap();
+    vault
+        .store_password_profile("service", &profile_password, false)
+        .unwrap();
+    drop(vault);
+
+    let spawn_reader = |number: usize| {
+        let ready = root.join(format!("reader-{number}-ready"));
+        let release = root.join(format!("reader-{number}-release"));
+        let child = Command::new(std::env::current_exe().unwrap())
+            .arg("--exact")
+            .arg("read_only_vault_credential_process_helper")
+            .env("LOCKBOX_VAULT_READ_ONLY_HELPER_PATH", &path)
+            .env("LOCKBOX_VAULT_READ_ONLY_HELPER_READY", &ready)
+            .env("LOCKBOX_VAULT_READ_ONLY_HELPER_RELEASE", &release)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        wait_for_path(&ready);
+        (child, release)
+    };
+    let (mut first, first_release) = spawn_reader(1);
+    let (mut second, second_release) = spawn_reader(2);
+
+    assert!(matches!(
+        VaultDirectory::open_file(&path, &password),
+        Err(Error::LockUnavailable(_))
+    ));
+    fs::write(&first_release, b"release").unwrap();
+    assert!(first.wait().unwrap().success());
+    assert!(matches!(
+        VaultDirectory::open_file(&path, &password),
+        Err(Error::LockUnavailable(_))
+    ));
+    fs::write(&second_release, b"release").unwrap();
+    assert!(second.wait().unwrap().success());
+    VaultDirectory::open_file(&path, &password).unwrap();
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn read_only_vault_credential_process_helper() {
+    let Some(path) = std::env::var_os("LOCKBOX_VAULT_READ_ONLY_HELPER_PATH") else {
+        return;
+    };
+    let ready = PathBuf::from(std::env::var_os("LOCKBOX_VAULT_READ_ONLY_HELPER_READY").unwrap());
+    let release =
+        PathBuf::from(std::env::var_os("LOCKBOX_VAULT_READ_ONLY_HELPER_RELEASE").unwrap());
+    let password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+    let view = ReadOnlyVaultDirectory::open_file(Path::new(&path), &password).unwrap();
+    assert_eq!(
+        view.load_profile_password("service")
+            .unwrap()
+            .with_bytes(|bytes| bytes.to_vec())
+            .unwrap(),
+        b"profile-password"
+    );
+    fs::write(ready, b"ready").unwrap();
+    wait_for_path(&release);
+}
+
+#[test]
 fn vault_directory_stores_profile_email_metadata() {
     let root = unique_dir("profile-email");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
