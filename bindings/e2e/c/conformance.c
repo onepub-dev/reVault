@@ -112,10 +112,18 @@ static int set_environment(const char *name, const char *value) {
 #endif
 }
 
-static AgentProcess spawn_agent(void) {
+static int clear_environment(const char *name) {
+#ifdef _WIN32
+  return _putenv_s(name, "");
+#else
+  return unsetenv(name);
+#endif
+}
+
+static AgentProcess spawn_self(const char *mode) {
 #ifdef _WIN32
   char command[4096];
-  snprintf(command, sizeof(command), "\"%s\" --serve-agent", executable_path);
+  snprintf(command, sizeof(command), "\"%s\" %s", executable_path, mode);
   STARTUPINFOA startup = {0};
   PROCESS_INFORMATION process = {0};
   startup.cb = sizeof(startup);
@@ -126,14 +134,16 @@ static AgentProcess spawn_agent(void) {
   return process.hProcess;
 #else
   pid_t child = fork();
-  CHECK(child >= 0, "fork agent process");
+  CHECK(child >= 0, "fork conformance process");
   if (child == 0) {
-    execl(executable_path, executable_path, "--serve-agent", NULL);
+    execl(executable_path, executable_path, mode, NULL);
     _exit(127);
   }
   return child;
 #endif
 }
+
+static AgentProcess spawn_agent(void) { return spawn_self("--serve-agent"); }
 
 static void wait_for_agent(AgentProcess child) {
 #ifdef _WIN32
@@ -161,6 +171,87 @@ static void pause_for_agent(void) {
 #else
   usleep(50000);
 #endif
+}
+
+static void wait_for_marker(const char *path) {
+  for (unsigned attempt = 0; attempt < 600; ++attempt) {
+    if (access(path, F_OK) == 0) return;
+    pause_for_agent();
+  }
+  CHECK(false, "process marker appeared within thirty seconds");
+}
+
+static void read_only_lock_child(void) {
+  const char *root = getenv("REVAULT_READ_ONLY_LOCK_ROOT");
+  const char *ready = getenv("REVAULT_READ_ONLY_LOCK_READY");
+  const char *release = getenv("REVAULT_READ_ONLY_LOCK_RELEASE");
+  CHECK(root && ready && release, "read-only lock child environment");
+  const uint8_t password[] = "vault password";
+  void *view = vault_read_only_open(root, strlen(root), password,
+                                    sizeof(password) - 1);
+  CHECK(view != NULL, "read-only lock child opened vault");
+  void *key = vault_read_only_load_private_key(view, "alice", 5);
+  CHECK(key != NULL, "read-only lock child loaded credential");
+  key_contact_free(key);
+  write_file(ready, (const uint8_t *)"ready", 5);
+  wait_for_marker(release);
+  vault_read_only_free(view);
+}
+
+static void read_only_process_locks(const char *root, const uint8_t *password,
+                                    size_t password_len) {
+  char first_ready[512], first_release[512];
+  char second_ready[512], second_release[512];
+  temporary_path(first_ready, sizeof(first_ready), "revault-reader-1-ready");
+  temporary_path(first_release, sizeof(first_release), "revault-reader-1-release");
+  temporary_path(second_ready, sizeof(second_ready), "revault-reader-2-ready");
+  temporary_path(second_release, sizeof(second_release), "revault-reader-2-release");
+  const char *original_timeout = getenv("LOCKBOX_LOCK_TIMEOUT_MS");
+  char *saved_timeout = NULL;
+  if (original_timeout) {
+    saved_timeout = malloc(strlen(original_timeout) + 1);
+    CHECK(saved_timeout != NULL, "save lock timeout");
+    strcpy(saved_timeout, original_timeout);
+  }
+  CHECK(set_environment("REVAULT_READ_ONLY_LOCK_ROOT", root) == 0,
+        "set read-only lock root");
+  CHECK(set_environment("LOCKBOX_LOCK_TIMEOUT_MS", "150") == 0,
+        "set bounded writer lock timeout");
+  CHECK(set_environment("REVAULT_READ_ONLY_LOCK_READY", first_ready) == 0 &&
+            set_environment("REVAULT_READ_ONLY_LOCK_RELEASE", first_release) == 0,
+        "set first reader markers");
+  AgentProcess first = spawn_self("--read-only-lock-child");
+  wait_for_marker(first_ready);
+  CHECK(set_environment("REVAULT_READ_ONLY_LOCK_READY", second_ready) == 0 &&
+            set_environment("REVAULT_READ_ONLY_LOCK_RELEASE", second_release) == 0,
+        "set second reader markers");
+  AgentProcess second = spawn_self("--read-only-lock-child");
+  wait_for_marker(second_ready);
+
+  CHECK(vault_directory_open(root, strlen(root), password, password_len) == NULL,
+        "two read-only processes exclude writer");
+  write_file(first_release, (const uint8_t *)"release", 7);
+  wait_for_agent(first);
+  CHECK(vault_directory_open(root, strlen(root), password, password_len) == NULL,
+        "remaining read-only process excludes writer");
+  write_file(second_release, (const uint8_t *)"release", 7);
+  wait_for_agent(second);
+  void *writer = vault_directory_open(root, strlen(root), password, password_len);
+  CHECK(writer != NULL, "writer opens after both readers close");
+  vault_directory_free(writer);
+  CHECK((saved_timeout ? set_environment("LOCKBOX_LOCK_TIMEOUT_MS", saved_timeout)
+                       : clear_environment("LOCKBOX_LOCK_TIMEOUT_MS")) == 0,
+        "restore lock timeout");
+  free(saved_timeout);
+  unlink(first_ready);
+  unlink(first_release);
+  unlink(second_ready);
+  unlink(second_release);
+  CHECK(clear_environment("REVAULT_READ_ONLY_LOCK_ROOT") == 0 &&
+            clear_environment("REVAULT_READ_ONLY_LOCK_READY") == 0 &&
+            clear_environment("REVAULT_READ_ONLY_LOCK_RELEASE") == 0,
+        "clear read-only lock child environment");
+  fprintf(stderr, "native conformance: two read-only processes shared the vault lock\n");
 }
 
 static const char *language_name(void) {
@@ -972,6 +1063,7 @@ static void vault_lifecycle(void) {
 
   vault_directory_free(vault);
   PASS(vault_directory_free, 1);
+  read_only_process_locks(root, password, sizeof(password) - 1);
   void *alias_writer = vault_directory_open(root, strlen(root), password, sizeof(password) - 1);
   CHECK(alias_writer != NULL, "reopen alias writer");
   CHECK(vault_directory_remember_lockbox(alias_writer, id, sizeof(id), alias_path, strlen(alias_path)), "remember persisted alias target");
@@ -1639,6 +1731,10 @@ int main(int argc, char **argv) {
   if (argc == 2 && strcmp(argv[1], "--loader-lifecycle") == 0) { loader_lifecycle(); return 0; }
   CHECK(api_abi_version() == 3, "revault-api ABI version");
   executable_path = argv[0];
+  if (argc == 2 && strcmp(argv[1], "--read-only-lock-child") == 0) {
+    read_only_lock_child();
+    return 0;
+  }
   if (argc == 2 &&
       (strcmp(argv[1], "--serve-agent") == 0 ||
        strcmp(argv[1], "__agent") == 0)) {
