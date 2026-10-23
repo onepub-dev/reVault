@@ -1104,6 +1104,42 @@ final class BindingOperations {
     }
   }
 
+  private MemorySegment readOnlyNamedKey(java.lang.invoke.MethodHandle method, MemorySegment handle, String name, short index, boolean historical) {
+    try (var arena = Arena.ofConfined()) {
+      var text = text(arena, name);
+      var length = (long) name.getBytes(StandardCharsets.UTF_8).length;
+      return require((MemorySegment) (historical
+          ? call(method, handle, text, length, index)
+          : call(method, handle, text, length)));
+    }
+  }
+
+  public MemorySegment vaultReadOnlyLoadPrivateKey(MemorySegment handle, String name) {
+    return readOnlyNamedKey(api.vault_read_only_load_private_key, handle, name, (short) 0, false);
+  }
+  public MemorySegment vaultReadOnlyLoadPrivateKeyGeneration(MemorySegment handle, String name, short index) {
+    return readOnlyNamedKey(api.vault_read_only_load_private_key_generation, handle, name, index, true);
+  }
+  public MemorySegment vaultReadOnlyLoadOwnerSigningKey(MemorySegment handle, String name) {
+    return readOnlyNamedKey(api.vault_read_only_load_owner_signing_key, handle, name, (short) 0, false);
+  }
+  public MemorySegment vaultReadOnlyLoadOwnerSigningKeyGeneration(MemorySegment handle, String name, short index) {
+    return readOnlyNamedKey(api.vault_read_only_load_owner_signing_key_generation, handle, name, index, true);
+  }
+  public <T> T vaultReadOnlyLoadProfilePassword(MemorySegment handle, String name, Revault.SecretCallback<T> callback) {
+    try (var arena = Arena.ofConfined()) {
+      var result = require((MemorySegment) call(api.vault_read_only_load_profile_password,
+          handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length));
+      return withSecret(output -> { output.set(ValueLayout.ADDRESS, 0, result); return true; }, callback);
+    }
+  }
+  public <T> T vaultReadOnlyRememberedPassword(MemorySegment handle, byte[] id, Revault.SecretCallback<T> callback) {
+    try (var arena = Arena.ofConfined()) {
+      return withSecret(output -> (boolean) call(api.vault_read_only_remembered_password,
+          handle, bytes(arena, id), (long) id.length, output), callback);
+    }
+  }
+
   public java.util.List<String> vaultReadOnlyListProfileNames(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
       return frame((MemorySegment) call(api.vault_read_only_list_profile_names, arena, handle), DomainCodec::stringList);

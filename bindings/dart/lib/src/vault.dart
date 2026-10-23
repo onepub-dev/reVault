@@ -142,10 +142,12 @@ final class Vault extends Owned {
         : runtime.replaceVaultInternal(resolvedPath, passphrase);
   }
 
-  /// Opens a metadata-only view that cannot load private keys or mutate data.
+  /// Opens a read-only view that can load stored credentials but cannot mutate
+  /// Vault records. The handle holds a shared file lock until closed.
   ///
-  /// Use this for discovery screens that need names and paths but should not
-  /// receive key-management authority.
+  /// Anyone with the Vault passphrase and this handle can retrieve stored
+  /// private keys and passwords. Close the handle before waiting for input
+  /// when it is no longer needed, so writers can proceed.
   ///
   /// Example:
   /// ```dart

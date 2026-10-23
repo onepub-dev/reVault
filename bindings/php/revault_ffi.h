@@ -192,6 +192,12 @@ RevaultBuffer vault_restore_default(const char *path, size_t path_len, bool over
 void vault_directory_free(void *handle);
 void *vault_read_only_open(const char *root, size_t root_len, const uint8_t *password, size_t password_len);
 void *vault_read_only_open_default(const uint8_t *password, size_t password_len);
+void *vault_read_only_load_private_key(const void *handle, const char *name, size_t name_len);
+void *vault_read_only_load_private_key_generation(const void *handle, const char *name, size_t name_len, uint16_t index);
+void *vault_read_only_load_owner_signing_key(const void *handle, const char *name, size_t name_len);
+void *vault_read_only_load_owner_signing_key_generation(const void *handle, const char *name, size_t name_len, uint16_t index);
+void *vault_read_only_load_profile_password(const void *handle, const char *name, size_t name_len);
+bool vault_read_only_remembered_password(const void *handle, const uint8_t *id, size_t id_len, void **output);
 RevaultBuffer vault_read_only_list_profile_names(const void *handle);
 RevaultBuffer vault_read_only_list_contact_names(const void *handle);
 RevaultBuffer vault_read_only_list_form_aliases(const void *handle);

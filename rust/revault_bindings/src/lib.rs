@@ -36,7 +36,7 @@ use revault_lockbox_api::{
     LockboxKeySlotAlgorithm, LockboxKeySlotProtection, LockboxOpen, LockboxPath, LockboxProtection,
     OwnerSigningKeyPair, OwnerSigningPublicKey, SecretString, VariableName,
 };
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::ffi::{c_char, c_void};
 use std::ptr;
 use zeroize::Zeroize;
@@ -110,9 +110,11 @@ thread_local! {
     // recursively re-enter the runtime and overflow the process stack.
     static LAST_ERROR: RefCell<[u8; LAST_ERROR_CAPACITY]> =
         const { RefCell::new([0; LAST_ERROR_CAPACITY]) };
+    static LAST_ERROR_CATEGORY: Cell<&'static str> = const { Cell::new("native") };
 }
 
 fn set_error(error: impl std::fmt::Display) {
+    LAST_ERROR_CATEGORY.with(|slot| slot.set("native"));
     let message = error.to_string().replace('\0', "\\0");
     LAST_ERROR.with(|slot| {
         let mut output = slot.borrow_mut();
@@ -125,8 +127,17 @@ fn set_error(error: impl std::fmt::Display) {
     });
 }
 
+fn set_credential_error(error: revault_lockbox_api::Error) {
+    let missing = matches!(error, revault_lockbox_api::Error::NotFound(_));
+    set_error(error);
+    if missing {
+        LAST_ERROR_CATEGORY.with(|slot| slot.set("not_found"));
+    }
+}
+
 fn clear_error() {
     LAST_ERROR.with(|slot| slot.borrow_mut()[0] = 0);
+    LAST_ERROR_CATEGORY.with(|slot| slot.set("native"));
 }
 
 fn last_error_message() -> String {
@@ -762,6 +773,7 @@ pub extern "C" fn buffer_last_error() -> *const c_char {
 /// Returns the last error details.
 pub extern "C" fn buffer_last_error_details() -> RevaultBuffer {
     let message = last_error_message();
+    let category = LAST_ERROR_CATEGORY.with(Cell::get);
     let guidance = message
         .split_once(". ")
         .map(|(_, value)| value.to_string())
@@ -784,7 +796,7 @@ pub extern "C" fn buffer_last_error_details() -> RevaultBuffer {
             if unsupported {
                 "unsupported_format_version"
             } else {
-                "native"
+                category
             }
             .to_string()
         ),
@@ -5522,7 +5534,7 @@ pub unsafe extern "C" fn vault_directory_load_private_key(
             Box::into_raw(Box::new(key)).cast()
         }
         Err(error) => {
-            set_error(error);
+            set_credential_error(error);
             ptr::null_mut()
         }
     }
@@ -5559,7 +5571,7 @@ pub unsafe extern "C" fn vault_directory_load_private_key_generation(
             Box::into_raw(Box::new(key)).cast()
         }
         Err(error) => {
-            set_error(error);
+            set_credential_error(error);
             ptr::null_mut()
         }
     }
@@ -6030,7 +6042,7 @@ pub unsafe extern "C" fn vault_directory_load_owner_signing_key(
             Box::into_raw(Box::new(key)).cast()
         }
         Err(error) => {
-            set_error(error);
+            set_credential_error(error);
             ptr::null_mut()
         }
     }
@@ -6067,7 +6079,7 @@ pub unsafe extern "C" fn vault_directory_load_owner_signing_key_generation(
             Box::into_raw(Box::new(key)).cast()
         }
         Err(error) => {
-            set_error(error);
+            set_credential_error(error);
             ptr::null_mut()
         }
     }
@@ -7053,6 +7065,185 @@ pub unsafe extern "C" fn vault_read_only_open_default(
 
 unsafe fn read_only_vault<'a>(handle: *const c_void) -> Option<&'a ReadOnlyVaultDirectoryHandle> {
     (!handle.is_null()).then(|| unsafe { &*(handle.cast::<ReadOnlyVaultDirectoryHandle>()) })
+}
+
+/// Loads an existing profile private key from a read-only Vault.
+///
+/// # Safety
+/// `handle` must be a live read-only Vault handle and `name` must point to
+/// `name_len` readable bytes. Release the returned key with the contact-key
+/// free function.
+#[no_mangle]
+pub unsafe extern "C" fn vault_read_only_load_private_key(
+    handle: *const c_void,
+    name: *const c_char,
+    name_len: usize,
+) -> *mut c_void {
+    let (Some(handle), Some(name)) = (unsafe { read_only_vault(handle) }, unsafe {
+        input_str(name, name_len)
+    }) else {
+        set_error("invalid read-only Vault or profile name");
+        return ptr::null_mut();
+    };
+    match handle.load_private_key(name) {
+        Ok(key) => {
+            clear_error();
+            Box::into_raw(Box::new(key)).cast()
+        }
+        Err(error) => {
+            set_credential_error(error);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Loads a stored historical private-key generation from a read-only Vault.
+///
+/// # Safety
+/// `handle` must be live and `name` must point to `name_len` readable bytes.
+/// Release the returned key with the contact-key free function.
+#[no_mangle]
+pub unsafe extern "C" fn vault_read_only_load_private_key_generation(
+    handle: *const c_void,
+    name: *const c_char,
+    name_len: usize,
+    index: u16,
+) -> *mut c_void {
+    let (Some(handle), Some(name)) = (unsafe { read_only_vault(handle) }, unsafe {
+        input_str(name, name_len)
+    }) else {
+        set_error("invalid read-only Vault or profile name");
+        return ptr::null_mut();
+    };
+    match handle.load_private_key_generation(name, index) {
+        Ok(key) => {
+            clear_error();
+            Box::into_raw(Box::new(key)).cast()
+        }
+        Err(error) => {
+            set_credential_error(error);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Loads an existing profile signing key without creating or caching one.
+///
+/// # Safety
+/// `handle` must be live and `name` must point to `name_len` readable bytes.
+/// Release the returned key with the signing-key free function.
+#[no_mangle]
+pub unsafe extern "C" fn vault_read_only_load_owner_signing_key(
+    handle: *const c_void,
+    name: *const c_char,
+    name_len: usize,
+) -> *mut c_void {
+    let (Some(handle), Some(name)) = (unsafe { read_only_vault(handle) }, unsafe {
+        input_str(name, name_len)
+    }) else {
+        set_error("invalid read-only Vault or profile name");
+        return ptr::null_mut();
+    };
+    match handle.load_owner_signing_key(name) {
+        Ok(key) => {
+            clear_error();
+            Box::into_raw(Box::new(key)).cast()
+        }
+        Err(error) => {
+            set_credential_error(error);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Loads a stored historical signing-key generation without writing.
+///
+/// # Safety
+/// `handle` must be live and `name` must point to `name_len` readable bytes.
+/// Release the returned key with the signing-key free function.
+#[no_mangle]
+pub unsafe extern "C" fn vault_read_only_load_owner_signing_key_generation(
+    handle: *const c_void,
+    name: *const c_char,
+    name_len: usize,
+    index: u16,
+) -> *mut c_void {
+    let (Some(handle), Some(name)) = (unsafe { read_only_vault(handle) }, unsafe {
+        input_str(name, name_len)
+    }) else {
+        set_error("invalid read-only Vault or profile name");
+        return ptr::null_mut();
+    };
+    match handle.load_owner_signing_key_generation(name, index) {
+        Ok(key) => {
+            clear_error();
+            Box::into_raw(Box::new(key)).cast()
+        }
+        Err(error) => {
+            set_credential_error(error);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Loads a password profile into an opaque, wipeable secret handle.
+///
+/// # Safety
+/// `handle` must be live and `name` must point to `name_len` readable bytes.
+/// Release the returned handle with `secret_free`.
+#[no_mangle]
+pub unsafe extern "C" fn vault_read_only_load_profile_password(
+    handle: *const c_void,
+    name: *const c_char,
+    name_len: usize,
+) -> *mut c_void {
+    let (Some(handle), Some(name)) = (unsafe { read_only_vault(handle) }, unsafe {
+        input_str(name, name_len)
+    }) else {
+        set_error("invalid read-only Vault or profile name");
+        return ptr::null_mut();
+    };
+    match handle.load_profile_password(name) {
+        Ok(secret) => {
+            clear_error();
+            Box::into_raw(Box::new(SecretHandle::String(secret))).cast()
+        }
+        Err(error) => {
+            set_credential_error(error);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Loads a remembered Lockbox password into an optional secret handle.
+///
+/// # Safety
+/// `handle` and `output` must be live, valid pointers, and `id` must point to
+/// `id_len` readable bytes. Release a non-null output with `secret_free`.
+#[no_mangle]
+pub unsafe extern "C" fn vault_read_only_remembered_password(
+    handle: *const c_void,
+    id: *const u8,
+    id_len: usize,
+    output: *mut *mut c_void,
+) -> bool {
+    let Some(handle) = (unsafe { read_only_vault(handle) }) else {
+        set_error("read-only vault handle is null");
+        return false;
+    };
+    let id = match lockbox_id_from_bytes(id, id_len) {
+        Ok(id) => id,
+        Err(error) => {
+            set_error(error);
+            return false;
+        }
+    };
+    optional_secret_output(
+        handle
+            .remembered_lockbox_password(id)
+            .map(|value| value.map(SecretHandle::String)),
+        output,
+    )
 }
 
 #[no_mangle]

@@ -154,7 +154,6 @@ pub fn check(repository: &Path) -> Result {
     check_rust_api_coverage(&repository, &operations)?;
     let complete_abi = [
         "bindings/csharp/RevaultNative.cs",
-        "bindings/dart/lib/src/revault_native.dart",
         "bindings/go/revault_native.go",
         "bindings/java/src/com/onepub/revault/RevaultAbiSymbols.java",
         "bindings/php/src/BindingOperations.php",
@@ -163,10 +162,18 @@ pub fn check(repository: &Path) -> Result {
     for relative in complete_abi {
         require_names(&repository.join(relative), &declarations, relative)?;
     }
+    require_names_in_sources(
+        &repository,
+        &[
+            "bindings/dart/lib/src/revault_native.dart",
+            "bindings/dart/lib/src/dart_native_extensions.dart",
+        ],
+        &declarations,
+        "Dart native declarations",
+    )?;
     let complete_routes = [
         "bindings/cpp/revault_api.hpp",
         "bindings/csharp/BindingOperations.cs",
-        "bindings/dart/lib/src/binding_operations.dart",
         "bindings/go/revault.go",
         "bindings/java/src/com/onepub/revault/BindingOperations.java",
         "bindings/javascript/native.js",
@@ -179,6 +186,15 @@ pub fn check(repository: &Path) -> Result {
     for relative in complete_routes {
         require_names(&repository.join(relative), &operations, relative)?;
     }
+    require_names_in_sources(
+        &repository,
+        &[
+            "bindings/dart/lib/src/binding_operations.dart",
+            "bindings/dart/lib/src/dart_native_extensions.dart",
+        ],
+        &operations,
+        "Dart native operations",
+    )?;
     check_package_documentation(&repository)?;
     check_registry_quality(&repository)?;
     check_transport_schema(&repository)?;
@@ -886,6 +902,33 @@ fn declarations(header: &str) -> BTreeSet<String> {
 fn require_names(path: &Path, names: &BTreeSet<String>, label: &str) -> Result {
     let source = fs::read_to_string(path)
         .map_err(|error| format!("could not read {label} as UTF-8: {error}"))?;
+    let missing: Vec<_> = names
+        .iter()
+        .filter(|name| !source.contains(name.as_str()))
+        .cloned()
+        .collect();
+    if !missing.is_empty() {
+        return Err(format!(
+            "{label} is missing {} operations: {}",
+            missing.len(),
+            missing.join(", ")
+        )
+        .into());
+    }
+    Ok(())
+}
+
+fn require_names_in_sources(
+    repository: &Path,
+    relatives: &[&str],
+    names: &BTreeSet<String>,
+    label: &str,
+) -> Result {
+    let mut source = String::new();
+    for relative in relatives {
+        source.push_str(&fs::read_to_string(repository.join(relative))?);
+        source.push('\n');
+    }
     let missing: Vec<_> = names
         .iter()
         .filter(|name| !source.contains(name.as_str()))

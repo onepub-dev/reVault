@@ -1290,11 +1290,47 @@ class VaultStore extends OwnedHandle
 
 }
 
-/** A metadata view for discovery and diagnostics that never loads an owner signing key. */
+/** A read-only Vault view that can retrieve stored credentials; close it to release its shared lock. */
 class ReadOnlyVault
 {
     /** Adopts a read only Vault handle returned by Revault. */
     public function __construct(protected readonly BindingOperations $operations, protected CData $handle) {}
+
+    /** Load an existing private key; close the returned key after use. */
+    public function loadPrivateKey(string $name): ContactKeyPair
+    {
+        return new ContactKeyPair($this->operations, $this->operations->vaultReadOnlyLoadPrivateKey($this->handle, $name));
+    }
+
+    /** Load a stored historical private-key generation. */
+    public function loadPrivateKeyGeneration(string $name, int $index): ContactKeyPair
+    {
+        return new ContactKeyPair($this->operations, $this->operations->vaultReadOnlyLoadPrivateKeyGeneration($this->handle, $name, $index));
+    }
+
+    /** Load an existing Profile signing key without creating one. */
+    public function loadProfileSigningKey(string $name): ProfileSigningKeyPair
+    {
+        return new ProfileSigningKeyPair($this->operations, $this->operations->vaultReadOnlyLoadOwnerSigningKey($this->handle, $name));
+    }
+
+    /** Load a stored historical Profile signing-key generation. */
+    public function loadProfileSigningKeyGeneration(string $name, int $index): ProfileSigningKeyPair
+    {
+        return new ProfileSigningKeyPair($this->operations, $this->operations->vaultReadOnlyLoadOwnerSigningKeyGeneration($this->handle, $name, $index));
+    }
+
+    /** Use temporary password-profile bytes during the callback, then wipe them. */
+    public function withProfilePassword(string $name, callable $callback): mixed
+    {
+        return $this->operations->vaultReadOnlyLoadProfilePassword($this->handle, $name, $callback);
+    }
+
+    /** Use remembered Lockbox password bytes, or return null if absent. */
+    public function withRememberedPassword(string $lockboxId, callable $callback): mixed
+    {
+        return $this->operations->vaultReadOnlyRememberedPassword($this->handle, $lockboxId, $callback);
+    }
 
     /** Lists profile names. */
     public function listProfileNames(): \Revault\StringList

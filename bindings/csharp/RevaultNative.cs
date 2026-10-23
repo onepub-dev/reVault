@@ -437,6 +437,19 @@ internal static partial class RevaultNative
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern IntPtr vault_read_only_open_default(IntPtr password, nuint password_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr vault_read_only_load_private_key(IntPtr handle, IntPtr name, nuint name_len);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr vault_read_only_load_private_key_generation(IntPtr handle, IntPtr name, nuint name_len, ushort index);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr vault_read_only_load_owner_signing_key(IntPtr handle, IntPtr name, nuint name_len);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr vault_read_only_load_owner_signing_key_generation(IntPtr handle, IntPtr name, nuint name_len, ushort index);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr vault_read_only_load_profile_password(IntPtr handle, IntPtr name, nuint name_len);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    public static extern bool vault_read_only_remembered_password(IntPtr handle, IntPtr id, nuint id_len, out IntPtr output);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern RevaultBuffer vault_read_only_list_profile_names(IntPtr handle);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern RevaultBuffer vault_read_only_list_contact_names(IntPtr handle);

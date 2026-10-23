@@ -408,6 +408,18 @@ void vault_directory_free(void *handle);
 void *vault_read_only_open(const char *root, size_t root_len, const uint8_t *password, size_t password_len);
 /** Returns only open default. */
 void *vault_read_only_open_default(const uint8_t *password, size_t password_len);
+/** Reads a stored profile private key. Free the returned handle with key_contact_free. */
+void *vault_read_only_load_private_key(const void *handle, const char *name, size_t name_len);
+/** Reads one stored historical profile private key. */
+void *vault_read_only_load_private_key_generation(const void *handle, const char *name, size_t name_len, uint16_t index);
+/** Reads a stored signing key; a missing key returns NotFound without creating one. Free with key_signing_free. */
+void *vault_read_only_load_owner_signing_key(const void *handle, const char *name, size_t name_len);
+/** Reads one stored historical signing key. */
+void *vault_read_only_load_owner_signing_key_generation(const void *handle, const char *name, size_t name_len, uint16_t index);
+/** Reads a password profile into an opaque secret. Free it with secret_free. */
+void *vault_read_only_load_profile_password(const void *handle, const char *name, size_t name_len);
+/** Reads a remembered Lockbox password; null output means none. Free it with secret_free. */
+bool vault_read_only_remembered_password(const void *handle, const uint8_t *id, size_t id_len, void **output);
 /** Returns only list profile names. */
 RevaultBuffer vault_read_only_list_profile_names(const void *handle);
 /** Returns only list contact names. */

@@ -177,6 +177,12 @@ vault_restore_default	vault.local	RevaultBuffer	const char *path, size_t path_le
 vault_directory_free	vault.directory	void	void *handle
 vault_read_only_open	vault.local	void *	const char *root, size_t root_len, const uint8_t *password, size_t password_len
 vault_read_only_open_default	vault.local	void *	const uint8_t *password, size_t password_len
+vault_read_only_load_private_key	vault.local	void *	const void *handle, const char *name, size_t name_len
+vault_read_only_load_private_key_generation	vault.local	void *	const void *handle, const char *name, size_t name_len, uint16_t index
+vault_read_only_load_owner_signing_key	vault.local	void *	const void *handle, const char *name, size_t name_len
+vault_read_only_load_owner_signing_key_generation	vault.local	void *	const void *handle, const char *name, size_t name_len, uint16_t index
+vault_read_only_load_profile_password	vault.local	void *	const void *handle, const char *name, size_t name_len
+vault_read_only_remembered_password	vault.local	bool	const void *handle, const uint8_t *id, size_t id_len, void **output
 vault_read_only_list_profile_names	vault.local	RevaultBuffer	const void *handle
 vault_read_only_list_contact_names	vault.local	RevaultBuffer	const void *handle
 vault_read_only_list_form_aliases	vault.local	RevaultBuffer	const void *handle

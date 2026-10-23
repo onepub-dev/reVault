@@ -652,6 +652,18 @@ public final class Revault {
   public class ReadOnlyVaultHandle implements AutoCloseable {
     private MemorySegment handle;
     protected ReadOnlyVaultHandle(MemorySegment handle) { this.handle = handle; }
+    /** Loads an existing private key; close it after use. */
+    public ContactKeyPair loadPrivateKey(String name) { return new ContactKeyPair(operations.vaultReadOnlyLoadPrivateKey(handle, name)); }
+    /** Loads a stored historical private-key generation; close it after use. */
+    public ContactKeyPair loadPrivateKeyGeneration(String name, int index) { return new ContactKeyPair(operations.vaultReadOnlyLoadPrivateKeyGeneration(handle, name, (short) index)); }
+    /** Loads an existing signing key without creating one; close it after use. */
+    public ProfileSigningKeyPair loadProfileSigningKey(String name) { return new ProfileSigningKeyPair(operations.vaultReadOnlyLoadOwnerSigningKey(handle, name)); }
+    /** Loads a stored historical signing-key generation; close it after use. */
+    public ProfileSigningKeyPair loadProfileSigningKeyGeneration(String name, int index) { return new ProfileSigningKeyPair(operations.vaultReadOnlyLoadOwnerSigningKeyGeneration(handle, name, (short) index)); }
+    /** Invokes the callback with temporary password-profile bytes, then wipes them. */
+    public <T> T withProfilePassword(String name, SecretCallback<T> callback) { return operations.vaultReadOnlyLoadProfilePassword(handle, name, callback); }
+    /** Invokes the callback with a remembered Lockbox password, or returns null if absent. */
+    public <T> T withRememberedPassword(byte[] lockboxId, SecretCallback<T> callback) { return operations.vaultReadOnlyRememberedPassword(handle, lockboxId, callback); }
     MemorySegment detach() { var value = handle; handle = null; return value; }
     /** Lists profile names. */
     public java.util.List<String> listProfileNames() { return operations.vaultReadOnlyListProfileNames(handle); }

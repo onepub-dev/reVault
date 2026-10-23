@@ -211,6 +211,13 @@ static class Conformance
             vault.RememberLockbox(id, aliasPath); vault.SetLockboxAlias("portable", id);
         }
         Pass("vault_directory_free"); using (var readOnlyVault = Api.OpenReadOnlyVault(root, password)) { Check(readOnlyVault.ListProfileNames().Count > 0, "readonly profiles"); _ = readOnlyVault.ListContactNames(); Check(readOnlyVault.ListFormAliases().Count > 0, "readonly forms"); _ = readOnlyVault.ListKnownLockboxes(); Pass("vault_read_only_open"); Pass("vault_read_only_list_profile_names", 2); Pass("vault_read_only_list_contact_names"); Pass("vault_read_only_list_form_aliases", 2); Pass("vault_read_only_list_known_lockboxes");
+            using (var readKey = readOnlyVault.LoadPrivateKey("alice")) Check(readKey.PrivateRecord().Length > 0, "read-only private key"); Pass("vault_read_only_load_private_key");
+            using (var history = readOnlyVault.LoadPrivateKeyGeneration("alice", 1)) Check(history.PrivateRecord().Length > 0, "read-only private-key history"); Pass("vault_read_only_load_private_key_generation");
+            using (var signer = readOnlyVault.LoadProfileSigningKey("alice")) Check(signer.PublicBytes().Length > 0, "read-only signer"); Pass("vault_read_only_load_owner_signing_key");
+            using (var signerHistory = readOnlyVault.LoadProfileSigningKeyGeneration("alice", 1)) Check(signerHistory.PublicBytes().Length > 0, "read-only signer history"); Pass("vault_read_only_load_owner_signing_key_generation");
+            var missingPassword = false; try { readOnlyVault.WithProfilePassword("missing", bytes => bytes.Length); } catch (RevaultException) { missingPassword = true; }
+            Check(missingPassword, "read-only missing password profile"); Pass("vault_read_only_load_profile_password");
+            Check(readOnlyVault.WithRememberedPassword(id, bytes => bytes.Length > 0) == true, "read-only remembered password"); Pass("vault_read_only_remembered_password");
  Check(readOnlyVault.ListLockboxAliases().Count == 1 && readOnlyVault.ListLockboxAliases()[0].Name == "portable", "persisted read-only alias");
             Check(readOnlyVault.ResolveLockboxAlias("portable").Path == aliasPath, "read-only alias resolution");
             Pass("vault_read_only_list_lockbox_aliases", 2); Pass("vault_read_only_resolve_lockbox_alias"); } Pass("vault_read_only_free");

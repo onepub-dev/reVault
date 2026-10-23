@@ -1,6 +1,7 @@
 package com.onepub.revault.e2e;
 
 import com.onepub.revault.Revault;
+import com.onepub.revault.RevaultException;
 import com.onepub.revault.FormField;
 import com.onepub.revault.PathMove;
 import java.io.IOException;
@@ -387,6 +388,20 @@ public final class Conformance {
       check(API.probeVaultStructureVersion(root.toString(), password) == API.currentVaultStructureVersion(), "vault probe");
       pass("vault_directory_probe_structure_version", 2);
       try (var readonly = API.openReadOnlyVault(root.toString(), password)) {
+        try (var key = readonly.loadPrivateKey("alice")) { check(key.privateRecord().length > 0, "read-only private key"); }
+        pass("vault_read_only_load_private_key");
+        try (var key = readonly.loadPrivateKeyGeneration("alice", 1)) { check(key.privateRecord().length > 0, "read-only private-key history"); }
+        pass("vault_read_only_load_private_key_generation");
+        try (var signer = readonly.loadProfileSigningKey("alice")) { check(signer.publicBytes().length > 0, "read-only signer"); }
+        pass("vault_read_only_load_owner_signing_key");
+        try (var signer = readonly.loadProfileSigningKeyGeneration("alice", 1)) { check(signer.publicBytes().length > 0, "read-only signer history"); }
+        pass("vault_read_only_load_owner_signing_key_generation");
+        boolean missingPassword = false;
+        try { readonly.withProfilePassword("missing", bytes -> bytes.length); }
+        catch (RevaultException expected) { missingPassword = true; }
+        check(missingPassword, "read-only missing password profile"); pass("vault_read_only_load_profile_password");
+        check(Boolean.TRUE.equals(readonly.withRememberedPassword(id, bytes -> bytes.length > 0)), "read-only remembered password");
+        pass("vault_read_only_remembered_password");
         check(readonly.listProfileNames().size() > 0, "read-only profiles");
         readonly.listContactNames();
         check(readonly.listFormAliases().size() > 0, "read-only forms");

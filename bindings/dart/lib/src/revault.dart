@@ -564,7 +564,7 @@ final class Revault {
             Vault.internal(this, operations.vaultDirectoryOpen(root, bytes)),
       );
 
-  /// Opens a metadata-only view at [root] without loading signing keys.
+  /// Opens a read-only Vault at [root] that can retrieve stored credentials.
   /// @nodoc
   ReadOnlyVault openReadOnlyVaultInternal(
     String root,
@@ -574,7 +574,7 @@ final class Revault {
         ReadOnlyVault.internal(this, operations.vaultReadOnlyOpen(root, bytes)),
   );
 
-  /// Opens the default metadata vault without loading signing keys.
+  /// Opens the default read-only Vault that can retrieve stored credentials.
   /// @nodoc
   ReadOnlyVault openDefaultReadOnlyVaultInternal(SecretString passphrase) =>
       passphrase.withBytes(

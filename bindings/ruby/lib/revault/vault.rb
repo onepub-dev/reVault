@@ -1059,8 +1059,37 @@ module Revault
 
   end
 
-  # A metadata view for discovery that never loads an owner signing key.
+  # A read-only Vault view that can retrieve stored credentials.
   class ReadOnlyVault < OwnedHandle
+    # Load an existing private key; close it after use.
+    def load_private_key(name)
+      ContactKeyPair.new(@operations, @operations.vault_read_only_load_private_key(@native_handle, name))
+    end
+
+    # Load a stored historical private-key generation.
+    def load_private_key_generation(name, index)
+      ContactKeyPair.new(@operations, @operations.vault_read_only_load_private_key_generation(@native_handle, name, index))
+    end
+
+    # Load an existing Profile signing key without creating one.
+    def load_profile_signing_key(name)
+      ProfileSigningKeyPair.new(@operations, @operations.vault_read_only_load_owner_signing_key(@native_handle, name))
+    end
+
+    # Load a stored historical Profile signing-key generation.
+    def load_profile_signing_key_generation(name, index)
+      ProfileSigningKeyPair.new(@operations, @operations.vault_read_only_load_owner_signing_key_generation(@native_handle, name, index))
+    end
+
+    # Use temporary password-profile bytes during the block, then wipe them.
+    def with_profile_password(name, &callback)
+      @operations.vault_read_only_load_profile_password(@native_handle, name, &callback)
+    end
+
+    # Use remembered Lockbox password bytes, or return nil when absent.
+    def with_remembered_password(lockbox_id, &callback)
+      @operations.vault_read_only_remembered_password(@native_handle, lockbox_id, &callback)
+    end
     # Lists profile names.
     def list_profile_names()
       @operations.vault_read_only_list_profile_names(@native_handle)

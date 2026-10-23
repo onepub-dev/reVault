@@ -576,9 +576,9 @@ void advancedArchive() {
 }
 
 void vaultLifecycle() {
-  final aliasPath = File(
-    '${artifactRoot()}/remembered-alias-target.lbox',
-  ).absolute.path;
+  final aliasPath = File('${artifactRoot()}/remembered-alias-target.lbox')
+      .absolute
+      .path;
   final root = '${artifactRoot()}/vault';
   Directory(root).createSync(recursive: true);
   final password = SecretString.fromString('vault password');
@@ -730,6 +730,44 @@ void vaultLifecycle() {
   );
   pass('vault_directory_probe_structure_version', 2);
   final readonly = Vault.openReadOnly(root: root, passphrase: password);
+  final readKey = readonly.loadPrivateKey('alice');
+  check(readKey.privateRecord().isNotEmpty, 'read-only private key');
+  readKey.dispose();
+  pass('vault_read_only_load_private_key');
+  final readHistory = readonly.loadPrivateKeyGeneration('alice', 1);
+  check(
+    readHistory.privateRecord().isNotEmpty,
+    'read-only private key history',
+  );
+  readHistory.dispose();
+  pass('vault_read_only_load_private_key_generation');
+  final readSigner = readonly.loadProfileSigningKey('alice');
+  check(readSigner.publicBytes().isNotEmpty, 'read-only signer');
+  readSigner.dispose();
+  pass('vault_read_only_load_owner_signing_key');
+  final readSignerHistory = readonly.loadProfileSigningKeyGeneration(
+    'alice',
+    1,
+  );
+  check(readSignerHistory.publicBytes().isNotEmpty, 'read-only signer history');
+  readSignerHistory.dispose();
+  pass('vault_read_only_load_owner_signing_key_generation');
+  var missingPassword = false;
+  try {
+    readonly.loadProfilePassword('missing');
+  } on RevaultException catch (error) {
+    missingPassword = error.category == 'not_found';
+  }
+  check(missingPassword, 'read-only missing password profile');
+  pass('vault_read_only_load_profile_password');
+  final readRemembered = readonly.rememberedPassword(id);
+  check(
+    readRemembered != null &&
+        readRemembered.withBytes((bytes) => bytes.isNotEmpty),
+    'read-only remembered password',
+  );
+  readRemembered?.close();
+  pass('vault_read_only_remembered_password');
   check(readonly.listProfileNames().isNotEmpty, 'read-only profiles');
   readonly.listContactNames();
   check(readonly.listFormAliases().isNotEmpty, 'read-only forms');
@@ -838,12 +876,10 @@ void platformStore() {
 }
 
 Future<void> agentAndLocal() async {
-  Directory(
-    Platform.environment['LOCKBOX_SESSION_AGENT_DIR']!,
-  ).createSync(recursive: true);
-  Directory(
-    Platform.environment['LOCKBOX_VAULT_DIR']!,
-  ).createSync(recursive: true);
+  Directory(Platform.environment['LOCKBOX_SESSION_AGENT_DIR']!)
+      .createSync(recursive: true);
+  Directory(Platform.environment['LOCKBOX_VAULT_DIR']!)
+      .createSync(recursive: true);
   final directory = withSecretString(
     'agent vault password',
     (password) => Vault.replace(passphrase: password),

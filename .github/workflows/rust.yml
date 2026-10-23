@@ -282,10 +282,12 @@ jobs:
         run: |
           cargo test --locked -p revault_vault_api --test vault_api standalone_vault_file_can_be_created_and_reopened -- --exact
           cargo test --locked -p revault_vault_api --test vault_api vault_mutation_times_out
+          cargo test --locked -p revault_vault_api --test vault_api read_only_vault_credential_readers_share_locks_across_processes -- --exact
 
       - name: Test platform-specific lockbox filesystem behavior
         run: |
           cargo test --locked -p revault_lockbox_api file_lock
+          cargo test --locked -p revault_lockbox_api --test archive_locking readers_share_locks_and_exclude_writers_across_processes -- --exact
           cargo test --locked -p revault_lockbox_api extract_to_directory
           cargo test --locked -p revault_lockbox_api symlink
           cargo test --locked -p revault_lockbox_api create_path

@@ -232,7 +232,7 @@ pub mod vault {
         }
     }
 
-    /// Read-only view of a persistent [`Vault`].
+    /// Read-only view of a persistent [`Vault`], including stored credentials.
     #[derive(Debug)]
     pub struct ReadOnlyVault(revault_vault_api::ReadOnlyVaultDirectory);
 
@@ -263,6 +263,119 @@ pub mod vault {
         /// Lists remembered Lockbox paths.
         pub fn list_known_lockboxes(&self) -> revault_lockbox_api::Result<Vec<KnownLockbox>> {
             self.0.list_known_lockboxes()
+        }
+
+        /// Loads an existing profile private key. Drop it after use.
+        ///
+        /// ```no_run
+        /// # use revault_api::ReadOnlyVault;
+        /// # use revault_api::vault::SecretString;
+        /// # let passphrase = SecretString::try_from_bytes(b"passphrase".to_vec()).unwrap();
+        /// let vault = ReadOnlyVault::open_default(&passphrase)?;
+        /// let key = vault.load_private_key("default")?;
+        /// drop(key);
+        /// # Ok::<(), revault_lockbox_api::Error>(())
+        /// ```
+        pub fn load_private_key(
+            &self,
+            name: &str,
+        ) -> revault_lockbox_api::Result<super::ContactKeyPair> {
+            self.0.load_private_key(name)
+        }
+
+        /// Loads a stored historical private-key generation without migration.
+        ///
+        /// ```no_run
+        /// # use revault_api::ReadOnlyVault;
+        /// # use revault_api::vault::SecretString;
+        /// # let passphrase = SecretString::try_from_bytes(b"passphrase".to_vec()).unwrap();
+        /// let view = ReadOnlyVault::open_default(&passphrase)?;
+        /// let previous = view.load_private_key_generation("alice", 1)?;
+        /// drop(previous);
+        /// # Ok::<(), revault_lockbox_api::Error>(())
+        /// ```
+        pub fn load_private_key_generation(
+            &self,
+            name: &str,
+            index: u16,
+        ) -> revault_lockbox_api::Result<super::ContactKeyPair> {
+            self.0.load_private_key_generation(name, index)
+        }
+
+        /// Loads an existing profile signing key; a missing key returns `NotFound`.
+        /// Unlike [`Vault::load_profile_signing_key`], this never creates or caches a key.
+        ///
+        /// ```no_run
+        /// # use revault_api::ReadOnlyVault;
+        /// # use revault_api::vault::SecretString;
+        /// # let passphrase = SecretString::try_from_bytes(b"passphrase".to_vec()).unwrap();
+        /// let view = ReadOnlyVault::open_default(&passphrase)?;
+        /// let signer = view.load_profile_signing_key("alice")?;
+        /// drop(signer);
+        /// # Ok::<(), revault_lockbox_api::Error>(())
+        /// ```
+        pub fn load_profile_signing_key(
+            &self,
+            name: &str,
+        ) -> revault_lockbox_api::Result<super::ProfileSigningKeyPair> {
+            self.0.load_owner_signing_key(name)
+        }
+
+        /// Loads a stored historical profile signing-key generation.
+        ///
+        /// ```no_run
+        /// # use revault_api::ReadOnlyVault;
+        /// # use revault_api::vault::SecretString;
+        /// # let passphrase = SecretString::try_from_bytes(b"passphrase".to_vec()).unwrap();
+        /// let view = ReadOnlyVault::open_default(&passphrase)?;
+        /// let previous = view.load_profile_signing_key_generation("alice", 1)?;
+        /// drop(previous);
+        /// # Ok::<(), revault_lockbox_api::Error>(())
+        /// ```
+        pub fn load_profile_signing_key_generation(
+            &self,
+            name: &str,
+            index: u16,
+        ) -> revault_lockbox_api::Result<super::ProfileSigningKeyPair> {
+            self.0.load_owner_signing_key_generation(name, index)
+        }
+
+        /// Loads an existing password profile into protected memory.
+        ///
+        /// ```no_run
+        /// # use revault_api::ReadOnlyVault;
+        /// # use revault_api::vault::SecretString;
+        /// # let passphrase = SecretString::try_from_bytes(b"passphrase".to_vec()).unwrap();
+        /// let view = ReadOnlyVault::open_default(&passphrase)?;
+        /// let password = view.load_profile_password("server")?;
+        /// password.with_bytes(|bytes| assert!(!bytes.is_empty()))?;
+        /// # Ok::<(), revault_lockbox_api::Error>(())
+        /// ```
+        pub fn load_profile_password(
+            &self,
+            name: &str,
+        ) -> revault_lockbox_api::Result<SecretString> {
+            self.0.load_profile_password(name)
+        }
+
+        /// Loads a remembered Lockbox password, if present.
+        ///
+        /// ```no_run
+        /// # use revault_api::ReadOnlyVault;
+        /// # use revault_api::vault::SecretString;
+        /// # let passphrase = SecretString::try_from_bytes(b"passphrase".to_vec()).unwrap();
+        /// # let lockbox_id = revault_lockbox_api::LockboxId::new_random().unwrap();
+        /// let view = ReadOnlyVault::open_default(&passphrase)?;
+        /// if let Some(password) = view.remembered_lockbox_password(lockbox_id)? {
+        ///     password.with_bytes(|bytes| assert!(!bytes.is_empty()))?;
+        /// }
+        /// # Ok::<(), revault_lockbox_api::Error>(())
+        /// ```
+        pub fn remembered_lockbox_password(
+            &self,
+            lockbox_id: revault_lockbox_api::LockboxId,
+        ) -> revault_lockbox_api::Result<Option<SecretString>> {
+            self.0.remembered_lockbox_password(lockbox_id)
         }
     }
 

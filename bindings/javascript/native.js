@@ -226,6 +226,12 @@ let vault_restore_default;
 let vault_directory_free;
 let vault_read_only_open;
 let vault_read_only_open_default;
+let vault_read_only_load_private_key;
+let vault_read_only_load_private_key_generation;
+let vault_read_only_load_owner_signing_key;
+let vault_read_only_load_owner_signing_key_generation;
+let vault_read_only_load_profile_password;
+let vault_read_only_remembered_password;
 let vault_read_only_list_profile_names;
 let vault_read_only_list_contact_names;
 let vault_read_only_list_form_aliases;
@@ -467,6 +473,12 @@ export function configureNativeLibrary(explicitPath = undefined) {
   vault_directory_free = library.func('void vault_directory_free(void *)');
   vault_read_only_open = library.func('void * vault_read_only_open(const char *, size_t, void *, size_t)');
   vault_read_only_open_default = library.func('void * vault_read_only_open_default(void *, size_t)');
+  vault_read_only_load_private_key = library.func('void * vault_read_only_load_private_key(void *, const char *, size_t)');
+  vault_read_only_load_private_key_generation = library.func('void * vault_read_only_load_private_key_generation(void *, const char *, size_t, uint16_t)');
+  vault_read_only_load_owner_signing_key = library.func('void * vault_read_only_load_owner_signing_key(void *, const char *, size_t)');
+  vault_read_only_load_owner_signing_key_generation = library.func('void * vault_read_only_load_owner_signing_key_generation(void *, const char *, size_t, uint16_t)');
+  vault_read_only_load_profile_password = library.func('void * vault_read_only_load_profile_password(void *, const char *, size_t)');
+  vault_read_only_remembered_password = library.func('bool vault_read_only_remembered_password(void *, void *, size_t, _Out_ void **)');
   vault_read_only_list_profile_names = library.func('RevaultBuffer vault_read_only_list_profile_names(void *)');
   vault_read_only_list_contact_names = library.func('RevaultBuffer vault_read_only_list_contact_names(void *)');
   vault_read_only_list_form_aliases = library.func('RevaultBuffer vault_read_only_list_form_aliases(void *)');
@@ -951,6 +963,24 @@ export class BindingOperations {
   vaultReadOnlyOpen(root, password) { return requireHandle(vault_read_only_open(Buffer.from(root), Buffer.byteLength(root), Buffer.from(password), Buffer.byteLength(password))); }
 
   vaultReadOnlyOpenDefault(password) { return requireHandle(vault_read_only_open_default(Buffer.from(password), Buffer.byteLength(password))); }
+
+  vaultReadOnlyLoadPrivateKey(handle, name) { return requireHandle(vault_read_only_load_private_key(handle, Buffer.from(name), Buffer.byteLength(name))); }
+
+  vaultReadOnlyLoadPrivateKeyGeneration(handle, name, index) { return requireHandle(vault_read_only_load_private_key_generation(handle, Buffer.from(name), Buffer.byteLength(name), index)); }
+
+  vaultReadOnlyLoadOwnerSigningKey(handle, name) { return requireHandle(vault_read_only_load_owner_signing_key(handle, Buffer.from(name), Buffer.byteLength(name))); }
+
+  vaultReadOnlyLoadOwnerSigningKeyGeneration(handle, name, index) { return requireHandle(vault_read_only_load_owner_signing_key_generation(handle, Buffer.from(name), Buffer.byteLength(name), index)); }
+
+  vaultReadOnlyLoadProfilePassword(handle, name, callback) {
+    const secret = requireHandle(vault_read_only_load_profile_password(handle, Buffer.from(name), Buffer.byteLength(name)));
+    return withSecret(output => { output[0] = secret; return true; }, callback);
+  }
+
+  vaultReadOnlyRememberedPassword(handle, id, callback) {
+    const bytes = Buffer.from(id);
+    return withSecret(output => vault_read_only_remembered_password(handle, bytes, bytes.length, output), callback);
+  }
 
   vaultReadOnlyListProfileNames(handle) { return decode('StringList', vault_read_only_list_profile_names(handle)); }
 

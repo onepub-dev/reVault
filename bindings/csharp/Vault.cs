@@ -514,11 +514,23 @@ public sealed class Revault
     /// <summary>Opens default read only vault directory.</summary>
     public ReadOnlyVault OpenDefaultReadOnlyVault(byte[] password) =>
         new(this, operations.VaultReadOnlyOpenDefault(password));
-    /// <summary>A metadata view for discovery and diagnostics that never loads private profile signing material.</summary>
+    /// <summary>A read-only Vault view that can retrieve stored credentials while holding a shared file lock.</summary>
     public class ReadOnlyVaultStore : IDisposable
     {
         private readonly Revault owner; private IntPtr handle;
         internal ReadOnlyVaultStore(Revault owner, IntPtr handle) { this.owner = owner; this.handle = handle; }
+        /// <summary>Load an existing private key; dispose the returned key after use.</summary>
+        public ContactKeyPair LoadPrivateKey(string name) => new(owner, owner.operations.VaultReadOnlyLoadPrivateKey(handle, name));
+        /// <summary>Load a stored historical private-key generation; dispose it after use.</summary>
+        public ContactKeyPair LoadPrivateKeyGeneration(string name, ushort index) => new(owner, owner.operations.VaultReadOnlyLoadPrivateKeyGeneration(handle, name, index));
+        /// <summary>Load an existing signing key without creating one; dispose it after use.</summary>
+        public ProfileSigningKeyPair LoadProfileSigningKey(string name) => new(owner, owner.operations.VaultReadOnlyLoadOwnerSigningKey(handle, name));
+        /// <summary>Load a stored historical signing-key generation; dispose it after use.</summary>
+        public ProfileSigningKeyPair LoadProfileSigningKeyGeneration(string name, ushort index) => new(owner, owner.operations.VaultReadOnlyLoadOwnerSigningKeyGeneration(handle, name, index));
+        /// <summary>Use a stored password profile during the callback; its temporary bytes are wiped afterward.</summary>
+        public T? WithProfilePassword<T>(string name, SecretCallback<T> callback) => owner.operations.VaultReadOnlyLoadProfilePassword(handle, name, callback);
+        /// <summary>Use a remembered Lockbox password during the callback, or return null if absent.</summary>
+        public T? WithRememberedPassword<T>(byte[] lockboxId, SecretCallback<T> callback) => owner.operations.VaultReadOnlyRememberedPassword(handle, lockboxId, callback);
         /// <summary>Lists profile names.</summary>
         public IReadOnlyList<string> ListProfileNames() => owner.operations.VaultReadOnlyListProfileNames(handle);
         /// <summary>Lists contact names.</summary>

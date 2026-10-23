@@ -572,6 +572,23 @@ static void vault_lifecycle() {
   pass("vault_directory_probe_structure_version", 2);
   {
     ReadOnlyVault readonly(root.string(), password);
+    check(!readonly.load_private_key("alice").private_record().empty(), "read-only private key");
+    pass("vault_read_only_load_private_key");
+    check(!readonly.load_private_key_generation("alice", 1).private_record().empty(), "read-only private-key history");
+    pass("vault_read_only_load_private_key_generation");
+    check(!readonly.load_profile_signing_key("alice").public_bytes().empty(), "read-only signer");
+    pass("vault_read_only_load_owner_signing_key");
+    check(!readonly.load_profile_signing_key_generation("alice", 1).public_bytes().empty(), "read-only signer history");
+    pass("vault_read_only_load_owner_signing_key_generation");
+    bool missing_password = false;
+    try { readonly.with_profile_password("missing", [](auto) {}); }
+    catch (const std::runtime_error&) { missing_password = true; }
+    check(missing_password, "read-only missing password profile");
+    pass("vault_read_only_load_profile_password");
+    check(readonly.with_remembered_password(id, [](auto bytes) {
+      check(!bytes.empty(), "read-only remembered password bytes");
+    }), "read-only remembered password");
+    pass("vault_read_only_remembered_password");
     check(readonly.list_profile_names().size() > 0, "read-only profiles");
     (void)readonly.list_contact_names();
     check(readonly.list_form_aliases().size() > 0, "read-only form aliases");

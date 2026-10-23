@@ -490,9 +490,44 @@ export class Vault {
   close(): void;
 }
 
-/** A restricted metadata view for discovery or diagnostics that lists local
- * profiles, contacts, forms, and lockboxes without loading owner signing keys. */
+/** A read-only Vault view that can retrieve stored credentials. Close it to
+ * release its shared lock for waiting writers. */
 export class ReadOnlyVault {
+  /** Load an existing private key; close both the key and Vault after use.
+   * @example
+   * const view = runtime.vaultReadOnlyOpen(root, passphrase);
+   * try { const key = view.loadPrivateKey('alice'); try { useKey(key); } finally { key.close(); } }
+   * finally { view.close(); }
+   */
+  loadPrivateKey(name: string): ContactKeyPair;
+  /** Load an existing historical private-key generation; close the key.
+   * @example
+   * const key = view.loadPrivateKeyGeneration('alice', 1);
+   * try { useKey(key); } finally { key.close(); }
+   */
+  loadPrivateKeyGeneration(name: string, index: number): ContactKeyPair;
+  /** Load an existing Profile signer without creating one; close the key.
+   * @example
+   * const signer = view.loadProfileSigningKey('alice');
+   * try { useSigner(signer); } finally { signer.dispose(); }
+   */
+  loadProfileSigningKey(name: string): ProfileSigningKeyPair;
+  /** Load a stored historical Profile signer; close the key.
+   * @example
+   * const signer = view.loadProfileSigningKeyGeneration('alice', 1);
+   * try { useSigner(signer); } finally { signer.dispose(); }
+   */
+  loadProfileSigningKeyGeneration(name: string, index: number): ProfileSigningKeyPair;
+  /** Use a password Profile through a callback; temporary bytes are wiped.
+   * @example
+   * view.withProfilePassword('server', password => sendPassword(password));
+   */
+  withProfilePassword<T>(name: string, callback: (password: Binary) => T): T;
+  /** Use a remembered Lockbox password, or return undefined if absent.
+   * @example
+   * view.withRememberedPassword(lockboxId, password => sendPassword(password));
+   */
+  withRememberedPassword<T>(lockboxId: BinaryInput, callback: (password: Binary) => T): T | undefined;
   /** Lists profile names. */
   listProfileNames(): ReadonlyArray<string>;
   /** Lists contact names. */

@@ -109,7 +109,13 @@ function operation(className, method) {
     return 'key_signing_public_free';
   }
   if (className === 'VaultDirectory') return `vault_directory_${name}`;
-  if (className === 'ReadOnlyVaultDirectory' || className === 'ReadOnlyVault') return `vault_read_only_${name}`;
+  if (className === 'ReadOnlyVaultDirectory' || className === 'ReadOnlyVault') {
+    if (method === 'loadProfileSigningKey') return 'vault_read_only_load_owner_signing_key';
+    if (method === 'loadProfileSigningKeyGeneration') return 'vault_read_only_load_owner_signing_key_generation';
+    if (method === 'withProfilePassword') return 'vault_read_only_load_profile_password';
+    if (method === 'withRememberedPassword') return 'vault_read_only_remembered_password';
+    return `vault_read_only_${name}`;
+  }
   if (className === 'Agent') {
     if (method === 'isRunning') return 'vault_is_running';
     if (method === 'forgetAll') return 'vault_forget_all';

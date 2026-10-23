@@ -1,7 +1,7 @@
 namespace Revault;
 
-/// Read-only metadata view for profile, contact, form, and known-lockbox
-/// discovery. It never loads private signing material.
+/// Read-only Vault view that can retrieve stored credentials. Close it promptly
+/// to release its shared archive lock so a waiting writer may proceed.
 public sealed class ReadOnlyVault : Revault.ReadOnlyVaultStore
 {
     internal ReadOnlyVault(Revault owner, IntPtr handle) : base(owner, handle) { }

@@ -291,6 +291,7 @@ class ContactKeyPair {
   void* native_handle() const { return handle_; }
  private:
   friend class Vault;
+  friend class ReadOnlyVault;
   explicit ContactKeyPair(void* handle) : handle_(handle) {
     if (!handle_) throw std::runtime_error(buffer_last_error());
   }
@@ -355,6 +356,7 @@ class ProfileSigningKeyPair {
  private:
   friend class Vault;
   friend class AgentSession;
+  friend class ReadOnlyVault;
   explicit ProfileSigningKeyPair(void* handle) : handle_(handle) {
     if (!handle_) throw std::runtime_error(buffer_last_error());
   }
@@ -1223,8 +1225,8 @@ class Vault {
   void* handle_{};
 };
 
-/** A restricted metadata view for discovery or diagnostics without loading an
- * owner signing key or exposing mutation operations. */
+/** A read-only Vault that can return stored credentials but cannot mutate records.
+ * Supplying its passphrase grants access to private keys and passwords. */
 class ReadOnlyVault {
  public:
   /** Returns only vault directory. */
@@ -1244,6 +1246,68 @@ class ReadOnlyVault {
   ReadOnlyVault(ReadOnlyVault&& other) noexcept : handle_(other.handle_) { other.handle_ = nullptr; }
   /** Returns only vault directory. */
   ~ReadOnlyVault() { if (handle_) vault_read_only_free(handle_); }
+  /** Loads a stored profile private key; its returned handle releases on destruction.
+   * Example:
+   * ReadOnlyVault view(root, vault_passphrase);
+   * auto key = view.load_private_key("alice");
+   * use_contact_identity(key); // key and view release their handles at scope exit.
+   */
+  ContactKeyPair load_private_key(const std::string& name) const {
+    return ContactKeyPair(vault_read_only_load_private_key(handle_, name.data(), name.size()));
+  }
+  /** Loads a stored historical private-key generation.
+   * Example:
+   * ReadOnlyVault view(root, vault_passphrase);
+   * auto previous = view.load_private_key_generation("alice", 1);
+   * recover_old_lockbox(previous); // Both handles release at scope exit.
+   */
+  ContactKeyPair load_private_key_generation(const std::string& name, std::uint16_t index) const {
+    return ContactKeyPair(vault_read_only_load_private_key_generation(handle_, name.data(), name.size(), index));
+  }
+  /** Loads an existing signing key or throws for a missing one; never creates a key.
+   * Example:
+   * ReadOnlyVault view(root, vault_passphrase);
+   * auto signer = view.load_profile_signing_key("alice");
+   * verify_profile(signer); // Neither signer nor view writes to the Vault.
+   */
+  ProfileSigningKeyPair load_profile_signing_key(const std::string& name) const {
+    return ProfileSigningKeyPair(vault_read_only_load_owner_signing_key(handle_, name.data(), name.size()));
+  }
+  /** Loads a stored historical signing-key generation.
+   * Example:
+   * ReadOnlyVault view(root, vault_passphrase);
+   * auto signer = view.load_profile_signing_key_generation("alice", 1);
+   * verify_old_revision(signer); // Handles release at scope exit.
+   */
+  ProfileSigningKeyPair load_profile_signing_key_generation(const std::string& name, std::uint16_t index) const {
+    return ProfileSigningKeyPair(vault_read_only_load_owner_signing_key_generation(handle_, name.data(), name.size(), index));
+  }
+  /** Supplies a password profile only during the callback and wipes the transfer bytes.
+   * Example:
+   * ReadOnlyVault view(root, vault_passphrase);
+   * view.with_profile_password("server", [&](auto bytes) { authenticate(bytes); });
+   * // Close view at scope exit; do not retain the callback's byte span.
+   */
+  void with_profile_password(const std::string& name,
+      const std::function<void(std::span<const std::uint8_t>)>& callback) const {
+    void* secret = vault_read_only_load_profile_password(handle_, name.data(), name.size());
+    if (!secret) throw std::runtime_error(buffer_last_error());
+    detail::with_secret_handle(secret, callback);
+  }
+  /** Supplies a remembered Lockbox password only when one exists, then wipes it.
+   * Example:
+   * ReadOnlyVault view(root, vault_passphrase);
+   * bool found = view.with_remembered_password(lockbox_id,
+   *     [&](auto bytes) { open_box(bytes); });
+   * if (!found) request_password_from_user(); // View releases at scope exit.
+   */
+  bool with_remembered_password(const std::vector<std::uint8_t>& lockbox_id,
+      const std::function<void(std::span<const std::uint8_t>)>& callback) const {
+    void* secret{};
+    if (!vault_read_only_remembered_password(handle_, lockbox_id.data(), lockbox_id.size(), &secret))
+      throw std::runtime_error(buffer_last_error());
+    return detail::with_secret_handle(secret, callback);
+  }
   /** Lists profile names. */
   bindings::StringList list_profile_names() const { return detail::take_message<bindings::StringList>(vault_read_only_list_profile_names(handle_)); }
   /** Lists contact names. */

@@ -1214,6 +1214,47 @@ final class BindingOperations {
         }
     }
 
+    func vaultReadOnlyLoadPrivateKey(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> UnsafeMutableRawPointer {
+        try name.withCString { pointer in
+            guard let key = vault_read_only_load_private_key(handle, pointer, name.utf8.count) else { throw RevaultError.native(lastError()) }
+            return key
+        }
+    }
+
+    func vaultReadOnlyLoadPrivateKeyGeneration(_ handle: UnsafeMutableRawPointer, _ name: String, _ index: UInt16) throws -> UnsafeMutableRawPointer {
+        try name.withCString { pointer in
+            guard let key = vault_read_only_load_private_key_generation(handle, pointer, name.utf8.count, index) else { throw RevaultError.native(lastError()) }
+            return key
+        }
+    }
+
+    func vaultReadOnlyLoadOwnerSigningKey(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> UnsafeMutableRawPointer {
+        try name.withCString { pointer in
+            guard let key = vault_read_only_load_owner_signing_key(handle, pointer, name.utf8.count) else { throw RevaultError.native(lastError()) }
+            return key
+        }
+    }
+
+    func vaultReadOnlyLoadOwnerSigningKeyGeneration(_ handle: UnsafeMutableRawPointer, _ name: String, _ index: UInt16) throws -> UnsafeMutableRawPointer {
+        try name.withCString { pointer in
+            guard let key = vault_read_only_load_owner_signing_key_generation(handle, pointer, name.utf8.count, index) else { throw RevaultError.native(lastError()) }
+            return key
+        }
+    }
+
+    func vaultReadOnlyLoadProfilePassword<T>(_ handle: UnsafeMutableRawPointer, _ name: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
+        try name.withCString { pointer in
+            guard let secret = vault_read_only_load_profile_password(handle, pointer, name.utf8.count) else { throw RevaultError.native(lastError()) }
+            return try withSecret({ output in output.pointee = secret; return true }, callback)
+        }
+    }
+
+    func vaultReadOnlyRememberedPassword<T>(_ handle: UnsafeMutableRawPointer, _ id: Data, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
+        try id.withUnsafeBytes { bytes in
+            try withSecret({ output in vault_read_only_remembered_password(handle, bytes.bindMemory(to: UInt8.self).baseAddress, id.count, output) }, callback)
+        }
+    }
+
     func vaultReadOnlyListProfileNames(_ handle: UnsafeMutableRawPointer) throws -> [String] {
         return DomainCodec.stringList(try take(vault_read_only_list_profile_names(handle)))
     }
@@ -1511,7 +1552,7 @@ public final class ProfileSigningPublicKey: OwnedHandle {}
 /// Password-protected storage for Profile keys, contacts, forms, backups, and lockbox paths.
 public final class Vault: OwnedHandle {}
 
-/// A metadata view for discovery that never loads private profile signing material.
+/// A read-only Vault view that can retrieve stored credentials and holds a shared file lock.
 public final class ReadOnlyVault: OwnedHandle {}
 
 /// Client for the session service that temporarily caches unlock and signing keys.
@@ -2598,6 +2639,36 @@ extension Vault {
 
 /// Returns the member.
 extension ReadOnlyVault {
+    /// Loads an existing private key; release the returned key after use.
+    public func loadPrivateKey(_ name: String) throws -> ContactKeyPair {
+        ContactKeyPair(operations, try operations.vaultReadOnlyLoadPrivateKey(handle!, name))
+    }
+
+    /// Loads a stored historical private-key generation.
+    public func loadPrivateKeyGeneration(_ name: String, _ index: UInt16) throws -> ContactKeyPair {
+        ContactKeyPair(operations, try operations.vaultReadOnlyLoadPrivateKeyGeneration(handle!, name, index))
+    }
+
+    /// Loads an existing Profile signing key without creating one.
+    public func loadProfileSigningKey(_ name: String) throws -> ProfileSigningKeyPair {
+        ProfileSigningKeyPair(operations, try operations.vaultReadOnlyLoadOwnerSigningKey(handle!, name))
+    }
+
+    /// Loads a stored historical Profile signing-key generation.
+    public func loadProfileSigningKeyGeneration(_ name: String, _ index: UInt16) throws -> ProfileSigningKeyPair {
+        ProfileSigningKeyPair(operations, try operations.vaultReadOnlyLoadOwnerSigningKeyGeneration(handle!, name, index))
+    }
+
+    /// Uses temporary password-profile bytes in the callback, then wipes them.
+    public func withProfilePassword<T>(_ name: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
+        try operations.vaultReadOnlyLoadProfilePassword(handle!, name, callback)
+    }
+
+    /// Uses remembered Lockbox password bytes, or returns nil when absent.
+    public func withRememberedPassword<T>(_ lockboxId: Data, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
+        try operations.vaultReadOnlyRememberedPassword(handle!, lockboxId, callback)
+    }
+
     /// Lists profile names.
     public func listProfileNames() throws -> [String] {
         return try operations.vaultReadOnlyListProfileNames(handle!)
