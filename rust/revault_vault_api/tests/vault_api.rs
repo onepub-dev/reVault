@@ -1174,7 +1174,6 @@ fn vault_lock_process_helper() {
 #[test]
 fn read_only_vault_credential_readers_share_locks_across_processes() {
     let _env_guard = ENV_LOCK.lock().unwrap();
-    let _timeout_guard = EnvVarGuard::set("LOCKBOX_LOCK_TIMEOUT_MS", "150");
     let root = unique_dir("vault-read-only-process-lock");
     fs::create_dir_all(&root).unwrap();
     let path = root.join("credentials.lbox");
@@ -1205,19 +1204,33 @@ fn read_only_vault_credential_readers_share_locks_across_processes() {
     let (mut first, first_release) = spawn_reader(1);
     let (mut second, second_release) = spawn_reader(2);
 
-    assert!(matches!(
-        VaultDirectory::open_file(&path, &password),
-        Err(Error::LockUnavailable(_))
-    ));
+    let check_writer = |blocked: bool| {
+        let output = Command::new(std::env::current_exe().unwrap())
+            .arg("--exact")
+            .arg("read_only_vault_writer_process_helper")
+            .env("LOCKBOX_VAULT_WRITER_HELPER_PATH", &path)
+            .env("LOCKBOX_LOCK_TIMEOUT_MS", "150")
+            .env(
+                "LOCKBOX_VAULT_WRITER_EXPECT_BLOCKED",
+                if blocked { "yes" } else { "no" },
+            )
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    };
+
+    check_writer(true);
     fs::write(&first_release, b"release").unwrap();
     assert!(first.wait().unwrap().success());
-    assert!(matches!(
-        VaultDirectory::open_file(&path, &password),
-        Err(Error::LockUnavailable(_))
-    ));
+    check_writer(true);
     fs::write(&second_release, b"release").unwrap();
     assert!(second.wait().unwrap().success());
-    VaultDirectory::open_file(&path, &password).unwrap();
+    check_writer(false);
     fs::remove_dir_all(root).unwrap();
 }
 
@@ -1240,6 +1253,23 @@ fn read_only_vault_credential_process_helper() {
     );
     fs::write(ready, b"ready").unwrap();
     wait_for_path(&release);
+}
+
+#[test]
+fn read_only_vault_writer_process_helper() {
+    let Some(path) = std::env::var_os("LOCKBOX_VAULT_WRITER_HELPER_PATH") else {
+        return;
+    };
+    let password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+    let result = VaultDirectory::open_file(Path::new(&path), &password);
+    if std::env::var("LOCKBOX_VAULT_WRITER_EXPECT_BLOCKED").unwrap() == "yes" {
+        assert!(
+            matches!(result, Err(Error::LockUnavailable(_))),
+            "{result:?}"
+        );
+    } else {
+        result.unwrap();
+    }
 }
 
 #[test]
@@ -1339,6 +1369,7 @@ fn standalone_vault_file_can_be_created_and_reopened() {
 
 #[test]
 fn read_only_vault_reads_credentials_without_creating_missing_signer() {
+    let _env_guard = ENV_LOCK.lock().unwrap();
     let root = unique_dir("read-only-credentials");
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).unwrap();
