@@ -5,6 +5,9 @@ The CLI and public language bindings are released from validated commits on
 Publishing requires explicit authorization. Never replace an already-public
 version, tag, or artifact with different code.
 
+For the October 2026 security fixes, also complete the
+[security release TODO](security_release_todo.md) before and after publication.
+
 An immutable candidate reference may retain an exact commit already pushed to
 `main`. It must not contain separate, unmerged release changes. Before tagging
 or promoting, verify that the recorded candidate commit belongs to remote
