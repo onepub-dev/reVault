@@ -402,6 +402,16 @@ final class BindingOperations {
             return DomainCodec.optionalString(try take(lockbox_get_variable(handle, namePointer, name.utf8.count)))
         }
     }
+    func lockboxItemDescription(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> String? {
+        return try name.withCString { namePointer in
+            return DomainCodec.optionalString(try take(lockbox_item_description(handle, namePointer, name.utf8.count)))
+        }
+    }
+    func vaultDirectoryItemDescription(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> String? {
+        return try name.withCString { namePointer in
+            return DomainCodec.optionalString(try take(vault_directory_item_description(handle, namePointer, name.utf8.count)))
+        }
+    }
 
     func lockboxWithSecretVariable<T>(_ handle: UnsafeMutableRawPointer, _ name: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
         try name.withCString { namePointer in
@@ -2067,6 +2077,15 @@ extension Lockbox {
         return try operations.lockboxSetSecretVariable(handle!, name, value)
     }
 
+    /// Gets/sets/clears encrypted guidance; commit Lockbox writes. Fields belong to definitions.
+    public func itemDescription(_ target: String, _ reference: String, operation: String = "get", field: String? = nil, text: String? = nil) throws -> String? {
+        var request: [String: String] = ["target": target, "reference": reference, "operation": operation]
+        request["field"] = field
+        request["text"] = text
+        let data = try JSONSerialization.data(withJSONObject: request)
+        return try operations.lockboxItemDescription(handle!, String(decoding: data, as: UTF8.self))
+    }
+
     /// Returns a plain variable when it is present.
     public func getVariable(_ name: String) throws -> String? {
         return try operations.lockboxGetVariable(handle!, name)
@@ -2472,6 +2491,15 @@ extension Vault {
     @discardableResult
     public func storeProfileEmail(_ name: String, _ email: String) throws -> Bool {
         return try operations.vaultDirectoryStoreProfileEmail(handle!, name, email)
+    }
+
+    /// Gets/sets/clears encrypted guidance; commit Lockbox writes. Fields belong to definitions.
+    public func itemDescription(_ target: String, _ reference: String, operation: String = "get", field: String? = nil, text: String? = nil) throws -> String? {
+        var request: [String: String] = ["target": target, "reference": reference, "operation": operation]
+        request["field"] = field
+        request["text"] = text
+        let data = try JSONSerialization.data(withJSONObject: request)
+        return try operations.vaultDirectoryItemDescription(handle!, String(decoding: data, as: UTF8.self))
     }
 
     /// Returns the email recorded for a profile, when present.

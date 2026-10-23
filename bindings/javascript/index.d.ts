@@ -239,6 +239,9 @@ export class Lockbox {
   setVariable(name: string, value: string): boolean;
   /** Stores a secret value without first converting it to a JavaScript string. */
   setSecretVariable(name: string, value: BinaryInput): boolean;
+  /** Get/set/clear encrypted guidance. Field targets describe definition fields. */
+  itemDescription(target: 'variable' | 'record' | 'definition' | 'field', reference: string, options?: { operation?: 'get' | 'set' | 'clear'; field?: string | null; text?: string | null }): string | null;
+
   /** Returns a plain variable when it is present. */
   getVariable(name: string): string | undefined;
   /** Encrypted Lockbox description, or undefined when unset. Example lifecycle: set it, commit, then print this property. */
@@ -425,6 +428,9 @@ export class Vault {
   listContacts(): ReadonlyArray<import('./domain.js').Contact>;
   /** Stores profile email. */
   storeProfileEmail(name: string, email: string): boolean;
+  /** Get/set/clear encrypted guidance. Field targets describe definition fields. */
+  itemDescription(target: 'variable' | 'record' | 'definition' | 'field', reference: string, options?: { operation?: 'get' | 'set' | 'clear'; field?: string | null; text?: string | null }): string | null;
+
   /** Returns the email recorded for a profile, when present. */
   profileEmail(name: string): string | undefined;
   /** Stores backup. */

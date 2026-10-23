@@ -139,6 +139,18 @@ void archiveLifecycle() {
   check(box.getVariable('normal') == 'value', 'variable');
   pass('lockbox_set_variable');
   pass('lockbox_get_variable', 3);
+  box.itemDescription(
+    'variable',
+    'normal',
+    operation: 'set',
+    text: 'Purpose\nSecond line',
+  );
+  check(
+    box.itemDescription('variable', 'normal') == 'Purpose\nSecond line',
+    'item description',
+  );
+  box.itemDescription('variable', 'normal', operation: 'clear');
+  pass('lockbox_item_description', 3);
   box.moveVariables([PathMove(source: 'normal', destination: 'moved')]);
   check(box.getVariable('moved') == 'value', 'moved variable');
   box.moveVariables([PathMove(source: 'moved', destination: 'normal')]);
@@ -696,6 +708,11 @@ void vaultLifecycle() {
     'forms',
   );
   pass('vault_directory_define_form');
+  check(
+    vault.itemDescription('definition', 'login') == 'Login form',
+    'vault description',
+  );
+  pass('vault_directory_item_description');
   pass('vault_directory_resolve_form');
   pass('vault_directory_list_forms');
   check(

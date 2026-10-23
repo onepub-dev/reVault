@@ -777,6 +777,30 @@ final class BindingOperations {
           _take(native.lockbox_get_variable(handle, namePointer, nameLength)),
         ),
       );
+  String? lockboxItemDescription(ffi.Pointer<ffi.Void> handle, String name) =>
+      _withText(
+        name,
+        (namePointer, nameLength) => DomainDecoders.optionalString(
+          _take(
+            native.lockbox_item_description(handle, namePointer, nameLength),
+          ),
+        ),
+      );
+  String? vaultDirectoryItemDescription(
+    ffi.Pointer<ffi.Void> handle,
+    String name,
+  ) => _withText(
+    name,
+    (namePointer, nameLength) => DomainDecoders.optionalString(
+      _take(
+        native.vault_directory_item_description(
+          handle,
+          namePointer,
+          nameLength,
+        ),
+      ),
+    ),
+  );
 
   T? lockboxWithSecretVariable<T>(
     ffi.Pointer<ffi.Void> handle,

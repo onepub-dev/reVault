@@ -76,6 +76,8 @@ RevaultBuffer lockbox_stat(const void * handle, const char * path, size_t path_l
 bool lockbox_set_variable(void * handle, const char * name, size_t name_len, const char * value, size_t value_len);
 bool lockbox_set_secret_variable(void * handle, const char * name, size_t name_len, const uint8_t * value, size_t value_len);
 RevaultBuffer lockbox_get_variable(const void * handle, const char * name, size_t name_len);
+RevaultBuffer lockbox_item_description(const void * handle, const char * name, size_t name_len);
+RevaultBuffer vault_directory_item_description(const void * handle, const char * name, size_t name_len);
 bool lockbox_get_secret_variable(const void * handle, const char * name, size_t name_len, void ** output);
 bool lockbox_delete_variable(void * handle, const char * name, size_t name_len);
 bool lockbox_move_variables(void * handle, const uint8_t * moves_flatbuffer, size_t moves_len);
@@ -778,6 +780,14 @@ end
 
 function Operations:lockbox_get_variable(handle, name)
   local value = Models.OptionalString.decode(take(native.lockbox_get_variable(handle, name, #name)))
+  return value.present and value.value or nil
+end
+function Operations:lockbox_item_description(handle, name)
+  local value = Models.OptionalString.decode(take(native.lockbox_item_description(handle, name, #name)))
+  return value.present and value.value or nil
+end
+function Operations:vault_directory_item_description(handle, name)
+  local value = Models.OptionalString.decode(take(native.vault_directory_item_description(handle, name, #name)))
   return value.present and value.value or nil
 end
 
@@ -2098,6 +2108,20 @@ function Lockbox:set_secret_variable(name, value)
   return self.operations:lockbox_set_secret_variable(self.handle, name, value)
 end
 
+local function description_request(target, reference, operation, field, text)
+  local function quote(value)
+    if value == nil then return "null" end
+    return '"' .. value:gsub('[%z\1-\31\\"]', function(c) return string.format("\\u%04x", c:byte()) end) .. '"'
+  end
+  return '{"target":' .. quote(target) .. ',"reference":' .. quote(reference) .. ',"operation":' .. quote(operation) .. ',"field":' .. quote(field) .. ',"text":' .. quote(text) .. '}'
+end
+
+--- Get/set/clear encrypted guidance; commit Lockbox writes. Fields belong to definitions.
+function Lockbox:item_description(target, reference, operation, field, text)
+  return self.operations:lockbox_item_description(self.handle, description_request(target, reference, operation or "get", field, text))
+end
+
+
 --- Returns a plain variable when it is present.
 function Lockbox:get_variable(name)
   return self.operations:lockbox_get_variable(self.handle, name)
@@ -2458,6 +2482,11 @@ end
 --- Stores profile email.
 function VaultStore:store_profile_email(name, email)
   return self.operations:vault_directory_store_profile_email(self.handle, name, email)
+end
+
+--- Get/set/clear encrypted guidance; commit Lockbox writes. Fields belong to definitions.
+function VaultStore:item_description(target, reference, operation, field, text)
+  return self.operations:vault_directory_item_description(self.handle, description_request(target, reference, operation or "get", field, text))
 end
 
 --- Returns the email recorded for a profile, when present.

@@ -52,6 +52,7 @@ mod file_import_pipeline;
 mod files;
 mod form_store;
 mod forms;
+mod item_descriptions;
 mod key_directory_candidates;
 mod key_management;
 mod listing;

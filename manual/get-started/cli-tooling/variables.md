@@ -35,6 +35,33 @@ lbx secrets.lbox variables set API_TOKEN --secret --from-env API_TOKEN
 
 Normal variables may use the same sources, or a positional value as shown in the first examples.
 
+## Describe variables
+
+Variables can have optional descriptions independently of whether their values
+are normal or secret:
+
+```bash
+lbx secrets.lbox variables description set DB_HOST "Database hostname for this environment"
+lbx secrets.lbox variables description set API_TOKEN --file ./token-help.txt
+lbx secrets.lbox variables description get API_TOKEN
+lbx secrets.lbox variables description clear API_TOKEN
+```
+
+Descriptions accept multiline UTF-8 text, up to one mebibyte. `set` accepts a
+positional value, `--file`, `--stdin`, or `--interactive`. `get` writes the text
+exactly without adding a newline. Setting an empty string differs from clearing
+the description. The variable must already exist.
+
+`variables list` shows a compact first-line preview. JSON output retains full
+text; TSV escapes backslashes, tabs, carriage returns, and newlines. Descriptions
+are encrypted but visible in ordinary listing output, including descriptions of
+secret variables. Keep secret values in the variable itself.
+
+Moving a variable moves its description; removing it removes the description.
+Variable export excludes descriptions. Archives remain readable by older
+format-4 clients, but those clients do not maintain descriptions when moving or
+removing variables. Use an updated client for those operations.
+
 ## Export normal variables
 
 The export command intentionally exports only non-secret variables:

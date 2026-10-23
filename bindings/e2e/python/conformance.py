@@ -130,6 +130,15 @@ def archive_lifecycle(runtime: Runtime) -> None:
     check(b"value" in runtime.frame(lib.lockbox_get_variable(box, normal, 6)), "variable value")
     passed("lockbox_set_variable", 1)
     passed("lockbox_get_variable", 3)
+    description_set = b'{"target":"variable","reference":"normal","operation":"set","text":"Purpose\\nSecond line"}'
+    description_get = b'{"target":"variable","reference":"normal","operation":"get"}'
+    description_clear = b'{"target":"variable","reference":"normal","operation":"clear"}'
+    for request in (description_set, description_get):
+        result = decode("OptionalString", runtime.frame(lib.lockbox_item_description(box, data(request), len(request))))
+        check(result.value == "Purpose\nSecond line", "item description")
+    cleared = decode("OptionalString", runtime.frame(lib.lockbox_item_description(box, data(description_clear), len(description_clear))))
+    check(not cleared.present, "cleared description")
+    passed("lockbox_item_description", 3)
     moves = encode_path_moves([PathMove(source="normal", destination="moved")])
     moves_data = data(moves)
     runtime.bool(lib.lockbox_move_variables(box, moves_data, len(moves)), "move variable")
@@ -714,6 +723,10 @@ def vault_lifecycle(runtime: Runtime) -> None:
     check(runtime.frame(lib.vault_directory_resolve_form(vault, alias, 5)), "resolve vault form")
     check(runtime.frame(lib.vault_directory_list_forms(vault)), "vault forms")
     passed("vault_directory_define_form", 1)
+    description_request = b'{"target":"definition","reference":"login","operation":"get"}'
+    result = decode("OptionalString", runtime.frame(lib.vault_directory_item_description(vault, data(description_request), len(description_request))))
+    check(result.value == "Login form", "vault description")
+    passed("vault_directory_item_description", 1)
     passed("vault_directory_resolve_form", 1)
     passed("vault_directory_list_forms", 1)
     vault_type_id = vault_definition.type_id.encode()

@@ -354,6 +354,16 @@ final class BindingOperations {
       return frame((MemorySegment) call(api.lockbox_get_variable, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::optionalString);
     }
   }
+  public String lockboxItemDescription(MemorySegment handle, String name) {
+    try (var arena = Arena.ofConfined()) {
+      return frame((MemorySegment) call(api.lockbox_item_description, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::optionalString);
+    }
+  }
+  public String vaultDirectoryItemDescription(MemorySegment handle, String name) {
+    try (var arena = Arena.ofConfined()) {
+      return frame((MemorySegment) call(api.vault_directory_item_description, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::optionalString);
+    }
+  }
 
   public <T> T lockboxWithSecretVariable(MemorySegment handle, String name, Revault.SecretCallback<T> callback) {
     try (var arena = Arena.ofConfined()) {

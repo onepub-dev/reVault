@@ -520,6 +520,12 @@ module Revault
       @operations.lockbox_set_secret_variable(@native_handle, name, value)
     end
 
+    # Get/set/clear encrypted guidance; commit Lockbox writes. Fields belong to definitions.
+    def item_description(target, reference, operation: 'get', field: nil, text: nil)
+      require 'json'
+      @operations.lockbox_item_description(@native_handle, JSON.generate({ target: target, reference: reference, operation: operation, field: field, text: text }))
+    end
+
     # Returns a plain variable when it is present.
     def get_variable(name)
       @operations.lockbox_get_variable(@native_handle, name)
@@ -904,6 +910,12 @@ module Revault
     # Stores profile email.
     def store_profile_email(name, email)
       @operations.vault_directory_store_profile_email(@native_handle, name, email)
+    end
+
+    # Get/set/clear encrypted guidance; commit Lockbox writes. Fields belong to definitions.
+    def item_description(target, reference, operation: 'get', field: nil, text: nil)
+      require 'json'
+      @operations.vault_directory_item_description(@native_handle, JSON.generate({ target: target, reference: reference, operation: operation, field: field, text: text }))
     end
 
     # Returns the email recorded for a profile, when present.

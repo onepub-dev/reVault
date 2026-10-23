@@ -563,6 +563,22 @@ typedef _LockboxGetVariableNative =
     );
 typedef _LockboxGetVariableDart =
     RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxItemDescriptionNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxItemDescriptionDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryItemDescriptionNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryItemDescriptionDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
 typedef _LockboxGetSecretVariableNative =
     ffi.Bool Function(
       ffi.Pointer<ffi.Void>,
@@ -2310,6 +2326,24 @@ external bool _native_lockbox_set_secret_variable(
   assetId: _assetId,
 )
 external RevaultBuffer _native_lockbox_get_variable(
+  ffi.Pointer<ffi.Void> p0,
+  ffi.Pointer<ffi.Uint8> p1,
+  int p2,
+);
+@ffi.Native<_LockboxItemDescriptionNative>(
+  symbol: 'lockbox_item_description',
+  assetId: _assetId,
+)
+external RevaultBuffer _native_lockbox_item_description(
+  ffi.Pointer<ffi.Void> p0,
+  ffi.Pointer<ffi.Uint8> p1,
+  int p2,
+);
+@ffi.Native<_VaultDirectoryItemDescriptionNative>(
+  symbol: 'vault_directory_item_description',
+  assetId: _assetId,
+)
+external RevaultBuffer _native_vault_directory_item_description(
   ffi.Pointer<ffi.Void> p0,
   ffi.Pointer<ffi.Uint8> p1,
   int p2,
@@ -4125,6 +4159,16 @@ final class RevaultNative {
           .lookupFunction<_LockboxGetVariableNative, _LockboxGetVariableDart>(
             'lockbox_get_variable',
           ),
+      _lockbox_item_description = library
+          .lookupFunction<
+            _LockboxItemDescriptionNative,
+            _LockboxItemDescriptionDart
+          >('lockbox_item_description'),
+      _vault_directory_item_description = library
+          .lookupFunction<
+            _VaultDirectoryItemDescriptionNative,
+            _VaultDirectoryItemDescriptionDart
+          >('vault_directory_item_description'),
       _lockbox_get_secret_variable = library
           .lookupFunction<
             _LockboxGetSecretVariableNative,
@@ -5008,6 +5052,9 @@ final class RevaultNative {
       _lockbox_set_variable = _native_lockbox_set_variable,
       _lockbox_set_secret_variable = _native_lockbox_set_secret_variable,
       _lockbox_get_variable = _native_lockbox_get_variable,
+      _lockbox_item_description = _native_lockbox_item_description,
+      _vault_directory_item_description =
+          _native_vault_directory_item_description,
       _lockbox_get_secret_variable = _native_lockbox_get_secret_variable,
       _lockbox_delete_variable = _native_lockbox_delete_variable,
       _lockbox_move_variables = _native_lockbox_move_variables,
@@ -5673,6 +5720,18 @@ final class RevaultNative {
     ffi.Pointer<ffi.Uint8> name,
     int name_len,
   ) => _lockbox_get_variable(handle, name, name_len);
+  final _LockboxItemDescriptionDart _lockbox_item_description;
+  RevaultBuffer lockbox_item_description(
+    ffi.Pointer<ffi.Void> handle,
+    ffi.Pointer<ffi.Uint8> name,
+    int name_len,
+  ) => _lockbox_item_description(handle, name, name_len);
+  final _VaultDirectoryItemDescriptionDart _vault_directory_item_description;
+  RevaultBuffer vault_directory_item_description(
+    ffi.Pointer<ffi.Void> handle,
+    ffi.Pointer<ffi.Uint8> name,
+    int name_len,
+  ) => _vault_directory_item_description(handle, name, name_len);
   final _LockboxGetSecretVariableDart _lockbox_get_secret_variable;
   bool lockbox_get_secret_variable(
     ffi.Pointer<ffi.Void> handle,

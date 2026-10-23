@@ -394,6 +394,18 @@ internal sealed class BindingOperations
         fixed (byte* nameBytesPointer = nameBytes)
         { return Frame(RevaultNative.lockbox_get_variable(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), DomainCodec.OptionalString); }
     }
+    public unsafe string? LockboxItemDescription(IntPtr handle, string name)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* nameBytesPointer = nameBytes)
+        { return Frame(RevaultNative.lockbox_item_description(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), DomainCodec.OptionalString); }
+    }
+    public unsafe string? VaultDirectoryItemDescription(IntPtr handle, string name)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* nameBytesPointer = nameBytes)
+        { return Frame(RevaultNative.vault_directory_item_description(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), DomainCodec.OptionalString); }
+    }
 
     public unsafe T? LockboxWithSecretVariable<T>(IntPtr handle, string name, SecretCallback<T> callback)
     {

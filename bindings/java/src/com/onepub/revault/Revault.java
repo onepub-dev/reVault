@@ -308,6 +308,21 @@ public final class Revault {
         signingKey == null ? MemorySegment.NULL : signingKey.handle));
   }
 
+  private static String descriptionJsonString(String text) {
+    if (text == null) return "null";
+    StringBuilder result = new StringBuilder("\"");
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+      if (c == '"' || c == '\\') result.append('\\').append(c);
+      else if (c < 32) result.append(String.format("\\u%04x", (int)c));
+      else result.append(c);
+    }
+    return result.append('"').toString();
+  }
+  private static String descriptionRequest(String target, String reference, String operation, String field, String text) {
+    return "{\"target\":" + descriptionJsonString(target) + ",\"reference\":" + descriptionJsonString(reference) + ",\"operation\":" + descriptionJsonString(operation) + ",\"field\":" + descriptionJsonString(field) + ",\"text\":" + descriptionJsonString(text) + "}";
+  }
+
   /** An open encrypted archive containing files, variables, secrets, and forms. */
   public final class Lockbox implements AutoCloseable {
     private MemorySegment handle;
@@ -378,6 +393,11 @@ public final class Revault {
     public void setVariable(String name, String value) { operations.lockboxSetVariable(handle, name, value); }
     /** Stores a secret variable from mutable bytes. */
     public void setSecretVariable(String name, byte[] value) { operations.lockboxSetSecretVariable(handle, name, value); }
+    /** Gets, sets, or clears item guidance; commit Lockbox writes. Fields belong to definitions. */
+    public String itemDescription(String target, String reference, String operation, String field, String text) {
+      return operations.lockboxItemDescription(handle, descriptionRequest(target, reference, operation, field, text));
+    }
+
     /** Returns a plain variable when it is present. */
     public String getVariable(String name) { return operations.lockboxGetVariable(handle, name); }
     /** Returns the encrypted Lockbox description, or {@code null} when unset. Example: {@code box.setDescription("Production credentials"); box.commit(); System.out.println(box.description());} */
@@ -564,6 +584,11 @@ public final class Revault {
     public java.util.List<Contact> listContacts() { return operations.vaultDirectoryListContacts(handle); }
     /** Stores profile email. */
     public void storeProfileEmail(String name, String email) { operations.vaultDirectoryStoreProfileEmail(handle, name, email); }
+    /** Gets, sets, or clears item guidance; commit Lockbox writes. Fields belong to definitions. */
+    public String itemDescription(String target, String reference, String operation, String field, String text) {
+      return operations.vaultDirectoryItemDescription(handle, descriptionRequest(target, reference, operation, field, text));
+    }
+
     /** Returns the email recorded for a profile, when present. */
     public String profileEmail(String name) { return operations.vaultDirectoryProfileEmail(handle, name); }
     /** Stores backup. */

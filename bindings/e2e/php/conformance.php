@@ -83,6 +83,10 @@ function archiveLifecycle(ApiRuntime $api): void {
     $box->clearDescription(); check($box->description() === null, 'description cleared');
     $box->setVariable('normal', 'value'); pass('lockbox_set_variable');
     check($box->getVariable('normal') === 'value', 'variable'); pass('lockbox_get_variable', 3);
+    $box->itemDescription('variable', 'normal', 'set', null, "Purpose\nSecond line");
+    check($box->itemDescription('variable', 'normal') === "Purpose\nSecond line", 'item description');
+    $box->itemDescription('variable', 'normal', 'clear');
+    pass('lockbox_item_description', 3);
     $box->moveVariables(moves('normal', 'moved')); check($box->getVariable('moved') === 'value', 'moved variable');
     $box->moveVariables(moves('moved', 'normal')); pass('lockbox_move_variables', 3);
     $box->setSecretVariable('secret', 'hidden'); pass('lockbox_set_secret_variable');
@@ -251,6 +255,8 @@ function vaultLifecycle(ApiRuntime $api): void {
     pass('vault_directory_remember_password'); pass('vault_directory_remembered_password', 3);
     $vaultForm = $vault->defineForm('login', 'Login', 'Login form', fields()); $vault->resolveForm('login'); $vault->listForms();
     pass('vault_directory_define_form'); pass('vault_directory_resolve_form'); pass('vault_directory_list_forms');
+    check($vault->itemDescription('definition', 'login') === 'Login form', 'vault description');
+    pass('vault_directory_item_description');
     $vault->listFormRevisions($vaultForm->getTypeId()); pass('vault_directory_list_form_revisions', 2);
     $vault->seedForms(); pass('vault_directory_seed_forms'); $vault->listFormAliases(); pass('vault_directory_list_form_aliases');
     $vault->forgetAccessSlotLabel($id, 7); $vault->forgetLockbox($aliasPath); $vault->deleteContact('bob');

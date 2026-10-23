@@ -112,6 +112,8 @@ fn vault_form_matches(matches: &ArgMatches) -> CliResult<()> {
         .subcommand()
         .ok_or_else(|| Error::InvalidInput("missing vault forms command".to_string()))?;
     match command {
+        "description" => super::item_descriptions::vault_run(sub, false),
+        "field-description" => super::item_descriptions::vault_run(sub, true),
         "define" => form_define_matches(sub),
         "list" | "ls" => form_definitions_with_format(output_format_from_matches(sub)?),
         _ => Err(Error::InvalidInput(format!("unknown vault forms command: {command}")).into()),
@@ -406,7 +408,7 @@ fn form_definitions_with_format(format: OutputFormat) -> CliResult<()> {
                 definition.type_id.to_string(),
                 definition.revision.to_string(),
                 definition.name,
-                definition.description,
+                super::item_descriptions::description_cell(&definition.description, format),
                 definition.fields.len().to_string(),
             ]
         })

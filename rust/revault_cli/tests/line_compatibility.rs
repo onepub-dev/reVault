@@ -162,5 +162,133 @@ fn published_cli_and_candidate_read_and_update_each_others_archives_and_vaults()
             .status
             .success());
         success(peer, &["session", "stop"]);
+
+        // New descriptions use format-4 encrypted metadata. Released readers
+        // must preserve it through ordinary writes, regardless of the creator.
+        success(
+            candidate,
+            &[
+                "shared.lbox",
+                "variables",
+                "description",
+                "set",
+                "VALUE",
+                "Purpose\nSecond line",
+            ],
+        );
+        success(
+            candidate,
+            &[
+                "shared.lbox",
+                "forms",
+                "define",
+                "login",
+                "--field",
+                "username:text",
+            ],
+        );
+        success(
+            candidate,
+            &["shared.lbox", "forms", "add", "/account", "--type", "login"],
+        );
+        success(
+            candidate,
+            &[
+                "shared.lbox",
+                "forms",
+                "field-description",
+                "set",
+                "login",
+                "username",
+                "Full email\nInclude domain",
+            ],
+        );
+        success(
+            candidate,
+            &[
+                "shared.lbox",
+                "forms",
+                "description",
+                "set",
+                "/account",
+                "Company account",
+            ],
+        );
+        success(
+            candidate,
+            &[
+                "vault",
+                "forms",
+                "define",
+                "login",
+                "--field",
+                "username:text",
+            ],
+        );
+        success(
+            candidate,
+            &[
+                "vault",
+                "forms",
+                "field-description",
+                "set",
+                "login",
+                "username",
+                "Vault guidance",
+            ],
+        );
+        success(candidate, &["session", "stop"]);
+        success(
+            baseline,
+            &["shared.lbox", "variables", "set", "VALUE", "legacy update"],
+        );
+        success(
+            baseline,
+            &["vault", "profile", "create", "description-compat"],
+        );
+        success(baseline, &["session", "stop"]);
+        assert_eq!(
+            success(
+                candidate,
+                &["shared.lbox", "variables", "description", "get", "VALUE"]
+            ),
+            b"Purpose\nSecond line"
+        );
+        assert_eq!(
+            success(
+                candidate,
+                &[
+                    "shared.lbox",
+                    "forms",
+                    "field-description",
+                    "get",
+                    "login",
+                    "username"
+                ]
+            ),
+            b"Full email\nInclude domain"
+        );
+        assert_eq!(
+            success(
+                candidate,
+                &["shared.lbox", "forms", "description", "get", "/account"]
+            ),
+            b"Company account"
+        );
+        assert_eq!(
+            success(
+                candidate,
+                &[
+                    "vault",
+                    "forms",
+                    "field-description",
+                    "get",
+                    "login",
+                    "username"
+                ]
+            ),
+            b"Vault guidance"
+        );
+        success(candidate, &["session", "stop"]);
     }
 }

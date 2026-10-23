@@ -41,6 +41,49 @@ API operations within one process do not implicitly use the Session Agent unless
 
 For end-to-end examples of the common operations, see the repository's [API examples](https://github.com/onepub-dev/reVault/blob/master/bindings/API_EXAMPLES.md).
 
+## Item descriptions
+
+Lockboxes expose descriptions for variables, form records, form definitions,
+and field definitions. Vaults expose reusable definition and field descriptions.
+Fields have definition guidance only; individual field values do not have their
+own description.
+
+The language facades expose `itemDescription` (or the language's
+`item_description`/`ItemDescription` spelling). For example, in Dart:
+
+```dart
+box.itemDescription('variable', 'DB_HOST',
+    operation: 'set', text: 'Database host\nUse the internal hostname.');
+box.itemDescription('field', 'login',
+    operation: 'set', field: 'username', text: 'Full email address');
+box.commit();
+final guidance = box.itemDescription('field', 'login', field: 'username');
+box.itemDescription('record', '/work/github', operation: 'clear');
+box.commit();
+```
+
+Targets are `variable`, `record`, `definition`, and `field`. Operations are
+`get`, `set`, and `clear`. Supply `text` only for `set` and `field` only for a
+field target. The result is the current optional text. Clearing a definition
+returns an empty string, following its existing description model; clearing
+other targets returns no value. Missing owners are errors. Lockbox writes must
+be committed; Vault writes commit immediately. Read-only Lockboxes can read
+descriptions and reject writes using the existing invalid-operation error.
+
+Native callers use `lockbox_item_description` or
+`vault_directory_item_description` with a UTF-8 JSON request containing those
+five keys (`reference` is the variable name, record path, or definition
+reference). Optional keys may be omitted or null. Unknown keys and invalid
+combinations are rejected. Results use the existing `OptionalString` FlatBuffer;
+free them with `buffer_free`. Errors use the existing error channel and a null
+result buffer. JSON requests are limited to eight mebibytes; decoded descriptions
+remain subject to the one-mebibyte normal-variable limit. Field descriptions for
+one revision share that limit as an encoded map.
+
+No archive format or FlatBuffers schema change is required. Older format-4
+clients retain the encrypted metadata during ordinary updates, but do not
+maintain descriptions when renaming/deleting their owners or revising definitions.
+
 ## Transaction maintenance and v4
 
 The v4 core changes storage behavior without adding C ABI operations or changing the FlatBuffers schema. All language packages need a native carrier rebuilt with that core; generated facade signatures do not need regeneration solely for this change. Migrate the Vault first and then older Lockboxes with the CLI before opening them using a v4 library.

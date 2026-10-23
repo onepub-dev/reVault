@@ -807,6 +807,14 @@ def _Lockbox_get_variable(self, name):
     return _call(self, 'lockbox_get_variable', (name,))
 Lockbox.get_variable = _Lockbox_get_variable
 
+def _Lockbox_item_description(self, target, reference, *, operation='get', field=None, text=None):
+    """Get/set/clear item guidance; commit lockbox writes. Field guidance belongs to the definition."""
+    import json
+    request = json.dumps(dict(target=target, reference=reference, operation=operation, field=field, text=text))
+    return _call(self, 'lockbox_item_description', (request,))
+Lockbox.item_description = _Lockbox_item_description
+
+
 def _Lockbox_description(self):
     """Return the encrypted description, or ``None`` when unset.
 
@@ -1262,6 +1270,14 @@ def _VaultDirectory_forget_access_slot_label(self, id, slot_id):
     return _call(self, 'vault_directory_forget_access_slot_label', (id, slot_id))
 VaultDirectory.forget_access_slot_label = _VaultDirectory_forget_access_slot_label
 
+def _VaultDirectory_item_description(self, target, reference, *, operation='get', field=None, text=None):
+    """Get/set/clear item guidance; commit lockbox writes. Field guidance belongs to the definition."""
+    import json
+    request = json.dumps(dict(target=target, reference=reference, operation=operation, field=field, text=text))
+    return _call(self, 'vault_directory_item_description', (request,))
+VaultDirectory.item_description = _VaultDirectory_item_description
+
+
 def _VaultDirectory_define_form(self, alias, name, description, fields):
     """Returns the form."""
     return _call(self, 'vault_directory_define_form', (alias, name, description, encode_form_fields(fields)))
@@ -1632,6 +1648,8 @@ _ROUTES = {
     'lockbox_set_variable': (('handle', 'text', 'text'), 'bool', False),
     'lockbox_set_secret_variable': (('handle', 'text', 'bytes'), 'bool', False),
     'lockbox_get_variable': (('handle', 'text'), 'message:OptionalString', False),
+    'lockbox_item_description': (('handle', 'text'), 'message:OptionalString', False),
+    'vault_directory_item_description': (('handle', 'text'), 'message:OptionalString', False),
     'lockbox_get_secret_variable': (('handle', 'text'), 'secret', False),
     'lockbox_delete_variable': (('handle', 'text'), 'bool', False),
     'lockbox_move_variables': (('handle', 'bytes'), 'bool', False),

@@ -153,6 +153,10 @@ static void archive_lifecycle() {
   check(box.get_variable("normal") == "value", "variable");
   pass("lockbox_set_variable");
   pass("lockbox_get_variable", 3);
+  box.item_description("variable", "normal", "set", std::nullopt, "Purpose\nSecond line");
+  check(box.item_description("variable", "normal") == "Purpose\nSecond line", "item description");
+  box.item_description("variable", "normal", "clear");
+  pass("lockbox_item_description", 3);
   box.move_variables({{"normal", "moved"}});
   check(box.get_variable("moved") == "value", "moved variable");
   box.move_variables({{"moved", "normal"}});
@@ -542,6 +546,8 @@ static void vault_lifecycle() {
     check(!vault.resolve_form("login").type_id.empty(), "vault form resolve");
     check(vault.list_forms().size() > 0, "vault forms");
     pass("vault_directory_define_form");
+    check(vault.item_description("definition", "login") == "Login form", "vault description");
+    pass("vault_directory_item_description");
     pass("vault_directory_resolve_form");
     pass("vault_directory_list_forms");
     check(vault.list_form_revisions(vault_form.type_id).size() > 0,

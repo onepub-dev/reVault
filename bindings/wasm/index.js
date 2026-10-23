@@ -51,7 +51,7 @@ function operation(className, method) {
       'deletePrivateKey', 'storePrivateKey', 'loadPrivateKey',
       'loadPrivateKeyGeneration', 'storeContact', 'loadContact',
       'contactExists', 'deleteContact', 'listContacts', 'storeProfileEmail',
-      'profileEmail', 'storeBackup', 'loadBackup', 'backupCount',
+      'profileEmail', 'itemDescription', 'storeBackup', 'loadBackup', 'backupCount',
       'restorePrivateKey', 'storeContactSigningKey',
       'loadContactSigningKey', 'listProfileGenerations', 'rotatePrivateKey',
       'rememberLockbox', 'forgetLockbox',

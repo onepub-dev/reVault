@@ -20,6 +20,15 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         .subcommand()
         .ok_or_else(|| Error::InvalidInput("missing forms command".to_string()))?;
     match command {
+        "description" => {
+            super::item_descriptions::run(sub, access, super::item_descriptions::Target::Record)
+        }
+        "definition-description" => {
+            super::item_descriptions::run(sub, access, super::item_descriptions::Target::Definition)
+        }
+        "field-description" => {
+            super::item_descriptions::run(sub, access, super::item_descriptions::Target::Field)
+        }
         "define" => define_matches(sub, access),
         "definitions" => definitions_with_format(
             &[default_lockbox_for_command()?],
@@ -226,9 +235,12 @@ pub(crate) fn default_form_alias(name: &str) -> String {
 fn use_vault_definition(args: &[String], access: &Access) -> CliResult<()> {
     let form_name = require_arg(args, 0, "form name")?;
     let lockbox_path = require_arg(args, 1, "lockbox")?;
-    let definition = default_vault()?.resolve_form_definition(form_name)?;
+    let vault = default_vault()?;
+    let definition = vault.resolve_form_definition(form_name)?;
+    let descriptions = vault.form_field_descriptions(&definition)?;
+    drop(vault);
     let mut lb = open_existing(lockbox_path, access)?;
-    let definition = lb.import_form_definition(definition)?;
+    let definition = lb.import_form_definition_with_descriptions(definition, descriptions)?;
     lb.commit()?;
     print_form_definition_saved(&definition);
     Ok(())
@@ -240,6 +252,7 @@ fn capture_definition(args: &[String], access: &Access) -> CliResult<()> {
     let new_name = args.get(2).map(String::as_str);
     let lb = open_for_reading(lockbox_path, access)?;
     let mut definition = lb.resolve_form_definition(form_name)?;
+    let descriptions = lb.form_field_descriptions(&definition)?;
     let vault = default_vault()?;
     if let Some(new_name) = new_name {
         definition.alias = new_name.to_string();
@@ -253,7 +266,7 @@ fn capture_definition(args: &[String], access: &Access) -> CliResult<()> {
             .into());
         }
     }
-    let definition = vault.import_form_definition(definition)?;
+    let definition = vault.import_form_definition_with_descriptions(definition, descriptions)?;
     print_form_definition_saved(&definition);
     Ok(())
 }
@@ -274,7 +287,7 @@ fn definitions_with_format(
                 definition.type_id.to_string(),
                 definition.revision.to_string(),
                 definition.name,
-                definition.description,
+                super::item_descriptions::description_cell(&definition.description, format),
                 definition.fields.len().to_string(),
             ]
         })
@@ -537,6 +550,12 @@ fn inspect(args: &[String], access: &Access) -> CliResult<()> {
     println!("alias\t{}", record.definition_alias);
     println!("definition_id\t{}", record.type_id);
     println!("revision\t{}", record.definition_revision);
+    println!("guidance_revision\t{}", definition.revision);
+    super::item_descriptions::print_description("definition-description", &definition.description);
+    if let Some(description) = lb.form_record_description(&path)? {
+        super::item_descriptions::print_description("description", &description);
+    }
+    let field_descriptions = lb.form_field_descriptions(&definition)?;
     for field in &definition.fields {
         let value = record
             .values
@@ -548,6 +567,12 @@ fn inspect(args: &[String], access: &Access) -> CliResult<()> {
             None => String::new(),
         };
         println!("field\t{}\t{}\t{}", field.id, field.label, display);
+        if let Some(description) = field_descriptions.get(&field.id) {
+            super::item_descriptions::print_description(
+                &format!("field-description {}", field.id),
+                description,
+            );
+        }
     }
     for value in &record.values {
         if definition
@@ -574,18 +599,30 @@ fn list_with_format(args: &[String], access: &Access, format: OutputFormat) -> C
         .filter(|record| {
             pattern.is_none_or(|pattern| form_path_matches(pattern, record.path.as_str()))
         })
-        .map(|record| {
-            vec![
+        .map(|record| -> CliResult<Vec<String>> {
+            let description = lb.form_record_description(&record.path)?;
+            Ok(vec![
                 record.path.to_string(),
                 record.name,
                 record.definition_alias,
                 record.type_id.to_string(),
                 record.definition_revision.to_string(),
-            ]
+                super::item_descriptions::description_cell(
+                    description.as_deref().unwrap_or_default(),
+                    format,
+                ),
+            ])
         })
-        .collect::<Vec<_>>();
+        .collect::<CliResult<Vec<_>>>()?;
     print_records(
-        &["path", "name", "alias", "definition_id", "revision"],
+        &[
+            "path",
+            "name",
+            "alias",
+            "definition_id",
+            "revision",
+            "description",
+        ],
         rows,
         format,
     )?;

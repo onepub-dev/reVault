@@ -125,6 +125,9 @@ impl<State> Lockbox<State> {
             description,
             fields,
         )?;
+        let mut descriptions = self.form_field_descriptions(&previous)?;
+        descriptions.retain(|field, _| definition.fields.iter().any(|item| &item.id == field));
+        self.store_form_field_descriptions(&definition, &descriptions)?;
         self.forms.put_definition(definition.clone())?;
         Ok(definition)
     }

@@ -19,7 +19,9 @@
 //! plaintext copies to a callback scope.
 
 use revault_lockbox_api::Result as LockboxResult;
+mod description_api;
 mod file_api;
+pub use description_api::{lockbox_item_description, vault_directory_item_description};
 pub use file_api::lockbox_file;
 
 // flatc 25.2.10 predates Rust 2024's explicit unsafe-block requirement. Keep

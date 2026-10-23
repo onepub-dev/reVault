@@ -277,14 +277,13 @@ impl<State> Lockbox<State> {
         State: crate::WritableLockboxState,
     {
         self.ensure_variables_loaded()?;
-        let removed = self
-            .variables
-            .borrow_mut()
-            .as_mut()
-            .ok_or(Error::CorruptRecord)?
-            .remove(name)
-            .is_some();
-        if removed {
+        let description = super::item_descriptions::metadata_name("variable", name.as_str())?;
+        let mut guard = self.variables.borrow_mut();
+        let variables = guard.as_mut().ok_or(Error::CorruptRecord)?;
+        let removed = variables.remove(name).is_some();
+        let removed_description = variables.remove(&description).is_some();
+        drop(guard);
+        if removed || removed_description {
             self.staged.dirty_variables = true;
         }
         Ok(())
@@ -302,6 +301,18 @@ impl<State> Lockbox<State> {
         self.ensure_variables_loaded()?;
         let mut variables = self.staged.variables.borrow_mut();
         let variables = variables.as_mut().ok_or(Error::CorruptRecord)?;
+        let mut expanded = moves.to_vec();
+        for (source, destination) in moves {
+            let source_description =
+                super::item_descriptions::metadata_name("variable", source.as_str())?;
+            if variables.contains_key(&source_description) {
+                expanded.push((
+                    source_description,
+                    super::item_descriptions::metadata_name("variable", destination.as_str())?,
+                ));
+            }
+        }
+        let moves = expanded.as_slice();
         let sources = moves
             .iter()
             .map(|(source, _)| source.clone())

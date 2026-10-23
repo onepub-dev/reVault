@@ -2449,6 +2449,8 @@ dependencies = [
  "flatbuffers",
  "revault_lockbox_api 0.0.49",
  "revault_vault_api 0.0.50",
+ "serde",
+ "serde_json",
  "zeroize",
 ]
 

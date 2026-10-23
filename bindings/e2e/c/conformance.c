@@ -502,6 +502,16 @@ static void archive_lifecycle(void) {
   expect_optional_string(lockbox_get_variable(box, "normal", 6), "value");
   PASS(lockbox_set_variable, 1);
   PASS(lockbox_get_variable, 3);
+  const char *description_set = "{\"target\":\"variable\",\"reference\":\"normal\",\"operation\":\"set\",\"text\":\"Purpose\\nSecond line\"}";
+  const char *description_get = "{\"target\":\"variable\",\"reference\":\"normal\",\"operation\":\"get\"}";
+  const char *description_clear = "{\"target\":\"variable\",\"reference\":\"normal\",\"operation\":\"clear\"}";
+  expect_optional_string(lockbox_item_description(box, description_set, strlen(description_set)), "Purpose\nSecond line");
+  expect_optional_string(lockbox_item_description(box, description_get, strlen(description_get)), "Purpose\nSecond line");
+  RevaultBuffer cleared_description = lockbox_item_description(box, description_clear, strlen(description_clear));
+  bool description_present = false;
+  CHECK(flatbuffer_scalar(framed_payload(cleared_description), 1, &description_present) == 0, "description cleared");
+  buffer_free(cleared_description);
+  PASS(lockbox_item_description, 3);
   static const uint8_t move_normal[] = {
       0x0c,0x00,0x00,0x00,0x00,0x00,0x06,0x00,0x08,0x00,0x04,0x00,
       0x06,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x01,0x00,0x00,0x00,
@@ -1013,6 +1023,9 @@ static void vault_lifecycle(void) {
   memcpy(vault_form_type_id, vault_form_type.ptr, vault_form_type.len);
   buffer_free(form);
   PASS(vault_directory_define_form, 1);
+  const char *vault_description_get = "{\"target\":\"definition\",\"reference\":\"login\",\"operation\":\"get\"}";
+  expect_optional_string(vault_directory_item_description(vault, vault_description_get, strlen(vault_description_get)), "Login form");
+  PASS(vault_directory_item_description, 1);
   expect_framed_nonempty(vault_directory_resolve_form(vault, "login", 5),
                          "resolve vault form");
   expect_framed_nonempty(vault_directory_list_forms(vault), "vault form list");

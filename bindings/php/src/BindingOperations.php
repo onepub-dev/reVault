@@ -341,6 +341,14 @@ final class BindingOperations
     {
         return $this->decode(\Revault\OptionalString::class, $this->ffi->lockbox_get_variable($handle, $name, strlen($name)));
     }
+    public function lockboxItemDescription(CData $handle, string $name): \Revault\OptionalString
+    {
+        return $this->decode(\Revault\OptionalString::class, $this->ffi->lockbox_item_description($handle, $name, strlen($name)));
+    }
+    public function vaultDirectoryItemDescription(CData $handle, string $name): \Revault\OptionalString
+    {
+        return $this->decode(\Revault\OptionalString::class, $this->ffi->vault_directory_item_description($handle, $name, strlen($name)));
+    }
 
     public function lockboxWithSecretVariable(CData $handle, string $name, callable $callback): mixed
     {

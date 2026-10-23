@@ -893,6 +893,7 @@ fn variables_command(verbose: bool) -> Command {
         "Store, retrieve, list, export, or remove variable values.",
     )
     .aliases(["var", "variable"])
+    .subcommand(item_description_command(verbose, "description", false))
     .after_help(verbose_help(
         verbose,
         "Examples:\n  lockbox secrets.lbox variables set APP_MODE production\n  lockbox secrets.lbox variables set APP_MODE=production\n  lockbox secrets.lbox variables get APP_MODE\n  lockbox secrets.lbox variables export",
@@ -1145,8 +1146,42 @@ fn description_command(verbose: bool) -> Command {
     .subcommand(Command::new("clear").about("Remove the encrypted lockbox description."))
 }
 
+fn item_description_command(verbose: bool, name: &'static str, field: bool) -> Command {
+    let command = description_command(verbose)
+        .name(name)
+        .about("Get, set, or clear an item's encrypted description.")
+        .after_help("Multiline UTF-8 text is supported. Use set TARGET [FIELD] TEXT or set TARGET [FIELD] --file FILE (also --stdin, --from-env, --interactive). Field targets identify a reusable definition; guidance edits create a definition revision.");
+    ["get", "set", "clear"]
+        .into_iter()
+        .fold(command, |command, action| {
+            command.mut_subcommand(action, |sub| {
+                let mut sub = sub.arg(
+                    Arg::new("target")
+                        .value_name("TARGET")
+                        .index(1)
+                        .required(true),
+                );
+                if field {
+                    sub = sub.arg(
+                        Arg::new("field-id")
+                            .value_name("FIELD")
+                            .index(2)
+                            .required(true),
+                    );
+                }
+                if action == "set" {
+                    sub = sub.mut_arg("description", |arg| arg.index(if field { 3 } else { 2 }));
+                }
+                sub
+            })
+        })
+}
+
 fn form_command(verbose: bool) -> Command {
     base_command("forms", "Manage typed multi-field form records.")
+        .subcommand(item_description_command(verbose, "description", false))
+        .subcommand(item_description_command(verbose, "definition-description", false))
+        .subcommand(item_description_command(verbose, "field-description", true))
         .alias("form")
         .after_help(verbose_help(
             verbose,
@@ -1757,6 +1792,8 @@ fn vault_command(verbose: bool) -> Command {
         .subcommand(vault_profile_command(verbose))
         .subcommand(
             Command::new("forms")
+                .subcommand(item_description_command(verbose, "description", false))
+                .subcommand(item_description_command(verbose, "field-description", true))
                 .alias("form")
                 .about("Manage reusable form definitions.")
                 .disable_help_subcommand(true)

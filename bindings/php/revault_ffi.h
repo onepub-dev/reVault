@@ -66,6 +66,8 @@ RevaultBuffer lockbox_stat(const void *handle, const char *path, size_t path_len
 bool lockbox_set_variable(void *handle, const char *name, size_t name_len, const char *value, size_t value_len);
 bool lockbox_set_secret_variable(void *handle, const char *name, size_t name_len, const uint8_t *value, size_t value_len);
 RevaultBuffer lockbox_get_variable(const void *handle, const char *name, size_t name_len);
+RevaultBuffer lockbox_item_description(const void *handle, const char *name, size_t name_len);
+RevaultBuffer vault_directory_item_description(const void *handle, const char *name, size_t name_len);
 bool lockbox_get_secret_variable(const void *handle, const char *name, size_t name_len, void **output);
 bool lockbox_delete_variable(void *handle, const char *name, size_t name_len);
 bool lockbox_move_variables(void *handle, const uint8_t *moves_flatbuffer, size_t moves_len);

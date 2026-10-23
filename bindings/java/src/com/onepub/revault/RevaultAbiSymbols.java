@@ -59,6 +59,8 @@ final class RevaultAbiSymbols {
     "lockbox_set_variable",
     "lockbox_set_secret_variable",
     "lockbox_get_variable",
+    "lockbox_item_description",
+    "vault_directory_item_description",
     "lockbox_get_secret_variable",
     "lockbox_delete_variable",
     "lockbox_move_variables",

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 
@@ -699,6 +700,26 @@ final class Lockbox extends Owned implements ffi.Finalizable {
   /// ```
   LockboxEntry? stat(String path) =>
       runtime.operations.lockboxStat(handle, path);
+
+  /// Gets, sets, or clears optional item guidance. Targets are variable,
+  /// record, definition, or field (vaults support definition/field only).
+  /// Supply text for set and a field ID for field targets. Lockboxes need commit.
+  String? itemDescription(
+    String target,
+    String reference, {
+    String operation = 'get',
+    String? field,
+    String? text,
+  }) => runtime.operations.lockboxItemDescription(
+    handle,
+    jsonEncode({
+      'target': target,
+      'reference': reference,
+      'operation': operation,
+      'field': field,
+      'text': text,
+    }),
+  );
 
   /// Returns this Lockbox's encrypted human-readable description.
   ///

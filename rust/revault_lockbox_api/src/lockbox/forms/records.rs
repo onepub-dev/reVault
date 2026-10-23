@@ -156,6 +156,13 @@ impl<State> Lockbox<State> {
     {
         let path = path.file_path()?;
         self.ensure_forms_loaded()?;
+        if self.get_form_record(&path)?.is_none() {
+            return Err(Error::NotFound(format!("form record {path}")));
+        }
+        self.delete_variable(&super::super::item_descriptions::metadata_name(
+            "record",
+            path.as_str(),
+        )?)?;
         let mut records = self.staged.forms.records.borrow_mut();
         let records = records.as_mut().ok_or(Error::CorruptRecord)?;
         if records.remove(&path).is_none() {
@@ -183,8 +190,8 @@ impl<State> Lockbox<State> {
             self.create_parent_dirs_for(destination)?;
         }
         self.ensure_forms_loaded()?;
-        let mut records = self.staged.forms.records.borrow_mut();
-        let records = records.as_mut().ok_or(Error::CorruptRecord)?;
+        let records_guard = self.staged.forms.records.borrow();
+        let records = records_guard.as_ref().ok_or(Error::CorruptRecord)?;
         let sources = moves
             .iter()
             .map(|(source, _)| source.clone())
@@ -209,6 +216,21 @@ impl<State> Lockbox<State> {
                 return Err(Error::AlreadyExists(destination.to_string()));
             }
         }
+        let mut description_moves = Vec::new();
+        for (source, destination) in &moves {
+            let source_key =
+                super::super::item_descriptions::metadata_name("record", source.as_str())?;
+            if self.variable_sensitivity(&source_key)?.is_some() {
+                description_moves.push((
+                    source_key,
+                    super::super::item_descriptions::metadata_name("record", destination.as_str())?,
+                ));
+            }
+        }
+        drop(records_guard);
+        self.move_variables(&description_moves)?;
+        let mut records_guard = self.staged.forms.records.borrow_mut();
+        let records = records_guard.as_mut().ok_or(Error::CorruptRecord)?;
         let moved = moves
             .iter()
             .filter(|(source, destination)| source != destination)

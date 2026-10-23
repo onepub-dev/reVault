@@ -9,6 +9,7 @@ package revault
 import "C"
 
 import (
+	"encoding/json"
 	"fmt"
 	"unsafe"
 )
@@ -751,6 +752,17 @@ func (box *Lockbox) SetSecretVariable(name string, value []byte) error {
 	return require(bool(C.lockbox_set_secret_variable(box.handle, charPointer(name), C.size_t(len(name)), bytePointer(value), C.size_t(len(value)))))
 }
 
+// ItemDescription gets/sets/clears encrypted guidance; commit Lockbox writes.
+// Field guidance belongs to the definition. Pass nil for unused field/text.
+func (box *Lockbox) ItemDescription(target, reference, operation string, field, text *string) (*string, error) {
+	data, err := json.Marshal(map[string]any{"target": target, "reference": reference, "operation": operation, "field": field, "text": text})
+	if err != nil {
+		return nil, err
+	}
+	request := string(data)
+	return decodeResult(C.lockbox_item_description(box.handle, charPointer(request), C.size_t(len(request))), decodeOptionalString)
+}
+
 // GetVariable returns variable.
 func (box *Lockbox) GetVariable(name string) (*string, error) {
 	return decodeResult(C.lockbox_get_variable(box.handle, charPointer(name), C.size_t(len(name))), decodeOptionalString)
@@ -1217,6 +1229,17 @@ func (vault *vaultStore) ListContacts() ([]Contact, error) {
 // StoreProfileEmail stores profile email.
 func (vault *vaultStore) StoreProfileEmail(name, email string) error {
 	return require(bool(C.vault_directory_store_profile_email(vault.handle, charPointer(name), C.size_t(len(name)), charPointer(email), C.size_t(len(email)))))
+}
+
+// ItemDescription gets/sets/clears encrypted guidance; commit Lockbox writes.
+// Field guidance belongs to the definition. Pass nil for unused field/text.
+func (box *vaultStore) ItemDescription(target, reference, operation string, field, text *string) (*string, error) {
+	data, err := json.Marshal(map[string]any{"target": target, "reference": reference, "operation": operation, "field": field, "text": text})
+	if err != nil {
+		return nil, err
+	}
+	request := string(data)
+	return decodeResult(C.vault_directory_item_description(box.handle, charPointer(request), C.size_t(len(request))), decodeOptionalString)
 }
 
 // ProfileEmail returns or performs profile email.

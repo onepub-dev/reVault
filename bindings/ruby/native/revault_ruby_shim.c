@@ -18,6 +18,8 @@ static RevaultBuffer (*selected_lockbox_list)(const void *handle, const char *pa
 static RevaultBuffer (*selected_lockbox_list_with_options)(const void *handle, const char *path, size_t path_len, const char *glob, size_t glob_len, bool recursive, bool include_files, bool include_symlinks, bool include_directories, size_t limit);
 static RevaultBuffer (*selected_lockbox_stat)(const void *handle, const char *path, size_t path_len);
 static RevaultBuffer (*selected_lockbox_get_variable)(const void *handle, const char *name, size_t name_len);
+static RevaultBuffer (*selected_lockbox_item_description)(const void *handle, const char *name, size_t name_len);
+static RevaultBuffer (*selected_vault_directory_item_description)(const void *handle, const char *name, size_t name_len);
 static RevaultBuffer (*selected_lockbox_list_variables)(const void *handle);
 static RevaultBuffer (*selected_lockbox_variable_sensitivity)(const void *handle, const char *name, size_t name_len);
 static RevaultBuffer (*selected_lockbox_get_symlink_target)(const void *handle, const char *path, size_t path_len);
@@ -109,6 +111,8 @@ void ruby_bind_library(void *(*resolve)(const char *)) {
   selected_lockbox_list_with_options = (RevaultBuffer (*)(const void *handle, const char *path, size_t path_len, const char *glob, size_t glob_len, bool recursive, bool include_files, bool include_symlinks, bool include_directories, size_t limit))resolve("lockbox_list_with_options");
   selected_lockbox_stat = (RevaultBuffer (*)(const void *handle, const char *path, size_t path_len))resolve("lockbox_stat");
   selected_lockbox_get_variable = (RevaultBuffer (*)(const void *handle, const char *name, size_t name_len))resolve("lockbox_get_variable");
+  selected_lockbox_item_description = (RevaultBuffer (*)(const void *handle, const char *name, size_t name_len))resolve("lockbox_item_description");
+  selected_vault_directory_item_description = (RevaultBuffer (*)(const void *handle, const char *name, size_t name_len))resolve("vault_directory_item_description");
   selected_lockbox_list_variables = (RevaultBuffer (*)(const void *handle))resolve("lockbox_list_variables");
   selected_lockbox_variable_sensitivity = (RevaultBuffer (*)(const void *handle, const char *name, size_t name_len))resolve("lockbox_variable_sensitivity");
   selected_lockbox_get_symlink_target = (RevaultBuffer (*)(const void *handle, const char *path, size_t path_len))resolve("lockbox_get_symlink_target");
@@ -247,6 +251,12 @@ void ruby_lockbox_stat(const void *handle, const char *path, size_t path_len, Re
 
 void ruby_lockbox_get_variable(const void *handle, const char *name, size_t name_len, RevaultBuffer *out) {
   if (out != NULL) *out = selected_lockbox_get_variable(handle, name, name_len);
+}
+void ruby_lockbox_item_description(const void *handle, const char *name, size_t name_len, RevaultBuffer *out) {
+  if (out != NULL) *out = selected_lockbox_item_description(handle, name, name_len);
+}
+void ruby_vault_directory_item_description(const void *handle, const char *name, size_t name_len, RevaultBuffer *out) {
+  if (out != NULL) *out = selected_vault_directory_item_description(handle, name, name_len);
 }
 
 void ruby_lockbox_list_variables(const void *handle, RevaultBuffer *out) {

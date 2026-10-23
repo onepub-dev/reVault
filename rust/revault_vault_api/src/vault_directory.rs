@@ -1267,6 +1267,77 @@ impl VaultDirectory {
     }
 
     /// Imports an exact reusable form definition into the vault.
+    pub fn import_form_definition_with_descriptions(
+        &self,
+        definition: FormDefinition,
+        descriptions: std::collections::BTreeMap<String, String>,
+    ) -> Result<FormDefinition> {
+        let mut lockbox = self.lockbox.borrow_mut();
+        let definition =
+            lockbox.import_form_definition_with_descriptions(definition, descriptions)?;
+        lockbox.commit()?;
+        set_private_file_permissions(&self.path)?;
+        Ok(definition)
+    }
+
+    /// Returns field guidance for an exact reusable definition revision.
+    pub fn form_field_descriptions(
+        &self,
+        definition: &FormDefinition,
+    ) -> Result<std::collections::BTreeMap<String, String>> {
+        self.lockbox.borrow().form_field_descriptions(definition)
+    }
+
+    /// Reads guidance for a field of the latest reusable definition.
+    pub fn form_field_description(&self, reference: &str, field: &str) -> Result<Option<String>> {
+        self.lockbox
+            .borrow()
+            .form_field_description(reference, field)
+    }
+
+    /// Updates reusable form guidance and commits a new revision when changed.
+    pub fn set_form_definition_description(
+        &self,
+        reference: &str,
+        text: &str,
+    ) -> Result<FormDefinition> {
+        let mut lockbox = self.lockbox.borrow_mut();
+        let definition = lockbox.set_form_definition_description(reference, text)?;
+        lockbox.commit()?;
+        Ok(definition)
+    }
+
+    /// Clears reusable form guidance.
+    pub fn clear_form_definition_description(&self, reference: &str) -> Result<FormDefinition> {
+        self.set_form_definition_description(reference, "")
+    }
+
+    /// Updates field guidance and commits a new definition revision when changed.
+    pub fn set_form_field_description(
+        &self,
+        reference: &str,
+        field: &str,
+        text: &str,
+    ) -> Result<FormDefinition> {
+        let mut lockbox = self.lockbox.borrow_mut();
+        let definition = lockbox.set_form_field_description(reference, field, text)?;
+        lockbox.commit()?;
+        Ok(definition)
+    }
+
+    /// Clears field guidance without changing values or labels.
+    pub fn clear_form_field_description(
+        &self,
+        reference: &str,
+        field: &str,
+    ) -> Result<FormDefinition> {
+        let mut lockbox = self.lockbox.borrow_mut();
+        let definition = lockbox.clear_form_field_description(reference, field)?;
+        lockbox.commit()?;
+        Ok(definition)
+    }
+
+    /// Imports an exact reusable form definition into the vault.
     pub fn import_form_definition(&self, definition: FormDefinition) -> Result<FormDefinition> {
         let mut lockbox = self.lockbox.borrow_mut();
         let definition = lockbox.import_form_definition(definition)?;

@@ -64,6 +64,8 @@ final class RevaultNativeApi {
   public final MethodHandle lockbox_set_variable;
   public final MethodHandle lockbox_set_secret_variable;
   public final MethodHandle lockbox_get_variable;
+  public final MethodHandle lockbox_item_description;
+  public final MethodHandle vault_directory_item_description;
   public final MethodHandle lockbox_get_secret_variable;
   public final MethodHandle lockbox_delete_variable;
   public final MethodHandle lockbox_move_variables;
@@ -306,6 +308,8 @@ final class RevaultNativeApi {
     lockbox_set_variable = linker.downcallHandle(symbols.find("lockbox_set_variable").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_set_secret_variable = linker.downcallHandle(symbols.find("lockbox_set_secret_variable").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_get_variable = linker.downcallHandle(symbols.find("lockbox_get_variable").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    lockbox_item_description = linker.downcallHandle(symbols.find("lockbox_item_description").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    vault_directory_item_description = linker.downcallHandle(symbols.find("vault_directory_item_description").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_get_secret_variable = linker.downcallHandle(symbols.find("lockbox_get_secret_variable").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
     lockbox_delete_variable = linker.downcallHandle(symbols.find("lockbox_delete_variable").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_move_variables = linker.downcallHandle(symbols.find("lockbox_move_variables").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));

@@ -228,3 +228,6 @@ vault_directory_remove_lockbox_alias	vault.directory	bool	const void *handle, co
 vault_directory_resolve_lockbox_alias	vault.directory	RevaultBuffer	const void *handle, const char *name, size_t name_len
 vault_read_only_list_lockbox_aliases	vault.read-only	RevaultBuffer	const void *handle
 vault_read_only_resolve_lockbox_alias	vault.read-only	RevaultBuffer	const void *handle, const char *name, size_t name_len
+
+lockbox_item_description	archive.forms	RevaultBuffer	const void *handle, const char *request, size_t request_len
+vault_directory_item_description	vault.forms	RevaultBuffer	const void *handle, const char *request, size_t request_len
