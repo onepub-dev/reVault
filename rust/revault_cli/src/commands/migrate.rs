@@ -978,17 +978,31 @@ fn migration_contact_keys(vault: &VaultDirectory) -> CliResult<Vec<SecretVec>> {
     Ok(records)
 }
 
+pub(crate) struct HistoricalRecoveryOptions<'a> {
+    pub(super) source: &'a Path,
+    pub(super) output: Option<&'a Path>,
+    pub(super) overwrite: bool,
+    pub(super) dry_run: bool,
+    pub(super) format: &'a str,
+    pub(super) quiet: bool,
+    pub(super) access: &'a Access,
+    pub(super) directory: Option<&'a Path>,
+}
+
 pub(crate) fn recover_historical_archive(
-    source: &Path,
-    output: Option<&Path>,
-    overwrite: bool,
-    dry_run: bool,
-    format: &str,
-    quiet: bool,
-    access: &Access,
-    directory: Option<&Path>,
+    options: HistoricalRecoveryOptions<'_>,
     telemetry: &super::recovery_telemetry::RecoveryTelemetry,
 ) -> CliResult<()> {
+    let HistoricalRecoveryOptions {
+        source,
+        output,
+        overwrite,
+        dry_run,
+        format,
+        quiet,
+        access,
+        directory,
+    } = options;
     telemetry.event("selecting_exporter", None);
     let exporter = resolve_exporter(ArtifactKind::Archive, 2, None)?;
     if directory.is_some() {
@@ -1377,7 +1391,7 @@ fn restart_obsolete_migration(
         return Ok(false);
     }
     if saved.target_format_version == initial.target_format_version
-        && !output_version.is_some_and(|version| version < LOCKBOX_FORMAT_VERSION)
+        && output_version.is_none_or(|version| version >= LOCKBOX_FORMAT_VERSION)
     {
         return Ok(false);
     }

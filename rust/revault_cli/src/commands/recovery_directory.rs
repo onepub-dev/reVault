@@ -132,7 +132,7 @@ impl DirectoryWriter {
                     private_directory(&directory)?;
                 }
                 let mut output = private_file(&directory.join("complete.bin"))?;
-                for (&(_, offset), _) in &actual {
+                for &(_, offset) in actual.keys() {
                     let part = directory.join(part_name(offset));
                     std::io::copy(&mut File::open(&part)?, &mut output)?;
                     fs::remove_file(part)?;
