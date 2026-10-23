@@ -17,35 +17,6 @@ pub(super) struct RecoveryTelemetry {
     state: Mutex<State>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn helper_events_are_allowlisted_bounded_and_preserve_failure_stage() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("report.json");
-        let mut telemetry = RecoveryTelemetry::new(Some(&path), true).unwrap();
-        telemetry.helper_event(r#"REVAULT_RECOVERY_EVENT {"stage":"verifying_files","completed_files":2,"total_files":4,"version":"0.1.0","path":"PRIVATE_SENTINEL","error":"PRIVATE_SENTINEL"}"#);
-        telemetry.helper_event(
-            r#"REVAULT_RECOVERY_EVENT {"stage":"PRIVATE_SENTINEL","version":"PRIVATE_SENTINEL"}"#,
-        );
-        for _ in 0..MAX_EVENTS {
-            telemetry.event("verifying_files", Some((2, 4)));
-        }
-        telemetry.helper_event(r#"REVAULT_RECOVERY_EVENT {"stage":"helper_failed","error_category":"mutation","error":"PRIVATE_SENTINEL"}"#);
-        let error = std::io::Error::other("PRIVATE_SENTINEL");
-        telemetry.finish(Some(&error)).unwrap();
-        let text = std::fs::read_to_string(path).unwrap();
-        assert!(!text.contains("PRIVATE_SENTINEL"));
-        let report: Value = serde_json::from_str(&text).unwrap();
-        assert_eq!(report["last_stage"], "verifying_files");
-        assert_eq!(report["error_category"], "mutation");
-        assert_eq!(report["events"].as_array().unwrap().len(), MAX_EVENTS);
-        assert!(report["dropped_events"].as_u64().unwrap() > 0);
-    }
-}
-
 struct State {
     stage: &'static str,
     events: Vec<Value>,
@@ -210,5 +181,34 @@ impl RecoveryTelemetry {
         file.write_all(b"\n")?;
         file.sync_all()?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn helper_events_are_allowlisted_bounded_and_preserve_failure_stage() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("report.json");
+        let mut telemetry = RecoveryTelemetry::new(Some(&path), true).unwrap();
+        telemetry.helper_event(r#"REVAULT_RECOVERY_EVENT {"stage":"verifying_files","completed_files":2,"total_files":4,"version":"0.1.0","path":"PRIVATE_SENTINEL","error":"PRIVATE_SENTINEL"}"#);
+        telemetry.helper_event(
+            r#"REVAULT_RECOVERY_EVENT {"stage":"PRIVATE_SENTINEL","version":"PRIVATE_SENTINEL"}"#,
+        );
+        for _ in 0..MAX_EVENTS {
+            telemetry.event("verifying_files", Some((2, 4)));
+        }
+        telemetry.helper_event(r#"REVAULT_RECOVERY_EVENT {"stage":"helper_failed","error_category":"mutation","error":"PRIVATE_SENTINEL"}"#);
+        let error = std::io::Error::other("PRIVATE_SENTINEL");
+        telemetry.finish(Some(&error)).unwrap();
+        let text = std::fs::read_to_string(path).unwrap();
+        assert!(!text.contains("PRIVATE_SENTINEL"));
+        let report: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(report["last_stage"], "verifying_files");
+        assert_eq!(report["error_category"], "mutation");
+        assert_eq!(report["events"].as_array().unwrap().len(), MAX_EVENTS);
+        assert!(report["dropped_events"].as_u64().unwrap() > 0);
     }
 }

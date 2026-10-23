@@ -111,12 +111,21 @@ fn run_options(
                 }
             }
             return super::migrate::recover_historical_archive(
-                Path::new(&options.lockbox_path), Some(output), options.overwrite,
-                options.dry_run, match options.format {
+                super::migrate::HistoricalRecoveryOptions {
+                    source: Path::new(&options.lockbox_path),
+                    output: Some(output),
+                    overwrite: options.overwrite,
+                    dry_run: options.dry_run,
+                    format: match options.format {
                     OutputFormat::Table => "table",
                     OutputFormat::Tsv => "tsv",
                     OutputFormat::Json => "json",
-                }, options.quiet, access, Some(&directory), telemetry,
+                    },
+                    quiet: options.quiet,
+                    access,
+                    directory: Some(&directory),
+                },
+                telemetry,
             );
         }
         Ok(1) => return Err(cli_error("format-1 recovery is not supported by this build's recovery scanner; retain the original and restore a known-good backup. Migration can read intact format-1 archives, but cannot repair damaged ones")),

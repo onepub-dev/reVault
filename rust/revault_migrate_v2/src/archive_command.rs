@@ -58,7 +58,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     if args.starts_with(&["migrate".into(), "archive".into(), "recover".into()]) {
-        return recover(&args).map_err(|error| {
+        return recover(&args).inspect_err(|error| {
             use crate::archive_reader::Error;
             let category = match error.downcast_ref::<Error>() {
                 Some(Error::InvalidKey) => "authentication",
@@ -68,7 +68,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 _ => "other",
             };
             eprintln!("REVAULT_RECOVERY_EVENT {}", serde_json::json!({"stage":"helper_failed","error_category":category,"version":env!("CARGO_PKG_VERSION")}));
-            error
         });
     }
     if !args.starts_with(&["migrate".into(), "archive".into(), "export".into()]) {
