@@ -123,9 +123,9 @@ pub struct ServerConfig {
     pub compact_min_bytes: u64,
     /// Represents the index cache entries carried by this record case.
     pub index_cache_entries: usize,
-    /// Deprecated compatibility setting; HTTP request limiting belongs to the TLS proxy.
+    /// Public HTTP request refill rate per socket peer; zero disables it.
     pub rate_limit_per_minute: u32,
-    /// Deprecated compatibility setting; HTTP request limiting belongs to the TLS proxy.
+    /// Public HTTP request token-bucket capacity per socket peer.
     pub rate_limit_burst: u32,
     /// Represents the smtp host carried by this record case.
     pub smtp_host: Option<String>,
@@ -147,8 +147,7 @@ pub struct ServerConfig {
     pub verification_email_template: String,
     /// Represents the verification email rate limit per hour carried by this record case.
     pub verification_email_rate_limit_per_hour: u32,
-    /// Optional source-IP limit for direct `handle_with_peer` callers.
-    /// The HTTP server deliberately does not supply its reverse-proxy socket address.
+    /// Optional verification-email limit per socket peer IP.
     pub verification_email_ip_rate_limit_per_hour: u32,
     /// Represents the topology token carried by this record case.
     pub topology_token: Option<String>,
@@ -414,6 +413,7 @@ struct VerificationEntry {
     email: String,
     token_hash: RecordHash,
     expires_at_ms: u64,
+    development_url: Option<String>,
 }
 
 #[derive(Default)]
@@ -638,6 +638,21 @@ impl PublishStore {
     /// Returns the rate limit burst.
     pub fn rate_limit_burst(&self) -> u32 {
         self.config.rate_limit_burst
+    }
+
+    /// Returns a pending verification URL only for local development tooling.
+    /// Production stores do not retain the bearer URL after queuing email.
+    #[doc(hidden)]
+    pub fn pending_verification_url_for_development(&self, publish_code: &str) -> Option<String> {
+        if !self.config.developer_mode {
+            return None;
+        }
+        self.verifications
+            .lock()
+            .ok()?
+            .get(publish_code)?
+            .development_url
+            .clone()
     }
 
     /// Reports whether rate limit blocked.
@@ -941,9 +956,6 @@ impl PublishStore {
                 protocol::put_bytes(&mut body, &created.delete_token);
                 protocol::put_u64(&mut body, created.expires_at_ms);
                 protocol::put_u16(&mut body, created.max_receives);
-                if let Some(verification_url) = &created.verification_url {
-                    protocol::put_string(&mut body, verification_url);
-                }
                 self.encode_response_with_topology(Operation::Publish, Status::Success, &body)
             }
             Err(err) => self.encode_store_error_with_topology(Operation::Publish, err),
@@ -1098,17 +1110,17 @@ impl PublishStore {
             max_receives,
             receives: 0,
         });
-        let verification_url = Some(self.create_verification(
+        let verification_url = self.create_verification(
             &publish_code,
             &verification_email,
             verification_expires_at_ms,
-        )?);
+        )?;
         Ok(CreatedPublish {
             publish_code,
             delete_token,
             expires_at_ms: verification_expires_at_ms,
             max_receives,
-            verification_url,
+            verification_url: self.config.developer_mode.then_some(verification_url),
         })
     }
 
@@ -1232,17 +1244,18 @@ impl PublishStore {
             .map_err(|err| StoreError::Io(std::io::Error::other(err.to_string())))?;
         let token_hex = hex_encode(&token);
         let token_hash = stable_hash(b"email-verification-token", token_hex.as_bytes());
+        let verification_url = format!(
+            "{}?code={publish_code}&token={token_hex}",
+            self.public_verify_url()
+        );
         lock_store(&self.verifications, "email verifications")?.insert(
             publish_code.to_string(),
             VerificationEntry {
                 email: email.to_string(),
                 token_hash,
                 expires_at_ms,
+                development_url: self.config.developer_mode.then(|| verification_url.clone()),
             },
-        );
-        let verification_url = format!(
-            "{}?code={publish_code}&token={token_hex}",
-            self.public_verify_url()
         );
         self.send_verification_email(email, publish_code, &verification_url)?;
         Ok(verification_url)
@@ -3151,7 +3164,8 @@ fn verification_abuse_block_expires_at_ms() -> u64 {
 }
 
 /// Returns the bench store.
-pub fn bench_store(config: ServerConfig) -> Result<(), StoreError> {
+pub fn bench_store(mut config: ServerConfig) -> Result<(), StoreError> {
+    config.developer_mode = true;
     let requests = config.benchmark_requests;
     let payload_bytes = config.benchmark_payload_bytes;
     let store = PublishStore::open(config)?;
@@ -3172,7 +3186,11 @@ pub fn bench_store(config: ServerConfig) -> Result<(), StoreError> {
         let _delete_token = reader.bytes()?;
         let _expires_at_ms = reader.u64()?;
         let _max_receives = reader.u16()?;
-        let verification_url = reader.string()?;
+        let verification_url = store
+            .pending_verification_url_for_development(&code)
+            .ok_or_else(|| {
+                StoreError::Config("development verification URL unavailable".to_string())
+            })?;
         let (verify_code, token) = verification_query_parts(&verification_url)
             .ok_or_else(|| StoreError::Config("invalid verification URL".to_string()))?;
         if verify_code == code {

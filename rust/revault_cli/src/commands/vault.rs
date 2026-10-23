@@ -847,9 +847,6 @@ fn publish_profile_options(options: PublishCliOptions) -> CliResult<()> {
         "fingerprint_purpose=do not send this fingerprint; ask the receiver to call you to obtain it"
     );
     println!("fingerprint_security={PUBLISH_FINGERPRINT_SECURITY_NOTE}");
-    if let Some(url) = &result.verification_url {
-        println!("verification_url={url}");
-    }
     println!("verification_advice=check the inbox for {email} and click the verification link");
     println!(
         "verification_expires_at_utc={}",
@@ -1308,12 +1305,9 @@ fn hex_digit(byte: u8) -> CliResult<u8> {
 
 fn profile_restore_options(options: ProfileRestoreArgs) -> CliResult<()> {
     let vault = default_vault()?;
-    let mut raw = fs::read_to_string(&options.input_path)?;
+    let raw = zeroize::Zeroizing::new(fs::read_to_string(&options.input_path)?);
     if raw.starts_with("{\"password_profile_version\":") {
-        use zeroize::Zeroize;
-        let parsed = serde_json::from_str::<PasswordProfileBackup>(&raw);
-        raw.zeroize();
-        let backup = parsed?;
+        let backup = serde_json::from_str::<PasswordProfileBackup>(&raw)?;
         if backup.password_profile_version != 1 {
             return Err(cli_error("unsupported password profile backup version"));
         }
@@ -1327,9 +1321,7 @@ fn profile_restore_options(options: ProfileRestoreArgs) -> CliResult<()> {
         println!("Password profile restored: {name}");
         return Ok(());
     }
-    use zeroize::Zeroize;
-    raw.zeroize();
-    let backup = read_profile_backup(&options.input_path)?;
+    let backup = parse_profile_backup(&raw)?;
     let name = options.name.unwrap_or(backup.name);
     let keypair = import_private_key(SecretVec::try_from_slice(
         backup.private_key_pem.as_bytes(),
@@ -1378,8 +1370,8 @@ fn profile_backup_options(options: ProfileBackupArgs) -> CliResult<()> {
         println!("Profile backup completed successfully.");
         return Ok(());
     }
-    let mut output = Vec::new();
-    write_profile_backup(&mut output, &vault, &options.name)?;
+    let mut output = zeroize::Zeroizing::new(Vec::new());
+    write_profile_backup(&mut *output, &vault, &options.name)?;
     super::variables::write_output_file(&options.output_path, &output, options.overwrite)?;
     println!("Profile backup completed successfully.");
     println!("profile={}", options.name);
@@ -1392,8 +1384,8 @@ fn profile_backup_options(options: ProfileBackupArgs) -> CliResult<()> {
 
 struct ParsedProfileBackup {
     name: String,
-    private_key_pem: String,
-    signing_private_hex: String,
+    private_key_pem: zeroize::Zeroizing<String>,
+    signing_private_hex: zeroize::Zeroizing<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -1410,10 +1402,6 @@ impl Drop for PasswordProfileBackup {
     }
 }
 
-fn read_profile_backup(path: &str) -> CliResult<ParsedProfileBackup> {
-    parse_profile_backup(&fs::read_to_string(path)?)
-}
-
 fn parse_profile_backup(text: &str) -> CliResult<ParsedProfileBackup> {
     let name = text
         .lines()
@@ -1422,13 +1410,13 @@ fn parse_profile_backup(text: &str) -> CliResult<ParsedProfileBackup> {
         .filter(|name| !name.is_empty())
         .ok_or_else(|| Error::InvalidInput("profile backup is missing Profile".to_string()))?
         .to_string();
-    let private_key_pem = extract_labeled_block(
+    let private_key_pem = zeroize::Zeroizing::new(extract_labeled_block(
         text,
         "BEGIN LOCKBOX PRIVATE KEY",
         "END LOCKBOX PRIVATE KEY",
         "profile backup is missing profile private key",
-    )?;
-    let signing_private_hex = extract_owner_signing_hex(text)?;
+    )?);
+    let signing_private_hex = zeroize::Zeroizing::new(extract_owner_signing_hex(text)?);
     Ok(ParsedProfileBackup {
         name,
         private_key_pem,
@@ -1480,18 +1468,19 @@ fn extract_owner_signing_hex(text: &str) -> CliResult<String> {
 }
 
 fn owner_signing_key_from_hex_text(text: &str) -> CliResult<OwnerSigningKeyPair> {
-    let hex = text
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty() && line.bytes().all(|byte| byte.is_ascii_hexdigit()))
-        .collect::<String>();
+    let hex = zeroize::Zeroizing::new(
+        text.lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && line.bytes().all(|byte| byte.is_ascii_hexdigit()))
+            .collect::<String>(),
+    );
     if hex.is_empty() {
         return Err(Error::InvalidInput(
             "owner signing private key file does not contain hex key material".to_string(),
         )
         .into());
     }
-    let bytes = decode_hex(&hex)?;
+    let bytes = zeroize::Zeroizing::new(decode_hex(&hex)?);
     let record = SecretVec::try_from_slice(&bytes)?;
     Ok(OwnerSigningKeyPair::from_private_key_record(record)?)
 }

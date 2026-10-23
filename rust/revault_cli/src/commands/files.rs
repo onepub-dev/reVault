@@ -5,6 +5,8 @@ use super::{
     default_lockbox_for_add, default_lockbox_for_command, optional_lockbox_positionals,
     positional_values,
 };
+use cap_fs_ext::{DirExt, FollowSymlinks, OpenOptionsFollowExt};
+use cap_std::fs::{Dir, OpenOptions};
 use clap::ArgMatches;
 use revault_lockbox_api::{
     lock_path_for, Error, ExtractPolicy, ListOptions, Lockbox, LockboxEntry, LockboxEntryKind,
@@ -748,7 +750,8 @@ fn add_source_path(
             excludes: options.excludes,
             ignored_paths: options.ignored_paths,
         };
-        return add_directory(lockbox, &canonical, &options, progress);
+        let directory = Dir::open_ambient_dir(&canonical, cap_std::ambient_authority())?;
+        return add_directory(lockbox, &directory, &canonical, &options, progress);
     }
     Err(Error::UnsupportedHostPath(source.display().to_string()).into())
 }
@@ -764,14 +767,15 @@ struct AddDirectoryOptions<'a> {
 
 fn add_directory(
     lockbox: &mut Lockbox,
+    directory: &Dir,
     current: &Path,
     options: &AddDirectoryOptions<'_>,
     progress: &mut AddProgress,
 ) -> CliResult<AddOutcome> {
     let mut outcome = AddOutcome::default();
-    for entry in fs::read_dir(current)? {
+    for entry in directory.entries()? {
         let entry = entry?;
-        let path = entry.path();
+        let path = current.join(entry.file_name());
         if options.ignored_paths.contains(&path) {
             continue;
         }
@@ -786,12 +790,13 @@ fn add_directory(
         }
         let file_type = entry.file_type()?;
         if file_type.is_dir() {
+            let child = directory.open_dir_nofollow(entry.file_name())?;
             progress.record(&path)?;
             if options.includes.is_empty() {
                 let lockbox_path = join_lockbox_path(options.lockbox_root, relative)?;
                 create_lockbox_dir_if_missing(lockbox, &lockbox_path, true)?;
             }
-            outcome.merge(add_directory(lockbox, &path, options, progress)?);
+            outcome.merge(add_directory(lockbox, &child, &path, options, progress)?);
         } else if file_type.is_file() {
             if !included(&relative_rule, options.includes) {
                 continue;
@@ -799,8 +804,14 @@ fn add_directory(
             let lockbox_path = join_lockbox_path(options.lockbox_root, relative)?;
             let replaced = lockbox.stat(&lockbox_path).is_some();
             progress.record(&path)?;
+            let mut open = OpenOptions::new();
+            open.read(true).follow(FollowSymlinks::No);
+            let source = directory.open_with(entry.file_name(), &open)?;
+            if !source.metadata()?.is_file() {
+                return Err(Error::UnsupportedHostPath(path.display().to_string()).into());
+            }
             lockbox.create_parent_dirs_for(&lockbox_path)?;
-            lockbox.add_file_from_path(&path, &lockbox_path, options.overwrite)?;
+            lockbox.add_file_from_open_file(source.into_std(), &lockbox_path, options.overwrite)?;
             outcome.record_file(replaced);
         }
     }

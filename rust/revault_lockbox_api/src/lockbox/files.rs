@@ -32,6 +32,33 @@ use crate::{Error, Result, WorkloadProfile};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroize;
 
+fn open_host_file_nofollow(source: &Path) -> Result<std::fs::File> {
+    use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt};
+    use cap_std::fs::{Dir, OpenOptions};
+    let parent = source
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let name = source
+        .file_name()
+        .ok_or_else(|| Error::UnsupportedHostPath(source.display().to_string()))?;
+    let directory = Dir::open_ambient_dir(parent, cap_std::ambient_authority())
+        .map_err(|err| Error::Io(format!("open {}: {err}", parent.display())))?;
+    let mut options = OpenOptions::new();
+    options.read(true).follow(FollowSymlinks::No);
+    let file = directory
+        .open_with(name, &options)
+        .map_err(|err| Error::Io(format!("open {}: {err}", source.display())))?;
+    if !file
+        .metadata()
+        .map_err(|err| Error::Io(err.to_string()))?
+        .is_file()
+    {
+        return Err(Error::UnsupportedHostPath(source.display().to_string()));
+    }
+    Ok(file.into_std())
+}
+
 // A verified native slice can be written directly while its zeroizing cache
 // allocation stays alive. Vec-returning APIs copy shared slices only when needed.
 #[cfg(any(test, feature = "native-block-layout"))]
@@ -489,19 +516,44 @@ impl<State> Lockbox<State> {
     where
         State: crate::WritableLockboxState,
     {
+        let file = open_host_file_nofollow(source)?;
+        self.add_file_from_open_file(file, destination, replace)
+    }
+
+    /// Adds a host file through a caller-held regular-file handle. Directory
+    /// traversals should open a child without following symlinks before calling.
+    pub fn add_file_from_open_file(
+        &mut self,
+        mut file: std::fs::File,
+        destination: &LockboxPath,
+        replace: bool,
+    ) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         let stat_start = Instant::now();
-        let metadata = std::fs::metadata(source)
-            .map_err(|err| Error::Io(format!("stat {}: {err}", source.display())))?;
+        let metadata = file.metadata().map_err(|err| Error::Io(err.to_string()))?;
+        if !metadata.is_file() {
+            return Err(Error::UnsupportedHostPath(
+                "source handle is not a regular file".to_string(),
+            ));
+        }
         self.add_host_stat_nanos(stat_start.elapsed().as_nanos());
         if metadata.len() <= SMALL_FILE_PACKING_LIMIT as u64 {
             let read_start = Instant::now();
-            let data = std::fs::read(source)
-                .map_err(|err| Error::Io(format!("read {}: {err}", source.display())))?;
+            let mut data = Vec::new();
+            (&mut file)
+                .take((SMALL_FILE_PACKING_LIMIT + 1) as u64)
+                .read_to_end(&mut data)
+                .map_err(|err| Error::Io(err.to_string()))?;
+            if data.len() > SMALL_FILE_PACKING_LIMIT {
+                return Err(Error::InvalidOperation(
+                    "source file grew while it was imported".to_string(),
+                ));
+            }
             self.add_host_read_nanos(read_start.elapsed().as_nanos());
             return self.add_file(destination, &data, replace);
         }
-        let file = std::fs::File::open(source)
-            .map_err(|err| Error::Io(format!("open {}: {err}", source.display())))?;
         self.add_file_from_reader(destination, file, replace)
     }
 
@@ -534,17 +586,25 @@ impl<State> Lockbox<State> {
             }
         }
 
-        let metadata = std::fs::metadata(source)
+        let mut file = open_host_file_nofollow(source)?;
+        let metadata = file
+            .metadata()
             .map_err(|err| Error::Io(format!("stat {}: {err}", source.display())))?;
         let actual: [u8; 32] = if metadata.len() <= SMALL_FILE_PACKING_LIMIT as u64 {
-            let data = std::fs::read(source)
+            let mut data = Vec::new();
+            (&mut file)
+                .take((SMALL_FILE_PACKING_LIMIT + 1) as u64)
+                .read_to_end(&mut data)
                 .map_err(|err| Error::Io(format!("read {}: {err}", source.display())))?;
+            if data.len() > SMALL_FILE_PACKING_LIMIT {
+                return Err(Error::InvalidOperation(
+                    "source file grew while it was imported".to_string(),
+                ));
+            }
             let digest = Sha256::digest(&data).into();
             self.add_file(destination, &data, replace)?;
             digest
         } else {
-            let file = std::fs::File::open(source)
-                .map_err(|err| Error::Io(format!("open {}: {err}", source.display())))?;
             let mut reader = HashingReader {
                 inner: file,
                 hasher: Sha256::new(),

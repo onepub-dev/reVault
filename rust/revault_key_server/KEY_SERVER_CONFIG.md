@@ -156,15 +156,15 @@ TTL settings use seconds in the config file:
 
 ## Rate Limits
 
-Apply client-IP request limits at the TLS reverse proxy. The key server binds to
-loopback and deliberately does not trust forwarded-IP headers or rate-limit the
-proxy's socket address. The compatibility settings below are accepted but ignored by
-the HTTP server.
+The HTTP server applies these limits to the TCP socket peer for public endpoints.
+Behind a TLS reverse proxy, all clients share the proxy's server-side bucket; also
+configure per-client limits at the trusted proxy. The server does not trust
+forwarded-IP headers from clients.
 
 | Key | Default | Description |
 | --- | --- | --- |
-| `rate_limit_per_minute` | `0` | Deprecated compatibility setting. Configure the TLS proxy instead. |
-| `rate_limit_burst` | `0` | Deprecated compatibility setting. Configure the TLS proxy instead. |
+| `rate_limit_per_minute` | `0` | Token refill rate per minute for each socket peer; `0` disables this limit. |
+| `rate_limit_burst` | `0` | Token capacity for each socket peer. With limiting enabled, `0` allows one request at a time. |
 
 ## Email Verification
 
@@ -185,7 +185,7 @@ receiver can tell the publisher what is blocking the receive.
 | `verification_email_subject` | `Verify your reVault publish` | Subject template. Placeholders: `{email}`, `{publish_code}`, `{verification_url}`. |
 | `verification_email_template` | see default config | Plain text body template. Placeholders: `{email}`, `{publish_code}`, `{verification_url}`. Use `\n` for newlines. |
 | `verification_email_rate_limit_per_hour` | `5` | Maximum verification emails per email address per hour across the cluster. Use `0` to disable this limit. |
-| `verification_email_ip_rate_limit_per_hour` | `0` | Only used by direct `handle_with_peer` callers. The HTTP server leaves source-IP limiting to its TLS proxy. |
+| `verification_email_ip_rate_limit_per_hour` | `0` | Maximum verification emails per socket peer per hour. Behind a proxy, all clients share this limit. |
 
 Example:
 

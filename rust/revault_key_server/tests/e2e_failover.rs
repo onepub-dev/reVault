@@ -431,11 +431,11 @@ fn verify_publish_on_store(
     store: &PublishStore,
     published: &revault_publish_protocol::PublishResult,
 ) {
-    let verification_url = published
-        .verification_url
-        .as_deref()
-        .expect("publish should include verification URL");
-    let (code, token) = verification_query_parts(verification_url);
+    assert!(published.verification_url.is_none());
+    let verification_url = store
+        .pending_verification_url_for_development(&published.publish_code)
+        .expect("development verification URL should be retained locally");
+    let (code, token) = verification_query_parts(&verification_url);
     assert_eq!(code, published.publish_code);
     assert!(store.verify_email(&code, &token).success);
 }

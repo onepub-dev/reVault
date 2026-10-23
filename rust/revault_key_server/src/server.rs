@@ -1,14 +1,15 @@
+use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::net::{IpAddr, SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::server_log::log_server_event;
 use crate::store::{PublishStore, ServerConfig};
 use axum::body::Bytes;
-use axum::extract::{DefaultBodyLimit, Query, State};
+use axum::extract::{ConnectInfo, DefaultBodyLimit, Query, State};
 use axum::http::{header, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
@@ -71,6 +72,49 @@ fn start_background_maintenance(store: &Arc<PublishStore>) {
 #[derive(Clone)]
 struct AppState {
     store: Arc<PublishStore>,
+    public_limits: Arc<Mutex<HashMap<IpAddr, RequestBucket>>>,
+}
+
+struct RequestBucket {
+    tokens: f64,
+    updated: Instant,
+}
+
+impl AppState {
+    fn allow_public_request(&self, peer: Option<IpAddr>) -> bool {
+        let rate = self.store.rate_limit_per_minute();
+        if rate == 0 {
+            return true;
+        }
+        let Some(peer) = peer else {
+            return false;
+        };
+        let capacity = self.store.rate_limit_burst().max(1) as f64;
+        let now = Instant::now();
+        let Ok(mut limits) = self.public_limits.lock() else {
+            return false;
+        };
+        if limits.len() >= 100_000 {
+            limits
+                .retain(|_, bucket| now.duration_since(bucket.updated) < Duration::from_secs(120));
+            if limits.len() >= 100_000 && !limits.contains_key(&peer) {
+                return false;
+            }
+        }
+        let bucket = limits.entry(peer).or_insert(RequestBucket {
+            tokens: capacity,
+            updated: now,
+        });
+        bucket.tokens = (bucket.tokens
+            + now.duration_since(bucket.updated).as_secs_f64() * rate as f64 / 60.0)
+            .min(capacity);
+        bucket.updated = now;
+        if bucket.tokens < 1.0 {
+            return false;
+        }
+        bucket.tokens -= 1.0;
+        true
+    }
 }
 
 fn make_app(store: Arc<PublishStore>) -> Router {
@@ -83,29 +127,48 @@ fn make_app(store: Arc<PublishStore>) -> Router {
         .route("/v1/status", get(status_handler))
         .route("/v1/verify", get(verify_handler))
         .layer(DefaultBodyLimit::max(body_limit))
-        .with_state(AppState { store })
+        .with_state(AppState {
+            store,
+            public_limits: Arc::new(Mutex::new(HashMap::new())),
+        })
 }
 
-async fn publish_handler(State(state): State<AppState>, body: Bytes) -> Response {
-    binary_post_handler(state, BinaryEndpoint::Publish, body).await
+async fn publish_handler(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    body: Bytes,
+) -> Response {
+    binary_post_handler(state, BinaryEndpoint::Publish, Some(addr.ip()), body).await
 }
 
 async fn replicate_handler(State(state): State<AppState>, body: Bytes) -> Response {
-    binary_post_handler(state, BinaryEndpoint::Replicate, body).await
+    binary_post_handler(state, BinaryEndpoint::Replicate, None, body).await
 }
 
 async fn topology_register_handler(State(state): State<AppState>, body: Bytes) -> Response {
-    binary_post_handler(state, BinaryEndpoint::TopologyRegister, body).await
+    binary_post_handler(state, BinaryEndpoint::TopologyRegister, None, body).await
 }
 
-async fn topology_handler(State(state): State<AppState>) -> Response {
+async fn topology_handler(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+) -> Response {
+    if !state.allow_public_request(Some(addr.ip())) {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    }
     match topology::encode_topology(&state.store.topology()) {
         Ok(body) => binary_response(StatusCode::OK, body),
         Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     }
 }
 
-async fn status_handler(State(state): State<AppState>) -> Response {
+async fn status_handler(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+) -> Response {
+    if !state.allow_public_request(Some(addr.ip())) {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    }
     binary_response(
         StatusCode::OK,
         status::encode_status(&state.store.status_document()),
@@ -120,8 +183,12 @@ struct VerifyQuery {
 
 async fn verify_handler(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Query(query): Query<VerifyQuery>,
 ) -> Response {
+    if !state.allow_public_request(Some(addr.ip())) {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    }
     let page = match (query.code, query.token) {
         (Some(code), Some(token)) => state.store.verify_email(&code, &token),
         _ => verify_error(
@@ -144,7 +211,19 @@ enum BinaryEndpoint {
     TopologyRegister,
 }
 
-async fn binary_post_handler(state: AppState, endpoint: BinaryEndpoint, body: Bytes) -> Response {
+async fn binary_post_handler(
+    state: AppState,
+    endpoint: BinaryEndpoint,
+    peer: Option<IpAddr>,
+    body: Bytes,
+) -> Response {
+    if matches!(endpoint, BinaryEndpoint::Publish) && !state.allow_public_request(peer) {
+        return protocol_response(protocol::encode_error(
+            Operation::Publish,
+            Status::RateLimited,
+            "request rate limit exceeded",
+        ));
+    }
     if body.len() > state.store.max_payload_bytes() + MAX_WIRE_OVERHEAD {
         return protocol_response(protocol::encode_error(
             Operation::Publish,
@@ -181,7 +260,7 @@ async fn binary_post_handler(state: AppState, endpoint: BinaryEndpoint, body: By
                             "publish endpoint does not accept replication operations",
                         )
                     } else {
-                        store.handle(request.operation, &request.payload)
+                        store.handle_with_peer(request.operation, &request.payload, peer)
                     }
                 }
                 Err(err) => protocol::encode_error(
@@ -282,6 +361,7 @@ pub fn bench_http(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Er
 pub fn bench_http_receive(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
     config.bind_addr = "127.0.0.1:0".to_string();
     config.rate_limit_per_minute = 0;
+    config.developer_mode = true;
     let requests = config.benchmark_requests;
     let concurrency = benchmark_concurrency(&config);
     let payload_bytes = config.benchmark_payload_bytes;
@@ -303,7 +383,9 @@ pub fn bench_http_receive(mut config: ServerConfig) -> Result<(), Box<dyn std::e
         let _delete_token = reader.bytes()?;
         let _expires_at_ms = reader.u64()?;
         let _max_receives = reader.u16()?;
-        let verification_url = reader.string()?;
+        let verification_url = store
+            .pending_verification_url_for_development(&code)
+            .ok_or("development verification URL unavailable")?;
         if let Some((verify_code, token)) = verification_query_parts(&verification_url) {
             if verify_code == code {
                 let _ = store.verify_email(&verify_code, &token);
@@ -365,6 +447,7 @@ pub fn bench_http_receive(mut config: ServerConfig) -> Result<(), Box<dyn std::e
 pub fn bench_http_flow(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
     config.bind_addr = "127.0.0.1:0".to_string();
     config.rate_limit_per_minute = 0;
+    config.developer_mode = true;
     let flows = config.benchmark_requests;
     let concurrency = benchmark_concurrency(&config);
     let payload_bytes = config.benchmark_payload_bytes;
@@ -396,6 +479,7 @@ pub fn bench_http_flow(mut config: ServerConfig) -> Result<(), Box<dyn std::erro
     let mut workers = Vec::with_capacity(concurrency);
     for _ in 0..concurrency {
         let publish_body = Arc::clone(&publish_body);
+        let store = Arc::clone(&store);
         let next = Arc::clone(&next);
         let failures = Arc::clone(&failures);
         workers.push(thread::spawn(move || loop {
@@ -428,13 +512,14 @@ pub fn bench_http_flow(mut config: ServerConfig) -> Result<(), Box<dyn std::erro
                 failures.fetch_add(1, Ordering::Relaxed);
                 continue;
             }
-            let verification_url = match reader.string() {
-                Ok(url) => url,
-                Err(_) => {
-                    failures.fetch_add(1, Ordering::Relaxed);
-                    continue;
-                }
-            };
+            let verification_url =
+                match store.pending_verification_url_for_development(&publish_code) {
+                    Some(url) => url,
+                    None => {
+                        failures.fetch_add(1, Ordering::Relaxed);
+                        continue;
+                    }
+                };
             let Some((verify_code, token)) = verification_query_parts(&verification_url) else {
                 failures.fetch_add(1, Ordering::Relaxed);
                 continue;
@@ -495,7 +580,9 @@ fn preload_live_published_payloads(
         let _delete_token = reader.bytes()?;
         let _expires_at_ms = reader.u64()?;
         let _max_receives = reader.u16()?;
-        let verification_url = reader.string()?;
+        let verification_url = store
+            .pending_verification_url_for_development(&code)
+            .ok_or("development verification URL unavailable")?;
         if let Some((verify_code, token)) = verification_query_parts(&verification_url) {
             if verify_code == code {
                 let _ = store.verify_email(&verify_code, &token);

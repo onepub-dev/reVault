@@ -103,12 +103,14 @@ Keep `server_id` stable when replacing a machine. Set `origin_epoch` to a stable
 | `max_receive_ttl_seconds` | `7200` | Maximum client-requested receive window. |
 | `max_payload_bytes` | `8192` | Maximum encoded public Profile payload. |
 | `max_receives_per_publish` | `8` | Successful receives allowed per publish. |
-| `rate_limit_per_minute` | `120` | Per-IP public request rate; `0` disables it. |
-| `rate_limit_burst` | `40` | Per-IP burst capacity. |
+| `rate_limit_per_minute` | `0` | Token refill rate per minute for each socket peer; `0` disables it. The example above sets `120`. |
+| `rate_limit_burst` | `0` | Token capacity for each socket peer; the example above sets `40`. With limiting enabled, `0` allows one request at a time. |
+
+The server applies these limits to public publish, receive, delete, topology, status and verification requests using the TCP peer address. When it runs behind a reverse proxy, that address is the proxy, so all clients share one server bucket. Configure per-client limits in the trusted proxy as well. The server ignores `X-Forwarded-For` and similar headers supplied by clients.
 
 Email settings are `smtp_host`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_from`, `smtp_tls` and `smtp_timeout_seconds`. Valid TLS modes are `starttls`, `tls` and `none`; do not use `none` across an untrusted network.
 
-The subject and body support `{email}`, `{publish_code}` and `{verification_url}`. Configure them with `verification_email_subject` and `verification_email_template`. The per-address and per-IP hourly controls are `verification_email_rate_limit_per_hour` and `verification_email_ip_rate_limit_per_hour`; `0` disables the corresponding limit.
+The subject and body support `{email}`, `{publish_code}` and `{verification_url}`. Configure them with `verification_email_subject` and `verification_email_template`. The per-address and per-socket-peer hourly controls are `verification_email_rate_limit_per_hour` and `verification_email_ip_rate_limit_per_hour`; `0` disables the corresponding limit. The verification URL is sent only to the mailbox and is never returned by the publish API.
 
 ## Topology and replication
 
