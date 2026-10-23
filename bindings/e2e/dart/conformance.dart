@@ -576,9 +576,9 @@ void advancedArchive() {
 }
 
 void vaultLifecycle() {
-  final aliasPath = File('${artifactRoot()}/remembered-alias-target.lbox')
-      .absolute
-      .path;
+  final aliasPath = File(
+    '${artifactRoot()}/remembered-alias-target.lbox',
+  ).absolute.path;
   final root = '${artifactRoot()}/vault';
   Directory(root).createSync(recursive: true);
   final password = SecretString.fromString('vault password');
@@ -876,10 +876,12 @@ void platformStore() {
 }
 
 Future<void> agentAndLocal() async {
-  Directory(Platform.environment['LOCKBOX_SESSION_AGENT_DIR']!)
-      .createSync(recursive: true);
-  Directory(Platform.environment['LOCKBOX_VAULT_DIR']!)
-      .createSync(recursive: true);
+  Directory(
+    Platform.environment['LOCKBOX_SESSION_AGENT_DIR']!,
+  ).createSync(recursive: true);
+  Directory(
+    Platform.environment['LOCKBOX_VAULT_DIR']!,
+  ).createSync(recursive: true);
   final directory = withSecretString(
     'agent vault password',
     (password) => Vault.replace(passphrase: password),
