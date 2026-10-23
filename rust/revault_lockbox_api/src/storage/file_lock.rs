@@ -2,7 +2,7 @@ use crate::{Error, Result};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -167,18 +167,59 @@ fn try_acquire(
     lock_path: &Path,
     scope: FileLockScope,
 ) -> std::result::Result<ScopedFileLock, AcquireFailure> {
+    use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt};
+    use cap_std::fs::{Dir, OpenOptions as CapabilityOpenOptions, OpenOptionsExt};
     use std::os::fd::AsRawFd;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
-    if let Some(parent) = lock_path.parent() {
-        fs::create_dir_all(parent).map_err(|err| AcquireFailure::Io(err.to_string()))?;
+    let parent = lock_path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    fs::create_dir_all(parent).map_err(|err| AcquireFailure::Io(err.to_string()))?;
+    let directory = Dir::open_ambient_dir(parent, cap_std::ambient_authority())
+        .map_err(|err| AcquireFailure::Io(err.to_string()))?;
+    let metadata = directory
+        .try_clone()
+        .and_then(|dir| dir.into_std_file().metadata())
+        .map_err(|err| AcquireFailure::Io(err.to_string()))?;
+    // SAFETY: geteuid takes no arguments and has no preconditions.
+    let effective_uid = unsafe { libc::geteuid() };
+    // A different user must not be able to replace the sidecar while it is
+    // locked or plant a symlink before it is opened.
+    if !metadata.is_dir()
+        || metadata.uid() != effective_uid
+        || metadata.permissions().mode() & 0o022 != 0
+    {
+        return Err(AcquireFailure::Io(format!(
+            "vault lock directory is not owned privately: {}",
+            parent.display()
+        )));
     }
-    let mut file = OpenOptions::new()
+    let mut options = CapabilityOpenOptions::new();
+    options
         .read(true)
         .write(true)
         .create(true)
         .truncate(false)
-        .open(lock_path)
-        .map_err(|err| AcquireFailure::Io(format!("open {}: {err}", lock_path.display())))?;
+        .mode(0o600)
+        .custom_flags(libc::O_NONBLOCK)
+        .follow(FollowSymlinks::No);
+    let mut file = directory
+        .open_with(lock_path.file_name().unwrap(), &options)
+        .map_err(|err| AcquireFailure::Io(format!("open {}: {err}", lock_path.display())))?
+        .into_std();
+    let metadata = file
+        .metadata()
+        .map_err(|err| AcquireFailure::Io(err.to_string()))?;
+    if !metadata.is_file() || metadata.uid() != effective_uid || metadata.nlink() != 1 {
+        return Err(AcquireFailure::Io(format!(
+            "vault lock is not a private regular file: {}",
+            lock_path.display()
+        )));
+    }
+    file.set_permissions(fs::Permissions::from_mode(0o600))
+        .map_err(|err| AcquireFailure::Io(err.to_string()))?;
     // SAFETY: flock operates on a valid file descriptor owned by `file`.
     let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
     if rc == 0 {

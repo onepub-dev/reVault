@@ -2458,6 +2458,8 @@ dependencies = [
 name = "revault_cli"
 version = "0.5.1"
 dependencies = [
+ "cap-fs-ext",
+ "cap-std",
  "clap",
  "clap_complete",
  "getrandom 0.4.3",

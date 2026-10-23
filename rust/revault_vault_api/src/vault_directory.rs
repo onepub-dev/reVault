@@ -1668,7 +1668,7 @@ pub fn restore_default_vault(
     input: impl AsRef<Path>,
     overwrite: bool,
 ) -> Result<VaultBackupManifest> {
-    let (manifest, vault_bytes) = read_vault_backup_archive(input.as_ref())?;
+    let (mut source, manifest) = read_vault_backup_manifest(input.as_ref())?;
     let root = default_vault_dir()?;
     create_private_dir(&root)?;
     let path = root.join(VAULT_FILE_NAME);
@@ -1686,16 +1686,14 @@ pub fn restore_default_vault(
     };
     let tmp = root.join(format!(".vault-restore-{}.tmp", LockboxId::new_random()?));
     let result: Result<()> = (|| {
-        use std::io::Write;
         let mut file = fs::OpenOptions::new()
             .read(true)
             .write(true)
             .create_new(true)
+            .apply_private_creation_mode()
             .open(&tmp)
             .map_err(|err| Error::Io(err.to_string()))?;
-        file.write_all(&vault_bytes)
-            .map_err(|err| Error::Io(err.to_string()))?;
-        set_private_file_permissions(&tmp)?;
+        copy_verified_vault_backup(&mut source, &mut file, &manifest)?;
         file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
         let _replacement_guard = ScopedFileLock::lock_archive(file)?;
         if overwrite {
@@ -1728,13 +1726,18 @@ fn write_vault_backup_archive(
     }
     let manifest_bytes = serde_json::to_vec(manifest).map_err(|err| Error::Io(err.to_string()))?;
     let mut options = OpenOptions::new();
-    options.write(true).create(true).truncate(true);
+    options
+        .write(true)
+        .create(true)
+        .apply_private_creation_mode();
     if !overwrite {
         options.create_new(true);
     }
     let mut file = options
         .open(output)
         .map_err(|err| Error::Io(err.to_string()))?;
+    secure_backup_output(&file, output)?;
+    file.set_len(0).map_err(|err| Error::Io(err.to_string()))?;
     file.write_all(VAULT_BACKUP_MAGIC)
         .map_err(|err| Error::Io(err.to_string()))?;
     file.write_all(&(manifest_bytes.len() as u64).to_be_bytes())
@@ -1746,7 +1749,7 @@ fn write_vault_backup_archive(
     file.sync_all().map_err(|err| Error::Io(err.to_string()))
 }
 
-fn read_vault_backup_archive(input: &Path) -> Result<(VaultBackupManifest, Vec<u8>)> {
+fn read_vault_backup_manifest(input: &Path) -> Result<(File, VaultBackupManifest)> {
     let mut file = File::open(input).map_err(|err| Error::Io(err.to_string()))?;
     let mut magic = [0u8; 8];
     file.read_exact(&mut magic)
@@ -1782,21 +1785,103 @@ fn read_vault_backup_archive(input: &Path) -> Result<(VaultBackupManifest, Vec<u
             manifest.vault_file_name
         )));
     }
-    let mut vault_bytes = Vec::new();
-    file.read_to_end(&mut vault_bytes)
-        .map_err(|err| Error::Io(err.to_string()))?;
-    if vault_bytes.len() as u64 != manifest.vault_size {
+    let expected_len = 16_u64
+        .checked_add(manifest_len)
+        .and_then(|len| len.checked_add(manifest.vault_size))
+        .ok_or_else(|| Error::InvalidInput("vault backup size overflows".to_string()))?;
+    if file
+        .metadata()
+        .map_err(|err| Error::Io(err.to_string()))?
+        .len()
+        != expected_len
+    {
         return Err(Error::InvalidInput(
             "vault backup size does not match manifest".to_string(),
         ));
     }
-    let digest: [u8; 32] = Sha256::digest(&vault_bytes).into();
+    Ok((file, manifest))
+}
+
+fn copy_verified_vault_backup(
+    source: &mut File,
+    destination: &mut File,
+    manifest: &VaultBackupManifest,
+) -> Result<()> {
+    let mut remaining = manifest.vault_size;
+    let mut digest = Sha256::new();
+    let mut buffer = [0u8; 64 * 1024];
+    while remaining > 0 {
+        let size = usize::try_from(remaining.min(buffer.len() as u64))
+            .map_err(|_| Error::InvalidInput("vault backup size overflows".to_string()))?;
+        let count = source
+            .read(&mut buffer[..size])
+            .map_err(|err| Error::Io(err.to_string()))?;
+        if count == 0 {
+            return Err(Error::InvalidInput("vault backup is truncated".to_string()));
+        }
+        destination
+            .write_all(&buffer[..count])
+            .map_err(|err| Error::Io(err.to_string()))?;
+        digest.update(&buffer[..count]);
+        remaining -= count as u64;
+    }
+    if source
+        .read(&mut buffer[..1])
+        .map_err(|err| Error::Io(err.to_string()))?
+        != 0
+    {
+        return Err(Error::InvalidInput(
+            "vault backup has trailing data".to_string(),
+        ));
+    }
+    let digest: [u8; 32] = digest.finalize().into();
     if crate::encode_hex(&digest) != manifest.vault_sha256 {
         return Err(Error::InvalidInput(
             "vault backup checksum does not match manifest".to_string(),
         ));
     }
-    Ok((manifest, vault_bytes))
+    Ok(())
+}
+
+trait PrivateCreationMode {
+    fn apply_private_creation_mode(&mut self) -> &mut Self;
+}
+
+impl PrivateCreationMode for OpenOptions {
+    fn apply_private_creation_mode(&mut self) -> &mut Self {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            self.mode(0o600)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+        }
+        self
+    }
+}
+
+fn secure_backup_output(file: &File, path: &Path) -> Result<()> {
+    let metadata = file.metadata().map_err(|err| Error::Io(err.to_string()))?;
+    if !metadata.is_file() {
+        return Err(Error::InvalidInput(format!(
+            "backup output is not a regular file: {}",
+            path.display()
+        )));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        // SAFETY: geteuid takes no arguments and has no preconditions.
+        let effective_uid = unsafe { libc::geteuid() };
+        if metadata.uid() != effective_uid || metadata.nlink() != 1 {
+            return Err(Error::InvalidInput(format!(
+                "backup output is not a private file: {}",
+                path.display()
+            )));
+        }
+        file.set_permissions(fs::Permissions::from_mode(0o600))
+            .map_err(|err| Error::Io(err.to_string()))?;
+    }
+    Ok(())
 }
 
 #[derive(Debug)]
