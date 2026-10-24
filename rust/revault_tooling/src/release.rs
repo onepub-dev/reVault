@@ -1955,7 +1955,20 @@ mod tests {
 
     #[test]
     fn migration_dependency_gate_uses_exact_public_registry_versions() {
+        let bootstrap = include_str!("../../../.github/scripts/publish_support_crates.dart");
+        let bootstrap_packages = bootstrap
+            .split_once("const bootstrap = [")
+            .expect("support publication has a bootstrap allowlist")
+            .1
+            .split_once("];")
+            .expect("bootstrap allowlist terminator")
+            .0;
         for release in migration_exporters::EXPORTERS {
+            assert!(
+                bootstrap_packages.contains(&format!("'{}'", release.package)),
+                "CLI exporter {} is missing from dependency publication",
+                release.package
+            );
             let root = Path::new("/isolated-migration-gate");
             let command = exporter_install_command(root, *release);
             let args: Vec<_> = command

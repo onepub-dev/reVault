@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Target compatibility line 0.6.x and archive format 5. Upgrade the CLI and all
+  bindings together; use `doctor migrate` for historical archives and Vaults,
+  retaining migration backups. Older compatibility lines cannot read format 5.
+- Add full reciprocal contact exchange, independently compared fingerprints,
+  author verification, and actionable relay fencing guidance.
+- Harden Vault locking, private backup creation, bounded backup restoration,
+  Profile backup memory handling, directory imports and publish HTTP responses.
+  Upgrade running key servers separately to obtain request-limit and email
+  verification fixes; existing verification claims need operational review.
+
+### Earlier development notes
+
 - Register a Vault alias when creating a Lockbox, using its filename stem or
   `--alias NAME`. Preserve existing alias mappings and warn on collisions while
   retaining the newly created archive.

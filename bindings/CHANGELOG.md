@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Move CLI and bindings to compatibility line 0.6.x with archive format 5.
+  Migrate historical archives and Vaults using the current CLI before opening
+  them through the bindings. Retain migration backups.
+- Provide reciprocal exchange through every supported language facade, including
+  invitation, acceptance, independent fingerprint verification, listing,
+  cancellation, forgetting and archive-author verification. Credential sessions
+  do not retain a Vault file lock while waiting for network or user interaction.
+- Include hardened Vault sidecar locking, private backup output and bounded
+  backup restoration in the native carriers. Replace installed native libraries
+  as well as facade packages when upgrading.
+
 - Add Android ARM64 and x86-64 native SDK artifacts for Dart/Flutter and C/C++,
   with API level 23 minimum and 16 KB page alignment. Other language packages
   retain their desktop support; Android Java/Kotlin requires a separate bridge.

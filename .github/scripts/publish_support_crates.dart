@@ -11,6 +11,7 @@ const bootstrap = [
   'revault_migrate_v1',
   'revault_migrate_v2',
   'revault_migrate_v3',
+  'revault_migrate_v4',
 ];
 
 String run(String executable, List<String> arguments, {String? cwd, bool quiet = false}) {

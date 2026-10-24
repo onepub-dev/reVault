@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Harden Vault lock sidecars and create whole-Vault backups privately, refusing
+  linked output targets before truncation.
+- Validate backup framing and lengths before restoration, stream payloads with
+  bounded memory, and verify integrity before replacing the live Vault.
+- Add reciprocal exchange with short-lived Vault access around persisted
+  transitions; human verification and network requests do not retain its lock.
+
 ## 0.0.12 - 2026-09-08
 
 - Allow remembered lockbox paths to be recorded before the target lockbox is

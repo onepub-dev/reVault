@@ -1,10 +1,11 @@
 # Security release TODO
 
-Status on 2026-10-24: eight findings from the October security review have
+Status on 2026-10-25: eight findings from the October security review have
 private draft GitHub security advisories. The fixes are committed on
 `security/advisory-fixes-2026-10` at `8e93aaebebf3517bdc3a5282e4bceda6dff771c1`.
-They are integrated into local `main` at `7667ab4f`, but that revision has not
-been pushed, released, or disclosed. The affected
+They are integrated into local `main`, with additional Profile backup hardening
+and regression coverage at `458d077c`. Neither the integrated fixes nor the
+advisories have been pushed, released, or disclosed. The affected
 Rust packages passed offline locked `cargo check --all-targets` and Clippy with
 warnings denied; those checks do not establish release readiness. The private
 advisories are the source of truth for finding details. Keep them private until
@@ -15,7 +16,9 @@ records checks completed so far and the remaining release gates.
 Use the normal [release process](release_process.md) and the compatibility
 contract in [AGENTS.md](../AGENTS.md). This list tracks the additional security
 work for that release. Publication and production deployment require explicit
-authorization.
+authorization. The user authorized package publication and coordinated advisory
+disclosure on October 25. Production deployment still requires separate
+authorization. See the [October 25 review](history/security-release-review-2026-10-25.md).
 
 ## Before package publication
 

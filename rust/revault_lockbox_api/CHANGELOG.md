@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Validate Vault lock sidecars and their parent directories before writing owner
+  metadata. Refuse linked targets and unsafe parents.
+- Open imported host files without following a substituted final symlink and
+  validate the held file before reading content.
+
 - Invalidate retired cached pages during authenticated cleanup, preventing
   stale control-page entries from blocking later native file allocations.
   Overlap checks and pending-write protection remain enforced.
