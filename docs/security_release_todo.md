@@ -9,6 +9,8 @@ Rust packages passed offline locked `cargo check --all-targets` and Clippy with
 warnings denied; those checks do not establish release readiness. The private
 advisories are the source of truth for finding details. Keep them private until
 coordinated disclosure.
+The [local 0.6.0 integration checkpoint](history/release-0.6.0-integration-2026-10-24.md)
+records checks completed so far and the remaining release gates.
 
 Use the normal [release process](release_process.md) and the compatibility
 contract in [AGENTS.md](../AGENTS.md). This list tracks the additional security
