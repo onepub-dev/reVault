@@ -37,14 +37,14 @@ versions and its actual output must be checked against registries.
 
 | Private advisory | Direct Rust package exposure | Last published version reviewed | Expected first patched version, subject to candidate preparation |
 | --- | --- | --- | --- |
-| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.52, 0.0.53 |
+| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.53, 0.0.54 |
 | GHSA-hm5c-7xh9-3wgc | revault_cli | 0.5.1 | 0.6.0 |
-| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.53 |
-| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.53 |
-| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.52 |
-| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.46 |
-| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.48 |
-| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.48 |
+| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.54 |
+| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.54 |
+| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.53 |
+| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.47 |
+| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.49 |
+| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.49 |
 
 Downloaded crates.io 0.0.1 packages for these five crate names identify source
 `0894fc1b00bbfd014427e523241d436506de0d64`. That source already contains the
@@ -174,6 +174,12 @@ and closed-format-2 migration tests passed against those installed binaries,
 checking original credentials, persisted content and backups. The bulk migration
 repeat/failure lifecycle, exact capability contract and CLI/tooling Clippy also
 passed. Qualification artifacts are under `/tmp/revault-migrate-v2-*`.
+
+Support workflow `40106435018` passed from main `571a6d65` and published
+`revault_migrate_v2` 0.1.1. The crates.io API confirms it is non-yanked with
+checksum `73c8b077141c8688b32afbc882fd33426e142339f2a16eba1eb5418b5c3db375`.
+Existing support package versions were skipped. The next candidate must install
+this exact public version and exercise migration before CLI publication.
 
 The integrated #226 branch was deleted locally and remotely after checking both
 tips were ancestors of remote main. Its clean worktree is retained detached.

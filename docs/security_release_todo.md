@@ -6,7 +6,8 @@ private draft GitHub security advisories. The fixes are committed on
 They are integrated into local `main`, with additional Profile backup hardening
 and regression coverage at `458d077c`. Integrated main was pushed at `ec0d9030`
 to start the authorized release pipeline. Migration dependency
-`revault_migrate_v4` 0.1.0 is published; the fixed CLI/bindings and private
+`revault_migrate_v4` 0.1.0 and corrected `revault_migrate_v2` 0.1.1 are published;
+the fixed CLI/bindings and private
 advisories are not yet published. The affected
 Rust packages passed offline locked `cargo check --all-targets` and Clippy with
 warnings denied; those checks do not establish release readiness. The private
