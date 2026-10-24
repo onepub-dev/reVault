@@ -2,6 +2,9 @@ Release all
 CLI: 0.6.0
 Bindings: 0.6.0
 
+- Record qualified migration dependency publication
+- Publish format-2 recovery exporter contract and correct migration gates
+- [release candidate] Prepare all release: CLI 0.6.0, bindings 0.6.0
 - Include protocol throughout Rust binding packaging and publication
 - [release candidate] Prepare all release: CLI 0.6.0, bindings 0.6.0
 - Publish protocol before dependent Vault crate
