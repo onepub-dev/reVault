@@ -1961,7 +1961,7 @@ mod tests {
                 ArtifactKind::Vault => CURRENT_VAULT_STRUCTURE_VERSION,
                 ArtifactKind::Journal => unreachable!("fixture covers only archives and Vaults"),
             };
-            for target in [3, 4] {
+            for target in [current_target - 1, current_target, current_target + 1] {
                 for slot_offset in [0, 192] {
                     let temp = tempfile::tempdir().unwrap();
                     let source = temp.path().join("source");
@@ -1976,8 +1976,10 @@ mod tests {
                     // first slot. Keep opaque synthetic bytes for this refusal
                     // fixture, including a valid marker only in slot two.
                     let mut future = vec![0_u8; 384];
-                    future[slot_offset..slot_offset + 8].copy_from_slice(b"LBX4HDR\0");
-                    future[slot_offset + 8..slot_offset + 10].copy_from_slice(&5_u16.to_le_bytes());
+                    future[slot_offset..slot_offset + 8].copy_from_slice(b"LBX5HDR\0");
+                    let future_version = LOCKBOX_FORMAT_VERSION + 1;
+                    future[slot_offset + 8..slot_offset + 10]
+                        .copy_from_slice(&future_version.to_le_bytes());
                     // The discriminator accepts only checksum-valid future
                     // headers; random corruption must not imply a new format.
                     let mut checksum = Sha256::new();
@@ -1986,7 +1988,10 @@ mod tests {
                     checksum.update(&future[slot_offset..slot_offset + 160]);
                     future[slot_offset + 160..slot_offset + 192]
                         .copy_from_slice(&checksum.finalize());
-                    assert_eq!(probe_lockbox_format_version(&future).unwrap(), 5);
+                    assert_eq!(
+                        probe_lockbox_format_version(&future).unwrap(),
+                        future_version
+                    );
                     fs::write(&container, &future).unwrap();
                     let backup = versioned_backup_path(&source, 1, target);
                     fs::write(&backup, b"original backup").unwrap();

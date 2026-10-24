@@ -1643,10 +1643,15 @@ fn all_migration_recovers_interrupted_replacements_before_missing_path_checks() 
             archive.clone()
         };
         let output = fixture.root.join("pending-output");
+        let target_version = if kind == ArtifactKind::Vault {
+            revault_vault_api::CURRENT_VAULT_STRUCTURE_VERSION
+        } else {
+            u32::from(LOCKBOX_FORMAT_VERSION)
+        };
         let backup = source.with_file_name(format!(
             "{}.v2-v{}.pre-migration",
             source.file_name().unwrap().to_str().unwrap(),
-            if kind == ArtifactKind::Vault { 3 } else { 4 }
+            target_version
         ));
         // No CLI can stop exactly between replacement renames. Construct only
         // that crash boundary and its authenticated journal; all content was
@@ -1670,7 +1675,7 @@ fn all_migration_recovers_interrupted_replacements_before_missing_path_checks() 
             source_path: source.clone(),
             source_format_version: 2,
             source_fingerprint: [2; 32],
-            target_format_version: if kind == ArtifactKind::Vault { 3 } else { 4 },
+            target_format_version: target_version,
             current_stage: MigrationStage::Replace,
             temporary_paths: vec![output],
             exporter_version: None,

@@ -1,12 +1,27 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { test } from 'node:test';
 
 const require = createRequire(import.meta.url);
-const { WasmLockbox, set_weakened_allocation_allowed } =
-  require('../../wasm/generated/revault_wasm_bindings.cjs');
+const { WasmLockbox, Runtime, set_weakened_allocation_allowed } =
+  require(process.env.REVAULT_WASM_GENERATED
+    ? resolve(process.env.REVAULT_WASM_GENERATED, 'revault_wasm_bindings.cjs')
+    : '../../wasm/generated/revault_wasm_bindings.cjs');
 // Portable WASM cannot provide the native locked-memory guarantees.
 set_weakened_allocation_allowed(true);
+
+test('packaged WASM recognizes every current hosted operation', () => {
+  const operations = readFileSync(new URL('../operations.tsv', import.meta.url), 'utf8')
+    .trim().split('\n').slice(1).map(line => line.split('\t')[0]);
+  const runtime = new Runtime();
+  try {
+    for (const operation of operations) runtime.before_call(operation);
+    assert.equal(runtime.calls, operations.length);
+    assert.throws(() => runtime.before_call('not_a_revault_operation'));
+  } finally { runtime.free(); }
+});
 
 function withBox(box, action) {
   let primary;

@@ -1044,9 +1044,43 @@ jobs:
             echo "No immutable GitHub release exists; continuing with registry-only publication."
           fi
 
+  wasm:
+    name: Build current-source WebAssembly package
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          shared-key: bindings-wasm
+      - uses: dart-lang/setup-dart@v1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install build script dependencies
+        run: |
+          dart pub global activate dcli_sdk 10.3.0 --overwrite
+          dart pub get --enforce-lockfile --directory tools
+      - name: Build WebAssembly from the candidate source
+        run: ./tools/build_wasm.dart wasm-generated
+      - name: Verify generated runtime and persisted archive lifecycle
+        env:
+          REVAULT_WASM_GENERATED: wasm-generated
+        run: node --test bindings/e2e/javascript/wasm_password_lifecycle.js
+      - uses: actions/upload-artifact@v7
+        with:
+          name: current-source-wasm
+          path: wasm-generated
+          if-no-files-found: error
+
   ecosystem-layouts:
     if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
-    needs: [native, android-native]
+    needs: [native, android-native, wasm]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -1062,6 +1096,10 @@ jobs:
           pattern: native-*
           path: native
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: current-source-wasm
+          path: bindings/wasm/generated
       - name: Determine version
         id: version
         shell: bash

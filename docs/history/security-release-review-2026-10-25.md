@@ -37,14 +37,14 @@ versions and its actual output must be checked against registries.
 
 | Private advisory | Direct Rust package exposure | Last published version reviewed | Expected first patched version, subject to candidate preparation |
 | --- | --- | --- | --- |
-| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.53, 0.0.54 |
+| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.54, 0.0.55 |
 | GHSA-hm5c-7xh9-3wgc | revault_cli | 0.5.1 | 0.6.0 |
-| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.54 |
-| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.54 |
-| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.53 |
-| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.47 |
-| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.49 |
-| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.49 |
+| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.55 |
+| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.55 |
+| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.54 |
+| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.48 |
+| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.50 |
+| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.50 |
 
 Downloaded crates.io 0.0.1 packages for these five crate names identify source
 `0894fc1b00bbfd014427e523241d436506de0d64`. That source already contains the
@@ -199,6 +199,35 @@ URL is returned. That regression and server Clippy pass. Source checks also
 identified one Rust line-wrap and two Dart formatting corrections; these do not
 change runtime behavior. Remaining matrix results must be collected before
 the replacement candidate is prepared.
+
+Commit `e2e6e1e4` includes those corrections. The exact required-package Rust
+formatting check, Dart 3.10-language formatting check and CLI/tooling Clippy
+pass. Support workflow `40108908315` published `revault_migrate_v4` 0.1.1 from
+that main revision. The registry confirms non-yanked checksum
+`f115a6432d24e1e45274c83e586541304852f490b2738db60dcaa30380a7774b`.
+The downloaded package's VCS revision matches the source and its lockfile
+differs from published v4 0.1.0 only in its own package version.
+
+Installed WebAssembly conformance then detected a stale checked-in generated
+binary: current sources included item-description operations, but the assembled
+npm package rejected them. Candidate assembly now builds WebAssembly from the
+exact source with the lockfile-matched generator, tests its complete hosted
+operation inventory and persisted password lifecycle, and passes that artifact
+to registry package assembly. Installed-package checks consume the same package
+tree that publication freezes. Source-only WASM success did not establish that
+the shipped binary was current.
+The new build script and Dart analysis pass; the generated runtime operation
+inventory/password lifecycle and installed npm conformance pass, covering 240
+operations and loader modes. Validation used the cached Node runtime and an
+isolated D-Bus session. Its disposable npm 12 consumer explicitly allowed the
+required Koffi install script. The tested generated files refresh the tracked
+development artifact; every candidate still rebuilds from its own source.
+
+Linux CLI checks also exposed two remaining format-4 fixtures. The future-header
+refusal test now uses the format-5 marker and a future container version, covering
+past/current/future journal targets. The interrupted bulk migration fixture uses
+the current archive format and the separate current Vault structure constant.
+Both focused migration regressions and CLI Clippy pass after these corrections.
 
 The integrated #226 branch was deleted locally and remotely after checking both
 tips were ancestors of remote main. Its clean worktree is retained detached.
