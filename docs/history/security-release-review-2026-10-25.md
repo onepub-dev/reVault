@@ -37,14 +37,14 @@ versions and its actual output must be checked against registries.
 
 | Private advisory | Direct Rust package exposure | Last published version reviewed | Expected first patched version, subject to candidate preparation |
 | --- | --- | --- | --- |
-| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.55, 0.0.56 |
+| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.56, 0.0.57 |
 | GHSA-hm5c-7xh9-3wgc | revault_cli | 0.5.1 | 0.6.0 |
-| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.56 |
-| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.56 |
-| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.55 |
-| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.49 |
-| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.51 |
-| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.51 |
+| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.57 |
+| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.57 |
+| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.56 |
+| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.50 |
+| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.52 |
+| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.52 |
 
 Downloaded crates.io 0.0.1 packages for these five crate names identify source
 `0894fc1b00bbfd014427e523241d436506de0d64`. That source already contains the
@@ -247,6 +247,40 @@ the socket test required the normal IPC-enabled environment, and the future
 fixture assertion now matches its explicit format-6 input and current support
 constant. Bindings Clippy also passes. These local checks do not replace the
 new exact-source candidate gate.
+
+Candidate `40111659958` also exceeded the Linux CLI job's 60-minute limit:
+the migration test binary started 24 tests but reported no completion before
+cancellation. Every migration fixture invokes a nested Cargo exporter build;
+the E2E driver concurrently starts twelve Cargo test shards sharing caches.
+A bounded local run progressed through migration tests without reproducing a
+deadlock, so the precise remote wait remains unproven. The driver now builds
+exporters before starting concurrent shards and supplies Cargo's actual artifact
+directory to the fixtures. Explicit registry-installed exporter overrides remain
+unchanged. This removes the nested build from the concurrent test phase without
+raising the timeout or weakening migration checks.
+
+Candidate `40115768614` passed its CLI test binaries and reached the command
+coverage gate, which found seven exchange commands absent from the run.
+`exchange_cli` already exercises reciprocal exchange, both-direction archive
+content, verification, cancellation and forgetting; it was missing from the
+driver's shard list. The support shard now includes it, with explicit TTL option
+coverage and the same bounded child-process capture as the other CLI tests.
+
+Local qualification under umask `0002` also found that new standalone-Vault
+parent directories inherited group-write permission and were then rejected by
+the sidecar security check. The lock now creates missing parents with mode
+`0700`; existing writable parents remain rejected without permission changes.
+Standalone-Vault coverage verifies nested parent permissions and credential
+persistence after reopening. The beget tests use private fixture roots while
+leaving creation of their missing nested output directory to the public CLI.
+These follow-up changes require a new exact-source candidate.
+
+Follow-up validation passes under the local `0002` umask: the sidecar
+security-boundary test, nested standalone-Vault creation/reopen, and both beget
+CLI lifecycles. The full current CLI E2E contract passes with realistic coverage
+of 137 commands, including rejection paths for 56. All seven xtask tests and
+Clippy for xtask, core, Vault and CLI pass with warnings denied. The next
+exact-source candidate remains required.
 
 The integrated #226 branch was deleted locally and remotely after checking both
 tips were ancestors of remote main. Its clean worktree is retained detached.

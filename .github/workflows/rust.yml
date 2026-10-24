@@ -379,11 +379,11 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
 
-      # Migration fixtures build the isolated exporters offline. Their frozen
-      # dependencies are not all in the CLI graph, so prepare these binaries
-      # with network access before tests even when the Cargo cache is empty.
+      # The Linux E2E driver prepares exporters before starting its parallel
+      # shards. Windows runs the migration tests directly, so prime their
+      # offline fallback here, including dependencies absent from the CLI graph.
       - name: Prepare historical migration exporters
-        if: runner.os == 'Linux' || matrix.cache == 'windows-x86_64-mirror-migration'
+        if: matrix.cache == 'windows-x86_64-mirror-migration'
         run: >-
           cargo build --locked --bins
           -p revault_migrate_v1

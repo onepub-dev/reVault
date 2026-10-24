@@ -5,6 +5,11 @@ use std::path::PathBuf;
 use std::thread;
 
 const COVERAGE_ENV: &str = "LOCKBOX_E2E_COVERAGE_FILE";
+const EXPORTERS_ENV: &str = "REVAULT_TEST_INSTALLED_EXPORTERS";
+
+#[path = "../../revault_cli/src/commands/migration_exporters.rs"]
+#[allow(dead_code)]
+mod migration_exporters;
 
 #[derive(Default)]
 struct Coverage {
@@ -14,6 +19,7 @@ struct Coverage {
 
 pub fn cli() -> TaskResult {
     let workspace = command::workspace_root()?;
+    let exporters = prepare_exporters()?;
     let coverage_path = workspace.join("target/cli-e2e-coverage.tsv");
     let coverage_dir = workspace.join("target/cli-e2e-coverage");
     fs::create_dir_all(&coverage_dir)
@@ -26,7 +32,10 @@ pub fn cli() -> TaskResult {
         let coverage = coverage_dir.join(format!("{name}.tsv"));
         fs::write(&coverage, [])
             .map_err(|error| format!("cannot reset {}: {error}", coverage.display()))?;
-        workers.push(thread::spawn(move || run_cli_shard(name, args, coverage)));
+        let exporters = exporters.clone();
+        workers.push(thread::spawn(move || {
+            run_cli_shard(name, args, coverage, exporters)
+        }));
     }
     let mut errors = Vec::new();
     for worker in workers {
@@ -237,6 +246,8 @@ fn cli_shards() -> Vec<(&'static str, Vec<&'static str>)> {
                 "--test",
                 "contact_receive_alias",
                 "--test",
+                "exchange_cli",
+                "--test",
                 "help_open_key",
                 "--test",
                 "publish_integration",
@@ -259,10 +270,65 @@ fn cli_shards() -> Vec<(&'static str, Vec<&'static str>)> {
     ]
 }
 
-fn run_cli_shard(name: &str, args: Vec<&'static str>, coverage: PathBuf) -> TaskResult {
+// A test's nested Cargo build can wait for a cache lock held by another
+// shard whose build is waiting for the running test. Build exporters before
+// starting any shards, and pass Cargo's actual artifact directory to fixtures.
+fn prepare_exporters() -> TaskResult<PathBuf> {
+    if let Some(root) = std::env::var_os(EXPORTERS_ENV) {
+        // Registry qualification supplies independently installed exporters.
+        return Ok(PathBuf::from(root));
+    }
+    let mut build = command::command("cargo");
+    build.args(["build", "--locked", "--bins", "--message-format=json"]);
+    let packages: BTreeSet<_> = migration_exporters::EXPORTERS
+        .iter()
+        .map(|release| release.package)
+        .collect();
+    for package in packages {
+        build.args(["-p", package]);
+    }
+    let output = command::output_lossy(&mut build)?;
+    let artifacts: BTreeMap<_, _> = output
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter(|value| value["reason"] == "compiler-artifact")
+        .filter_map(|value| {
+            Some((
+                value["target"]["name"].as_str()?.to_owned(),
+                PathBuf::from(value["executable"].as_str()?),
+            ))
+        })
+        .collect();
+    let mut directory = None;
+    for release in migration_exporters::EXPORTERS {
+        let path = artifacts
+            .get(release.binary)
+            .ok_or_else(|| format!("Cargo did not build exporter {}", release.binary))?;
+        command::require_file(path)?;
+        let parent = path
+            .parent()
+            .ok_or_else(|| format!("exporter has no parent: {}", path.display()))?;
+        if directory
+            .as_deref()
+            .is_some_and(|previous| previous != parent)
+        {
+            return Err("Cargo built exporters in different directories".to_owned());
+        }
+        directory = Some(parent.to_path_buf());
+    }
+    directory.ok_or_else(|| "no migration exporters configured".to_owned())
+}
+
+fn run_cli_shard(
+    name: &str,
+    args: Vec<&'static str>,
+    coverage: PathBuf,
+    exporters: PathBuf,
+) -> TaskResult {
     let mut tests = command::command("cargo");
     tests.args(shard_arguments(args));
     tests.env(COVERAGE_ENV, coverage);
+    tests.env(EXPORTERS_ENV, exporters);
     eprintln!("running CLI E2E shard {name}");
     command::run(&mut tests)
 }

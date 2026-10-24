@@ -385,7 +385,7 @@ impl VaultDirectory {
             .filter(|parent| !parent.as_os_str().is_empty())
             .unwrap_or_else(|| Path::new("."))
             .to_path_buf();
-        fs::create_dir_all(&root).map_err(|err| Error::Io(err.to_string()))?;
+        // The lock creates missing parents privately and validates existing ones.
         let _guard = VaultFileLock::acquire(&path)?;
         if path.exists() {
             return Err(Error::AlreadyExists(path.display().to_string()));

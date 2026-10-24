@@ -31,6 +31,10 @@ fn vault_sidecar_rejects_links_and_writable_parent_without_touching_targets() {
 
     fs::set_permissions(&root, fs::Permissions::from_mode(0o770)).unwrap();
     let rejected = ScopedFileLock::acquire(&archive, FileLockScope::Vault);
+    assert_eq!(
+        fs::metadata(&root).unwrap().permissions().mode() & 0o777,
+        0o770
+    );
     fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
     assert!(rejected.is_err());
     assert!(!sidecar.exists());

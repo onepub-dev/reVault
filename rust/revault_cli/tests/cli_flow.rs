@@ -4379,6 +4379,11 @@ fn vault_beget_creates_an_independent_profile_and_local_contact() {
     let dir = unique_dir_named("vault-beget");
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
+    }
     let vault_root = dir.join("vault");
     let agent_root = dir.join("agent");
     let current_password = SecretString::try_from_bytes(b"test-vault-password".to_vec()).unwrap();
@@ -4453,6 +4458,11 @@ fn vault_beget_supports_custom_output_contact_and_no_contact() {
     let dir = unique_dir_named("vault-beget-options");
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
+    }
     let vault_root = dir.join("vault");
     let agent_root = dir.join("agent");
     run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);

@@ -1,6 +1,8 @@
 //! E2E state is created and verified through public CLI commands.
 //! The HTTP relay is launched through its public listener API because Cargo
 //! does not provide another package's binary path to this integration test.
+mod common;
+use common::CommandTestExt;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -30,7 +32,7 @@ impl User {
             .env("LOCKBOX_VAULT_PASSWORD", "exchange-test-passphrase")
             .env_remove("LOCKBOX_PASSWORD")
             .env_remove("LOCKBOX_CONTENT_KEY")
-            .output()
+            .test_output()
             .unwrap()
     }
     fn ok(&self, args: &[&str]) -> String {
@@ -141,6 +143,8 @@ fn exchange(alice: &User, bob: &User, server: &str) -> (String, String) {
         "default",
         "--key-server",
         server,
+        "--ttl-hours",
+        "24",
     ]);
     let invitation = field(&offered, "invitation");
     let id = field(&offered, "exchange");

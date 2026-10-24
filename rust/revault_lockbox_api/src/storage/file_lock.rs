@@ -172,13 +172,20 @@ fn try_acquire(
     use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt};
     use cap_std::fs::{Dir, OpenOptions as CapabilityOpenOptions, OpenOptionsExt};
     use std::os::fd::AsRawFd;
-    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
 
     let parent = lock_path
         .parent()
         .filter(|path| !path.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
-    fs::create_dir_all(parent).map_err(|err| AcquireFailure::Io(err.to_string()))?;
+    // New parents must be safe even with a group-writable process umask.
+    // DirBuilder leaves existing directory permissions unchanged; reject
+    // unsafe existing parents below instead of silently changing them.
+    fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(parent)
+        .map_err(|err| AcquireFailure::Io(err.to_string()))?;
     let directory = Dir::open_ambient_dir(parent, cap_std::ambient_authority())
         .map_err(|err| AcquireFailure::Io(err.to_string()))?;
     let metadata = directory

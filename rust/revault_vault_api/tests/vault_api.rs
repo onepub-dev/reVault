@@ -1332,7 +1332,7 @@ fn standalone_vault_file_can_be_created_and_reopened() {
     let root = unique_dir("standalone-vault-file");
     let _ = fs::remove_dir_all(&root);
     create_private_test_dir(&root);
-    let path = root.join("production.vault.lbx");
+    let path = root.join("new-parent/nested/production.vault.lbx");
     let password = SecretString::try_from_bytes(b"standalone-vault-password".to_vec()).unwrap();
     let wrong_password = SecretString::try_from_bytes(b"wrong-vault-password".to_vec()).unwrap();
     let profile = ContactKeyPair::generate().unwrap();
@@ -1365,6 +1365,12 @@ fn standalone_vault_file_can_be_created_and_reopened() {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
+        for parent in [root.join("new-parent"), root.join("new-parent/nested")] {
+            assert_eq!(
+                fs::metadata(parent).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
         assert_eq!(
             fs::metadata(&path).unwrap().permissions().mode() & 0o777,
             0o600
