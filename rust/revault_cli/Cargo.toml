@@ -75,10 +75,10 @@ clap = { version = "4.6.6", default-features = false, features = [
 clap_complete = { version = "4.6.9", default-features = false, features = [
     "unstable-dynamic",
 ] }
-revault_lockbox_api = { version = "0.0.55", path = "../revault_lockbox_api" }
-revault_publish_protocol = { version = "0.0.49", path = "../revault_publish_protocol" }
-revault_vault_api = { version = "0.0.56", path = "../revault_vault_api", features = ["exchange-http"] }
-revault_migration = { version = "0.0.53", path = "../revault_migration" }
+revault_lockbox_api = { version = "0.0.56", path = "../revault_lockbox_api" }
+revault_publish_protocol = { version = "0.0.50", path = "../revault_publish_protocol" }
+revault_vault_api = { version = "0.0.57", path = "../revault_vault_api", features = ["exchange-http"] }
+revault_migration = { version = "0.0.54", path = "../revault_migration" }
 
 getrandom = "0.4"
 serde_json = "1"
@@ -104,8 +104,8 @@ archive_v3 = { package = "revault_archive_v3_reader", path = "../revault_migrate
 vault_v3 = { package = "revault_vault_v3_reader", path = "../revault_migrate_archive_v3/legacy_vault" }
 revault_vault_api_structure_v2 = { package = "revault_vault_api", version = "=0.0.10" }
 revault_lockbox_api_structure_v2 = { package = "revault_lockbox_api", version = "=0.0.9" }
-revault_lockbox_api = { path = "../revault_lockbox_api", features = ["test-support"] , version = "0.0.55" }
-revault_key_server = { path = "../revault_key_server" , version = "0.0.51" }
+revault_lockbox_api = { path = "../revault_lockbox_api", features = ["test-support"] , version = "0.0.56" }
+revault_key_server = { path = "../revault_key_server" , version = "0.0.52" }
 revault_vault_api_v1 = { package = "revault_vault_v1_reader", path = "../revault_vault_v1_reader" }
 # Path-only test support is omitted from the published package dependencies.
 revault_lockbox_api_v1 = { package = "revault_archive_v1_legacy_reader", path = "../revault_archive_v1_legacy_reader" }
