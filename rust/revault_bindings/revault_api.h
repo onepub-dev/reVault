@@ -79,7 +79,7 @@ void *lockbox_create_contact_with_signing_key(const void *contact, const void *s
 void *lockbox_create_with_signing_key(const uint8_t *content_key, size_t key_len, const void *signing_key);
 /** Opens an existing lockbox. */
 // BEGIN generated file operation declaration
-/** Native file operation; mode is open/create/replace. A signer selects exclusive write access. See file_api.rs for credential, tuning and ownership contracts. */
+/** Native file operation; mode is open/read/write/create/replace. Credential unencrypted opens only an existing plaintext file read-only, with no secret or signer. See file_api.rs for tuning and ownership contracts. */
 void *lockbox_file(const char *path, size_t path_len, const char *mode, size_t mode_len, const char *credential, size_t credential_len, const uint8_t *secret, size_t secret_len, const void *contact, const void *signer, const char *cache_mode, size_t cache_len, uint64_t cache_bytes, const char *workload, size_t workload_len, const char *worker, size_t worker_len, size_t jobs);
 // END generated file operation declaration
 /** Opens existing in-memory archive bytes. */

@@ -173,6 +173,8 @@ export class Lockbox {
   static createInMemory(options?: { password?: BinaryInput; contentKey?: BinaryInput; contact?: NativeHandle; signingKey?: NativeHandle; options?: object }): Lockbox;
   /** Open serialized archive bytes with one password, key, or contact. */
   static openBytes(archive: BinaryInput, options?: { password?: BinaryInput; contentKey?: BinaryInput; contact?: NativeHandle; options?: object }): Lockbox;
+  /** Open an existing plaintext archive with a shared read-only file lock and no credential. Close the handle after use. */
+  static openUnencrypted(path: string, options?: { cacheMode?: string; cacheBytes?: number; workload?: string; worker?: string; jobs?: number }): Lockbox;
   /** Create a host archive file and return its owned handle. */
   static create(path: string, options?: { password?: BinaryInput; contentKey?: BinaryInput; contact?: NativeHandle; signingKey?: NativeHandle; options?: object; overwrite?: boolean }): Lockbox;
   /** Open a host archive file without consulting the Session Agent. */

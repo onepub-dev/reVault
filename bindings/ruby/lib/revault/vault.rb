@@ -363,6 +363,21 @@ module Revault
       file_handle(path, writable.nil? ? 'open' : (writable ? 'write' : 'read'), **options)
     end
 
+    # Opens an existing plaintext archive with a shared read-only file lock.
+    # No credential or Session Agent is used. Close the handle to release the lock;
+    # encrypted archives raise an error. Example:
+    # box = Lockbox.open_unencrypted(path); begin; puts box.get_file('/index.html'); ensure; box.close; end
+    def self.open_unencrypted(path, options: nil)
+      Revault.ensure_native
+      operations = BindingOperations.new
+      tuning = options || {}
+      cache = tuning[:cache_mode] || 'bytes'
+      cache = 'auto' if cache == 'automatic'
+      new(operations, operations.lockbox_file(path, 'read', 'unencrypted', '', nil, nil,
+        cache, tuning[:cache_bytes] || (64 << 20), tuning[:workload] || 'interactive',
+        tuning[:worker] || 'auto', tuning[:jobs] || 0))
+    end
+
     # Internal credential and option marshalling for native file operations.
     def self.file_handle(path, mode, password: nil, content_key: nil, contact: nil, signing_key: nil, options: nil)
       raise ArgumentError, 'supply exactly one credential' unless [password, content_key, contact].compact.length == 1

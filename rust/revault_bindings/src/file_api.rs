@@ -325,7 +325,11 @@ mod tests {
                 mode.len(),
                 b"unencrypted".as_ptr().cast(),
                 11,
-                secret.as_ptr(),
+                if secret.is_empty() {
+                    ptr::null()
+                } else {
+                    secret.as_ptr()
+                },
                 secret.len(),
                 ptr::null(),
                 signer,

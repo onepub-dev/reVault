@@ -274,9 +274,17 @@ public final class Revault {
   public Lockbox openUnencryptedLockboxFile(String path, LockboxOptions options) {
     java.util.Objects.requireNonNull(path, "path");
     java.util.Objects.requireNonNull(options, "options");
-    return new Lockbox(operations.lockboxFile(path, "open", "unencrypted", new byte[0],
+    return new Lockbox(operations.lockboxFile(path, "read", "unencrypted", new byte[0],
         MemorySegment.NULL, MemorySegment.NULL, options.cacheMode(), options.cacheBytes(),
         options.workload(), options.worker(), options.jobs()));
+  }
+
+  /** Opens an existing plaintext archive read-only with default cache and worker settings.
+   * <pre>try (var box = api.openUnencryptedLockboxFile(path)) { byte[] payload = box.getFile("/index.html"); }</pre>
+   */
+  public Lockbox openUnencryptedLockboxFile(String path) {
+    return openUnencryptedLockboxFile(path, new LockboxOptions(
+        CacheMode.BYTES, 64L << 20, WorkloadProfile.INTERACTIVE, WorkerPolicy.AUTO, 0));
   }
 
   /** Creates lockbox. */

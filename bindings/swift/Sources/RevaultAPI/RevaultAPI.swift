@@ -1604,6 +1604,14 @@ public final class Revault {
         return Lockbox(operations, try operations.lockboxFile(path, writable.map { $0 ? "write" : "read" } ?? "open", "content-key", contentKey, nil, signer?.handle, "bytes", 64 << 20, "interactive", "auto", 0))
     }
 
+    /// Opens an existing plaintext archive under a shared read-only file lock.
+    /// No credential or Session Agent is used. Call `free()` to release the
+    /// handle and lock; encrypted archives throw.
+    /// Example: let box = try api.openUnencryptedLockboxFile(path); defer { try? box.free() }; let bytes = try box.getFile("/index.html")
+    public func openUnencryptedLockboxFile(_ path: String) throws -> Lockbox {
+        return Lockbox(operations, try operations.lockboxFile(path, "read", "unencrypted", Data(), nil, nil, "bytes", 64 << 20, "interactive", "auto", 0))
+    }
+
     /// Creates an in-memory archive with a caller-owned content key.
     public func lockboxCreate(_ key: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreate(key))

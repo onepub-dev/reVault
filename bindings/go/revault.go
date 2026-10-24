@@ -498,6 +498,16 @@ func OpenFile(path string, contentKey []byte, signer *ProfileSigningKeyPair) (*L
 	return lockboxFile(path, "open", "content-key", contentKey, nil, signing, LockboxOptions{CacheMode: "bytes", CacheBytes: 64 << 20, Workload: "interactive", Worker: "auto"})
 }
 
+// OpenUnencryptedFile opens an existing plaintext archive with a shared
+// read-only lock, without a credential or Session Agent. Close the handle to
+// release the lock; encrypted archives return an error.
+//
+// Example: box, err := revault.OpenUnencryptedFile(path)
+// if err != nil { return err }; defer box.Close(); payload, err := box.GetFile("/index.html")
+func OpenUnencryptedFile(path string) (*Lockbox, error) {
+	return lockboxFile(path, "read", "unencrypted", nil, nil, nil, LockboxOptions{CacheMode: "bytes", CacheBytes: 64 << 20, Workload: "interactive", Worker: "auto"})
+}
+
 // OpenFileWithAccess selects shared read or exclusive write access independently of signer.
 // Unsigned archives accept a nil signer for writes; signed archives require their owner key.
 func OpenFileWithAccess(path string, contentKey []byte, signer *ProfileSigningKeyPair, writable bool) (*Lockbox, error) {
