@@ -118,8 +118,25 @@ after disclosure. No production actions have been performed by this review.
 
 ## Remaining gates
 
-Validate packaged format-4 migration before publishing the new exporter. Then
-install exact published exporter versions and exercise their public CLI migration
+Local packaged format-4 migration passed: `cargo package` produced the crate,
+the extracted package was installed with `cargo install --offline --locked`,
+and both binary capability contracts matched. The release-mode
+`published_cli_and_candidate_read_and_update_each_others_archives_and_vaults`
+test passed using a baseline CLI built from `revault_cli-v0.5.0` and the installed
+package binaries. It verified preserved profile credentials, remembered archive,
+payload, variable, exact original backup bytes and persisted subsequent edits.
+Artifacts are under `/tmp/revault-v4-qualification-*`. This is package qualification,
+not the required crates.io installation check.
+
+The bootstrap script now includes v4, with a passing tooling regression requiring
+every CLI exporter in that publication allowlist. Dart analysis also passes.
+For these follow-up changes, bounded-reader and oversized-input regressions own
+resource validation; no new throughput or RSS claim is made. Network lock-scope
+and replication tests cover the affected exchange concurrency behavior. Candidate
+platform correctness remains required.
+
+Publish the qualified dependency, then install exact published exporter versions
+and exercise their public CLI migration
 lifecycles. Prepare and seal the integrated candidate from main, including
 cross-platform, installed-package and compatibility checks. Verify final package
 ranges, publish immutable artifacts in dependency order, verify registries, and
