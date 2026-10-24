@@ -3,7 +3,10 @@
 //! Its 79-byte minimized form has SHA-256
 //! 64aa58c6259d56ffd2ed71223430ae491b0dc8094a4cc2489682c829509a6557.
 //! The October 5 development revision failed during pre-publication allocation
-//! retirement; both cases pass against the released 0.5.0 implementation.
+//! retirement. Both cases fail at ea966529 and pass at 808abf12, whose storage
+//! changes replace guessed page sizes with persisted or format-aware lengths
+//! and adopt the published cleanup free index in the writable handle. Both
+//! cases also pass against the released 0.5.0 implementation.
 use revault_lockbox_api::{
     Lockbox, LockboxOpen, LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretVec,
 };
