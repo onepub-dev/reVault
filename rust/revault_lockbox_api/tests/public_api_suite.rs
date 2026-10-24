@@ -310,8 +310,8 @@ fn public_api_recovery_scanner_reports_and_salvages_intact_files() {
     let mut damaged = std::fs::read(&lockbox_path).unwrap();
     damaged[0] ^= 0xff;
 
-    // A v4 commit seals both header slots. One damaged slot still permits TOC
-    // recovery, including directories. With both magics damaged, recovery may
+    // A current-format commit seals both header slots. One damaged slot still
+    // permits TOC recovery, including directories. With both magics damaged, recovery may
     // repair only the magic bytes before authenticating the selected header,
     // publication chain and TOC; this does not authorize historical page scanning.
     let redundant = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
@@ -324,7 +324,7 @@ fn public_api_recovery_scanner_reports_and_salvages_intact_files() {
             .count(),
         3
     );
-    assert_eq!(&damaged[192..200], b"LBX4HDR\0");
+    assert_eq!(&damaged[192..200], b"LBX5HDR\0");
     damaged[192] ^= 0xff;
 
     let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);

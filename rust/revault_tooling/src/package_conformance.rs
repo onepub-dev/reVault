@@ -115,11 +115,7 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
     let publication = work.join("rust-publication");
     let package = publication.join("cargo/revault-api");
     copy_tree(&packages.join("cargo/revault-api"), &package)?;
-    for dependency in [
-        "revault_lockbox_api",
-        "revault_secure_memory",
-        "revault_vault_api",
-    ] {
+    for dependency in crate::release::RUST_BINDING_SOURCE_PACKAGES {
         copy_tree(
             &repository.join("rust").join(dependency),
             &publication.join("rust").join(dependency),
@@ -129,11 +125,7 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
     // Cargo normalizes away path dependencies when packaging. Supply candidate
     // sources through Cargo configuration until these versions are published.
     let mut package_command = Command::new("cargo");
-    for dependency in [
-        "revault_lockbox_api",
-        "revault_secure_memory",
-        "revault_vault_api",
-    ] {
+    for dependency in crate::release::RUST_BINDING_SOURCE_PACKAGES {
         let path = repository.join("rust").join(dependency).canonicalize()?;
         package_command.arg("--config").arg(format!(
             "patch.crates-io.{dependency}.path={}",
@@ -176,14 +168,20 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
     }
     let consumer = work.join("rust-consumer");
     fs::create_dir_all(consumer.join("src"))?;
+    let patches = crate::release::RUST_BINDING_SOURCE_PACKAGES
+        .iter()
+        .map(|dependency| {
+            format!(
+                "{dependency} = {{ path = {:?} }}\n",
+                repository.join("rust").join(dependency)
+            )
+        })
+        .collect::<String>();
     fs::write(
         consumer.join("Cargo.toml"),
         format!(
-            "[package]\nname = \"revault-api-consumer\"\nversion = \"0.0.0\"\nedition = \"2021\"\nrust-version = \"1.88\"\n\n[dependencies]\nrevault-api = {{ path = {:?} }}\n\n[patch.crates-io]\nrevault_lockbox_api = {{ path = {:?} }}\nrevault_vault_api = {{ path = {:?} }}\nrevault_secure_memory = {{ path = {:?} }}\n",
+            "[package]\nname = \"revault-api-consumer\"\nversion = \"0.0.0\"\nedition = \"2021\"\nrust-version = \"1.88\"\n\n[dependencies]\nrevault-api = {{ path = {:?} }}\n\n[patch.crates-io]\n{patches}",
             unpacked.join(unpacked_name),
-            repository.join("rust/revault_lockbox_api"),
-            repository.join("rust/revault_vault_api"),
-            repository.join("rust/revault_secure_memory"),
         ),
     )?;
     // Exercise the extracted facade itself; source-workspace suites below are

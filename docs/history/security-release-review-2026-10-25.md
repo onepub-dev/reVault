@@ -37,14 +37,14 @@ versions and its actual output must be checked against registries.
 
 | Private advisory | Direct Rust package exposure | Last published version reviewed | Expected first patched version, subject to candidate preparation |
 | --- | --- | --- | --- |
-| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.51, 0.0.52 |
+| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.52, 0.0.53 |
 | GHSA-hm5c-7xh9-3wgc | revault_cli | 0.5.1 | 0.6.0 |
-| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.52 |
-| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.52 |
-| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.51 |
-| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.45 |
-| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.47 |
-| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.47 |
+| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.53 |
+| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.53 |
+| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.52 |
+| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.46 |
+| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.48 |
+| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.48 |
 
 Downloaded crates.io 0.0.1 packages for these five crate names identify source
 `0894fc1b00bbfd014427e523241d436506de0d64`. That source already contains the
@@ -125,6 +125,28 @@ normal, build and target-specific workspace dependencies and tooling Clippy.
 No candidate package or release tag was published. The replacement preparation
 advances internal package patch versions again; unused candidate versions are
 not public releases and must not be named as the first patched versions.
+
+Replacement `40101739845` at `a5350ec3` was also cancelled during its driver
+build after finding the same new dependency missing from staged Rust binding
+sources. Assembly, package-test copies and registry patches, foundation
+publication, and bindings-only version selection now share one ordered source
+package list. A regression checks the facade and transitive normal/build/target
+path dependencies and publication order. Both focused tooling tests and tooling
+Clippy pass. Neither cancelled candidate reached package publication or tagging.
+
+An isolated staged Rust facade resolves all four dependency crates from the
+staging tree with `cargo check --offline --locked`. Packaging with candidate
+path patches, extracting the generated crate and running its public Rust
+consumer passed archive/Vault creation, reopening and self-interoperability.
+The staged core suite passed nine cases initially; its remaining recovery case
+passed after correcting an obsolete format-4 magic assertion to format 5.
+The staged Vault suite passed 29/29 with private fixtures. Its initial failure
+was a test-created directory mode of 0775 under umask 0002, correctly refused
+by the hardened lock code. Manual test fixture creation now sets Unix mode
+0700 explicitly rather than relying on the process umask.
+The affected standalone, read-only credential/process-lock, unversioned-Vault
+and key-import tests then passed with the ambient umask left at 0002. The
+production unsafe-directory rejection was not relaxed.
 
 The integrated #226 branch was deleted locally and remotely after checking both
 tips were ancestors of remote main. Its clean worktree is retained detached.

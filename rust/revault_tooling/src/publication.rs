@@ -775,11 +775,7 @@ fn luarocks_arch(target: &str) -> Result<&'static str> {
 }
 
 fn rust_foundation(packages: &Path, publish: bool) -> Result {
-    for name in [
-        "revault_secure_memory",
-        "revault_lockbox_api",
-        "revault_vault_api",
-    ] {
+    for name in crate::release::RUST_BINDING_SOURCE_PACKAGES {
         let package = packages.join("rust").join(name);
         let version = cargo_package_version(&package.join("Cargo.toml"))?;
         rust_package(&package, name, &version, publish, false)?;

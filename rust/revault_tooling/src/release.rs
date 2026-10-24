@@ -766,6 +766,13 @@ fn stage_ecosystems(args: StageEcosystems) -> Result {
     Ok(())
 }
 
+pub(crate) const RUST_BINDING_SOURCE_PACKAGES: &[&str] = &[
+    "revault_secure_memory",
+    "revault_lockbox_api",
+    "revault_publish_protocol",
+    "revault_vault_api",
+];
+
 fn assemble_packages(args: AssemblePackages) -> Result {
     let source = args.source.canonicalize()?;
     let layout = args.layout.canonicalize()?;
@@ -889,11 +896,7 @@ fn assemble_packages(args: AssemblePackages) -> Result {
         "revault-api",
         &args.version,
     )?;
-    for dependency in [
-        "revault_lockbox_api",
-        "revault_secure_memory",
-        "revault_vault_api",
-    ] {
+    for dependency in RUST_BINDING_SOURCE_PACKAGES {
         copy_tree(
             &source.join("rust").join(dependency),
             &output.join("rust").join(dependency),
@@ -1949,6 +1952,66 @@ mod tests {
                     !layout.join(unsupported).exists(),
                     "unexpected Android {unsupported} package"
                 );
+            }
+        }
+    }
+
+    #[test]
+    fn rust_binding_sources_include_transitive_path_dependencies() {
+        let rust = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let manifests = RUST_BINDING_SOURCE_PACKAGES
+            .iter()
+            .map(|name| (*name, find_package_manifest(rust, name).unwrap()))
+            .chain(std::iter::once((
+                "revault-api",
+                rust.parent().unwrap().join("bindings/rust/Cargo.toml"),
+            )));
+        for (position, (package, manifest)) in manifests.enumerate() {
+            let document = fs::read_to_string(manifest)
+                .unwrap()
+                .parse::<toml_edit::DocumentMut>()
+                .unwrap();
+            let mut scopes = vec![document.as_table()];
+            if let Some(targets) = document.get("target").and_then(toml_edit::Item::as_table) {
+                scopes.extend(targets.iter().filter_map(|(_, target)| target.as_table()));
+            }
+            for scope in scopes {
+                for kind in ["dependencies", "build-dependencies"] {
+                    let Some(dependencies) = scope.get(kind).and_then(toml_edit::Item::as_table)
+                    else {
+                        continue;
+                    };
+                    for (alias, dependency) in dependencies {
+                        let Some(path) = dependency.get("path").and_then(toml_edit::Item::as_str)
+                        else {
+                            continue;
+                        };
+                        let name = dependency
+                            .get("package")
+                            .and_then(toml_edit::Item::as_str)
+                            .unwrap_or(alias);
+                        let required = RUST_BINDING_SOURCE_PACKAGES
+                            .iter()
+                            .position(|package| *package == name)
+                            .unwrap_or_else(|| {
+                                panic!("staged {package} is missing dependency {name}")
+                            });
+                        assert!(
+                            required < position,
+                            "binding dependency {name} must publish before {package}"
+                        );
+                        let expected = if package == "revault-api" {
+                            Path::new("../../rust").join(name)
+                        } else {
+                            Path::new("..").join(name)
+                        };
+                        assert_eq!(
+                            Path::new(path),
+                            expected,
+                            "staging must preserve {package}'s dependency path"
+                        );
+                    }
+                }
             }
         }
     }

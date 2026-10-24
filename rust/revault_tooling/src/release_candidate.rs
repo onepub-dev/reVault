@@ -1750,14 +1750,8 @@ fn prepare_versions(
         }
         // CLI publishes its complete dependency chain; bindings publish their API dependencies.
         if scope == Scope::Bindings
-            && ![
-                "revault_secure_memory",
-                "revault_lockbox_api",
-                "revault_vault_api",
-                "revault_bindings",
-                "revault_wasm_bindings",
-            ]
-            .contains(&name.as_str())
+            && !crate::release::RUST_BINDING_SOURCE_PACKAGES.contains(&name.as_str())
+            && !["revault_bindings", "revault_wasm_bindings"].contains(&name.as_str())
         {
             continue;
         }

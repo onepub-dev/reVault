@@ -18,6 +18,15 @@ use std::sync::Mutex;
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 
+fn create_private_test_dir(path: &Path) {
+    fs::create_dir_all(path).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
+    }
+}
+
 fn p(path: impl AsRef<str>) -> LockboxPath {
     LockboxPath::new(path).unwrap()
 }
@@ -367,7 +376,7 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
 #[test]
 fn vault_directory_rejects_unversioned_existing_vaults() {
     let root = unique_dir("legacy-vault-version");
-    fs::create_dir_all(&root).unwrap();
+    create_private_test_dir(&root);
     let vault_path = root.join("local-vault.lbox");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
 
@@ -1175,7 +1184,7 @@ fn vault_lock_process_helper() {
 fn read_only_vault_credential_readers_share_locks_across_processes() {
     let _env_guard = ENV_LOCK.lock().unwrap();
     let root = unique_dir("vault-read-only-process-lock");
-    fs::create_dir_all(&root).unwrap();
+    create_private_test_dir(&root);
     let path = root.join("credentials.lbox");
     let password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
     let profile_password = SecretString::try_from_bytes(b"profile-password".to_vec()).unwrap();
@@ -1300,7 +1309,7 @@ fn vault_directory_stores_profile_email_metadata() {
 #[test]
 fn private_key_file_import_uses_secure_import_path() {
     let root = unique_dir("private-key-file-import");
-    fs::create_dir_all(&root).unwrap();
+    create_private_test_dir(&root);
     let path = root.join("private.key");
     let keypair = ContactKeyPair::generate().unwrap();
     let private = export_private_key(&keypair, KeyFormat::RawHex).unwrap();
@@ -1322,7 +1331,7 @@ fn private_key_file_import_uses_secure_import_path() {
 fn standalone_vault_file_can_be_created_and_reopened() {
     let root = unique_dir("standalone-vault-file");
     let _ = fs::remove_dir_all(&root);
-    fs::create_dir_all(&root).unwrap();
+    create_private_test_dir(&root);
     let path = root.join("production.vault.lbx");
     let password = SecretString::try_from_bytes(b"standalone-vault-password".to_vec()).unwrap();
     let wrong_password = SecretString::try_from_bytes(b"wrong-vault-password".to_vec()).unwrap();
@@ -1372,7 +1381,7 @@ fn read_only_vault_reads_credentials_without_creating_missing_signer() {
     let _env_guard = ENV_LOCK.lock().unwrap();
     let root = unique_dir("read-only-credentials");
     let _ = fs::remove_dir_all(&root);
-    fs::create_dir_all(&root).unwrap();
+    create_private_test_dir(&root);
     let path = root.join("credentials.lbox");
     let password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
     let profile = ContactKeyPair::generate().unwrap();
