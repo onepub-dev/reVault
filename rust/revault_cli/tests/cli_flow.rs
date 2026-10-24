@@ -2372,8 +2372,8 @@ fn doctor_lockbox_reports_closed_metadata_and_open_guidance() {
     let doctor = String::from_utf8_lossy(&doctor.stdout);
     assert!(doctor.contains("Lockbox"));
     assert!(doctor.contains(lockbox.to_str().unwrap()));
-    assert!(doctor.starts_with("Lockbox\n  format version: 4\n"));
-    assert!(doctor.contains("Local vault\n  container format version: 4\n"));
+    assert!(doctor.starts_with("Lockbox\n  format version: 5\n"));
+    assert!(doctor.contains("Local vault\n  container format version: 5\n"));
     assert!(doctor.contains("structure version: 3"));
     assert!(doctor.contains(vault_root.join("local-vault.lbox").to_str().unwrap()));
     assert!(doctor.contains("Configured access\n"));
@@ -6145,11 +6145,11 @@ fn session_default_sets_default_lockbox_for_commands() {
     assert_success(&doctor);
     let doctor = String::from_utf8_lossy(&doctor.stdout);
     assert!(
-        doctor.starts_with("Lockbox\n  format version: 4\n"),
+        doctor.starts_with("Lockbox\n  format version: 5\n"),
         "{doctor}"
     );
     assert!(
-        doctor.contains("Local vault\n  container format version: 4\n"),
+        doctor.contains("Local vault\n  container format version: 5\n"),
         "{doctor}"
     );
     assert!(doctor.contains("structure version: 3"), "{doctor}");

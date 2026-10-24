@@ -1352,8 +1352,8 @@ fn recovery_refuses_future_formats_without_writing_output() {
     let output = fixture.root.join("recovered.lbox");
     // No current CLI writer can produce a future-format header.
     let mut bytes = vec![0; 384];
-    bytes[..8].copy_from_slice(b"LBX4HDR\0");
-    bytes[8..10].copy_from_slice(&5_u16.to_le_bytes());
+    bytes[..8].copy_from_slice(b"LBX5HDR\0");
+    bytes[8..10].copy_from_slice(&6_u16.to_le_bytes());
     checksum_future_header(&mut bytes[..192]);
     std::fs::write(&source, &bytes).unwrap();
     let result = fixture.run(&[
@@ -1969,7 +1969,7 @@ fn doctor_reports_vault_versions_and_future_vault_errors_identify_the_path() {
     assert_success(&doctor);
     let report = String::from_utf8_lossy(&doctor.stdout);
     assert!(
-        report.contains("Local vault\n  container format version: 4\n"),
+        report.contains("Local vault\n  container format version: 5\n"),
         "{report}"
     );
     assert!(report.contains("structure version: 3"), "{report}");
@@ -1983,11 +1983,11 @@ fn doctor_reports_vault_versions_and_future_vault_errors_identify_the_path() {
     assert_success(&closed);
     let report = String::from_utf8_lossy(&closed.stdout);
     assert!(
-        report.starts_with("Lockbox\n  format version: 4\n"),
+        report.starts_with("Lockbox\n  format version: 5\n"),
         "{report}"
     );
     assert!(
-        report.contains("Local vault\n  container format version: 4\n"),
+        report.contains("Local vault\n  container format version: 5\n"),
         "{report}"
     );
     assert!(
@@ -2000,10 +2000,10 @@ fn doctor_reports_vault_versions_and_future_vault_errors_identify_the_path() {
 
     // The current CLI cannot create a future container. Change only opaque
     // test header bytes to exercise refusal, then verify them unchanged.
-    for (version, slot) in [(5_u16, 0_usize), (6, 192)] {
+    for (version, slot) in [(6_u16, 0_usize), (7, 192)] {
         let mut future = original.clone();
         future[..384].fill(0);
-        future[slot..slot + 8].copy_from_slice(b"LBX4HDR\0");
+        future[slot..slot + 8].copy_from_slice(b"LBX5HDR\0");
         future[slot + 8..slot + 10].copy_from_slice(&version.to_le_bytes());
         checksum_future_header(&mut future[slot..slot + 192]);
         std::fs::write(&container, &future).unwrap();
@@ -2038,7 +2038,7 @@ fn doctor_reports_vault_versions_and_future_vault_errors_identify_the_path() {
         let selected = fixture.success(&[path(&archive), "doctor"]);
         let selected = String::from_utf8_lossy(&selected.stdout);
         assert!(
-            selected.starts_with("Lockbox\n  format version: 4\n"),
+            selected.starts_with("Lockbox\n  format version: 5\n"),
             "{selected}"
         );
         assert!(
