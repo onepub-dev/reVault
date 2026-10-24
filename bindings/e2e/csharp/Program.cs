@@ -64,6 +64,10 @@ static class Conformance
             box.SetDescription("Deployment credentials for Project Atlas"); Check(box.Description == "Deployment credentials for Project Atlas", "description");
             box.ClearDescription(); Check(box.Description == null, "description cleared");
             box.SetVariable("normal", "value"); Check(box.GetVariable("normal") == "value", "variable"); Pass("lockbox_set_variable"); Pass("lockbox_get_variable", 3);
+            box.ItemDescription("variable", "normal", "set", text: "Purpose\nSecond line");
+            Check(box.ItemDescription("variable", "normal") == "Purpose\nSecond line", "item description");
+            box.ItemDescription("variable", "normal", "clear");
+            Pass("lockbox_item_description", 3);
             box.MoveVariables(new[] { new PathMove("normal", "moved") }); Check(box.GetVariable("moved") == "value", "moved variable");
             box.MoveVariables(new[] { new PathMove("moved", "normal") }); Pass("lockbox_move_variables", 3);
             box.SetSecretVariable("secret", Bytes("hidden")); Pass("lockbox_set_secret_variable");
@@ -204,6 +208,8 @@ static class Conformance
             vault.RememberAccessSlotLabel(id, 7, "primary"); Check(vault.ListAccessSlotLabels(id).Count == 1 && vault.FindAccessSlotLabels(id, "primary").Count == 1, "labels"); Pass("vault_directory_remember_access_slot_label"); Pass("vault_directory_list_access_slot_labels"); Pass("vault_directory_find_access_slot_labels");
             vault.RememberPassword(id, password); Check(vault.RememberedPassword(id).SequenceEqual(password), "remember"); Pass("vault_directory_remember_password"); Pass("vault_directory_remembered_password", 3);
             var vaultForm = vault.DefineForm("login", "Login", "Login form", Fields()); Check(vaultForm.TypeId.Length > 0 && vault.ResolveForm("login").TypeId.Length > 0 && vault.ListForms().Count > 0, "forms"); Pass("vault_directory_define_form"); Pass("vault_directory_resolve_form"); Pass("vault_directory_list_forms");
+            Check(vault.ItemDescription("definition", "login") == "Login form", "vault description");
+            Pass("vault_directory_item_description");
             Check(vault.ListFormRevisions(vaultForm.TypeId).Count > 0, "vault revisions"); Pass("vault_directory_list_form_revisions", 2);
             Check(vault.SeedForms() > 0, "seed"); Pass("vault_directory_seed_forms"); Check(vault.ListFormAliases().Count > 0, "aliases"); Pass("vault_directory_list_form_aliases");
             vault.ForgetAccessSlotLabel(id, 7); vault.ForgetLockbox(aliasPath); vault.DeleteContact("bob"); Pass("vault_directory_forget_access_slot_label"); Pass("vault_directory_forget_lockbox"); Pass("vault_directory_delete_contact");

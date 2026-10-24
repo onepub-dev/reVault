@@ -834,7 +834,13 @@ fn require_declared_release_line(cli: &str, bindings: &str) -> Result<()> {
     let baseline = declaration["baseline_cli_version"]
         .as_str()
         .ok_or("Missing published compatibility baseline")?;
-    require_matching_compatibility_lines(baseline, line)?;
+    if declaration["baseline_role"].as_str() == Some("migration_source") {
+        if require_matching_compatibility_lines(baseline, line).is_ok() {
+            return Err("migration baseline must identify an older compatibility line".into());
+        }
+    } else {
+        require_matching_compatibility_lines(baseline, line)?;
+    }
     let constant = |source: &str, name: &str| -> Result<u64> {
         let declaration = source
             .lines()
@@ -2147,9 +2153,9 @@ mod tests {
         for (cli, bindings) in [("0.4.1", "0.5.0"), ("1.2.0", "2.0.0")] {
             assert!(require_matching_compatibility_lines(cli, bindings).is_err());
         }
-        assert!(require_declared_release_line("0.5.1", "0.5.0").is_ok());
+        assert!(require_declared_release_line("0.6.1", "0.6.0").is_ok());
         assert!(require_declared_release_line("0.4.1", "0.4.2").is_err());
-        assert!(require_declared_release_line("0.6.0", "0.6.0").is_err());
+        assert!(require_declared_release_line("0.5.0", "0.5.0").is_err());
     }
 
     #[test]
@@ -2249,8 +2255,8 @@ mod tests {
             source_sha: "a".repeat(40),
             source_ref: "release-candidates/a-1".into(),
             scope: Scope::All,
-            cli_version: "0.5.1".into(),
-            bindings_version: "0.5.2".into(),
+            cli_version: "0.6.0".into(),
+            bindings_version: "0.6.0".into(),
             artifacts: vec![Artifact {
                 id: 1,
                 name: "native-linux".into(),
@@ -2495,7 +2501,8 @@ version = "1.0.0"
             &["commit", "-m", "Add independent fuzz workspace"],
         )
         .unwrap();
-        let (cli, bindings) = prepare_versions(root, Scope::All, None, None).unwrap();
+        let (cli, bindings) =
+            prepare_versions(root, Scope::All, Some("0.6.0".into()), Some("0.6.0".into())).unwrap();
         let message = output(root, "git", &["log", "-1", "--format=%B"]).unwrap();
         assert!(require_tag_push_enabled(&message).is_ok());
         assert!(message.starts_with("[release candidate] Prepare "));
@@ -2518,10 +2525,10 @@ version = "1.0.0"
         )
         .unwrap();
 
-        assert_eq!((cli.as_str(), bindings.as_str()), ("0.5.1", "0.5.6"));
+        assert_eq!((cli.as_str(), bindings.as_str()), ("0.6.0", "0.6.0"));
         assert!(fs::read_to_string(root.join("bindings/dart/CHANGELOG.md"))
             .unwrap()
-            .starts_with("## 0.5.6\n"));
+            .starts_with("## 0.6.0\n"));
         let manifest = fs::read_to_string(root.join("rust/revault_cli/Cargo.toml"))
             .unwrap()
             .parse::<toml_edit::DocumentMut>()

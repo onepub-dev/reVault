@@ -32,6 +32,7 @@ impl<State> Lockbox<State> {
         let definition = self.resolve_form_definition(type_reference)?;
         self.create_parent_dirs_for(&path)?;
         let record = FormRecord {
+            description: None,
             path: path.clone(),
             name,
             type_id: definition.type_id,
@@ -62,6 +63,9 @@ impl<State> Lockbox<State> {
     {
         record.path = record.path.file_path()?;
         record.name = FormRecord::validated_name(&record.name)?;
+        if let Some(description) = &record.description {
+            crate::security::validate_variable_value_ref(description)?;
+        }
         self.ensure_forms_loaded()?;
         let definition = self
             .forms

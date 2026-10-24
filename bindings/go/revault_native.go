@@ -170,6 +170,12 @@ func (native) LockboxSetSecretVariable(handle unsafe.Pointer, name unsafe.Pointe
 func (native) LockboxGetVariable(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t) C.RevaultBuffer {
 	return C.lockbox_get_variable(handle, (*C.char)(name), name_len)
 }
+func (native) LockboxItemDescription(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t) C.RevaultBuffer {
+	return C.lockbox_item_description(handle, (*C.char)(name), name_len)
+}
+func (native) VaultDirectoryItemDescription(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t) C.RevaultBuffer {
+	return C.vault_directory_item_description(handle, (*C.char)(name), name_len)
+}
 func (native) LockboxGetSecretVariable(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t, output *unsafe.Pointer) C.bool {
 	return C.lockbox_get_secret_variable(handle, (*C.char)(name), name_len, output)
 }

@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::client::{
     ClientError, Endpoint, HttpTransport, Scheme, Transport, DEFAULT_MAX_RESPONSE_BYTES,
@@ -13,6 +13,7 @@ use super::helpers::parse_http_response;
 
 const REQUEST_TOPOLOGY_HEADER: &str = "x-topology-version";
 const SERVER_TOKEN_HEADER: &str = "x-lockbox-server-token";
+const MAX_HTTP_RESPONSE_HEADERS: usize = 64 * 1024;
 
 impl HttpTransport {
     /// Creates a value from the supplied data.
@@ -87,8 +88,8 @@ impl HttpTransport {
         );
         stream.write_all(request.as_bytes())?;
         stream.write_all(body)?;
-        let mut response = Vec::new();
-        stream.read_to_end(&mut response)?;
+        let response =
+            read_plain_http_response(&mut stream, self.timeout, DEFAULT_MAX_RESPONSE_BYTES)?;
         parse_http_response(&response, DEFAULT_MAX_RESPONSE_BYTES)
     }
 }
@@ -189,8 +190,7 @@ impl Endpoint {
             self.path, self.host
         );
         stream.write_all(request.as_bytes())?;
-        let mut response = Vec::new();
-        stream.read_to_end(&mut response)?;
+        let response = read_plain_http_response(&mut stream, timeout, max_response_bytes)?;
         parse_http_response(&response, max_response_bytes)
     }
 
@@ -207,6 +207,53 @@ impl Endpoint {
             format!("{scheme}://{}{}", self.host, self.path)
         } else {
             format!("{scheme}://{}:{}{}", self.host, self.port, self.path)
+        }
+    }
+}
+
+fn read_plain_http_response(
+    stream: &mut TcpStream,
+    timeout: Duration,
+    max_body: usize,
+) -> Result<Vec<u8>, ClientError> {
+    let deadline = Instant::now() + timeout;
+    let mut response = Vec::new();
+    let mut body_start = None;
+    let mut chunk = [0u8; 8192];
+    loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(ClientError::Io(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "HTTP response exceeded the total read deadline",
+            )));
+        }
+        stream.set_read_timeout(Some(remaining))?;
+        let count = stream.read(&mut chunk)?;
+        if count == 0 {
+            return Ok(response);
+        }
+        response.extend_from_slice(&chunk[..count]);
+        if body_start.is_none() {
+            body_start = response
+                .windows(4)
+                .position(|window| window == b"\r\n\r\n")
+                .map(|at| at + 4);
+            if body_start.is_none() && response.len() > MAX_HTTP_RESPONSE_HEADERS {
+                return Err(ClientError::Http(
+                    "response headers are too large".to_string(),
+                ));
+            }
+        }
+        if let Some(start) = body_start {
+            if start > MAX_HTTP_RESPONSE_HEADERS {
+                return Err(ClientError::Http(
+                    "response headers are too large".to_string(),
+                ));
+            }
+            if response.len() - start > max_body {
+                return Err(ClientError::Protocol(ProtocolError::PayloadTooLarge));
+            }
         }
     }
 }

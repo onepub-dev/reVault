@@ -38,8 +38,20 @@ sensitivity(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+description():string|null
+description(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+description(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+hasDescription():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startVariable(builder:flatbuffers.Builder) {
-  builder.startObject(2);
+  builder.startObject(4);
 }
 
 static addName(builder:flatbuffers.Builder, nameOffset:flatbuffers.Offset) {
@@ -50,22 +62,34 @@ static addSensitivity(builder:flatbuffers.Builder, sensitivityOffset:flatbuffers
   builder.addFieldOffset(1, sensitivityOffset, 0);
 }
 
+static addDescription(builder:flatbuffers.Builder, descriptionOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(2, descriptionOffset, 0);
+}
+
+static addHasDescription(builder:flatbuffers.Builder, hasDescription:boolean) {
+  builder.addFieldInt8(3, +hasDescription, +false);
+}
+
 static endVariable(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createVariable(builder:flatbuffers.Builder, nameOffset:flatbuffers.Offset, sensitivityOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createVariable(builder:flatbuffers.Builder, nameOffset:flatbuffers.Offset, sensitivityOffset:flatbuffers.Offset, descriptionOffset:flatbuffers.Offset, hasDescription:boolean):flatbuffers.Offset {
   Variable.startVariable(builder);
   Variable.addName(builder, nameOffset);
   Variable.addSensitivity(builder, sensitivityOffset);
+  Variable.addDescription(builder, descriptionOffset);
+  Variable.addHasDescription(builder, hasDescription);
   return Variable.endVariable(builder);
 }
 
 unpack(): VariableT {
   return new VariableT(
     this.name(),
-    this.sensitivity()
+    this.sensitivity(),
+    this.description(),
+    this.hasDescription()
   );
 }
 
@@ -73,23 +97,30 @@ unpack(): VariableT {
 unpackTo(_o: VariableT): void {
   _o.name = this.name();
   _o.sensitivity = this.sensitivity();
+  _o.description = this.description();
+  _o.hasDescription = this.hasDescription();
 }
 }
 
 export class VariableT implements flatbuffers.IGeneratedObject {
 constructor(
   public name: string|Uint8Array|null = null,
-  public sensitivity: string|Uint8Array|null = null
+  public sensitivity: string|Uint8Array|null = null,
+  public description: string|Uint8Array|null = null,
+  public hasDescription: boolean = false
 ){}
 
 
 pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const name = (this.name !== null ? builder.createString(this.name!) : 0);
   const sensitivity = (this.sensitivity !== null ? builder.createString(this.sensitivity!) : 0);
+  const description = (this.description !== null ? builder.createString(this.description!) : 0);
 
   return Variable.createVariable(builder,
     name,
-    sensitivity
+    sensitivity,
+    description,
+    this.hasDescription
   );
 }
 }

@@ -68,8 +68,12 @@ module Revault
       attr_reader :kind
       # Whether a record must provide a value for this field.
       attr_reader :required
+      # Multiline guidance captured by this field definition revision.
+      attr_reader :description
+      # Whether guidance is present, including explicitly empty text.
+      attr_reader :has_description
       # Creates a domain value from named fields.
-      def initialize(id: '', label: '', kind: '', required: false) = (@id = id; @label = label; @kind = kind; @required = required)
+      def initialize(id: '', label: '', kind: '', required: false, description: '', has_description: false) = (@id = id; @label = label; @kind = kind; @required = required; @description = description; @has_description = has_description)
     end
 
     # Ordered field definitions supplied when defining a form.
@@ -136,8 +140,12 @@ module Revault
       attr_reader :definition_revision
       # Ordered non-secret field metadata and values.
       attr_reader :values
+      # Multiline context specific to this record.
+      attr_reader :description
+      # Whether the record description is present, including empty text.
+      attr_reader :has_description
       # Creates a domain value from named fields.
-      def initialize(path: '', name: '', type_id: '', definition_alias: '', definition_revision: 0, values: []) = (@path = path; @name = name; @type_id = type_id; @definition_alias = definition_alias; @definition_revision = definition_revision; @values = values)
+      def initialize(path: '', name: '', type_id: '', definition_alias: '', definition_revision: 0, values: [], description: '', has_description: false) = (@path = path; @name = name; @type_id = type_id; @definition_alias = definition_alias; @definition_revision = definition_revision; @values = values; @description = description; @has_description = has_description)
     end
 
     # Ordered FormRecord values returned by the corresponding list operation.
@@ -432,8 +440,12 @@ module Revault
       attr_reader :name
       # Whether the value is ordinary text or a protected secret.
       attr_reader :sensitivity
+      # Multiline description stored with this variable.
+      attr_reader :description
+      # Whether the variable description is present, including empty text.
+      attr_reader :has_description
       # Creates a domain value from named fields.
-      def initialize(name: '', sensitivity: '') = (@name = name; @sensitivity = sensitivity)
+      def initialize(name: '', sensitivity: '', description: '', has_description: false) = (@name = name; @sensitivity = sensitivity; @description = description; @has_description = has_description)
     end
 
     # Ordered Variable values returned by the corresponding list operation.
@@ -596,12 +608,12 @@ module Revault
       'StringList' => [[:values, '[string]']],
       'PathMove' => [[:source, 'string'], [:destination, 'string']],
       'PathMoveList' => [[:values, '[revault.internal.PathMove]']],
-      'FormField' => [[:id, 'string'], [:label, 'string'], [:kind, 'string'], [:required, 'bool']],
+      'FormField' => [[:id, 'string'], [:label, 'string'], [:kind, 'string'], [:required, 'bool'], [:description, 'string'], [:has_description, 'bool']],
       'FormFieldList' => [[:values, '[revault.internal.FormField]']],
       'FormDefinition' => [[:type_id, 'string'], [:alias, 'string'], [:revision, 'uint'], [:name, 'string'], [:description, 'string'], [:fields, '[revault.internal.FormField]']],
       'FormDefinitionList' => [[:values, '[revault.internal.FormDefinition]']],
       'FormValue' => [[:field_id, 'string'], [:label, 'string'], [:kind, 'string'], [:value, 'string'], [:secret, 'bool']],
-      'FormRecord' => [[:path, 'string'], [:name, 'string'], [:type_id, 'string'], [:definition_alias, 'string'], [:definition_revision, 'uint'], [:values, '[revault.internal.FormValue]']],
+      'FormRecord' => [[:path, 'string'], [:name, 'string'], [:type_id, 'string'], [:definition_alias, 'string'], [:definition_revision, 'uint'], [:values, '[revault.internal.FormValue]'], [:description, 'string'], [:has_description, 'bool']],
       'FormRecordList' => [[:values, '[revault.internal.FormRecord]']],
       'OptionalFormRecord' => [[:value, 'revault.internal.FormRecord']],
       'OptionalFormValue' => [[:value, 'revault.internal.FormValue']],
@@ -625,7 +637,7 @@ module Revault
       'StreamChunk' => [[:path, 'string'], [:file_offset, 'ulong'], [:length, 'ulong'], [:physical_offset, 'ulong'], [:sparse, 'bool'], [:data, '[ubyte]']],
       'StreamChunkList' => [[:values, '[revault.internal.StreamChunk]']],
       'RuntimeOptions' => [[:workload_profile, 'string'], [:worker_policy, 'string']],
-      'Variable' => [[:name, 'string'], [:sensitivity, 'string']],
+      'Variable' => [[:name, 'string'], [:sensitivity, 'string'], [:description, 'string'], [:has_description, 'bool']],
       'VariableList' => [[:values, '[revault.internal.Variable]']],
       'OptionalString' => [[:present, 'bool'], [:value, 'string']],
       'OwnerInspection' => [[:signed, 'bool'], [:fingerprint, 'string'], [:has_fingerprint, 'bool']],
@@ -736,8 +748,8 @@ module Revault
     end
 
     def append_form_field(bytes, value)
-      vtable = append_vtable(bytes, [4, 8, 12, 16], 20); table = align(bytes); bytes << [table - vtable, 0, 0, 0].pack('V4') << [value.required ? 1 : 0].pack('C') << "\0\0\0"
-      append_string_field(bytes, table + 4, value.id); append_string_field(bytes, table + 8, value.label); append_string_field(bytes, table + 12, value.kind); table
+      vtable = append_vtable(bytes, [4, 8, 12, 16, 20, 24], 28); table = align(bytes); bytes << [table - vtable, 0, 0, 0].pack('V4') << [value.required ? 1 : 0].pack('C') << "\0\0\0" << [0].pack('V') << [value.has_description ? 1 : 0].pack('C') << "\0\0\0"
+      append_string_field(bytes, table + 4, value.id); append_string_field(bytes, table + 8, value.label); append_string_field(bytes, table + 12, value.kind); append_string_field(bytes, table + 20, value.description); table
     end
 
     def append_vtable(bytes, offsets, object_size)

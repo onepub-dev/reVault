@@ -480,6 +480,7 @@ impl Definition {
             .iter()
             .map(|f| {
                 Ok(FormFieldDefinition {
+                    description: None,
                     id: f.id.clone(),
                     label: read_normal(&f.label, storage, archive, key, sealed)?,
                     kind: f.kind,
@@ -542,6 +543,7 @@ impl Record {
             });
         }
         Ok(FormRecord {
+            description: None,
             path: self.path.clone(),
             name: FormRecord::validated_name(&read_normal(
                 &self.name, storage, archive, key, sealed,

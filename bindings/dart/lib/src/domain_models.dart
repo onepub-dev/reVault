@@ -138,6 +138,18 @@ final class FormField {
 
   /// Whether a record must provide a value for this field.
   late final bool required = _view == null ? _required! : _view.$required;
+  final String? _description;
+
+  /// Multiline guidance captured by this field definition revision.
+  late final String description = _view == null
+      ? _description!
+      : _view.description ?? '';
+  final bool? _hasDescription;
+
+  /// Whether guidance is present, including explicitly empty text.
+  late final bool hasDescription = _view == null
+      ? _hasDescription!
+      : _view.hasDescription;
 
   /// Creates a FormField value for an API input or application-owned copy.
   ///
@@ -155,16 +167,22 @@ final class FormField {
     String label = '',
     String kind = '',
     bool required = false,
+    String description = '',
+    bool hasDescription = false,
   }) : _view = null,
        _id = id,
        _label = label,
        _kind = kind,
-       _required = required;
+       _required = required,
+       _description = description,
+       _hasDescription = hasDescription;
   FormField._from(this._view)
     : _id = null,
       _label = null,
       _kind = null,
-      _required = null;
+      _required = null,
+      _description = null,
+      _hasDescription = null;
 }
 
 /// A versioned form schema used to validate and label structured records in a lockbox.
@@ -335,6 +353,18 @@ final class FormRecord {
       : List<FormValue>.unmodifiable(
           (_view.values ?? const []).map(FormValue._from),
         );
+  final String? _description;
+
+  /// Multiline context specific to this record.
+  late final String description = _view == null
+      ? _description!
+      : _view.description ?? '';
+  final bool? _hasDescription;
+
+  /// Whether the record description is present, including empty text.
+  late final bool hasDescription = _view == null
+      ? _hasDescription!
+      : _view.hasDescription;
 
   /// Creates a FormRecord value for an API input or application-owned copy.
   ///
@@ -350,20 +380,26 @@ final class FormRecord {
     String definitionAlias = '',
     int definitionRevision = 0,
     List<FormValue> values = const [],
+    String description = '',
+    bool hasDescription = false,
   }) : _view = null,
        _path = path,
        _name = name,
        _typeId = typeId,
        _definitionAlias = definitionAlias,
        _definitionRevision = definitionRevision,
-       _values = values;
+       _values = values,
+       _description = description,
+       _hasDescription = hasDescription;
   FormRecord._from(this._view)
     : _path = null,
       _name = null,
       _typeId = null,
       _definitionAlias = null,
       _definitionRevision = null,
-      _values = null;
+      _values = null,
+      _description = null,
+      _hasDescription = null;
 }
 
 /// The files and metadata recovered, or found damaged, while inspecting or salvaging a lockbox.
@@ -1235,6 +1271,18 @@ final class Variable {
   late final String sensitivity = _view == null
       ? _sensitivity!
       : _view.sensitivity ?? '';
+  final String? _description;
+
+  /// Multiline description stored with this variable.
+  late final String description = _view == null
+      ? _description!
+      : _view.description ?? '';
+  final bool? _hasDescription;
+
+  /// Whether the variable description is present, including empty text.
+  late final bool hasDescription = _view == null
+      ? _hasDescription!
+      : _view.hasDescription;
 
   /// Creates a Variable value for an API input or application-owned copy.
   ///
@@ -1244,11 +1292,21 @@ final class Variable {
   ///   print('${variable.name}: ${variable.sensitivity}');
   /// }
   /// ```
-  Variable({String name = '', String sensitivity = ''})
-    : _view = null,
-      _name = name,
-      _sensitivity = sensitivity;
-  Variable._from(this._view) : _name = null, _sensitivity = null;
+  Variable({
+    String name = '',
+    String sensitivity = '',
+    String description = '',
+    bool hasDescription = false,
+  }) : _view = null,
+       _name = name,
+       _sensitivity = sensitivity,
+       _description = description,
+       _hasDescription = hasDescription;
+  Variable._from(this._view)
+    : _name = null,
+      _sensitivity = null,
+      _description = null,
+      _hasDescription = null;
 }
 
 /// Whether a lockbox is owner-signed and, when available, the signing-key fingerprint.
@@ -1875,6 +1933,8 @@ abstract final class DomainDecoders {
                 label: value.label,
                 kind: value.kind,
                 $required: value.required,
+                description: value.description,
+                hasDescription: value.hasDescription,
               ),
             )
             .toList(),

@@ -378,6 +378,22 @@ struct LockboxOptions {
   std::size_t jobs{0};
 };
 
+namespace detail {
+inline std::string description_json_string(const std::string& text) {
+  const char* hex = "0123456789abcdef";
+  std::string result = "\"";
+  for (unsigned char c : text) {
+    if (c == '"' || c == '\\') { result += '\\'; result += static_cast<char>(c); }
+    else if (c < 32) { result += "\\u00"; result += hex[c >> 4]; result += hex[c & 15]; }
+    else result += static_cast<char>(c);
+  }
+  return result + '"';
+}
+inline std::string description_request(const std::string& target, const std::string& reference, const std::string& operation, const std::optional<std::string>& field, const std::optional<std::string>& text) {
+  return "{\"target\":" + description_json_string(target) + ",\"reference\":" + description_json_string(reference) + ",\"operation\":" + description_json_string(operation) + ",\"field\":" + (field ? description_json_string(*field) : "null") + ",\"text\":" + (text ? description_json_string(*text) : "null") + "}";
+}
+} // namespace detail
+
 /** An open encrypted archive containing files, variables, secrets, and forms;
  * commit mutations and release the object when finished with decrypted data. */
 class Lockbox {
@@ -706,6 +722,12 @@ class Lockbox {
   void set_secret_variable(const std::string& name, std::span<const std::uint8_t> value) {
     if (!lockbox_set_secret_variable(handle_, name.data(), name.size(), value.data(), value.size())) throw std::runtime_error(buffer_last_error());
   }
+  /** Get/set/clear encrypted guidance; commit Lockbox writes. Fields belong to definitions. */
+  std::optional<std::string> item_description(const std::string& target, const std::string& reference, const std::string& operation = "get", const std::optional<std::string>& field = std::nullopt, const std::optional<std::string>& text = std::nullopt) const {
+    const auto request = detail::description_request(target, reference, operation, field, text);
+    return decoded<bindings::OptionalString>(lockbox_item_description(handle_, request.data(), request.size()));
+  }
+
   /** Returns a plain variable when it is present. */
   std::optional<std::string> get_variable(const std::string& name) const {
     return decoded<bindings::OptionalString>(
@@ -1075,6 +1097,12 @@ class Vault {
     checked(vault_directory_store_profile_email(
         handle_, name.data(), name.size(), email.data(), email.size()));
   }
+  /** Get/set/clear encrypted guidance; commit Lockbox writes. Fields belong to definitions. */
+  std::optional<std::string> item_description(const std::string& target, const std::string& reference, const std::string& operation = "get", const std::optional<std::string>& field = std::nullopt, const std::optional<std::string>& text = std::nullopt) const {
+    const auto request = detail::description_request(target, reference, operation, field, text);
+    return detail::take_message<bindings::OptionalString>(vault_directory_item_description(handle_, request.data(), request.size()));
+  }
+
   /** Returns the email recorded for a profile, when present. */
   bindings::OptionalString profile_email(const std::string& name) const {
     return detail::take_message<bindings::OptionalString>(

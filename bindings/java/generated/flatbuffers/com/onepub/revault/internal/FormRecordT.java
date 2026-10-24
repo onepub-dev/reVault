@@ -26,6 +26,8 @@ public class FormRecordT {
   private String definitionAlias;
   private long definitionRevision;
   private com.onepub.revault.internal.FormValueT[] values;
+  private String description;
+  private boolean hasDescription;
 
   public String getPath() { return path; }
 
@@ -51,6 +53,14 @@ public class FormRecordT {
 
   public void setValues(com.onepub.revault.internal.FormValueT[] values) { this.values = values; }
 
+  public String getDescription() { return description; }
+
+  public void setDescription(String description) { this.description = description; }
+
+  public boolean getHasDescription() { return hasDescription; }
+
+  public void setHasDescription(boolean hasDescription) { this.hasDescription = hasDescription; }
+
 
   public FormRecordT() {
     this.path = null;
@@ -59,5 +69,7 @@ public class FormRecordT {
     this.definitionAlias = null;
     this.definitionRevision = 0L;
     this.values = null;
+    this.description = null;
+    this.hasDescription = false;
   }
 }

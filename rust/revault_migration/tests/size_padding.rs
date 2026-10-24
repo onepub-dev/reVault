@@ -66,7 +66,7 @@ fn migration_preserves_compact_native_v4_in_all_protection_modes() {
                     },
                 )
                 .unwrap();
-                assert_eq!(imported.format_version(), 4);
+                assert_eq!(imported.format_version(), 5);
                 assert_eq!(imported.format_options(), source.format_options());
                 assert_eq!(imported.get_file(&file).unwrap(), b"small migrated content");
                 assert_eq!(

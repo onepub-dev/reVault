@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 
@@ -523,6 +524,26 @@ final class Vault extends Owned {
   /// ```
   void storeProfileEmail(String name, String email) =>
       runtime.operations.vaultDirectoryStoreProfileEmail(handle, name, email);
+
+  /// Gets, sets, or clears optional item guidance. Targets are variable,
+  /// record, definition, or field (vaults support definition/field only).
+  /// Supply text for set and a field ID for field targets. Lockboxes need commit.
+  String? itemDescription(
+    String target,
+    String reference, {
+    String operation = 'get',
+    String? field,
+    String? text,
+  }) => runtime.operations.vaultDirectoryItemDescription(
+    handle,
+    jsonEncode({
+      'target': target,
+      'reference': reference,
+      'operation': operation,
+      'field': field,
+      'text': text,
+    }),
+  );
 
   /// Returns the email associated with profile [name], when present.
   ///

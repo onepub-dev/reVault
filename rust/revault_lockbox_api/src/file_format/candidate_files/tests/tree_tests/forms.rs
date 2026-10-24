@@ -24,6 +24,7 @@ fn typed_form_snapshots_large_metadata_history_and_retention_all_modes() {
         name: "n".repeat(70000),
         description: "d".repeat(80000),
         fields: vec![FormFieldDefinition {
+            description: None,
             id: "current".into(),
             label: "l".repeat(65535) + "🦀",
             kind: FormFieldKind::Notes,
@@ -33,6 +34,7 @@ fn typed_form_snapshots_large_metadata_history_and_retention_all_modes() {
     let secret =
         Arc::new(SecretString::try_from_slice(("s".repeat(65535) + "🦀").as_bytes()).unwrap());
     let record = FormRecord {
+        description: None,
         path: LockboxPath::new("/docs/data").unwrap(),
         name: "Snapshot".into(),
         type_id: type_id.clone(),

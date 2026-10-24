@@ -549,6 +549,11 @@ export class Lockbox extends OwnedHandle {
     return this.operations.lockboxSetSecretVariable(this.nativeHandle, name, value);
   }
 
+  /** Get/set/clear encrypted item guidance. Lockbox writes need commit. */
+  itemDescription(target, reference, { operation = 'get', field = null, text = null } = {}) {
+    return this.operations.lockboxItemDescription(this.nativeHandle, JSON.stringify({ target, reference, operation, field, text }));
+  }
+
   /** Returns a plain variable when it is present. */
   getVariable(name) {
     return this.operations.lockboxGetVariable(this.nativeHandle, name);
@@ -949,6 +954,11 @@ export class Vault extends OwnedHandle {
   /** Stores profile email. */
   storeProfileEmail(name, email) {
     return this.operations.vaultDirectoryStoreProfileEmail(this.nativeHandle, name, email);
+  }
+
+  /** Get/set/clear encrypted item guidance. Lockbox writes need commit. */
+  itemDescription(target, reference, { operation = 'get', field = null, text = null } = {}) {
+    return this.operations.vaultDirectoryItemDescription(this.nativeHandle, JSON.stringify({ target, reference, operation, field, text }));
   }
 
   /** Returns the email recorded for a profile, when present. */

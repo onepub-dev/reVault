@@ -164,13 +164,16 @@ impl<State> Lockbox<State> {
         self.ensure_variables_loaded()?;
         let mut variables = self.staged.variables.borrow_mut();
         let variables = variables.as_mut().ok_or(Error::CorruptRecord)?;
-        if matches!(variables.get(name), Some(VariableValue::Secret(_))) {
+        if matches!(variables.get(name), Some(VariableValue::Secret(_, _))) {
             return Err(Error::InvalidOperation(
                 "variable is secret; delete and recreate to change sensitivity".to_string(),
             ));
         }
         ensure_variable_name_available(variables, name)?;
-        variables.insert(name.clone(), VariableValue::Normal(value));
+        let description = variables
+            .get(name)
+            .and_then(|value| value.description().clone());
+        variables.insert(name.clone(), VariableValue::Normal(value, description));
         self.staged.dirty_variables = true;
         Ok(())
     }
@@ -199,7 +202,12 @@ impl<State> Lockbox<State> {
         ensure_variable_name_available(variables, name)?;
         variables.insert(
             name.clone(),
-            VariableValue::Secret(Arc::new(value.try_clone()?)),
+            VariableValue::Secret(
+                Arc::new(value.try_clone()?),
+                variables
+                    .get(name)
+                    .and_then(|value| value.description().clone()),
+            ),
         );
         self.staged.dirty_variables = true;
         Ok(())
@@ -219,8 +227,8 @@ impl<State> Lockbox<State> {
             .ok_or(Error::CorruptRecord)?
             .get(name)
         {
-            Some(VariableValue::Normal(value)) => Ok(Some(value.clone())),
-            Some(VariableValue::Secret(_)) => Err(Error::InvalidOperation(
+            Some(VariableValue::Normal(value, _)) => Ok(Some(value.clone())),
+            Some(VariableValue::Secret(_, _)) => Err(Error::InvalidOperation(
                 "variable is secret; use secret access".to_string(),
             )),
             None => Ok(None),
@@ -245,8 +253,8 @@ impl<State> Lockbox<State> {
         self.ensure_variables_loaded()?;
         let variables = self.variables.borrow();
         match variables.as_ref().ok_or(Error::CorruptRecord)?.get(name) {
-            Some(VariableValue::Secret(value)) => Ok(Some(f(value))),
-            Some(VariableValue::Normal(_)) => Err(Error::InvalidOperation(
+            Some(VariableValue::Secret(value, _)) => Ok(Some(f(value))),
+            Some(VariableValue::Normal(_, _)) => Err(Error::InvalidOperation(
                 "variable is not secret".to_string(),
             )),
             None => Ok(None),
@@ -384,10 +392,10 @@ impl<State> Lockbox<State> {
             .ok_or(Error::CorruptRecord)?
         {
             match value {
-                VariableValue::Normal(value) => {
+                VariableValue::Normal(value, _) => {
                     f(name, VariableValueRef::Normal(value))?;
                 }
-                VariableValue::Secret(value) => {
+                VariableValue::Secret(value, _) => {
                     f(name, VariableValueRef::Secret(value))?;
                 }
             }
@@ -484,7 +492,7 @@ impl<State> Lockbox<State> {
         Ok(())
     }
 
-    fn ensure_variables_loaded(&self) -> Result<()> {
+    pub(super) fn ensure_variables_loaded(&self) -> Result<()> {
         if self.variables.borrow().is_none() {
             let variables = if self.variable_root_offset == 0 {
                 BTreeMap::new()

@@ -29,7 +29,8 @@ export function encodeMessage(message) {
       const id = builder.createString(value.id ?? '');
       const label = builder.createString(value.label ?? '');
       const kind = builder.createString(value.kind ?? '');
-      return transport.FormField.createFormField(builder, id, label, kind, value.required === true);
+      const description = builder.createString(value.description ?? '');
+      return transport.FormField.createFormField(builder, id, label, kind, value.required === true, description, value.hasDescription === true);
     });
     const values = transport.FormFieldList.createValuesVector(builder, offsets);
     builder.finish(transport.FormFieldList.createFormFieldList(builder, values));
@@ -94,6 +95,8 @@ let lockbox_stat;
 let lockbox_set_variable;
 let lockbox_set_secret_variable;
 let lockbox_get_variable;
+let lockbox_item_description;
+let vault_directory_item_description;
 let lockbox_get_secret_variable;
 let lockbox_delete_variable;
 let lockbox_move_variables;
@@ -341,6 +344,8 @@ export function configureNativeLibrary(explicitPath = undefined) {
   lockbox_set_variable = library.func('bool lockbox_set_variable(void *, const char *, size_t, const char *, size_t)');
   lockbox_set_secret_variable = library.func('bool lockbox_set_secret_variable(void *, const char *, size_t, void *, size_t)');
   lockbox_get_variable = library.func('RevaultBuffer lockbox_get_variable(void *, const char *, size_t)');
+  lockbox_item_description = library.func('RevaultBuffer lockbox_item_description(void *, const char *, size_t)');
+  vault_directory_item_description = library.func('RevaultBuffer vault_directory_item_description(void *, const char *, size_t)');
   lockbox_get_secret_variable = library.func('bool lockbox_get_secret_variable(void *, const char *, size_t, _Out_ void **)');
   lockbox_delete_variable = library.func('bool lockbox_delete_variable(void *, const char *, size_t)');
   lockbox_move_variables = library.func('bool lockbox_move_variables(void *, void *, size_t)');
@@ -690,6 +695,12 @@ export class BindingOperations {
 
   lockboxGetVariable(handle, name) {
     return decode('OptionalString', lockbox_get_variable(handle, Buffer.from(name), Buffer.byteLength(name)));
+  }
+  lockboxItemDescription(handle, name) {
+    return decode('OptionalString', lockbox_item_description(handle, Buffer.from(name), Buffer.byteLength(name)));
+  }
+  vaultDirectoryItemDescription(handle, name) {
+    return decode('OptionalString', vault_directory_item_description(handle, Buffer.from(name), Buffer.byteLength(name)));
   }
 
   lockboxWithSecretVariable(handle, name, callback) {

@@ -6,6 +6,8 @@ use crate::{Error, LockboxPath, Result};
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// Stored form instance tied to a definition revision.
 pub struct FormRecord {
+    /// Optional multiline context for this particular record.
+    pub description: Option<String>,
     /// Logical lockbox path identifying this record.
     pub path: LockboxPath,
     /// User-facing record name.

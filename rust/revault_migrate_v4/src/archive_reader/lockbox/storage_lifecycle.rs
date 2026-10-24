@@ -1,0 +1,146 @@
+use super::Lockbox;
+use crate::archive_reader::host_path::HostPath;
+use crate::archive_reader::storage::StorageBackend;
+#[cfg(any(test, feature = "migration"))]
+use crate::archive_reader::Error;
+use crate::archive_reader::{LockboxOptions, Result};
+use std::path::Path;
+
+impl Lockbox<crate::archive_reader::Writable> {
+    /// Commits pending mutations and serializes the complete lockbox.
+    ///
+    /// File-backed lockboxes should normally use [`Lockbox::commit`] instead.
+    pub fn try_to_bytes(&self) -> Result<Vec<u8>> {
+        self.bytes()
+    }
+
+    #[cfg(test)]
+    /// Serializes the lockbox for tests, panicking if materialization fails.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.try_to_bytes()
+            .expect("failed to materialize lockbox bytes")
+    }
+
+    #[cfg(test)]
+    pub(crate) fn open_path(path: impl AsRef<Path>, key: impl AsRef<[u8]>) -> Result<Self> {
+        Self::open_path_with_options(path, key, LockboxOptions::default())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn open_path_with_options(
+        path: impl AsRef<Path>,
+        key: impl AsRef<[u8]>,
+        options: LockboxOptions,
+    ) -> Result<Self> {
+        let key = crate::archive_reader::SecretVec::try_from_slice(key.as_ref())?;
+        let mut lockbox = Self::open_storage_with_secret_key(
+            StorageBackend::file_for_write(path)?,
+            key,
+            options,
+        )?;
+        lockbox.set_owner_signing_key(crate::archive_reader::OwnerSigningKeyPair::generate()?);
+        Ok(lockbox)
+    }
+
+    #[cfg(feature = "vault-integration")]
+    pub(crate) fn open_path_with_secret_key_options(
+        path: impl AsRef<Path>,
+        key: crate::archive_reader::SecretVec,
+        options: LockboxOptions,
+        backup: Option<&[u8]>,
+    ) -> Result<Self> {
+        let path = HostPath::new(path);
+        Self::open_storage_with_secret_key_mode_and_backup(
+            StorageBackend::file(path.as_path())?,
+            key,
+            options,
+            false,
+            backup,
+        )
+    }
+
+    #[cfg(feature = "vault-integration")]
+    pub(crate) fn open_path_with_secret_key_options_for_write(
+        path: impl AsRef<Path>,
+        key: crate::archive_reader::SecretVec,
+        options: LockboxOptions,
+        backup: Option<&[u8]>,
+    ) -> Result<Self> {
+        let path = HostPath::new(path);
+        Self::open_storage_with_secret_key_mode_and_backup(
+            StorageBackend::file_for_write(path.as_path())?,
+            key,
+            options,
+            true,
+            backup,
+        )
+    }
+
+    #[cfg(test)]
+    pub(crate) fn create_path(path: impl AsRef<Path>, key: impl AsRef<[u8]>) -> Result<Self> {
+        Self::create_path_with_options(path, key, LockboxOptions::default())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn create_path_with_options(
+        path: impl AsRef<Path>,
+        key: impl AsRef<[u8]>,
+        options: LockboxOptions,
+    ) -> Result<Self> {
+        Self::create_path_with_lockbox_id_and_options(
+            path,
+            key,
+            crate::archive_reader::lockbox_id::LockboxId::new_random()?,
+            options,
+        )
+    }
+
+    #[cfg(test)]
+    pub(crate) fn create_path_with_lockbox_id_and_options(
+        path: impl AsRef<Path>,
+        key: impl AsRef<[u8]>,
+        lockbox_id: crate::archive_reader::lockbox_id::LockboxId,
+        options: LockboxOptions,
+    ) -> Result<Self> {
+        let key = crate::archive_reader::SecretVec::try_from_slice(key.as_ref())?;
+        let mut lockbox =
+            Self::create_path_with_secret_key_and_options(path, key, lockbox_id, options)?;
+        lockbox.set_owner_signing_key(crate::archive_reader::OwnerSigningKeyPair::generate()?);
+        Ok(lockbox)
+    }
+
+    pub(crate) fn create_path_with_secret_key_and_options(
+        path: impl AsRef<Path>,
+        key: crate::archive_reader::SecretVec,
+        lockbox_id: crate::archive_reader::lockbox_id::LockboxId,
+        options: LockboxOptions,
+    ) -> Result<Self> {
+        let path = HostPath::new(path);
+        let bytes =
+            crate::archive_reader::file_format::current_header::authenticated_initial_header(
+                lockbox_id, &key,
+            )?;
+        let mut lockbox = Self::open_storage_with_secret_key(
+            StorageBackend::create_file(path.as_path(), &bytes)?,
+            key,
+            options,
+        )?;
+        lockbox.lockbox_id = lockbox_id;
+        Ok(lockbox)
+    }
+
+    /// Write the current lockbox bytes to a host filesystem path.
+    ///
+    /// Returns `Error::Io` if the host write fails. Returns storage or
+    /// serialization errors if pending lockbox state cannot be materialized.
+    #[cfg(any(test, feature = "migration"))]
+    pub fn write_to_path(&self, path: impl AsRef<Path>) -> Result<()> {
+        let path = HostPath::new(path);
+        if self.storage.path() == Some(path.as_path()) {
+            return Err(Error::InvalidOperation(
+                "use commit to update the open backing archive".into(),
+            ));
+        }
+        StorageBackend::write_file(path.as_path(), &self.bytes()?)
+    }
+}

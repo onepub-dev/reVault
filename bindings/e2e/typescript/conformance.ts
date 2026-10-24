@@ -75,6 +75,10 @@ function archiveLifecycle() {
   box.clearDescription(); check(box.description === undefined, 'description cleared');
   box.setVariable('normal', 'value'); pass('lockbox_set_variable');
   check(box.getVariable('normal') === 'value', 'variable'); pass('lockbox_get_variable', 3);
+  box.itemDescription('variable', 'normal', { operation: 'set', text: 'Purpose\nSecond line' });
+  check(box.itemDescription('variable', 'normal') === 'Purpose\nSecond line', 'item description');
+  box.itemDescription('variable', 'normal', { operation: 'clear' });
+  pass('lockbox_item_description', 3);
   let moves = [{ source: 'normal', destination: 'moved' }];
   box.moveVariables(moves); check(box.getVariable('moved') === 'value', 'moved variable');
   moves = [{ source: 'moved', destination: 'normal' }];
@@ -242,6 +246,8 @@ function vaultLifecycle() {
   pass('vault_directory_remember_password'); pass('vault_directory_remembered_password', 3);
   const vaultForm = vault.defineForm('login', 'Login', 'Login form', fields()); vault.resolveForm('login'); vault.listForms();
   pass('vault_directory_define_form'); pass('vault_directory_resolve_form'); pass('vault_directory_list_forms');
+  check(vault.itemDescription('definition', 'login') === 'Login form', 'vault description');
+  pass('vault_directory_item_description');
   vault.listFormRevisions(vaultForm.typeId); pass('vault_directory_list_form_revisions', 2);
   vault.seedForms(); pass('vault_directory_seed_forms'); vault.listFormAliases(); pass('vault_directory_list_form_aliases');
   vault.forgetAccessSlotLabel(id, 7); vault.forgetLockbox(aliasPath); vault.deleteContact('bob');

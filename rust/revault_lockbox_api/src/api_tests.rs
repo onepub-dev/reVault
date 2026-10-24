@@ -3792,7 +3792,7 @@ fn salvage_omits_corrupt_file_records() {
 fn salvage_refuses_damaged_current_toc_without_inventing_membership() {
     // Historical format-2 salvage and credential retention are exercised by
     // migration_cli::damaged_format_two_recovers_with_current_cli_and_original_credentials
-    // using the packaged historical reader. Current creation always writes v4;
+    // using the packaged historical reader. Current creation always writes the current format;
     // changing protection options cannot create a historical representation.
     let mut source = Lockbox::create(KEY);
     add_file(
@@ -3812,7 +3812,7 @@ fn salvage_refuses_damaged_current_toc_without_inventing_membership() {
     );
     assert_eq!(
         crate::file_format::current_header::probe_lockbox_format_version(&damaged).unwrap(),
-        4
+        crate::LOCKBOX_FORMAT_VERSION
     );
     let scanner = crate::page_scanner::PageScanner::new(&damaged, source.lockbox_id(), KEY);
     let root = scanner
@@ -3845,7 +3845,7 @@ fn salvage_rejects_wrong_keys_but_retains_valid_empty_archives() {
     assert_eq!(
         crate::file_format::current_header::probe_lockbox_format_version(&recovered.to_bytes())
             .unwrap(),
-        4
+        crate::LOCKBOX_FORMAT_VERSION
     );
     assert_eq!(recovered.lockbox_id(), source.lockbox_id());
     let opened = Lockbox::open_bytes_with_key(recovered.to_bytes(), KEY).unwrap();
@@ -4594,6 +4594,7 @@ fn password(value: &str) -> SecretString {
 
 fn form_field(id: &str, label: &str, kind: FormFieldKind, required: bool) -> FormFieldDefinition {
     FormFieldDefinition {
+        description: None,
         id: id.to_string(),
         label: label.to_string(),
         kind,

@@ -1543,6 +1543,7 @@ pub(crate) const CLI_PUBLISH_PACKAGES: &[&str] = &[
     "revault_migrate_v1",
     "revault_migrate_v2",
     "revault_migrate_v3",
+    "revault_migrate_v4",
     "revault_migration",
     "revault_publish_protocol",
     "revault_key_server",
@@ -2009,7 +2010,7 @@ mod tests {
                 "container_version": release.native_version,
                 "raw_container_export": true,
                 "recovery": true,
-                "structure_versions": if release.native_version == 1 { vec![1, 2] } else { vec![release.native_version] },
+                "structure_versions": if release.native_version == 1 { vec![1, 2] } else if release.native_version == 4 { vec![3] } else { vec![release.native_version] },
                 "migration_schemas": if release.native_version == 1 { vec![1, 2] } else { vec![release.migration_schema] },
             }),
         }).collect();

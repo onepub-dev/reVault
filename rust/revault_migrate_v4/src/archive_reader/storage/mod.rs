@@ -1,0 +1,1073 @@
+pub(crate) mod archive_lock;
+pub(crate) mod atomic_file_replacement;
+mod private_archive_file;
+#[cfg(all(test, windows))]
+pub(crate) use private_archive_file::test_assert_owner_only;
+pub(crate) mod cache_options;
+pub(crate) mod file_lock;
+pub(crate) mod free_index;
+pub(crate) mod free_slot;
+pub(crate) mod page_cache;
+#[cfg(test)]
+pub(crate) mod shared_layout_tests;
+
+use crate::archive_reader::secret_vec::SecureVec;
+use crate::archive_reader::{Error, Result};
+#[cfg(test)]
+use std::cell::Cell;
+use std::fs;
+#[cfg(not(unix))]
+use std::io::Read;
+use std::io::{Seek, SeekFrom, Write};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
+
+pub(crate) trait Storage: Clone + std::fmt::Debug {
+    fn len(&self) -> Result<u64>;
+    fn read_at(&self, offset: u64, len: usize) -> Result<Vec<u8>>;
+    fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()>;
+    fn append(&mut self, bytes: &[u8]) -> Result<u64>;
+    /// Experimental paired writes. Complete candidate archives override placement
+    /// and audit failure-region separation; isolated index experiments may append.
+    #[cfg(test)]
+    fn append_pair(&mut self, bytes: &[u8]) -> Result<(u64, u64)> {
+        let primary = self.append(bytes)?;
+        let mirror = self.append(bytes)?;
+        Ok((primary, mirror))
+    }
+    fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()>;
+    fn truncate(&mut self, len: u64) -> Result<()>;
+    fn sync(&self) -> Result<()>;
+
+    fn read_at_secure(&self, offset: u64, len: usize) -> Result<SecureVec> {
+        let mut out = SecureVec::new();
+        out.resize_zeroed(len)?;
+        out.with_mut_bytes(|bytes| self.read_at_into(offset, bytes))??;
+        Ok(out)
+    }
+
+    fn read_all(&self) -> Result<Vec<u8>> {
+        let len = self.len()?;
+        if len > usize::MAX as u64 {
+            return Err(Error::SecurityLimitExceeded(
+                "vault is too large to materialize in memory".to_string(),
+            ));
+        }
+        self.read_at(0, len as usize)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum StorageBackend {
+    Memory(MemoryStore),
+    File(FileStore),
+    #[cfg(feature = "external-source")]
+    External(crate::archive_reader::external_source::ExternalStorage),
+}
+
+impl StorageBackend {
+    #[cfg(any(test, feature = "native-block-layout"))]
+    pub(crate) fn write_revision(&self) -> u64 {
+        match self {
+            Self::Memory(store) => store.revision,
+            Self::File(store) => store.revision.load(std::sync::atomic::Ordering::SeqCst),
+            #[cfg(feature = "external-source")]
+            Self::External(_) => 0, // Read-only session; its terminal source checks still apply.
+        }
+    }
+
+    #[cfg(any(test, feature = "native-block-layout"))]
+    pub(crate) fn current_len(&self) -> Result<u64> {
+        if let Self::File(store) = self {
+            let _file = store.lock_file()?;
+            #[cfg(unix)]
+            let current_len = store.identity.current_len(&store.path)?;
+            #[cfg(not(unix))]
+            let current_len = archive_lock::current_len(&_file, &store.path)?;
+            return current_len.ok_or_else(|| {
+                Error::LockUnavailable(format!(
+                    "archive was replaced; reopen {}",
+                    store.path.display()
+                ))
+            });
+        }
+        self.ensure_current()?;
+        self.len()
+    }
+
+    pub(crate) fn ensure_current(&self) -> Result<()> {
+        #[cfg(feature = "external-source")]
+        if let Self::External(store) = self {
+            return store.ensure_current();
+        }
+        if let Self::File(store) = self {
+            let file = store.lock_file()?;
+            store.ensure_current(&file)?;
+        }
+        Ok(())
+    }
+
+    /// Scope an immutable decoding snapshot so its source bytes are wiped even
+    /// when validation returns an error or unwinds.
+    #[cfg(any(test, feature = "native-block-layout"))]
+    pub(crate) fn with_read_snapshot<T>(
+        mut bytes: crate::archive_reader::page_buffer::ZeroizingBytes,
+        operation: impl FnOnce(&Self) -> Result<T>,
+    ) -> Result<T> {
+        struct Snapshot(StorageBackend);
+        impl Drop for Snapshot {
+            fn drop(&mut self) {
+                if let StorageBackend::Memory(store) = &mut self.0 {
+                    crate::archive_reader::page_buffer::zeroize_bytes(&mut store.bytes);
+                }
+            }
+        }
+        let snapshot = Snapshot(Self::memory(std::mem::take(&mut *bytes)));
+        operation(&snapshot.0)
+    }
+
+    pub(crate) fn memory(bytes: Vec<u8>) -> Self {
+        Self::Memory(MemoryStore::new(bytes))
+    }
+
+    pub(crate) fn file(path: impl AsRef<Path>) -> Result<Self> {
+        Ok(Self::File(FileStore::open(path, false)?))
+    }
+
+    pub(crate) fn file_for_write(path: impl AsRef<Path>) -> Result<Self> {
+        Ok(Self::File(FileStore::open(path, true)?))
+    }
+
+    pub(crate) fn file_for_recovery(path: impl AsRef<Path>) -> Result<Self> {
+        Self::file_for_write(path).map_err(|err| match err {
+            Error::Io(message) | Error::LockUnavailable(message) => Error::RecoveryBlocked(message),
+            other => other,
+        })
+    }
+
+    /// Preserve mode/DACL from the held source inode, never a fresh path lookup.
+    pub(crate) fn copy_file_permissions_to(&self, destination: &Self) -> Result<()> {
+        let (Self::File(source), Self::File(target)) = (self, destination) else {
+            return Err(Error::InvalidOperation(
+                "permission preservation requires file-backed storage".into(),
+            ));
+        };
+        if Arc::ptr_eq(&source.file, &target.file) {
+            return Ok(());
+        }
+        let source_file = source.lock_file()?;
+        source.ensure_current(&source_file)?;
+        let target_file = target.lock_file()?;
+        target.ensure_current(&target_file)?;
+        private_archive_file::copy_permissions(&source_file, &target_file)
+            .map_err(|e| Error::Io(e.to_string()))
+    }
+
+    #[cfg(any(test, feature = "migration", feature = "bindings"))]
+    fn copy_file_permissions_to_handle(&self, destination: &std::fs::File) -> Result<()> {
+        let Self::File(source) = self else {
+            return Err(Error::InvalidOperation(
+                "permission preservation requires file-backed storage".into(),
+            ));
+        };
+        let source_file = source.lock_file()?;
+        source.ensure_current(&source_file)?;
+        private_archive_file::copy_permissions(&source_file, destination)
+            .map_err(|e| Error::Io(e.to_string()))
+    }
+
+    pub(crate) fn create_file(path: impl AsRef<Path>, initial_bytes: &[u8]) -> Result<Self> {
+        Ok(Self::File(FileStore::create(path, initial_bytes)?))
+    }
+
+    #[cfg(any(test, feature = "migration"))]
+    pub(crate) fn write_file(path: &Path, bytes: &[u8]) -> Result<()> {
+        if !path.exists() {
+            Self::create_file(path, bytes)?;
+            return Ok(());
+        }
+        let _original = Self::file_for_write(path)?;
+        let (replacement, mut file) =
+            atomic_file_replacement::AtomicFileReplacement::create_unique(path, ".lockbox-write")?;
+        let result = (|| {
+            archive_lock::acquire(
+                &file,
+                replacement.temp_path(),
+                true,
+                std::time::Instant::now(),
+            )?;
+            file.write_all(bytes)
+                .map_err(|err| Error::Io(err.to_string()))?;
+            file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
+            _original.copy_file_permissions_to_handle(&file)?;
+            replacement.install()
+        })();
+        replacement.discard();
+        result
+    }
+
+    pub(crate) fn is_read_only(&self) -> bool {
+        #[cfg(feature = "external-source")]
+        if matches!(self, Self::External(_)) {
+            return true;
+        }
+        matches!(self, Self::File(store) if !store.writable)
+    }
+
+    #[cfg(feature = "bindings")]
+    pub(crate) fn publish(path: &Path, bytes: &[u8], overwrite: bool) -> Result<Self> {
+        if !overwrite
+            || !path
+                .try_exists()
+                .map_err(|err| Error::Io(err.to_string()))?
+        {
+            return Self::create_file(path, bytes);
+        }
+        let _original = Self::file_for_write(path)?;
+        let (replacement, mut file) =
+            atomic_file_replacement::AtomicFileReplacement::create_unique(
+                path,
+                ".lockbox-replace",
+            )?;
+        let result = (|| {
+            archive_lock::acquire(
+                &file,
+                replacement.temp_path(),
+                true,
+                std::time::Instant::now(),
+            )?;
+            #[cfg(unix)]
+            let identity = archive_lock::FileIdentity::capture(&file)?;
+            file.write_all(bytes)
+                .map_err(|err| Error::Io(err.to_string()))?;
+            file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
+            _original.copy_file_permissions_to_handle(&file)?;
+            replacement.install()?;
+            Ok(Self::File(FileStore {
+                path: path.to_path_buf(),
+                file: Arc::new(RwLock::new(file)),
+                #[cfg(unix)]
+                identity,
+                revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+                writable: true,
+            }))
+        })();
+        replacement.discard();
+        result
+    }
+
+    pub(crate) fn relocate(&mut self, path: &Path) {
+        if let Self::File(store) = self {
+            store.path = path.to_path_buf();
+        }
+    }
+
+    pub(crate) fn path(&self) -> Option<&Path> {
+        match self {
+            Self::Memory(_) => None,
+            #[cfg(feature = "external-source")]
+            Self::External(_) => None,
+            Self::File(store) => Some(store.path()),
+        }
+    }
+}
+
+impl Storage for StorageBackend {
+    fn read_at_secure(&self, offset: u64, len: usize) -> Result<SecureVec> {
+        #[cfg(feature = "external-source")]
+        if let Self::External(store) = self {
+            return store.read_at_secure(offset, len);
+        }
+        let mut out = SecureVec::new();
+        out.resize_zeroed(len)?;
+        out.with_mut_bytes(|bytes| self.read_at_into(offset, bytes))??;
+        Ok(out)
+    }
+
+    fn len(&self) -> Result<u64> {
+        match self {
+            Self::Memory(store) => store.len(),
+            Self::File(store) => store.len(),
+            #[cfg(feature = "external-source")]
+            Self::External(store) => store.len(),
+        }
+    }
+
+    fn read_at(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
+        match self {
+            Self::Memory(store) => store.read_at(offset, len),
+            Self::File(store) => store.read_at(offset, len),
+            #[cfg(feature = "external-source")]
+            Self::External(store) => store.read_at(offset, len),
+        }
+    }
+
+    fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()> {
+        match self {
+            Self::Memory(store) => store.read_at_into(offset, out),
+            Self::File(store) => store.read_at_into(offset, out),
+            #[cfg(feature = "external-source")]
+            Self::External(store) => store.read_at_into(offset, out),
+        }
+    }
+
+    fn append(&mut self, bytes: &[u8]) -> Result<u64> {
+        match self {
+            Self::Memory(store) => store.append(bytes),
+            Self::File(store) => store.append(bytes),
+            #[cfg(feature = "external-source")]
+            Self::External(store) => store.append(bytes),
+        }
+    }
+
+    fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()> {
+        match self {
+            Self::Memory(store) => store.write_at(offset, bytes),
+            Self::File(store) => store.write_at(offset, bytes),
+            #[cfg(feature = "external-source")]
+            Self::External(store) => store.write_at(offset, bytes),
+        }
+    }
+
+    fn truncate(&mut self, len: u64) -> Result<()> {
+        match self {
+            StorageBackend::Memory(store) => store.truncate(len),
+            StorageBackend::File(store) => store.truncate(len),
+            #[cfg(feature = "external-source")]
+            StorageBackend::External(store) => store.truncate(len),
+        }
+    }
+
+    fn sync(&self) -> Result<()> {
+        match self {
+            Self::Memory(store) => store.sync(),
+            Self::File(store) => store.sync(),
+            #[cfg(feature = "external-source")]
+            Self::External(store) => store.sync(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct MemoryStore {
+    revision: u64,
+    bytes: Vec<u8>,
+    #[cfg(test)]
+    fail_append_after_successes: Option<usize>,
+    #[cfg(any(test, feature = "test-support"))]
+    fail_next_write_at: Option<u64>,
+    #[cfg(test)]
+    fail_sync_after_successes: Cell<Option<usize>>,
+    #[cfg(test)]
+    fail_operation_after_successes: Cell<Option<usize>>,
+    #[cfg(test)]
+    operation_count: Cell<usize>,
+}
+
+impl MemoryStore {
+    fn new(bytes: Vec<u8>) -> Self {
+        Self {
+            bytes,
+            revision: 0,
+            #[cfg(test)]
+            fail_append_after_successes: None,
+            #[cfg(any(test, feature = "test-support"))]
+            fail_next_write_at: None,
+            #[cfg(test)]
+            fail_sync_after_successes: Cell::new(None),
+            #[cfg(test)]
+            fail_operation_after_successes: Cell::new(None),
+            #[cfg(test)]
+            operation_count: Cell::new(0),
+        }
+    }
+
+    #[cfg(test)]
+    fn fail_append_after_successes(&mut self, successes: usize) {
+        self.fail_append_after_successes = Some(successes);
+    }
+
+    #[cfg(any(test, feature = "test-support"))]
+    fn fail_next_write_at(&mut self, offset: u64) {
+        self.fail_next_write_at = Some(offset);
+    }
+
+    #[cfg(test)]
+    fn fail_sync_after_successes(&mut self, successes: usize) {
+        self.fail_sync_after_successes.set(Some(successes));
+    }
+
+    #[cfg(test)]
+    fn fail_operation_after_successes(&mut self, successes: usize) {
+        self.operation_count.set(0);
+        self.fail_operation_after_successes.set(Some(successes));
+    }
+
+    #[cfg(test)]
+    fn operation_count(&self) -> usize {
+        self.operation_count.get()
+    }
+
+    #[cfg(test)]
+    fn reset_operation_count(&self) {
+        self.operation_count.set(0);
+        self.fail_operation_after_successes.set(None);
+    }
+
+    #[cfg(test)]
+    fn should_fail_operation(&self) -> bool {
+        self.operation_count.set(self.operation_count.get() + 1);
+        let Some(remaining) = self.fail_operation_after_successes.get() else {
+            return false;
+        };
+        if remaining == 0 {
+            self.fail_operation_after_successes.set(None);
+            true
+        } else {
+            self.fail_operation_after_successes.set(Some(remaining - 1));
+            false
+        }
+    }
+
+    #[cfg(test)]
+    fn should_fail_append(&mut self) -> bool {
+        let Some(remaining) = self.fail_append_after_successes.as_mut() else {
+            return false;
+        };
+        if *remaining == 0 {
+            self.fail_append_after_successes = None;
+            true
+        } else {
+            *remaining -= 1;
+            false
+        }
+    }
+
+    #[cfg(any(test, feature = "test-support"))]
+    fn should_fail_write_at(&mut self, offset: u64) -> bool {
+        if self.fail_next_write_at == Some(offset) {
+            self.fail_next_write_at = None;
+            true
+        } else {
+            false
+        }
+    }
+
+    #[cfg(test)]
+    fn should_fail_sync(&self) -> bool {
+        let Some(remaining) = self.fail_sync_after_successes.get() else {
+            return false;
+        };
+        if remaining == 0 {
+            self.fail_sync_after_successes.set(None);
+            true
+        } else {
+            self.fail_sync_after_successes.set(Some(remaining - 1));
+            false
+        }
+    }
+}
+
+impl Storage for MemoryStore {
+    fn len(&self) -> Result<u64> {
+        Ok(self.bytes.len() as u64)
+    }
+
+    fn read_at(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
+        let start = offset as usize;
+        let end = start
+            .checked_add(len)
+            .ok_or_else(|| Error::Io("storage read offset overflow".to_string()))?;
+        if end > self.bytes.len() {
+            return Err(Error::Truncated);
+        }
+        Ok(self.bytes[start..end].to_vec())
+    }
+
+    fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()> {
+        let start = offset as usize;
+        let end = start
+            .checked_add(out.len())
+            .ok_or_else(|| Error::Io("storage read offset overflow".to_string()))?;
+        if end > self.bytes.len() {
+            return Err(Error::Truncated);
+        }
+        out.copy_from_slice(&self.bytes[start..end]);
+        Ok(())
+    }
+
+    fn append(&mut self, bytes: &[u8]) -> Result<u64> {
+        #[cfg(test)]
+        if self.should_fail_operation() {
+            return Err(Error::Io("injected storage operation failure".to_string()));
+        }
+        #[cfg(test)]
+        if self.should_fail_append() {
+            return Err(Error::Io("injected storage append failure".to_string()));
+        }
+        let offset = self.bytes.len() as u64;
+        self.bytes.extend_from_slice(bytes);
+        Ok(offset)
+    }
+
+    fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()> {
+        self.revision = self.revision.saturating_add(1);
+        #[cfg(test)]
+        if self.should_fail_operation() {
+            return Err(Error::Io("injected storage operation failure".to_string()));
+        }
+        #[cfg(any(test, feature = "test-support"))]
+        if self.should_fail_write_at(offset) {
+            return Err(Error::Io("injected storage write failure".to_string()));
+        }
+        let start = offset as usize;
+        let end = start
+            .checked_add(bytes.len())
+            .ok_or_else(|| Error::Io("storage write offset overflow".to_string()))?;
+        if end > self.bytes.len() {
+            return Err(Error::Io("storage write beyond end".to_string()));
+        }
+        self.bytes[start..end].copy_from_slice(bytes);
+        Ok(())
+    }
+
+    fn truncate(&mut self, len: u64) -> Result<()> {
+        self.revision = self.revision.saturating_add(1);
+        #[cfg(test)]
+        if self.should_fail_operation() {
+            return Err(Error::Io("injected storage operation failure".into()));
+        }
+        let len = usize::try_from(len)
+            .map_err(|_| Error::SecurityLimitExceeded("storage is too large".to_string()))?;
+        if len > self.bytes.len() {
+            return Err(Error::InvalidOperation(
+                "storage cannot be extended by truncate".to_string(),
+            ));
+        }
+        self.bytes.truncate(len);
+        Ok(())
+    }
+
+    fn sync(&self) -> Result<()> {
+        #[cfg(test)]
+        if self.should_fail_operation() {
+            return Err(Error::Io("injected storage operation failure".to_string()));
+        }
+        #[cfg(test)]
+        if self.should_fail_sync() {
+            return Err(Error::Io("injected storage sync failure".to_string()));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+impl StorageBackend {
+    pub(crate) fn fail_memory_operation_after_successes(&mut self, successes: usize) {
+        match self {
+            Self::Memory(store) => store.fail_operation_after_successes(successes),
+            _ => panic!("failure injection is only available for memory storage"),
+        }
+    }
+
+    pub(crate) fn memory_operation_count(&self) -> usize {
+        match self {
+            Self::Memory(store) => store.operation_count(),
+            _ => panic!("operation counting is only available for memory storage"),
+        }
+    }
+
+    pub(crate) fn reset_memory_operation_count(&self) {
+        match self {
+            Self::Memory(store) => store.reset_operation_count(),
+            _ => panic!("operation counting is only available for memory storage"),
+        }
+    }
+
+    pub(crate) fn fail_memory_append_after_successes(&mut self, successes: usize) {
+        match self {
+            Self::Memory(store) => store.fail_append_after_successes(successes),
+            _ => panic!("failure injection is only available for memory storage"),
+        }
+    }
+
+    pub(crate) fn fail_memory_next_write_at(&mut self, offset: u64) {
+        match self {
+            Self::Memory(store) => store.fail_next_write_at(offset),
+            _ => panic!("failure injection is only available for memory storage"),
+        }
+    }
+
+    pub(crate) fn fail_memory_sync_after_successes(&mut self, successes: usize) {
+        match self {
+            Self::Memory(store) => store.fail_sync_after_successes(successes),
+            _ => panic!("failure injection is only available for memory storage"),
+        }
+    }
+}
+
+#[cfg(feature = "test-support")]
+impl StorageBackend {
+    pub(crate) fn inject_test_write_failure_at(&mut self, offset: u64) {
+        match self {
+            Self::Memory(store) => store.fail_next_write_at(offset),
+            _ => panic!("test write failure is only available for memory storage"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct FileStore {
+    path: PathBuf,
+    // A single descriptor retains the archive lock across clones. Positional
+    // readers may share it, but mutations must still exclude all reads: a
+    // read_exact_at call can involve multiple kernel reads on a short read.
+    file: Arc<RwLock<std::fs::File>>,
+    #[cfg(unix)]
+    identity: archive_lock::FileIdentity,
+    revision: Arc<std::sync::atomic::AtomicU64>,
+    writable: bool,
+}
+
+impl FileStore {
+    fn open(path: impl AsRef<Path>, writable: bool) -> Result<Self> {
+        let path = path.as_ref().to_path_buf();
+        let file = archive_lock::open(&path, writable)?;
+        #[cfg(unix)]
+        let identity = archive_lock::FileIdentity::capture(&file)?;
+        Ok(Self {
+            path,
+            file: Arc::new(RwLock::new(file)),
+            #[cfg(unix)]
+            identity,
+            revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            writable,
+        })
+    }
+
+    fn create(path: impl AsRef<Path>, initial_bytes: &[u8]) -> Result<Self> {
+        let path = path.as_ref().to_path_buf();
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|err| Error::Io(err.to_string()))?;
+        }
+        // Initialize and lock privately before exclusive publication. Native
+        // rename-without-replacement also supports filesystems without hard links.
+        // Other targets retain their existing hard-link publication behavior.
+        let (replacement, mut file) =
+            atomic_file_replacement::AtomicFileReplacement::create_unique(
+                &path,
+                ".lockbox-create",
+            )?;
+        let mut temporary_moved = false;
+        let result = (|| {
+            archive_lock::acquire(&file, &path, true, std::time::Instant::now())?;
+            #[cfg(unix)]
+            let identity = archive_lock::FileIdentity::capture(&file)?;
+            file.write_all(initial_bytes)
+                .map_err(|err| Error::Io(err.to_string()))?;
+            file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "ios",
+                windows
+            ))]
+            let publication =
+                crate::archive_reader::lockbox::secure_output::publish_file_noreplace(
+                    replacement.temp_path(),
+                    &path,
+                )
+                .map(|()| true);
+            #[cfg(not(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "ios",
+                windows
+            )))]
+            let publication = fs::hard_link(replacement.temp_path(), &path).map(|()| false);
+            temporary_moved = publication.map_err(|err| {
+                if err.kind() == std::io::ErrorKind::AlreadyExists {
+                    Error::AlreadyExists(path.display().to_string())
+                } else {
+                    Error::Io(format!("publish {}: {err}", path.display()))
+                }
+            })?;
+            replacement.sync_parent()?;
+            Ok(Self {
+                path,
+                file: Arc::new(RwLock::new(file)),
+                #[cfg(unix)]
+                identity,
+                revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+                writable: true,
+            })
+        })();
+        // After a successful rename the old name is no longer ours. Never
+        // unlink a name that another actor could now have reused.
+        if !temporary_moved {
+            replacement.discard();
+        }
+        result
+    }
+
+    fn lock_file(&self) -> Result<std::sync::RwLockWriteGuard<'_, std::fs::File>> {
+        self.file
+            .write()
+            .map_err(|_| Error::Io("storage file lock poisoned".to_string()))
+    }
+
+    fn ensure_current(&self, _file: &std::fs::File) -> Result<()> {
+        #[cfg(unix)]
+        let current = self.identity.current_len(&self.path)?.is_some();
+        #[cfg(not(unix))]
+        let current = archive_lock::is_current(_file, &self.path)?;
+        if current {
+            Ok(())
+        } else {
+            Err(Error::LockUnavailable(format!(
+                "archive was replaced; reopen {}",
+                self.path.display()
+            )))
+        }
+    }
+
+    fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Storage for FileStore {
+    fn len(&self) -> Result<u64> {
+        Ok(self
+            .lock_file()?
+            .metadata()
+            .map_err(|err| Error::Io(format!("metadata {}: {err}", self.path.display())))?
+            .len())
+    }
+
+    fn read_at(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
+        let mut out = vec![0; len];
+        self.read_at_into(offset, &mut out)?;
+        Ok(out)
+    }
+
+    fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()> {
+        #[cfg(unix)]
+        let result = {
+            use std::os::unix::fs::FileExt;
+            let file = self
+                .file
+                .read()
+                .map_err(|_| Error::Io("storage file lock poisoned".to_string()))?;
+            file.read_exact_at(out, offset)
+        };
+        // Retain serialized cursor I/O where we do not have a cursor-independent
+        // exact read. In particular, Windows seek_read changes the file cursor.
+        #[cfg(not(unix))]
+        let result = {
+            let mut file = self.lock_file()?;
+            file.seek(SeekFrom::Start(offset))
+                .map_err(|err| Error::Io(format!("seek {}: {err}", self.path.display())))?;
+            file.read_exact(out)
+        };
+        result.map_err(|err| {
+            if err.kind() == std::io::ErrorKind::UnexpectedEof {
+                Error::Truncated
+            } else {
+                Error::Io(format!("read {}: {err}", self.path.display()))
+            }
+        })
+    }
+
+    fn append(&mut self, bytes: &[u8]) -> Result<u64> {
+        let mut file = self.lock_file()?;
+        self.ensure_current(&file)?;
+        let offset = file
+            .seek(SeekFrom::End(0))
+            .map_err(|err| Error::Io(format!("seek {}: {err}", self.path.display())))?;
+        file.write_all(bytes)
+            .map_err(|err| Error::Io(format!("append {}: {err}", self.path.display())))?;
+        Ok(offset)
+    }
+
+    fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::FileExt;
+            let file = self.lock_file()?;
+            self.ensure_current(&file)?;
+            // Advance while holding the write lock, before any possibly partial mutation.
+            let _ = self.revision.fetch_update(
+                std::sync::atomic::Ordering::SeqCst,
+                std::sync::atomic::Ordering::SeqCst,
+                |n| Some(n.saturating_add(1)),
+            );
+
+            file.write_all_at(bytes, offset)
+                .map_err(|err| Error::Io(format!("write {}: {err}", self.path.display())))
+        }
+        #[cfg(not(unix))]
+        {
+            let mut file = self.lock_file()?;
+            self.ensure_current(&file)?;
+            // Advance while holding the write lock, before any possibly partial mutation.
+            let _ = self.revision.fetch_update(
+                std::sync::atomic::Ordering::SeqCst,
+                std::sync::atomic::Ordering::SeqCst,
+                |n| Some(n.saturating_add(1)),
+            );
+
+            file.seek(SeekFrom::Start(offset))
+                .map_err(|err| Error::Io(format!("seek {}: {err}", self.path.display())))?;
+            file.write_all(bytes)
+                .map_err(|err| Error::Io(format!("write {}: {err}", self.path.display())))
+        }
+    }
+
+    fn truncate(&mut self, len: u64) -> Result<()> {
+        let file = self.lock_file()?;
+        self.ensure_current(&file)?;
+        // Advance while holding the write lock, before any possibly partial mutation.
+        let _ = self.revision.fetch_update(
+            std::sync::atomic::Ordering::SeqCst,
+            std::sync::atomic::Ordering::SeqCst,
+            |n| Some(n.saturating_add(1)),
+        );
+
+        file.set_len(len)
+            .map_err(|err| Error::Io(format!("truncate {}: {err}", self.path.display())))
+    }
+
+    fn sync(&self) -> Result<()> {
+        self.lock_file()?
+            .sync_data()
+            .map_err(|err| Error::Io(format!("sync {}: {err}", self.path.display())))
+    }
+}
+
+#[cfg(all(test, unix))]
+mod archive_lock_tests {
+    use super::*;
+    use std::time::Instant;
+
+    fn path(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "revault-{label}-{}",
+            crate::archive_reader::LockboxId::new_random().unwrap()
+        ))
+    }
+
+    #[test]
+    fn private_archive_creation_and_replacement_preserve_selected_mode() {
+        use std::os::unix::fs::PermissionsExt;
+        let path = path("private-archive-mode");
+        let store = StorageBackend::create_file(&path, b"original").unwrap();
+        assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o077, 0);
+        drop(store);
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).unwrap();
+        let (replacement, file) = atomic_file_replacement::AtomicFileReplacement::create_unique(
+            &path,
+            ".private-mode-test",
+        )
+        .unwrap();
+        assert_eq!(file.metadata().unwrap().permissions().mode() & 0o077, 0);
+        drop(file);
+        replacement.discard();
+        StorageBackend::write_file(&path, b"replacement").unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"replacement");
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o640
+        );
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn cached_identity_tracks_live_length_and_rejects_same_size_replacement() {
+        let path = path("cached-identity");
+        let held_path = path.with_extension("held");
+        let replacement_path = path.with_extension("replacement");
+        let store = StorageBackend::create_file(&path, b"original").unwrap();
+        let mut clone = store.clone();
+        assert_eq!(store.current_len().unwrap(), 8);
+        clone.append(b"more").unwrap();
+        assert_eq!(store.current_len().unwrap(), 12);
+        clone.truncate(3).unwrap();
+        assert_eq!(store.current_len().unwrap(), 3);
+        // Unit-level uncooperative changes cannot be produced by the public CLI.
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_len(2)
+            .unwrap();
+        assert_eq!(store.current_len().unwrap(), 2);
+        fs::rename(&path, &held_path).unwrap();
+        assert!(matches!(
+            store.current_len(),
+            Err(Error::LockUnavailable(_))
+        ));
+        fs::hard_link(&held_path, &path).unwrap();
+        assert_eq!(
+            clone.current_len().unwrap(),
+            2,
+            "same inode can be relinked"
+        );
+        fs::write(&replacement_path, b"xx").unwrap();
+        fs::rename(&replacement_path, &path).unwrap();
+        assert!(matches!(
+            store.current_len(),
+            Err(Error::LockUnavailable(_))
+        ));
+        assert!(matches!(
+            clone.ensure_current(),
+            Err(Error::LockUnavailable(_))
+        ));
+        assert!(matches!(
+            clone.write_at(0, b"NO"),
+            Err(Error::LockUnavailable(_))
+        ));
+        assert!(matches!(clone.truncate(0), Err(Error::LockUnavailable(_))));
+        assert_eq!(fs::read(&path).unwrap(), b"xx");
+        assert_eq!(fs::read(&held_path).unwrap(), b"or");
+        drop(store);
+        drop(clone);
+        let reopened = StorageBackend::file(&path).unwrap();
+        assert_eq!(reopened.current_len().unwrap(), 2);
+        assert_eq!(reopened.read_at(0, 2).unwrap(), b"xx");
+        drop(reopened);
+        fs::remove_file(path).unwrap();
+        fs::remove_file(held_path).unwrap();
+    }
+
+    #[test]
+    fn positional_reads_share_the_handle_without_moving_its_cursor() {
+        let path = path("positional-reads");
+        let bytes: Vec<u8> = (0..131_072).map(|i| (i % 251) as u8).collect();
+        let store = FileStore::create(&path, &bytes).unwrap();
+        store
+            .lock_file()
+            .unwrap()
+            .seek(SeekFrom::Start(37))
+            .unwrap();
+        let read_guard = store.file.read().unwrap();
+        let clone = store.clone();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            sender.send(clone.read_at(12_345, 65_537)).unwrap();
+        });
+        // A held read guard must not serialize another positional reader. Drop
+        // it before joining even on timeout so a regression cannot hang tests.
+        let result = receiver.recv_timeout(std::time::Duration::from_secs(5));
+        drop(read_guard);
+        worker.join().unwrap();
+        assert_eq!(result.unwrap().unwrap(), bytes[12_345..77_882]);
+        assert_eq!(store.lock_file().unwrap().stream_position().unwrap(), 37);
+        assert!(matches!(
+            store.read_at(bytes.len() as u64 - 1, 2),
+            Err(Error::Truncated)
+        ));
+        assert!(store.read_at(bytes.len() as u64, 0).unwrap().is_empty());
+        drop(store);
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn positional_writes_preserve_cursor_and_append_at_the_actual_end() {
+        let path = path("positional-writes");
+        let mut store = FileStore::create(&path, b"01234567").unwrap();
+        store.lock_file().unwrap().seek(SeekFrom::Start(3)).unwrap();
+        store.write_at(2, b"AB").unwrap();
+        assert_eq!(store.lock_file().unwrap().stream_position().unwrap(), 3);
+        assert_eq!(store.append(b"89").unwrap(), 8);
+        store.write_at(12, b"Z").unwrap();
+        assert_eq!(store.lock_file().unwrap().stream_position().unwrap(), 10);
+        assert_eq!(store.append(b"!").unwrap(), 13);
+        store.sync().unwrap();
+        drop(store);
+        assert_eq!(fs::read(&path).unwrap(), b"01AB456789\0\0Z!");
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn cloned_positional_readers_observe_complete_writes_and_serialized_appends() {
+        let path = path("positional-mutations");
+        let size = 131_072;
+        let store = FileStore::create(&path, &vec![0; size]).unwrap();
+        std::thread::scope(|scope| {
+            for id in 1..=4u8 {
+                let mut clone = store.clone();
+                scope.spawn(move || {
+                    for _ in 0..32 {
+                        clone.write_at(0, &vec![id; size]).unwrap();
+                        let bytes = clone.read_at(0, size).unwrap();
+                        assert!(bytes.iter().all(|byte| *byte == bytes[0]));
+                        let offset = clone.append(&[id; 64]).unwrap();
+                        assert!(offset >= size as u64);
+                        assert_eq!(clone.read_at(offset, 64).unwrap(), [id; 64]);
+                    }
+                });
+            }
+        });
+        assert_eq!(store.len().unwrap(), (size + 4 * 32 * 64) as u64);
+        let mut clone = store.clone();
+        clone.truncate(1).unwrap();
+        assert!(matches!(store.read_at(0, 2), Err(Error::Truncated)));
+        drop(clone);
+        drop(store);
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn cloned_storage_retains_lock_and_replaced_writer_is_rejected() {
+        let path = path("clone-lock");
+        let store = StorageBackend::create_file(&path, b"original").unwrap();
+        let mut clone = store.clone();
+        drop(store);
+        let other = std::fs::File::open(&path).unwrap();
+        let deadline = Instant::now() - file_lock::lock_timeout();
+        assert!(matches!(
+            archive_lock::acquire(&other, &path, false, deadline),
+            Err(Error::LockUnavailable(_))
+        ));
+        let replacement_path = path.with_extension("replacement");
+        let replacement = StorageBackend::create_file(&replacement_path, b"replacement").unwrap();
+        // Simulate publication by a rewrite owning the original shared handle.
+        fs::rename(&replacement_path, &path).unwrap();
+        assert!(matches!(
+            clone.write_at(0, b"bad"),
+            Err(Error::LockUnavailable(_))
+        ));
+        assert_eq!(fs::read(&path).unwrap(), b"replacement");
+        assert_eq!(
+            clone.len().unwrap(),
+            8,
+            "length follows the original handle"
+        );
+        drop(clone);
+        drop(replacement);
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn nested_vault_guard_retains_lock_after_outer_guard_drops() {
+        use super::file_lock::{FileLockScope, ScopedFileLock};
+        let path = path("nested-vault-lock");
+        let outer = ScopedFileLock::acquire(&path, FileLockScope::Vault).unwrap();
+        let inner = ScopedFileLock::acquire(&path, FileLockScope::Vault).unwrap();
+        drop(outer);
+        let sidecar = file_lock::lock_path_for(&path);
+        let other = std::fs::File::open(&sidecar).unwrap();
+        let deadline = Instant::now() - file_lock::lock_timeout();
+        assert!(matches!(
+            archive_lock::acquire(&other, &sidecar, false, deadline),
+            Err(Error::LockUnavailable(_))
+        ));
+        drop(inner);
+        archive_lock::acquire(&other, &sidecar, false, Instant::now()).unwrap();
+        drop(other);
+        fs::remove_file(sidecar).unwrap();
+    }
+}

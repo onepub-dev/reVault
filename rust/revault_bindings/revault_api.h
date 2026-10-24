@@ -156,6 +156,10 @@ bool lockbox_set_variable(void *handle, const char *name, size_t name_len, const
 bool lockbox_set_secret_variable(void *handle, const char *name, size_t name_len, const uint8_t *value, size_t value_len);
 /** Returns variable. */
 RevaultBuffer lockbox_get_variable(const void *handle, const char *name, size_t name_len);
+/** Get/set/clear item guidance via UTF-8 JSON {target, reference, operation, field?, text?}; returns OptionalString. Commit Lockbox writes. */
+RevaultBuffer lockbox_item_description(const void *handle, const char *request, size_t request_len);
+/** Same request/result contract for reusable vault definitions and fields; writes commit immediately. */
+RevaultBuffer vault_directory_item_description(const void *handle, const char *request, size_t request_len);
 /** Returns an opaque secret handle through `output`; inspect, copy, and free it promptly. */
 bool lockbox_get_secret_variable(const void *handle, const char *name, size_t name_len, void **output);
 /** Removes variable. */

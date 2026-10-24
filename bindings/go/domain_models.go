@@ -50,6 +50,10 @@ type FormField struct {
 	Kind string
 	// Required: Whether a record must provide a value for this field.
 	Required bool
+	// Description: Multiline guidance captured by this field definition revision.
+	Description string
+	// HasDescription: Whether guidance is present, including explicitly empty text.
+	HasDescription bool
 }
 
 // FormDefinition represents a versioned form schema used to validate and label structured records in a lockbox.
@@ -96,6 +100,10 @@ type FormRecord struct {
 	DefinitionRevision uint32
 	// Values: Ordered non-secret field metadata and values.
 	Values []FormValue
+	// Description: Multiline context specific to this record.
+	Description string
+	// HasDescription: Whether the record description is present, including empty text.
+	HasDescription bool
 }
 
 // RecoveryReport represents the files and metadata recovered, or found damaged, while inspecting or salvaging a lockbox.
@@ -290,6 +298,10 @@ type Variable struct {
 	Name string
 	// Sensitivity: Whether the value is ordinary text or a protected secret.
 	Sensitivity string
+	// Description: Multiline description stored with this variable.
+	Description string
+	// HasDescription: Whether the variable description is present, including empty text.
+	HasDescription bool
 }
 
 // OwnerInspection represents whether a lockbox is owner-signed and, when available, the signing-key fingerprint.
@@ -411,6 +423,8 @@ func domainFormField(value *transport.FormFieldT) *FormField {
 	result.Label = value.Label
 	result.Kind = value.Kind
 	result.Required = value.Required
+	result.Description = value.Description
+	result.HasDescription = value.HasDescription
 	return result
 }
 func decodeFormField(bytes []byte) *FormField {
@@ -467,6 +481,8 @@ func domainFormRecord(value *transport.FormRecordT) *FormRecord {
 	for _, item := range value.Values {
 		result.Values = append(result.Values, *domainFormValue(item))
 	}
+	result.Description = value.Description
+	result.HasDescription = value.HasDescription
 	return result
 }
 func decodeFormRecord(bytes []byte) *FormRecord {
@@ -711,6 +727,8 @@ func domainVariable(value *transport.VariableT) *Variable {
 	result := &Variable{}
 	result.Name = value.Name
 	result.Sensitivity = value.Sensitivity
+	result.Description = value.Description
+	result.HasDescription = value.HasDescription
 	return result
 }
 func decodeVariable(bytes []byte) *Variable {
@@ -971,7 +989,7 @@ func encodePathMoves(values []PathMove) []byte {
 func encodeFormFields(values []FormField) []byte {
 	items := make([]*transport.FormFieldT, 0, len(values))
 	for _, value := range values {
-		items = append(items, &transport.FormFieldT{Id: value.Id, Label: value.Label, Kind: value.Kind, Required: value.Required})
+		items = append(items, &transport.FormFieldT{Id: value.Id, Label: value.Label, Kind: value.Kind, Required: value.Required, Description: value.Description, HasDescription: value.HasDescription})
 	}
 	builder := flatbuffers.NewBuilder(256)
 	root := (&transport.FormFieldListT{Values: items}).Pack(builder)

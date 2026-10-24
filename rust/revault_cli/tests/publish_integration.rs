@@ -30,7 +30,7 @@ fn cli_publish_and_receive_with_two_servers() {
     let _agent_guard = common::TestAgentGuard::new(&agent_root, Some(&vault_root));
     init_vault_with_email(bin, &vault_root, &agent_root, "alice@example.test");
 
-    let publish = publish_contact(bin, &vault_root, &agent_root, &cluster.topology_url());
+    let publish = publish_contact(bin, &vault_root, &agent_root, &cluster);
     let owner = cluster.owner_store(&publish.publish_code);
     let verified = owner.verify_email(&publish.verified_query_code, &publish.verified_query_token);
     assert!(verified.success, "profile verification did not succeed");
@@ -59,7 +59,13 @@ fn cli_publish_and_receive_with_two_servers() {
     assert!(receive_text.contains("contact=received"));
     assert!(receive_text.contains("fingerprint_verified=yes"));
 
-    let direct = publish_contact_to_server(bin, &vault_root, &agent_root, &cluster.primary_url());
+    let direct = publish_contact_to_server(
+        bin,
+        &vault_root,
+        &agent_root,
+        &cluster.primary_url(),
+        &cluster.primary.store,
+    );
     let verified = cluster
         .primary
         .store
@@ -100,7 +106,7 @@ fn cli_publish_can_be_received_from_failover_path() {
     let _agent_guard = common::TestAgentGuard::new(&agent_root, Some(&vault_root));
     init_vault_with_email(bin, &vault_root, &agent_root, "alice@example.test");
 
-    let publish = publish_contact(bin, &vault_root, &agent_root, &cluster.topology_url());
+    let publish = publish_contact(bin, &vault_root, &agent_root, &cluster);
     let owner_store = cluster.owner_store(&publish.publish_code);
     let (owner_id, _secondary_id) = cluster
         .publish_locator(&publish.publish_code)
@@ -170,8 +176,9 @@ fn publish_contact(
     bin: &str,
     vault_root: &PathBuf,
     agent_root: &PathBuf,
-    topology_url: &str,
+    cluster: &TwoServerCluster,
 ) -> PublishedProfile {
+    let topology_url = cluster.topology_url();
     let publish = run_output_in(
         bin,
         &[
@@ -179,7 +186,7 @@ fn publish_contact(
             "profile",
             "publish",
             "--topology-url",
-            topology_url,
+            &topology_url,
             "--ttl",
             "300",
             "--max-receives",
@@ -189,7 +196,10 @@ fn publish_contact(
         agent_root,
     );
     assert_success(&publish);
-    parse_publish_output(&String::from_utf8_lossy(&publish.stdout))
+    let mut published = parse_publish_output(&String::from_utf8_lossy(&publish.stdout));
+    let owner = cluster.owner_store(&published.publish_code);
+    fill_development_verification(&mut published, owner);
+    published
 }
 
 fn publish_contact_to_server(
@@ -197,6 +207,7 @@ fn publish_contact_to_server(
     vault_root: &PathBuf,
     agent_root: &PathBuf,
     server: &str,
+    store: &PublishStore,
 ) -> PublishedProfile {
     let publish = run_output_in(
         bin,
@@ -215,7 +226,9 @@ fn publish_contact_to_server(
         agent_root,
     );
     assert_success(&publish);
-    parse_publish_output(&String::from_utf8_lossy(&publish.stdout))
+    let mut published = parse_publish_output(&String::from_utf8_lossy(&publish.stdout));
+    fill_development_verification(&mut published, store);
+    published
 }
 
 fn init_vault_with_email(bin: &str, vault_root: &PathBuf, agent_root: &PathBuf, email: &str) {
@@ -231,7 +244,7 @@ fn init_vault_with_email(bin: &str, vault_root: &PathBuf, agent_root: &PathBuf, 
 fn parse_publish_output(text: &str) -> PublishedProfile {
     let mut publish_code = None;
     let mut contact_fingerprint = None;
-    let mut verification_url = None;
+    assert!(!text.contains("verification_url="));
 
     for line in text.lines() {
         if let Some(value) = line.strip_prefix("publish_code=") {
@@ -242,24 +255,27 @@ fn parse_publish_output(text: &str) -> PublishedProfile {
             contact_fingerprint = Some(value.to_string());
             continue;
         }
-        if let Some(value) = line.strip_prefix("verification_url=") {
-            verification_url = Some(value.to_string());
-        }
     }
 
     let publish_code = publish_code.expect("publish output did not include publish_code");
     let contact_fingerprint =
         contact_fingerprint.expect("publish output did not include contact_fingerprint");
-    let verification_url =
-        verification_url.expect("publish output did not include verification_url");
-    let (verified_query_code, verified_query_token) = verification_query_parts(&verification_url);
-
     PublishedProfile {
         publish_code,
         contact_fingerprint,
-        verified_query_code,
-        verified_query_token,
+        verified_query_code: String::new(),
+        verified_query_token: String::new(),
     }
+}
+
+fn fill_development_verification(published: &mut PublishedProfile, store: &PublishStore) {
+    let url = store
+        .pending_verification_url_for_development(&published.publish_code)
+        .expect("development server retained verification URL locally");
+    (
+        published.verified_query_code,
+        published.verified_query_token,
+    ) = verification_query_parts(&url);
 }
 
 fn verification_query_parts(url: &str) -> (String, String) {

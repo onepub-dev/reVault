@@ -669,6 +669,14 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxSetSecretVariable($this->handle, $name, $value);
     }
 
+    /** Get/set/clear encrypted guidance; commit Lockbox writes. Fields belong to definitions. */
+    public function itemDescription(string $target, string $reference, string $operation = 'get', ?string $field = null, ?string $text = null): ?string
+    {
+        $request = json_encode(compact('target', 'reference', 'operation', 'field', 'text'), JSON_THROW_ON_ERROR);
+        $value = $this->operations->lockboxItemDescription($this->handle, $request);
+        return $value->getPresent() ? $value->getValue() : null;
+    }
+
     /** Returns a plain variable, or null when it is absent. */
     public function getVariable(string $name): ?string
     {
@@ -1127,6 +1135,14 @@ class VaultStore extends OwnedHandle
     public function storeProfileEmail(string $name, string $email): bool
     {
         return $this->operations->vaultDirectoryStoreProfileEmail($this->handle, $name, $email);
+    }
+
+    /** Get/set/clear encrypted guidance; commit Lockbox writes. Fields belong to definitions. */
+    public function itemDescription(string $target, string $reference, string $operation = 'get', ?string $field = null, ?string $text = null): ?string
+    {
+        $request = json_encode(compact('target', 'reference', 'operation', 'field', 'text'), JSON_THROW_ON_ERROR);
+        $value = $this->operations->vaultDirectoryItemDescription($this->handle, $request);
+        return $value->getPresent() ? $value->getValue() : null;
     }
 
     /** Returns the email recorded for a profile, when present. */

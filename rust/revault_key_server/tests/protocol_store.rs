@@ -929,7 +929,10 @@ fn encoded_requests_are_accepted_by_store_handler() {
     let delete_token = reader.bytes().unwrap();
     let _expires_at_ms = reader.u64().unwrap();
     let _max_receives = reader.u16().unwrap();
-    let verification_url = reader.string().unwrap();
+    assert!(reader.is_done());
+    let verification_url = store
+        .pending_verification_url_for_development(&publish_code)
+        .unwrap();
     let (code, token) = verification_query_parts(&verification_url);
     assert_eq!(code, publish_code);
     assert!(store.verify_email(&code, &token).success);
@@ -979,7 +982,11 @@ fn client_api_can_receive_publish_and_delete() {
         )
         .unwrap();
     assert_eq!(published.max_receives, 2);
-    let (code, token) = verification_query_parts(published.verification_url.as_deref().unwrap());
+    assert!(published.verification_url.is_none());
+    let verification_url = store
+        .pending_verification_url_for_development(&published.publish_code)
+        .unwrap();
+    let (code, token) = verification_query_parts(&verification_url);
     assert_eq!(code, published.publish_code);
     assert!(store.verify_email(&code, &token).success);
 

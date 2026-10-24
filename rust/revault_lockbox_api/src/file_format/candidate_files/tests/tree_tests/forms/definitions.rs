@@ -6,12 +6,14 @@ use tree_image::forms::{
 fn fields(kind: FormFieldKind) -> Vec<FormFieldDefinition> {
     vec![
         FormFieldDefinition {
+            description: None,
             id: "value".into(),
             label: "Value".into(),
             kind,
             required: true,
         },
         FormFieldDefinition {
+            description: None,
             id: "keep".into(),
             label: "Keep".into(),
             kind: FormFieldKind::Text,
@@ -595,6 +597,7 @@ fn typed_form_definition_aggregate_normal_metadata_and_per_text_limits_all_modes
     let description = "d".repeat(size);
     let fields = (0..9)
         .map(|n| FormFieldDefinition {
+            description: None,
             id: format!("field_{n}"),
             label: if n == 0 {
                 "x".repeat(65535) + "🦀" + &"x".repeat(size - 65539)
@@ -1103,6 +1106,7 @@ fn typed_form_definition_and_empty_record_atomic_recovery_faults() {
         for operation in 0..2 {
             let path = LockboxPath::new("/atomic/nested/record").unwrap();
             let new_fields = vec![FormFieldDefinition {
+                description: None,
                 id: "password".into(),
                 label: "Revised label".into(),
                 kind: FormFieldKind::Secret,
@@ -1121,6 +1125,7 @@ fn typed_form_definition_and_empty_record_atomic_recovery_faults() {
                 new_defs.sort_by(|a, b| (&a.type_id, a.revision).cmp(&(&b.type_id, b.revision)));
             } else {
                 new_records.push(FormRecord {
+                    description: None,
                     path: path.clone(),
                     name: "Empty record".into(),
                     type_id: type_id.clone(),

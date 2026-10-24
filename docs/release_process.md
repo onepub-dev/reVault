@@ -5,6 +5,9 @@ The CLI and public language bindings are released from validated commits on
 Publishing requires explicit authorization. Never replace an already-public
 version, tag, or artifact with different code.
 
+For the October 2026 security fixes, also complete the
+[security release TODO](security_release_todo.md) before and after publication.
+
 An immutable candidate reference may retain an exact commit already pushed to
 `main`. It must not contain separate, unmerged release changes. Before tagging
 or promoting, verify that the recorded candidate commit belongs to remote
@@ -14,17 +17,19 @@ or promoting, verify that the recorded candidate commit belongs to remote
 
 The public compatibility line is `0.minor` before 1.0 and the major version from
 1.0 onward. CLI and binding patches may advance independently within a line.
-`0.4.x` identifies archive format 3; `0.5.x` identifies archive format 4.
+`0.4.x` identifies archive format 3; `0.5.x` identifies archive format 4;
+`0.6.x` identifies archive format 5.
 Validate requested public versions against the declared archive and Vault line
 before preparation and publication, including single-component releases.
 Internal implementation package versions do not identify the archive format.
 
 Historical packages are selected by the source archive/container version:
-`revault_migrate_v1`, `revault_migrate_v2`, and `revault_migrate_v3`. Each contains
+`revault_migrate_v1`, `revault_migrate_v2`, `revault_migrate_v3`, and
+`revault_migrate_v4`. Each contains
 archive and Vault export commands and bundled historical reader code. Container
 1 includes Vault structures 1 and 2; container 2 includes structure 2; container
-3 includes structure 3. Preserve every supported combination and the original
-source provenance and licenses.
+3 includes structure 3; container 4 includes structure 3. Preserve every
+supported combination and the original source provenance and licenses.
 
 Do not publish separate test-fixture or historical reader packages. Mark test
 packages `publish = false`, use path-only development dependencies where
@@ -114,7 +119,7 @@ gh workflow run revault_cli-v-release.yml --ref main \
 ```
 
 This mode publishes only `revault_secure_memory`, `revault_migration_format`,
-and the three historical exporter packages, in dependency order. It does not
+and the four historical exporter packages, in dependency order. It does not
 publish the CLI or current API libraries. Omit `publish=true` for package dry
 runs. Existing non-yanked versions are skipped, so a retry resumes after a
 partial failure. The selected SHA must match the workflow's checked-out main

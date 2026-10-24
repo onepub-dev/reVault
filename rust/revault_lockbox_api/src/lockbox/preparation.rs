@@ -257,6 +257,7 @@ mod tests {
             "login",
             "Login",
             vec![crate::FormFieldDefinition {
+                description: None,
                 id: "name".into(),
                 label: "Name".into(),
                 kind: crate::FormFieldKind::Text,

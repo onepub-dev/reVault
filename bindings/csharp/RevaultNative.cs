@@ -138,6 +138,10 @@ internal static partial class RevaultNative
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern RevaultBuffer lockbox_get_variable(IntPtr handle, IntPtr name, nuint name_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern RevaultBuffer lockbox_item_description(IntPtr handle, IntPtr name, nuint name_len);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern RevaultBuffer vault_directory_item_description(IntPtr handle, IntPtr name, nuint name_len);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
     public static extern bool lockbox_get_secret_variable(IntPtr handle, IntPtr name, nuint name_len, out IntPtr output);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]

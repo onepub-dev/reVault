@@ -49,7 +49,7 @@ inline bindings::PathMove convert(const internal::PathMoveT& value) {
   return {value.source, value.destination};
 }
 inline bindings::FormField convert(const internal::FormFieldT& value) {
-  return {value.id, value.label, value.kind, value.required};
+  return {value.id, value.label, value.kind, value.required, value.description, value.has_description};
 }
 inline bindings::FormDefinition convert(const internal::FormDefinitionT& value) {
   return {value.type_id, value.alias, value.revision, value.name, value.description, convert_owned_vector<bindings::FormField>(value.fields)};
@@ -58,7 +58,7 @@ inline bindings::FormValue convert(const internal::FormValueT& value) {
   return {value.field_id, value.label, value.kind, value.value, value.secret};
 }
 inline bindings::FormRecord convert(const internal::FormRecordT& value) {
-  return {value.path, value.name, value.type_id, value.definition_alias, value.definition_revision, convert_owned_vector<bindings::FormValue>(value.values)};
+  return {value.path, value.name, value.type_id, value.definition_alias, value.definition_revision, convert_owned_vector<bindings::FormValue>(value.values), value.description, value.has_description};
 }
 inline bindings::RecoveryReport convert(const internal::RecoveryReportT& value) {
   return {convert_owned_vector<bindings::LockboxEntry>(value.intact_files), value.intact_file_count, value.partial_files, value.corrupt_records, value.toc_recovered, value.variables_recovered, value.variable_count, value.forms_recovered, value.form_definition_count, value.form_record_count};
@@ -103,7 +103,7 @@ inline bindings::RuntimeOptions convert(const internal::RuntimeOptionsT& value) 
   return {value.workload_profile, value.worker_policy};
 }
 inline bindings::Variable convert(const internal::VariableT& value) {
-  return {value.name, value.sensitivity};
+  return {value.name, value.sensitivity, value.description, value.has_description};
 }
 inline bindings::OwnerInspection convert(const internal::OwnerInspectionT& value) {
   return {value.signed_, value.fingerprint, value.has_fingerprint};
@@ -279,7 +279,7 @@ std::string encode_moves(const bindings::PathMoveList& values) {
 }
 std::string encode_fields(const bindings::FormFieldList& values) {
   internal::FormFieldListT transport;
-  for (const auto& value : values) { auto item = std::make_unique<internal::FormFieldT>(); item->id = value.id; item->label = value.label; item->kind = value.kind; item->required = value.required; transport.values.push_back(std::move(item)); }
+  for (const auto& value : values) { auto item = std::make_unique<internal::FormFieldT>(); item->id = value.id; item->label = value.label; item->kind = value.kind; item->required = value.required; item->description = value.description; item->has_description = value.has_description; transport.values.push_back(std::move(item)); }
   flatbuffers::FlatBufferBuilder builder; builder.Finish(internal::FormFieldList::Pack(builder, &transport));
   return {reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize()};
 }

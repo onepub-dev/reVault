@@ -8,7 +8,7 @@ use crate::storage::{Storage, StorageBackend};
 use crate::{ArtifactKind, Error, Result};
 
 /// Current native lockbox format written by the crash-recoverable protocol.
-pub const LOCKBOX_FORMAT_VERSION: u16 = 4;
+pub const LOCKBOX_FORMAT_VERSION: u16 = 5;
 pub(crate) const HEADER_LEN: usize = header_v2::REGION_LEN;
 const V1_HEADER_LEN: usize = 96;
 const V1_CHECKSUM_START: usize = 64;
@@ -137,10 +137,9 @@ pub(crate) fn read_header(bytes: &[u8]) -> Result<LockboxHeader> {
             supported: u32::from(LOCKBOX_FORMAT_VERSION),
         });
     }
-    if bytes
-        .get(..8)
-        .is_some_and(|magic| magic == b"LBX2HDR\0" || magic == b"LBX3HDR\0")
-    {
+    if bytes.get(..8).is_some_and(|magic| {
+        magic == b"LBX2HDR\0" || magic == b"LBX3HDR\0" || magic == b"LBX4HDR\0"
+    }) {
         return Err(Error::UnsupportedFormatVersion {
             artifact: ArtifactKind::Lockbox,
             found: u32::from(probe_lockbox_format_version(bytes)?),
@@ -218,7 +217,7 @@ fn future_format_version(bytes: &[u8]) -> Option<u16> {
                 return None;
             }
             let version = u16::from_le_bytes([slot[8], slot[9]]);
-            (slot[..8] == *b"LBX4HDR\0"
+            (slot[..8] == *header_v2::MAGIC
                 && version > LOCKBOX_FORMAT_VERSION
                 && slot[160..192] == strong_checksum(&slot[..160]))
             .then_some(version)
@@ -238,6 +237,14 @@ pub fn probe_lockbox_format_version(bytes: &[u8]) -> Result<u16> {
         return probe_v1(bytes);
     }
     // A discriminator only: historical decoding lives in versioned exporters.
+    for slot in bytes.chunks_exact(192).take(2) {
+        if &slot[..8] == b"LBX4HDR\0"
+            && read_u16_le(&slot[8..10])? == 4
+            && slot[160..192] == strong_checksum(&slot[..160])
+        {
+            return Ok(4);
+        }
+    }
     let mut historical = None;
     for slot in bytes.chunks_exact(160).take(2) {
         let version = read_u16_le(&slot[8..10])?;
@@ -280,25 +287,25 @@ mod tests {
 
     #[test]
     fn future_magic_does_not_require_the_current_layout_or_checksum() {
-        let prefix = b"LBX5HDR\0\x05\0";
-        assert_eq!(probe_lockbox_format_version(prefix).unwrap(), 5);
+        let prefix = b"LBX6HDR\0\x06\0";
+        assert_eq!(probe_lockbox_format_version(prefix).unwrap(), 6);
         for offset in [0, header_v2::SLOT_LEN] {
             let mut bytes = Vec::new();
             write_header(&mut bytes, 100, 4, 200, LockboxId::from_bytes([7; 16]), 300);
             bytes[offset..offset + prefix.len()].copy_from_slice(prefix);
             let unchanged = bytes.clone();
-            assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 5);
+            assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 6);
             assert!(matches!(
                 read_header(&bytes),
                 Err(Error::UnsupportedFormatVersion {
-                    found: 5,
-                    supported: 4,
+                    found: 6,
+                    supported: 5,
                     ..
                 })
             ));
             assert!(matches!(
                 read_header_for_scan(&bytes),
-                Err(Error::UnsupportedFormatVersion { found: 5, .. })
+                Err(Error::UnsupportedFormatVersion { found: 6, .. })
             ));
             assert_eq!(bytes, unchanged);
         }
@@ -310,25 +317,25 @@ mod tests {
 
     #[test]
     fn future_magic_requires_a_complete_matching_discriminator() {
-        for prefix in [b"LBX5HDR\0\x04\0", b"LBX4HDR\0\x05\0", b"XYZ5HDR\0\x05\0"] {
+        for prefix in [b"LBX6HDR\0\x04\0", b"LBX4HDR\0\x06\0", b"XYZ5HDR\0\x06\0"] {
             assert!(probe_lockbox_format_version(prefix).is_err());
         }
-        assert!(probe_lockbox_format_version(b"LBX5HDR\0").is_err());
+        assert!(probe_lockbox_format_version(b"LBX6HDR\0").is_err());
     }
 
     #[test]
     fn future_discriminator_requires_checksum_and_refuses_either_slot() {
         for slot in [0, 192] {
             let mut bytes = vec![0; 384];
-            bytes[slot..slot + 8].copy_from_slice(b"LBX4HDR\0");
-            bytes[slot + 8..slot + 10].copy_from_slice(&5_u16.to_le_bytes());
+            bytes[slot..slot + 8].copy_from_slice(b"LBX5HDR\0");
+            bytes[slot + 8..slot + 10].copy_from_slice(&6_u16.to_le_bytes());
             assert!(probe_lockbox_format_version(&bytes).is_err());
             let checksum = strong_checksum(&bytes[slot..slot + 160]);
             bytes[slot + 160..slot + 192].copy_from_slice(&checksum);
-            assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 5);
+            assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 6);
             assert!(matches!(
                 read_header(&bytes),
-                Err(Error::UnsupportedFormatVersion { found: 5, .. })
+                Err(Error::UnsupportedFormatVersion { found: 6, .. })
             ));
             bytes[slot + 32] ^= 1;
             assert!(matches!(read_header(&bytes), Err(Error::CorruptHeader)));
@@ -344,7 +351,10 @@ mod tests {
         assert_eq!(header.commit_root_offset, 100);
         assert_eq!(header.cleanup_sequence, 4);
         assert_eq!(header.lockbox_id, id);
-        assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 4);
+        assert_eq!(
+            probe_lockbox_format_version(&bytes).unwrap(),
+            LOCKBOX_FORMAT_VERSION
+        );
     }
 
     #[test]

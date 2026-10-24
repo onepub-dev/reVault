@@ -90,7 +90,7 @@ pub fn export_vault<P: MigrationPassphrase + ?Sized>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Vault,
         source_native_version: vault.structure_version().map_err(core_error)?,
-        migration_schema_version: 3,
+        migration_schema_version: 4,
         target_native_version: Some(CURRENT_VAULT_STRUCTURE_VERSION),
         operation_id,
     };
@@ -162,9 +162,19 @@ pub fn export_vault<P: MigrationPassphrase + ?Sized>(
             .list_form_definition_revisions(&latest.type_id)
             .map_err(core_error)?
         {
-            writer.write_json(&MigrationRecord::Vault(VaultRecord::FormDefinition(
-                form_to_record(definition),
-            )))?;
+            let field_descriptions = vault
+                .form_field_descriptions(&definition)
+                .map_err(core_error)?;
+            let definition = form_to_record(definition);
+            let record = if field_descriptions.is_empty() {
+                VaultRecord::FormDefinition(definition)
+            } else {
+                VaultRecord::FormDefinitionWithDescriptions {
+                    definition,
+                    field_descriptions,
+                }
+            };
+            writer.write_json(&MigrationRecord::Vault(record))?;
         }
     }
 
@@ -279,6 +289,17 @@ pub fn import_vault<P: MigrationPassphrase + ?Sized>(
                         .map_err(core_error)?;
                 }
             }
+            VaultRecord::FormDefinitionWithDescriptions {
+                definition,
+                field_descriptions,
+            } => {
+                vault
+                    .import_form_definition_with_descriptions(
+                        form_from_record(definition)?,
+                        field_descriptions,
+                    )
+                    .map_err(core_error)?;
+            }
             VaultRecord::FormDefinition(value) => {
                 vault
                     .import_form_definition(form_from_record(value)?)
@@ -351,7 +372,7 @@ pub fn upgrade_vault_artifact<P: MigrationPassphrase + ?Sized>(
     let file = File::open(input).map_err(io_error)?;
     let mut reader = ArtifactReader::new_with_passphrase(BufReader::new(file), passphrase)?;
     require_vault_header(reader.header())?;
-    if reader.header().migration_schema_version > 3 {
+    if reader.header().migration_schema_version > 4 {
         return Err(MigrationError::InvalidHeader(format!(
             "vault migration schema {} is newer than this build supports",
             reader.header().migration_schema_version
@@ -360,7 +381,7 @@ pub fn upgrade_vault_artifact<P: MigrationPassphrase + ?Sized>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Vault,
         source_native_version: reader.header().source_native_version,
-        migration_schema_version: 3,
+        migration_schema_version: 4,
         target_native_version: Some(CURRENT_VAULT_STRUCTURE_VERSION),
         operation_id: reader.header().operation_id,
     };
@@ -536,7 +557,7 @@ fn migration_vault_owner_signing_key<P: MigrationPassphrase + ?Sized>(
 }
 
 fn require_vault_header(header: &MigrationHeader) -> Result<()> {
-    if !(1..=3).contains(&header.migration_schema_version) {
+    if !(1..=4).contains(&header.migration_schema_version) {
         return Err(MigrationError::InvalidHeader(format!(
             "unsupported vault migration schema {}",
             header.migration_schema_version
@@ -582,6 +603,7 @@ fn form_from_record(value: FormDefinitionRecord) -> Result<FormDefinition> {
             .into_iter()
             .map(|field| {
                 Ok(FormFieldDefinition {
+                    description: None,
                     id: field.id,
                     label: field.label,
                     kind: parse_form_kind(&field.kind)?,

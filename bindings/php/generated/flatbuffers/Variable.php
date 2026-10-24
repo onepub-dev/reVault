@@ -44,24 +44,41 @@ class Variable extends Table
         return $o != 0 ? $this->__string($o + $this->bb_pos) : null;
     }
 
+    public function getDescription()
+    {
+        $o = $this->__offset(8);
+        return $o != 0 ? $this->__string($o + $this->bb_pos) : null;
+    }
+
+    /**
+     * @return bool
+     */
+    public function getHasDescription()
+    {
+        $o = $this->__offset(10);
+        return $o != 0 ? $this->bb->getBool($o + $this->bb_pos) : false;
+    }
+
     /**
      * @param FlatbufferBuilder $builder
      * @return void
      */
     public static function startVariable(FlatbufferBuilder $builder)
     {
-        $builder->StartObject(2);
+        $builder->StartObject(4);
     }
 
     /**
      * @param FlatbufferBuilder $builder
      * @return Variable
      */
-    public static function createVariable(FlatbufferBuilder $builder, $name, $sensitivity)
+    public static function createVariable(FlatbufferBuilder $builder, $name, $sensitivity, $description, $has_description)
     {
-        $builder->startObject(2);
+        $builder->startObject(4);
         self::addName($builder, $name);
         self::addSensitivity($builder, $sensitivity);
+        self::addDescription($builder, $description);
+        self::addHasDescription($builder, $has_description);
         $o = $builder->endObject();
         return $o;
     }
@@ -84,6 +101,26 @@ class Variable extends Table
     public static function addSensitivity(FlatbufferBuilder $builder, $sensitivity)
     {
         $builder->addOffsetX(1, $sensitivity, 0);
+    }
+
+    /**
+     * @param FlatbufferBuilder $builder
+     * @param StringOffset
+     * @return void
+     */
+    public static function addDescription(FlatbufferBuilder $builder, $description)
+    {
+        $builder->addOffsetX(2, $description, 0);
+    }
+
+    /**
+     * @param FlatbufferBuilder $builder
+     * @param bool
+     * @return void
+     */
+    public static function addHasDescription(FlatbufferBuilder $builder, $hasDescription)
+    {
+        $builder->addBoolX(3, $hasDescription, false);
     }
 
     /**

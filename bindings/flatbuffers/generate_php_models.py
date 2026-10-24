@@ -49,7 +49,7 @@ for name in models:
             if raw == "bool"
             else "int"
         )
-        params.append(f"public readonly {kind} ${field}")
+        params.append(f"public readonly {kind} ${field}" + (" = ''" if field == "description" and name in ("Variable", "FormField", "FormRecord") else " = false" if field == "has_description" else ""))
     lines += ["    /** Creates a value from fields returned by the reVault API. */", f"    public function __construct({', '.join(params)}) {{}}"]
     for field, _ in tables[name]:
         lines += [f"    /** {field_description(name, field)} */", f"    public function get{pascal(field)}(): mixed {{ return $this->{field}; }}"]
@@ -157,7 +157,7 @@ lines += [
     "        $values = \\Revault\\Internal\\Transport\\PathMoveList::createValuesVector($builder, $offsets); $root = \\Revault\\Internal\\Transport\\PathMoveList::createPathMoveList($builder, $values); $builder->finish($root); return $builder->sizedByteArray();", "    }",
     "    /** Encodes form fields for the native API. */", "    public static function encodeFormFields(array $fields): string", "    {",
     "        $builder = new FlatBufferBuilder(256); $offsets = [];",
-    "        foreach ($fields as $field) { $id = $builder->createString($field->id); $label = $builder->createString($field->label); $kind = $builder->createString($field->kind); $offsets[] = \\Revault\\Internal\\Transport\\FormField::createFormField($builder, $id, $label, $kind, $field->required); }",
+    "        foreach ($fields as $field) { $id = $builder->createString($field->id); $label = $builder->createString($field->label); $kind = $builder->createString($field->kind); $description = $builder->createString($field->description); $offsets[] = \\Revault\\Internal\\Transport\\FormField::createFormField($builder, $id, $label, $kind, $field->required, $description, $field->has_description); }",
     "        $values = \\Revault\\Internal\\Transport\\FormFieldList::createValuesVector($builder, $offsets); $root = \\Revault\\Internal\\Transport\\FormFieldList::createFormFieldList($builder, $values); $builder->finish($root); return $builder->sizedByteArray();", "    }", "}", "",
 ]
 OUTPUT.write_text("\n".join(lines))

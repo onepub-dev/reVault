@@ -8,6 +8,7 @@ mod filters;
 mod form;
 mod help;
 mod helpers;
+mod item_descriptions;
 mod keys;
 mod migrate;
 mod migration_exporters;

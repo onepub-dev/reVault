@@ -1180,6 +1180,8 @@ pub mod revault {
             pub const VT_LABEL: flatbuffers::VOffsetT = 6;
             pub const VT_KIND: flatbuffers::VOffsetT = 8;
             pub const VT_REQUIRED: flatbuffers::VOffsetT = 10;
+            pub const VT_DESCRIPTION: flatbuffers::VOffsetT = 12;
+            pub const VT_HAS_DESCRIPTION: flatbuffers::VOffsetT = 14;
 
             #[inline]
             pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -1196,6 +1198,9 @@ pub mod revault {
                 args: &'args FormFieldArgs<'args>,
             ) -> flatbuffers::WIPOffset<FormField<'bldr>> {
                 let mut builder = FormFieldBuilder::new(_fbb);
+                if let Some(x) = args.description {
+                    builder.add_description(x);
+                }
                 if let Some(x) = args.kind {
                     builder.add_kind(x);
                 }
@@ -1205,6 +1210,7 @@ pub mod revault {
                 if let Some(x) = args.id {
                     builder.add_id(x);
                 }
+                builder.add_has_description(args.has_description);
                 builder.add_required(args.required);
                 builder.finish()
             }
@@ -1214,11 +1220,15 @@ pub mod revault {
                 let label = self.label().map(|x| x.to_string());
                 let kind = self.kind().map(|x| x.to_string());
                 let required = self.required();
+                let description = self.description().map(|x| x.to_string());
+                let has_description = self.has_description();
                 FormFieldT {
                     id,
                     label,
                     kind,
                     required,
+                    description,
+                    has_description,
                 }
             }
 
@@ -1263,6 +1273,27 @@ pub mod revault {
                         .unwrap()
                 }
             }
+            #[inline]
+            pub fn description(&self) -> Option<&'a str> {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab
+                        .get::<flatbuffers::ForwardsUOffset<&str>>(FormField::VT_DESCRIPTION, None)
+                }
+            }
+            #[inline]
+            pub fn has_description(&self) -> bool {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab
+                        .get::<bool>(FormField::VT_HAS_DESCRIPTION, Some(false))
+                        .unwrap()
+                }
+            }
         }
 
         impl flatbuffers::Verifiable for FormField<'_> {
@@ -1285,6 +1316,12 @@ pub mod revault {
                         false,
                     )?
                     .visit_field::<bool>("required", Self::VT_REQUIRED, false)?
+                    .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                        "description",
+                        Self::VT_DESCRIPTION,
+                        false,
+                    )?
+                    .visit_field::<bool>("has_description", Self::VT_HAS_DESCRIPTION, false)?
                     .finish();
                 Ok(())
             }
@@ -1294,6 +1331,8 @@ pub mod revault {
             pub label: Option<flatbuffers::WIPOffset<&'a str>>,
             pub kind: Option<flatbuffers::WIPOffset<&'a str>>,
             pub required: bool,
+            pub description: Option<flatbuffers::WIPOffset<&'a str>>,
+            pub has_description: bool,
         }
         impl<'a> Default for FormFieldArgs<'a> {
             #[inline]
@@ -1303,6 +1342,8 @@ pub mod revault {
                     label: None,
                     kind: None,
                     required: false,
+                    description: None,
+                    has_description: false,
                 }
             }
         }
@@ -1333,6 +1374,18 @@ pub mod revault {
                     .push_slot::<bool>(FormField::VT_REQUIRED, required, false);
             }
             #[inline]
+            pub fn add_description(&mut self, description: flatbuffers::WIPOffset<&'b str>) {
+                self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                    FormField::VT_DESCRIPTION,
+                    description,
+                );
+            }
+            #[inline]
+            pub fn add_has_description(&mut self, has_description: bool) {
+                self.fbb_
+                    .push_slot::<bool>(FormField::VT_HAS_DESCRIPTION, has_description, false);
+            }
+            #[inline]
             pub fn new(
                 _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
             ) -> FormFieldBuilder<'a, 'b, A> {
@@ -1356,6 +1409,8 @@ pub mod revault {
                 ds.field("label", &self.label());
                 ds.field("kind", &self.kind());
                 ds.field("required", &self.required());
+                ds.field("description", &self.description());
+                ds.field("has_description", &self.has_description());
                 ds.finish()
             }
         }
@@ -1366,6 +1421,8 @@ pub mod revault {
             pub label: Option<String>,
             pub kind: Option<String>,
             pub required: bool,
+            pub description: Option<String>,
+            pub has_description: bool,
         }
         impl Default for FormFieldT {
             fn default() -> Self {
@@ -1374,6 +1431,8 @@ pub mod revault {
                     label: None,
                     kind: None,
                     required: false,
+                    description: None,
+                    has_description: false,
                 }
             }
         }
@@ -1386,6 +1445,8 @@ pub mod revault {
                 let label = self.label.as_ref().map(|x| _fbb.create_string(x));
                 let kind = self.kind.as_ref().map(|x| _fbb.create_string(x));
                 let required = self.required;
+                let description = self.description.as_ref().map(|x| _fbb.create_string(x));
+                let has_description = self.has_description;
                 FormField::create(
                     _fbb,
                     &FormFieldArgs {
@@ -1393,6 +1454,8 @@ pub mod revault {
                         label,
                         kind,
                         required,
+                        description,
+                        has_description,
                     },
                 )
             }
@@ -2344,6 +2407,8 @@ pub mod revault {
             pub const VT_DEFINITION_ALIAS: flatbuffers::VOffsetT = 10;
             pub const VT_DEFINITION_REVISION: flatbuffers::VOffsetT = 12;
             pub const VT_VALUES: flatbuffers::VOffsetT = 14;
+            pub const VT_DESCRIPTION: flatbuffers::VOffsetT = 16;
+            pub const VT_HAS_DESCRIPTION: flatbuffers::VOffsetT = 18;
 
             #[inline]
             pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -2360,6 +2425,9 @@ pub mod revault {
                 args: &'args FormRecordArgs<'args>,
             ) -> flatbuffers::WIPOffset<FormRecord<'bldr>> {
                 let mut builder = FormRecordBuilder::new(_fbb);
+                if let Some(x) = args.description {
+                    builder.add_description(x);
+                }
                 if let Some(x) = args.values {
                     builder.add_values(x);
                 }
@@ -2376,6 +2444,7 @@ pub mod revault {
                 if let Some(x) = args.path {
                     builder.add_path(x);
                 }
+                builder.add_has_description(args.has_description);
                 builder.finish()
             }
 
@@ -2388,6 +2457,8 @@ pub mod revault {
                 let values = self
                     .values()
                     .map(|x| x.iter().map(|t| t.unpack()).collect());
+                let description = self.description().map(|x| x.to_string());
+                let has_description = self.has_description();
                 FormRecordT {
                     path,
                     name,
@@ -2395,6 +2466,8 @@ pub mod revault {
                     definition_alias,
                     definition_revision,
                     values,
+                    description,
+                    has_description,
                 }
             }
 
@@ -2465,6 +2538,27 @@ pub mod revault {
                     >>(FormRecord::VT_VALUES, None)
                 }
             }
+            #[inline]
+            pub fn description(&self) -> Option<&'a str> {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab
+                        .get::<flatbuffers::ForwardsUOffset<&str>>(FormRecord::VT_DESCRIPTION, None)
+                }
+            }
+            #[inline]
+            pub fn has_description(&self) -> bool {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab
+                        .get::<bool>(FormRecord::VT_HAS_DESCRIPTION, Some(false))
+                        .unwrap()
+                }
+            }
         }
 
         impl flatbuffers::Verifiable for FormRecord<'_> {
@@ -2499,6 +2593,12 @@ pub mod revault {
                     .visit_field::<flatbuffers::ForwardsUOffset<
                         flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<FormValue>>,
                     >>("values", Self::VT_VALUES, false)?
+                    .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                        "description",
+                        Self::VT_DESCRIPTION,
+                        false,
+                    )?
+                    .visit_field::<bool>("has_description", Self::VT_HAS_DESCRIPTION, false)?
                     .finish();
                 Ok(())
             }
@@ -2514,6 +2614,8 @@ pub mod revault {
                     flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<FormValue<'a>>>,
                 >,
             >,
+            pub description: Option<flatbuffers::WIPOffset<&'a str>>,
+            pub has_description: bool,
         }
         impl<'a> Default for FormRecordArgs<'a> {
             #[inline]
@@ -2525,6 +2627,8 @@ pub mod revault {
                     definition_alias: None,
                     definition_revision: 0,
                     values: None,
+                    description: None,
+                    has_description: false,
                 }
             }
         }
@@ -2578,6 +2682,18 @@ pub mod revault {
                     .push_slot_always::<flatbuffers::WIPOffset<_>>(FormRecord::VT_VALUES, values);
             }
             #[inline]
+            pub fn add_description(&mut self, description: flatbuffers::WIPOffset<&'b str>) {
+                self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                    FormRecord::VT_DESCRIPTION,
+                    description,
+                );
+            }
+            #[inline]
+            pub fn add_has_description(&mut self, has_description: bool) {
+                self.fbb_
+                    .push_slot::<bool>(FormRecord::VT_HAS_DESCRIPTION, has_description, false);
+            }
+            #[inline]
             pub fn new(
                 _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
             ) -> FormRecordBuilder<'a, 'b, A> {
@@ -2603,6 +2719,8 @@ pub mod revault {
                 ds.field("definition_alias", &self.definition_alias());
                 ds.field("definition_revision", &self.definition_revision());
                 ds.field("values", &self.values());
+                ds.field("description", &self.description());
+                ds.field("has_description", &self.has_description());
                 ds.finish()
             }
         }
@@ -2615,6 +2733,8 @@ pub mod revault {
             pub definition_alias: Option<String>,
             pub definition_revision: u32,
             pub values: Option<Vec<FormValueT>>,
+            pub description: Option<String>,
+            pub has_description: bool,
         }
         impl Default for FormRecordT {
             fn default() -> Self {
@@ -2625,6 +2745,8 @@ pub mod revault {
                     definition_alias: None,
                     definition_revision: 0,
                     values: None,
+                    description: None,
+                    has_description: false,
                 }
             }
         }
@@ -2645,6 +2767,8 @@ pub mod revault {
                     let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
                     _fbb.create_vector(&w)
                 });
+                let description = self.description.as_ref().map(|x| _fbb.create_string(x));
+                let has_description = self.has_description;
                 FormRecord::create(
                     _fbb,
                     &FormRecordArgs {
@@ -2654,6 +2778,8 @@ pub mod revault {
                         definition_alias,
                         definition_revision,
                         values,
+                        description,
+                        has_description,
                     },
                 )
             }
@@ -7834,6 +7960,8 @@ pub mod revault {
         impl<'a> Variable<'a> {
             pub const VT_NAME: flatbuffers::VOffsetT = 4;
             pub const VT_SENSITIVITY: flatbuffers::VOffsetT = 6;
+            pub const VT_DESCRIPTION: flatbuffers::VOffsetT = 8;
+            pub const VT_HAS_DESCRIPTION: flatbuffers::VOffsetT = 10;
 
             #[inline]
             pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -7850,19 +7978,30 @@ pub mod revault {
                 args: &'args VariableArgs<'args>,
             ) -> flatbuffers::WIPOffset<Variable<'bldr>> {
                 let mut builder = VariableBuilder::new(_fbb);
+                if let Some(x) = args.description {
+                    builder.add_description(x);
+                }
                 if let Some(x) = args.sensitivity {
                     builder.add_sensitivity(x);
                 }
                 if let Some(x) = args.name {
                     builder.add_name(x);
                 }
+                builder.add_has_description(args.has_description);
                 builder.finish()
             }
 
             pub fn unpack(&self) -> VariableT {
                 let name = self.name().map(|x| x.to_string());
                 let sensitivity = self.sensitivity().map(|x| x.to_string());
-                VariableT { name, sensitivity }
+                let description = self.description().map(|x| x.to_string());
+                let has_description = self.has_description();
+                VariableT {
+                    name,
+                    sensitivity,
+                    description,
+                    has_description,
+                }
             }
 
             #[inline]
@@ -7885,6 +8024,27 @@ pub mod revault {
                         .get::<flatbuffers::ForwardsUOffset<&str>>(Variable::VT_SENSITIVITY, None)
                 }
             }
+            #[inline]
+            pub fn description(&self) -> Option<&'a str> {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab
+                        .get::<flatbuffers::ForwardsUOffset<&str>>(Variable::VT_DESCRIPTION, None)
+                }
+            }
+            #[inline]
+            pub fn has_description(&self) -> bool {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab
+                        .get::<bool>(Variable::VT_HAS_DESCRIPTION, Some(false))
+                        .unwrap()
+                }
+            }
         }
 
         impl flatbuffers::Verifiable for Variable<'_> {
@@ -7905,6 +8065,12 @@ pub mod revault {
                         Self::VT_SENSITIVITY,
                         false,
                     )?
+                    .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                        "description",
+                        Self::VT_DESCRIPTION,
+                        false,
+                    )?
+                    .visit_field::<bool>("has_description", Self::VT_HAS_DESCRIPTION, false)?
                     .finish();
                 Ok(())
             }
@@ -7912,6 +8078,8 @@ pub mod revault {
         pub struct VariableArgs<'a> {
             pub name: Option<flatbuffers::WIPOffset<&'a str>>,
             pub sensitivity: Option<flatbuffers::WIPOffset<&'a str>>,
+            pub description: Option<flatbuffers::WIPOffset<&'a str>>,
+            pub has_description: bool,
         }
         impl<'a> Default for VariableArgs<'a> {
             #[inline]
@@ -7919,6 +8087,8 @@ pub mod revault {
                 VariableArgs {
                     name: None,
                     sensitivity: None,
+                    description: None,
+                    has_description: false,
                 }
             }
         }
@@ -7939,6 +8109,18 @@ pub mod revault {
                     Variable::VT_SENSITIVITY,
                     sensitivity,
                 );
+            }
+            #[inline]
+            pub fn add_description(&mut self, description: flatbuffers::WIPOffset<&'b str>) {
+                self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                    Variable::VT_DESCRIPTION,
+                    description,
+                );
+            }
+            #[inline]
+            pub fn add_has_description(&mut self, has_description: bool) {
+                self.fbb_
+                    .push_slot::<bool>(Variable::VT_HAS_DESCRIPTION, has_description, false);
             }
             #[inline]
             pub fn new(
@@ -7962,6 +8144,8 @@ pub mod revault {
                 let mut ds = f.debug_struct("Variable");
                 ds.field("name", &self.name());
                 ds.field("sensitivity", &self.sensitivity());
+                ds.field("description", &self.description());
+                ds.field("has_description", &self.has_description());
                 ds.finish()
             }
         }
@@ -7970,12 +8154,16 @@ pub mod revault {
         pub struct VariableT {
             pub name: Option<String>,
             pub sensitivity: Option<String>,
+            pub description: Option<String>,
+            pub has_description: bool,
         }
         impl Default for VariableT {
             fn default() -> Self {
                 Self {
                     name: None,
                     sensitivity: None,
+                    description: None,
+                    has_description: false,
                 }
             }
         }
@@ -7986,7 +8174,17 @@ pub mod revault {
             ) -> flatbuffers::WIPOffset<Variable<'b>> {
                 let name = self.name.as_ref().map(|x| _fbb.create_string(x));
                 let sensitivity = self.sensitivity.as_ref().map(|x| _fbb.create_string(x));
-                Variable::create(_fbb, &VariableArgs { name, sensitivity })
+                let description = self.description.as_ref().map(|x| _fbb.create_string(x));
+                let has_description = self.has_description;
+                Variable::create(
+                    _fbb,
+                    &VariableArgs {
+                        name,
+                        sensitivity,
+                        description,
+                        has_description,
+                    },
+                )
             }
         }
         pub enum VariableListOffset {}

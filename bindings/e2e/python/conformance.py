@@ -130,6 +130,15 @@ def archive_lifecycle(runtime: Runtime) -> None:
     check(b"value" in runtime.frame(lib.lockbox_get_variable(box, normal, 6)), "variable value")
     passed("lockbox_set_variable", 1)
     passed("lockbox_get_variable", 3)
+    description_set = b'{"target":"variable","reference":"normal","operation":"set","text":"Purpose\\nSecond line"}'
+    description_get = b'{"target":"variable","reference":"normal","operation":"get"}'
+    description_clear = b'{"target":"variable","reference":"normal","operation":"clear"}'
+    for request in (description_set, description_get):
+        result = decode("OptionalString", runtime.frame(lib.lockbox_item_description(box, data(request), len(request))))
+        check(result == "Purpose\nSecond line", "item description")
+    cleared = decode("OptionalString", runtime.frame(lib.lockbox_item_description(box, data(description_clear), len(description_clear))))
+    check(cleared is None, "cleared description")
+    passed("lockbox_item_description", 3)
     moves = encode_path_moves([PathMove(source="normal", destination="moved")])
     moves_data = data(moves)
     runtime.bool(lib.lockbox_move_variables(box, moves_data, len(moves)), "move variable")
@@ -360,7 +369,7 @@ def advanced_archive(runtime: Runtime) -> None:
     passed("lockbox_list_with_options", 2)
 
     fields = encode_form_fields([
-        FormField(id="username", label="Username", kind="text", required=True),
+        FormField(id="username", label="Username", kind="text", required=True, description="Full email\nInclude domain", has_description=True),
         FormField(id="password", label="Password", kind="secret", required=True),
     ])
     fields_data = data(fields)
@@ -369,6 +378,8 @@ def advanced_archive(runtime: Runtime) -> None:
         box, alias, 7, name, 7, description, 12, fields_data, len(fields)
     ))
     definition = decode("FormDefinition", definition_payload)
+    check(definition.fields[0].has_description and definition.fields[0].description == "Full email\nInclude domain", "native field guidance")
+    check(not definition.fields[1].has_description, "absent field guidance")
     type_id = definition.type_id.encode()
     check(type_id, "form type identifier")
     passed("lockbox_define_form", 2)
@@ -714,6 +725,10 @@ def vault_lifecycle(runtime: Runtime) -> None:
     check(runtime.frame(lib.vault_directory_resolve_form(vault, alias, 5)), "resolve vault form")
     check(runtime.frame(lib.vault_directory_list_forms(vault)), "vault forms")
     passed("vault_directory_define_form", 1)
+    description_request = b'{"target":"definition","reference":"login","operation":"get"}'
+    result = decode("OptionalString", runtime.frame(lib.vault_directory_item_description(vault, data(description_request), len(description_request))))
+    check(result == "Login form", "vault description")
+    passed("vault_directory_item_description", 1)
     passed("vault_directory_resolve_form", 1)
     passed("vault_directory_list_forms", 1)
     vault_type_id = vault_definition.type_id.encode()

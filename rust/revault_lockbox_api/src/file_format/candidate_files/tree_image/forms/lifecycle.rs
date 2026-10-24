@@ -159,6 +159,7 @@ pub(in crate::file_format::candidate_files) fn salvage_forms(
         })?;
         for field in &definition.fields {
             sink(SalvageEvent::DefinitionField(FormFieldDefinition {
+                description: None,
                 id: field.id.clone(),
                 label: read_normal(&field.label, storage, archive, &content_key, sealed)?,
                 kind: field.kind,

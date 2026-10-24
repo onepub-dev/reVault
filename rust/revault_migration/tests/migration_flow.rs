@@ -791,7 +791,7 @@ fn archive_migration_preserves_independent_format_choices() {
             )
             .unwrap();
             let imported = Lockbox::open(&destination, LockboxOpen::Unencrypted).unwrap();
-            assert_eq!(imported.format_version(), 4);
+            assert_eq!(imported.format_version(), 5);
             assert_eq!(imported.format_options(), source.format_options());
             assert_eq!(
                 imported.get_file(&path).unwrap(),
@@ -870,7 +870,7 @@ fn historical_v2_archive_migrates_to_current_format() {
         LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
     )
     .unwrap();
-    assert_eq!(upgraded.format_version(), 4);
+    assert_eq!(upgraded.format_version(), 5);
     assert_eq!(upgraded.export_migration_format_mode(), 8);
     assert_eq!(upgraded.get_file(&path).unwrap(), b"legacy data");
     assert_eq!(

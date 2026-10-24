@@ -106,7 +106,11 @@ def configure_native(library, buffer_type):
     library.lockbox_set_secret_variable.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t]
     library.lockbox_set_secret_variable.restype = ctypes.c_bool
     library.lockbox_get_variable.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
+    library.lockbox_item_description.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
+    library.vault_directory_item_description.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
     library.lockbox_get_variable.restype = buffer_type
+    library.lockbox_item_description.restype = buffer_type
+    library.vault_directory_item_description.restype = buffer_type
     library.lockbox_get_secret_variable.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.POINTER(ctypes.c_void_p)]
     library.lockbox_get_secret_variable.restype = ctypes.c_bool
     library.lockbox_delete_variable.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]

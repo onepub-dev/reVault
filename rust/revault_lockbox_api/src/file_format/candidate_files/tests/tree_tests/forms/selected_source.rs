@@ -515,6 +515,7 @@ fn selected_source_empty_split_utf8_and_maximum_texts_all_modes() {
         let split = "x".repeat(65535) + "🦀";
         let large = Arc::new(SecretString::try_from_slice(&vec![b's'; 1024 * 1024]).unwrap());
         let record = FormRecord {
+            description: None,
             path: path.clone(),
             name: "Edges".into(),
             type_id: definitions[0].type_id.clone(),

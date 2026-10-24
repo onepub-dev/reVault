@@ -18,6 +18,9 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         .subcommand()
         .ok_or_else(|| Error::InvalidInput("missing variables command".to_string()))?;
     match subcommand {
+        "description" => {
+            super::item_descriptions::run(sub, access, super::item_descriptions::Target::Variable)?
+        }
         "set" => {
             let args = optional_lockbox_positionals(positional_values(sub, "args"), 1)?;
             let request = VariableSetRequest::from_matches(sub, &args[1..])?;
@@ -56,10 +59,16 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
                 rows.push(vec![
                     name.to_string(),
                     sensitivity_name(sensitivity).to_string(),
+                    super::item_descriptions::description_cell(
+                        lb.variable_description(&name)?
+                            .as_deref()
+                            .unwrap_or_default(),
+                        output_format_from_matches(sub)?,
+                    ),
                 ]);
             }
             print_records(
-                &["name", "sensitivity"],
+                &["name", "sensitivity", "description"],
                 rows,
                 output_format_from_matches(sub)?,
             )?;
@@ -151,7 +160,7 @@ pub(crate) fn description_matches(matches: &ArgMatches, access: &Access) -> CliR
     Ok(())
 }
 
-fn read_description(matches: &ArgMatches) -> CliResult<String> {
+pub(super) fn read_description(matches: &ArgMatches) -> CliResult<String> {
     let positional = matches.get_one::<String>("description").cloned();
     let mut source = None;
     if matches.get_flag("interactive") {

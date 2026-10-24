@@ -32,7 +32,9 @@ public sealed record PathMove(string Source, string Destination);
 /// <param name="Label">Human-readable label presented to a person entering data.</param>
 /// <param name="Kind">Field kind that determines validation and secret handling.</param>
 /// <param name="Required">Whether a record must provide a value for this field.</param>
-public sealed record FormField(string Id, string Label, string Kind, bool Required);
+/// <param name="Description">Multiline guidance captured by this field definition revision.</param>
+/// <param name="HasDescription">Whether guidance is present, including explicitly empty text.</param>
+public sealed record FormField(string Id, string Label, string Kind, bool Required, string Description = "", bool HasDescription = false);
 
 /// <summary>A versioned form schema used to validate and label structured records in a lockbox.</summary>
 /// <param name="TypeId">Stable identifier shared by every revision of this form type.</param>
@@ -58,7 +60,9 @@ public sealed record FormValue(string FieldId, string Label, string Kind, string
 /// <param name="DefinitionAlias">Alias of the form definition used by the record.</param>
 /// <param name="DefinitionRevision">Exact form revision against which the record was created.</param>
 /// <param name="Values">Ordered non-secret field metadata and values.</param>
-public sealed record FormRecord(string Path, string Name, string TypeId, string DefinitionAlias, uint DefinitionRevision, IReadOnlyList<FormValue> Values);
+/// <param name="Description">Multiline context specific to this record.</param>
+/// <param name="HasDescription">Whether the record description is present, including empty text.</param>
+public sealed record FormRecord(string Path, string Name, string TypeId, string DefinitionAlias, uint DefinitionRevision, IReadOnlyList<FormValue> Values, string Description = "", bool HasDescription = false);
 
 /// <summary>The files and metadata recovered, or found damaged, while inspecting or salvaging a lockbox.</summary>
 /// <param name="IntactFiles">Files whose complete contents remain recoverable.</param>
@@ -170,7 +174,9 @@ public sealed record RuntimeOptions(string WorkloadProfile, string WorkerPolicy)
 /// <summary>The name and sensitivity classification of a variable stored in a lockbox.</summary>
 /// <param name="Name">Name used to address the variable in the lockbox.</param>
 /// <param name="Sensitivity">Whether the value is ordinary text or a protected secret.</param>
-public sealed record Variable(string Name, string Sensitivity);
+/// <param name="Description">Multiline description stored with this variable.</param>
+/// <param name="HasDescription">Whether the variable description is present, including empty text.</param>
+public sealed record Variable(string Name, string Sensitivity, string Description = "", bool HasDescription = false);
 
 /// <summary>Whether a lockbox is owner-signed and, when available, the signing-key fingerprint.</summary>
 /// <param name="Signed">Whether the lockbox requires owner-signed commits.</param>
@@ -230,7 +236,7 @@ internal static class DomainCodec
         new(value.Source ?? string.Empty, value.Destination ?? string.Empty);
     internal static PathMove PathMove(byte[] bytes) => FromInternal(global::RevaultTransport.PathMove.GetRootAsPathMove(new ByteBuffer(bytes)).UnPack());
     private static FormField FromInternal(global::RevaultTransport.FormFieldT value) =>
-        new(value.Id ?? string.Empty, value.Label ?? string.Empty, value.Kind ?? string.Empty, value.Required);
+        new(value.Id ?? string.Empty, value.Label ?? string.Empty, value.Kind ?? string.Empty, value.Required, value.Description ?? string.Empty, value.HasDescription);
     internal static FormField FormField(byte[] bytes) => FromInternal(global::RevaultTransport.FormField.GetRootAsFormField(new ByteBuffer(bytes)).UnPack());
     private static FormDefinition FromInternal(global::RevaultTransport.FormDefinitionT value) =>
         new(value.TypeId ?? string.Empty, value.Alias ?? string.Empty, value.Revision, value.Name ?? string.Empty, value.Description ?? string.Empty, value.Fields is null ? Array.Empty<FormField>() : value.Fields.Select(FromInternal).ToArray());
@@ -239,7 +245,7 @@ internal static class DomainCodec
         new(value.FieldId ?? string.Empty, value.Label ?? string.Empty, value.Kind ?? string.Empty, value.Value ?? string.Empty, value.Secret);
     internal static FormValue FormValue(byte[] bytes) => FromInternal(global::RevaultTransport.FormValue.GetRootAsFormValue(new ByteBuffer(bytes)).UnPack());
     private static FormRecord FromInternal(global::RevaultTransport.FormRecordT value) =>
-        new(value.Path ?? string.Empty, value.Name ?? string.Empty, value.TypeId ?? string.Empty, value.DefinitionAlias ?? string.Empty, value.DefinitionRevision, value.Values is null ? Array.Empty<FormValue>() : value.Values.Select(FromInternal).ToArray());
+        new(value.Path ?? string.Empty, value.Name ?? string.Empty, value.TypeId ?? string.Empty, value.DefinitionAlias ?? string.Empty, value.DefinitionRevision, value.Values is null ? Array.Empty<FormValue>() : value.Values.Select(FromInternal).ToArray(), value.Description ?? string.Empty, value.HasDescription);
     internal static FormRecord FormRecord(byte[] bytes) => FromInternal(global::RevaultTransport.FormRecord.GetRootAsFormRecord(new ByteBuffer(bytes)).UnPack());
     private static RecoveryReport FromInternal(global::RevaultTransport.RecoveryReportT value) =>
         new(value.IntactFiles is null ? Array.Empty<LockboxEntry>() : value.IntactFiles.Select(FromInternal).ToArray(), value.IntactFileCount, value.PartialFiles, value.CorruptRecords, value.TocRecovered, value.VariablesRecovered, value.VariableCount, value.FormsRecovered, value.FormDefinitionCount, value.FormRecordCount);
@@ -284,7 +290,7 @@ internal static class DomainCodec
         new(value.WorkloadProfile ?? string.Empty, value.WorkerPolicy ?? string.Empty);
     internal static RuntimeOptions RuntimeOptions(byte[] bytes) => FromInternal(global::RevaultTransport.RuntimeOptions.GetRootAsRuntimeOptions(new ByteBuffer(bytes)).UnPack());
     private static Variable FromInternal(global::RevaultTransport.VariableT value) =>
-        new(value.Name ?? string.Empty, value.Sensitivity ?? string.Empty);
+        new(value.Name ?? string.Empty, value.Sensitivity ?? string.Empty, value.Description ?? string.Empty, value.HasDescription);
     internal static Variable Variable(byte[] bytes) => FromInternal(global::RevaultTransport.Variable.GetRootAsVariable(new ByteBuffer(bytes)).UnPack());
     private static OwnerInspection FromInternal(global::RevaultTransport.OwnerInspectionT value) =>
         new(value.Signed, value.Fingerprint ?? string.Empty, value.HasFingerprint);
@@ -378,5 +384,5 @@ internal static class DomainCodec
     internal static FormValue? OptionalFormValue(byte[] bytes) { var value = global::RevaultTransport.OptionalFormValue.GetRootAsOptionalFormValue(new ByteBuffer(bytes)).UnPack().Value; return value is null ? null : FromInternal(value); }
     internal static string? OptionalString(byte[] bytes) { var value = global::RevaultTransport.OptionalString.GetRootAsOptionalString(new ByteBuffer(bytes)).UnPack(); return value.Present ? value.Value : null; }
     internal static byte[] EncodePathMoves(IReadOnlyList<PathMove> values) { var builder = new FlatBufferBuilder(256); var transport = new global::RevaultTransport.PathMoveListT { Values = values.Select(value => new global::RevaultTransport.PathMoveT { Source = value.Source, Destination = value.Destination }).ToList() }; var root = global::RevaultTransport.PathMoveList.Pack(builder, transport); builder.Finish(root.Value); return builder.SizedByteArray(); }
-    internal static byte[] EncodeFormFields(IReadOnlyList<FormField> values) { var builder = new FlatBufferBuilder(256); var transport = new global::RevaultTransport.FormFieldListT { Values = values.Select(value => new global::RevaultTransport.FormFieldT { Id = value.Id, Label = value.Label, Kind = value.Kind, Required = value.Required }).ToList() }; var root = global::RevaultTransport.FormFieldList.Pack(builder, transport); builder.Finish(root.Value); return builder.SizedByteArray(); }
+    internal static byte[] EncodeFormFields(IReadOnlyList<FormField> values) { var builder = new FlatBufferBuilder(256); var transport = new global::RevaultTransport.FormFieldListT { Values = values.Select(value => new global::RevaultTransport.FormFieldT { Id = value.Id, Label = value.Label, Kind = value.Kind, Required = value.Required, Description = value.Description, HasDescription = value.HasDescription }).ToList() }; var root = global::RevaultTransport.FormFieldList.Pack(builder, transport); builder.Finish(root.Value); return builder.SizedByteArray(); }
 }

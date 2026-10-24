@@ -42,6 +42,10 @@ struct FormField {
   std::string kind{};
   /** Whether a record must provide a value for this field. */
   bool required{};
+  /** Multiline guidance captured by this field definition revision. */
+  std::string description{};
+  /** Whether guidance is present, including explicitly empty text. */
+  bool has_description{};
 };
 
 /** A versioned form schema used to validate and label structured records in a lockbox. */
@@ -88,6 +92,10 @@ struct FormRecord {
   std::uint32_t definition_revision{};
   /** Ordered non-secret field metadata and values. */
   std::vector<FormValue> values{};
+  /** Multiline context specific to this record. */
+  std::string description{};
+  /** Whether the record description is present, including empty text. */
+  bool has_description{};
 };
 
 /** The files and metadata recovered, or found damaged, while inspecting or salvaging a lockbox. */
@@ -282,6 +290,10 @@ struct Variable {
   std::string name{};
   /** Whether the value is ordinary text or a protected secret. */
   std::string sensitivity{};
+  /** Multiline description stored with this variable. */
+  std::string description{};
+  /** Whether the variable description is present, including empty text. */
+  bool has_description{};
 };
 
 /** Whether a lockbox is owner-signed and, when available, the signing-key fingerprint. */

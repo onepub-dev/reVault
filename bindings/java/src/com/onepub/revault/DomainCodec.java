@@ -191,7 +191,7 @@ final class DomainCodec {
     var offsets = new int[values.size()];
     for (int index = 0; index < values.size(); index++) {
       var value = values.get(index);
-      offsets[index] = com.onepub.revault.internal.FormField.createFormField(builder, builder.createString(value.id()), builder.createString(value.label()), builder.createString(value.kind()), value.required());
+      offsets[index] = com.onepub.revault.internal.FormField.createFormField(builder, builder.createString(value.id()), builder.createString(value.label()), builder.createString(value.kind()), value.required(), builder.createString(value.description()), value.hasDescription());
     }
     var vector = com.onepub.revault.internal.FormFieldList.createValuesVector(builder, offsets);
     var root = com.onepub.revault.internal.FormFieldList.createFormFieldList(builder, vector);

@@ -27,7 +27,7 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Archive,
         source_native_version: u32::from(lockbox.format_version()),
-        migration_schema_version: 3,
+        migration_schema_version: 4,
         target_native_version: Some(u32::from(LOCKBOX_FORMAT_VERSION)),
         operation_id,
     };
@@ -119,15 +119,29 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
                 .ok_or_else(|| MigrationError::CorruptFrame("missing secret variable".into()))?
                 .map_err(core_error)?,
         };
-        writer.write_json(&MigrationRecord::Archive(ArchiveRecord::Variable {
-            name: name.to_string(),
-            sensitivity: match sensitivity {
-                VariableSensitivity::Normal => "normal",
-                VariableSensitivity::Secret => "secret",
+        let description = lockbox.variable_description(&name).map_err(core_error)?;
+        let sensitivity = match sensitivity {
+            VariableSensitivity::Normal => "normal",
+            VariableSensitivity::Secret => "secret",
+        }
+        .to_string();
+        let name = name.to_string();
+        let value = SecretBytes::new(value);
+        let record = if description.is_some() {
+            ArchiveRecord::VariableWithDescription {
+                name,
+                sensitivity,
+                value,
+                description,
             }
-            .to_string(),
-            value: SecretBytes::new(value),
-        }))?;
+        } else {
+            ArchiveRecord::Variable {
+                name,
+                sensitivity,
+                value,
+            }
+        };
+        writer.write_json(&MigrationRecord::Archive(record))?;
     }
 
     for latest in lockbox.list_form_definitions().map_err(core_error)? {
@@ -135,9 +149,19 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
             .list_form_definition_revisions(&latest.type_id)
             .map_err(core_error)?
         {
-            writer.write_json(&MigrationRecord::Archive(ArchiveRecord::FormDefinition(
-                form_to_record(definition),
-            )))?;
+            let field_descriptions = lockbox
+                .form_field_descriptions(&definition)
+                .map_err(core_error)?;
+            let definition = form_to_record(definition);
+            let record = if field_descriptions.is_empty() {
+                ArchiveRecord::FormDefinition(definition)
+            } else {
+                ArchiveRecord::FormDefinitionWithDescriptions {
+                    definition,
+                    field_descriptions,
+                }
+            };
+            writer.write_json(&MigrationRecord::Archive(record))?;
         }
     }
     for record in lockbox.list_form_records().map_err(core_error)? {
@@ -160,16 +184,24 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
                 value: SecretBytes::new(bytes),
             });
         }
-        writer.write_json(&MigrationRecord::Archive(ArchiveRecord::FormRecord(
-            FormRecordValue {
-                path: record.path.to_string(),
-                name: record.name,
-                type_id: record.type_id.to_string(),
-                definition_alias: record.definition_alias,
-                definition_revision: record.definition_revision,
-                values,
-            },
-        )))?;
+        let description = record.description;
+        let record = FormRecordValue {
+            path: record.path.to_string(),
+            name: record.name,
+            type_id: record.type_id.to_string(),
+            definition_alias: record.definition_alias,
+            definition_revision: record.definition_revision,
+            values,
+        };
+        let record = if description.is_some() {
+            ArchiveRecord::FormRecordWithDescription {
+                record,
+                description,
+            }
+        } else {
+            ArchiveRecord::FormRecord(record)
+        };
+        writer.write_json(&MigrationRecord::Archive(record))?;
     }
     let count = writer.records_written();
     writer.write_json(&MigrationRecord::Archive(ArchiveRecord::End {
@@ -201,7 +233,7 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
         ));
     }
     let mut lockbox: Option<Lockbox> = None;
-    if reader.header().migration_schema_version > 3 {
+    if reader.header().migration_schema_version > 4 {
         return Err(MigrationError::InvalidHeader(
             "unsupported archive migration schema".into(),
         ));
@@ -223,7 +255,51 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
                 "vault record found in archive artifact".to_string(),
             ));
         };
+        let (record, variable_description) = match record {
+            ArchiveRecord::VariableWithDescription {
+                name,
+                sensitivity,
+                value,
+                description,
+            } => (
+                ArchiveRecord::Variable {
+                    name,
+                    sensitivity,
+                    value,
+                },
+                description,
+            ),
+            other => (other, None),
+        };
         match record {
+            ArchiveRecord::VariableWithDescription { .. } => {
+                unreachable!("variable record normalized")
+            }
+            ArchiveRecord::FormDefinitionWithDescriptions {
+                definition,
+                field_descriptions,
+            } => {
+                lockbox
+                    .as_mut()
+                    .ok_or_else(|| MigrationError::CorruptFrame("archive start is missing".into()))?
+                    .import_form_definition_with_descriptions(
+                        form_from_record(definition)?,
+                        field_descriptions,
+                    )
+                    .map_err(core_error)?;
+            }
+            ArchiveRecord::FormRecordWithDescription {
+                record,
+                description,
+            } => {
+                import_form_record(
+                    lockbox.as_mut().ok_or_else(|| {
+                        MigrationError::CorruptFrame("archive start is missing".into())
+                    })?,
+                    record,
+                    description,
+                )?;
+            }
             ArchiveRecord::Start {
                 archive_id,
                 content_key,
@@ -412,6 +488,11 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
                         )))
                     }
                 }
+                if let Some(description) = variable_description {
+                    lockbox
+                        .set_variable_description(&name, &description)
+                        .map_err(core_error)?;
+                }
             }
             ArchiveRecord::FormDefinition(value) => {
                 lockbox
@@ -426,6 +507,7 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
                         MigrationError::CorruptFrame("archive start is missing".into())
                     })?,
                     value,
+                    None,
                 )?;
             }
             ArchiveRecord::End { record_count } => {
@@ -601,7 +683,7 @@ pub fn upgrade_archive_artifact<P: MigrationPassphrase + ?Sized>(
             "artifact is not an archive migration".to_string(),
         ));
     }
-    if reader.header().migration_schema_version > 3 {
+    if reader.header().migration_schema_version > 4 {
         return Err(MigrationError::InvalidHeader(format!(
             "archive migration schema {} is newer than this build supports",
             reader.header().migration_schema_version
@@ -610,7 +692,7 @@ pub fn upgrade_archive_artifact<P: MigrationPassphrase + ?Sized>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Archive,
         source_native_version: reader.header().source_native_version,
-        migration_schema_version: 3,
+        migration_schema_version: 4,
         target_native_version: Some(u32::from(LOCKBOX_FORMAT_VERSION)),
         operation_id: reader.header().operation_id,
     };
@@ -653,7 +735,11 @@ pub fn upgrade_archive_artifact<P: MigrationPassphrase + ?Sized>(
     Ok(count)
 }
 
-fn import_form_record(lockbox: &mut Lockbox, value: FormRecordValue) -> Result<()> {
+fn import_form_record(
+    lockbox: &mut Lockbox,
+    value: FormRecordValue,
+    description: Option<String>,
+) -> Result<()> {
     let path = LockboxPath::new(value.path).map_err(core_error)?;
     let mut values = Vec::with_capacity(value.values.len());
     for field in value.values {
@@ -674,6 +760,7 @@ fn import_form_record(lockbox: &mut Lockbox, value: FormRecordValue) -> Result<(
     }
     lockbox
         .import_migration_form_record(FormRecord {
+            description,
             path,
             name: value.name,
             type_id: FormTypeId::new(value.type_id).map_err(core_error)?,
@@ -716,6 +803,7 @@ fn form_from_record(value: FormDefinitionRecord) -> Result<FormDefinition> {
             .into_iter()
             .map(|field| {
                 Ok(FormFieldDefinition {
+                    description: None,
                     id: field.id,
                     label: field.label,
                     kind: parse_form_kind(&field.kind)?,

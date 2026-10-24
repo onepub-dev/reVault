@@ -507,25 +507,39 @@ internal struct FormField : IFlatbufferObject
 #endif
   public byte[] GetKindArray() { return __p.__vector_as_array<byte>(8); }
   public bool Required { get { int o = __p.__offset(10); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+  public string Description { get { int o = __p.__offset(12); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetDescriptionBytes() { return __p.__vector_as_span<byte>(12, 1); }
+#else
+  public ArraySegment<byte>? GetDescriptionBytes() { return __p.__vector_as_arraysegment(12); }
+#endif
+  public byte[] GetDescriptionArray() { return __p.__vector_as_array<byte>(12); }
+  public bool HasDescription { get { int o = __p.__offset(14); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
 
   public static Offset<global::RevaultTransport.FormField> CreateFormField(FlatBufferBuilder builder,
       StringOffset idOffset = default(StringOffset),
       StringOffset labelOffset = default(StringOffset),
       StringOffset kindOffset = default(StringOffset),
-      bool required = false) {
-    builder.StartTable(4);
+      bool required = false,
+      StringOffset descriptionOffset = default(StringOffset),
+      bool has_description = false) {
+    builder.StartTable(6);
+    FormField.AddDescription(builder, descriptionOffset);
     FormField.AddKind(builder, kindOffset);
     FormField.AddLabel(builder, labelOffset);
     FormField.AddId(builder, idOffset);
+    FormField.AddHasDescription(builder, has_description);
     FormField.AddRequired(builder, required);
     return FormField.EndFormField(builder);
   }
 
-  public static void StartFormField(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void StartFormField(FlatBufferBuilder builder) { builder.StartTable(6); }
   public static void AddId(FlatBufferBuilder builder, StringOffset idOffset) { builder.AddOffset(0, idOffset.Value, 0); }
   public static void AddLabel(FlatBufferBuilder builder, StringOffset labelOffset) { builder.AddOffset(1, labelOffset.Value, 0); }
   public static void AddKind(FlatBufferBuilder builder, StringOffset kindOffset) { builder.AddOffset(2, kindOffset.Value, 0); }
   public static void AddRequired(FlatBufferBuilder builder, bool required) { builder.AddBool(3, required, false); }
+  public static void AddDescription(FlatBufferBuilder builder, StringOffset descriptionOffset) { builder.AddOffset(4, descriptionOffset.Value, 0); }
+  public static void AddHasDescription(FlatBufferBuilder builder, bool hasDescription) { builder.AddBool(5, hasDescription, false); }
   public static Offset<global::RevaultTransport.FormField> EndFormField(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<global::RevaultTransport.FormField>(o);
@@ -540,18 +554,23 @@ internal struct FormField : IFlatbufferObject
     _o.Label = this.Label;
     _o.Kind = this.Kind;
     _o.Required = this.Required;
+    _o.Description = this.Description;
+    _o.HasDescription = this.HasDescription;
   }
   public static Offset<global::RevaultTransport.FormField> Pack(FlatBufferBuilder builder, FormFieldT _o) {
     if (_o == null) return default(Offset<global::RevaultTransport.FormField>);
     var _id = _o.Id == null ? default(StringOffset) : builder.CreateString(_o.Id);
     var _label = _o.Label == null ? default(StringOffset) : builder.CreateString(_o.Label);
     var _kind = _o.Kind == null ? default(StringOffset) : builder.CreateString(_o.Kind);
+    var _description = _o.Description == null ? default(StringOffset) : builder.CreateString(_o.Description);
     return CreateFormField(
       builder,
       _id,
       _label,
       _kind,
-      _o.Required);
+      _o.Required,
+      _description,
+      _o.HasDescription);
   }
 }
 
@@ -561,12 +580,16 @@ internal class FormFieldT
   public string Label { get; set; }
   public string Kind { get; set; }
   public bool Required { get; set; }
+  public string Description { get; set; }
+  public bool HasDescription { get; set; }
 
   public FormFieldT() {
     this.Id = null;
     this.Label = null;
     this.Kind = null;
     this.Required = false;
+    this.Description = null;
+    this.HasDescription = false;
   }
 }
 
@@ -580,6 +603,8 @@ internal static class FormFieldVerify
       && verifier.VerifyString(tablePos, 6 /*Label*/, false)
       && verifier.VerifyString(tablePos, 8 /*Kind*/, false)
       && verifier.VerifyField(tablePos, 10 /*Required*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyString(tablePos, 12 /*Description*/, false)
+      && verifier.VerifyField(tablePos, 14 /*HasDescription*/, 1 /*bool*/, 1, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }
@@ -1040,6 +1065,14 @@ internal struct FormRecord : IFlatbufferObject
   public uint DefinitionRevision { get { int o = __p.__offset(12); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
   public global::RevaultTransport.FormValue? Values(int j) { int o = __p.__offset(14); return o != 0 ? (global::RevaultTransport.FormValue?)(new global::RevaultTransport.FormValue()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
   public int ValuesLength { get { int o = __p.__offset(14); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public string Description { get { int o = __p.__offset(16); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetDescriptionBytes() { return __p.__vector_as_span<byte>(16, 1); }
+#else
+  public ArraySegment<byte>? GetDescriptionBytes() { return __p.__vector_as_arraysegment(16); }
+#endif
+  public byte[] GetDescriptionArray() { return __p.__vector_as_array<byte>(16); }
+  public bool HasDescription { get { int o = __p.__offset(18); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
 
   public static Offset<global::RevaultTransport.FormRecord> CreateFormRecord(FlatBufferBuilder builder,
       StringOffset pathOffset = default(StringOffset),
@@ -1047,18 +1080,22 @@ internal struct FormRecord : IFlatbufferObject
       StringOffset type_idOffset = default(StringOffset),
       StringOffset definition_aliasOffset = default(StringOffset),
       uint definition_revision = 0,
-      VectorOffset valuesOffset = default(VectorOffset)) {
-    builder.StartTable(6);
+      VectorOffset valuesOffset = default(VectorOffset),
+      StringOffset descriptionOffset = default(StringOffset),
+      bool has_description = false) {
+    builder.StartTable(8);
+    FormRecord.AddDescription(builder, descriptionOffset);
     FormRecord.AddValues(builder, valuesOffset);
     FormRecord.AddDefinitionRevision(builder, definition_revision);
     FormRecord.AddDefinitionAlias(builder, definition_aliasOffset);
     FormRecord.AddTypeId(builder, type_idOffset);
     FormRecord.AddName(builder, nameOffset);
     FormRecord.AddPath(builder, pathOffset);
+    FormRecord.AddHasDescription(builder, has_description);
     return FormRecord.EndFormRecord(builder);
   }
 
-  public static void StartFormRecord(FlatBufferBuilder builder) { builder.StartTable(6); }
+  public static void StartFormRecord(FlatBufferBuilder builder) { builder.StartTable(8); }
   public static void AddPath(FlatBufferBuilder builder, StringOffset pathOffset) { builder.AddOffset(0, pathOffset.Value, 0); }
   public static void AddName(FlatBufferBuilder builder, StringOffset nameOffset) { builder.AddOffset(1, nameOffset.Value, 0); }
   public static void AddTypeId(FlatBufferBuilder builder, StringOffset typeIdOffset) { builder.AddOffset(2, typeIdOffset.Value, 0); }
@@ -1070,6 +1107,8 @@ internal struct FormRecord : IFlatbufferObject
   public static VectorOffset CreateValuesVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<global::RevaultTransport.FormValue>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateValuesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<global::RevaultTransport.FormValue>>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartValuesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
+  public static void AddDescription(FlatBufferBuilder builder, StringOffset descriptionOffset) { builder.AddOffset(6, descriptionOffset.Value, 0); }
+  public static void AddHasDescription(FlatBufferBuilder builder, bool hasDescription) { builder.AddBool(7, hasDescription, false); }
   public static Offset<global::RevaultTransport.FormRecord> EndFormRecord(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<global::RevaultTransport.FormRecord>(o);
@@ -1087,6 +1126,8 @@ internal struct FormRecord : IFlatbufferObject
     _o.DefinitionRevision = this.DefinitionRevision;
     _o.Values = new List<global::RevaultTransport.FormValueT>();
     for (var _j = 0; _j < this.ValuesLength; ++_j) {_o.Values.Add(this.Values(_j).HasValue ? this.Values(_j).Value.UnPack() : null);}
+    _o.Description = this.Description;
+    _o.HasDescription = this.HasDescription;
   }
   public static Offset<global::RevaultTransport.FormRecord> Pack(FlatBufferBuilder builder, FormRecordT _o) {
     if (_o == null) return default(Offset<global::RevaultTransport.FormRecord>);
@@ -1100,6 +1141,7 @@ internal struct FormRecord : IFlatbufferObject
       for (var _j = 0; _j < __values.Length; ++_j) { __values[_j] = global::RevaultTransport.FormValue.Pack(builder, _o.Values[_j]); }
       _values = CreateValuesVector(builder, __values);
     }
+    var _description = _o.Description == null ? default(StringOffset) : builder.CreateString(_o.Description);
     return CreateFormRecord(
       builder,
       _path,
@@ -1107,7 +1149,9 @@ internal struct FormRecord : IFlatbufferObject
       _type_id,
       _definition_alias,
       _o.DefinitionRevision,
-      _values);
+      _values,
+      _description,
+      _o.HasDescription);
   }
 }
 
@@ -1119,6 +1163,8 @@ internal class FormRecordT
   public string DefinitionAlias { get; set; }
   public uint DefinitionRevision { get; set; }
   public List<global::RevaultTransport.FormValueT> Values { get; set; }
+  public string Description { get; set; }
+  public bool HasDescription { get; set; }
 
   public FormRecordT() {
     this.Path = null;
@@ -1127,6 +1173,8 @@ internal class FormRecordT
     this.DefinitionAlias = null;
     this.DefinitionRevision = 0;
     this.Values = null;
+    this.Description = null;
+    this.HasDescription = false;
   }
 }
 
@@ -1142,6 +1190,8 @@ internal static class FormRecordVerify
       && verifier.VerifyString(tablePos, 10 /*DefinitionAlias*/, false)
       && verifier.VerifyField(tablePos, 12 /*DefinitionRevision*/, 4 /*uint*/, 4, false)
       && verifier.VerifyVectorOfTables(tablePos, 14 /*Values*/, global::RevaultTransport.FormValueVerify.Verify, false)
+      && verifier.VerifyString(tablePos, 16 /*Description*/, false)
+      && verifier.VerifyField(tablePos, 18 /*HasDescription*/, 1 /*bool*/, 1, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }
@@ -3366,19 +3416,33 @@ internal struct Variable : IFlatbufferObject
   public ArraySegment<byte>? GetSensitivityBytes() { return __p.__vector_as_arraysegment(6); }
 #endif
   public byte[] GetSensitivityArray() { return __p.__vector_as_array<byte>(6); }
+  public string Description { get { int o = __p.__offset(8); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetDescriptionBytes() { return __p.__vector_as_span<byte>(8, 1); }
+#else
+  public ArraySegment<byte>? GetDescriptionBytes() { return __p.__vector_as_arraysegment(8); }
+#endif
+  public byte[] GetDescriptionArray() { return __p.__vector_as_array<byte>(8); }
+  public bool HasDescription { get { int o = __p.__offset(10); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
 
   public static Offset<global::RevaultTransport.Variable> CreateVariable(FlatBufferBuilder builder,
       StringOffset nameOffset = default(StringOffset),
-      StringOffset sensitivityOffset = default(StringOffset)) {
-    builder.StartTable(2);
+      StringOffset sensitivityOffset = default(StringOffset),
+      StringOffset descriptionOffset = default(StringOffset),
+      bool has_description = false) {
+    builder.StartTable(4);
+    Variable.AddDescription(builder, descriptionOffset);
     Variable.AddSensitivity(builder, sensitivityOffset);
     Variable.AddName(builder, nameOffset);
+    Variable.AddHasDescription(builder, has_description);
     return Variable.EndVariable(builder);
   }
 
-  public static void StartVariable(FlatBufferBuilder builder) { builder.StartTable(2); }
+  public static void StartVariable(FlatBufferBuilder builder) { builder.StartTable(4); }
   public static void AddName(FlatBufferBuilder builder, StringOffset nameOffset) { builder.AddOffset(0, nameOffset.Value, 0); }
   public static void AddSensitivity(FlatBufferBuilder builder, StringOffset sensitivityOffset) { builder.AddOffset(1, sensitivityOffset.Value, 0); }
+  public static void AddDescription(FlatBufferBuilder builder, StringOffset descriptionOffset) { builder.AddOffset(2, descriptionOffset.Value, 0); }
+  public static void AddHasDescription(FlatBufferBuilder builder, bool hasDescription) { builder.AddBool(3, hasDescription, false); }
   public static Offset<global::RevaultTransport.Variable> EndVariable(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<global::RevaultTransport.Variable>(o);
@@ -3391,15 +3455,20 @@ internal struct Variable : IFlatbufferObject
   public void UnPackTo(VariableT _o) {
     _o.Name = this.Name;
     _o.Sensitivity = this.Sensitivity;
+    _o.Description = this.Description;
+    _o.HasDescription = this.HasDescription;
   }
   public static Offset<global::RevaultTransport.Variable> Pack(FlatBufferBuilder builder, VariableT _o) {
     if (_o == null) return default(Offset<global::RevaultTransport.Variable>);
     var _name = _o.Name == null ? default(StringOffset) : builder.CreateString(_o.Name);
     var _sensitivity = _o.Sensitivity == null ? default(StringOffset) : builder.CreateString(_o.Sensitivity);
+    var _description = _o.Description == null ? default(StringOffset) : builder.CreateString(_o.Description);
     return CreateVariable(
       builder,
       _name,
-      _sensitivity);
+      _sensitivity,
+      _description,
+      _o.HasDescription);
   }
 }
 
@@ -3407,10 +3476,14 @@ internal class VariableT
 {
   public string Name { get; set; }
   public string Sensitivity { get; set; }
+  public string Description { get; set; }
+  public bool HasDescription { get; set; }
 
   public VariableT() {
     this.Name = null;
     this.Sensitivity = null;
+    this.Description = null;
+    this.HasDescription = false;
   }
 }
 
@@ -3422,6 +3495,8 @@ internal static class VariableVerify
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyString(tablePos, 4 /*Name*/, false)
       && verifier.VerifyString(tablePos, 6 /*Sensitivity*/, false)
+      && verifier.VerifyString(tablePos, 8 /*Description*/, false)
+      && verifier.VerifyField(tablePos, 10 /*HasDescription*/, 1 /*bool*/, 1, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

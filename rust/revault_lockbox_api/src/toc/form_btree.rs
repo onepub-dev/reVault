@@ -13,7 +13,7 @@ use crate::page_tree::{AuthenticatedPageTreeChildren, PageTreeChild, PageTreeLay
 use crate::secret_vec::{secure_read_access, SecureVec};
 use crate::{Error, LockboxPath, Result, SecretString};
 
-const FORM_NODE_VERSION: u8 = 1;
+const FORM_NODE_VERSION: u8 = 2;
 const FORM_LEAF: u8 = 1;
 const FORM_INTERNAL: u8 = 2;
 const FORM_NODE_PREFIX_BYTES: usize = 2;
@@ -285,6 +285,7 @@ enum ParsedFormEntryValue {
 }
 
 struct ParsedFormRecord {
+    description: Option<String>,
     path: LockboxPath,
     name: String,
     type_id: FormTypeId,
@@ -351,6 +352,7 @@ fn materialize_record(payload: &SecureVec, parsed: ParsedFormRecord) -> Result<F
         });
     }
     Ok(FormRecord {
+        description: parsed.description,
         path: parsed.path,
         name: parsed.name,
         type_id: parsed.type_id,
@@ -371,6 +373,7 @@ fn encode_definition_secure(out: &mut SecureVec, definition: &FormDefinition) ->
     for field in &definition.fields {
         put_string_secure(out, &field.id)?;
         put_string_secure(out, &field.label)?;
+        crate::variable_btree::put_description(out, &field.description)?;
         out.try_extend_from_slice(&[field.kind.code(), u8::from(field.required)])?;
     }
     Ok(())
@@ -396,6 +399,7 @@ fn decode_definition(reader: &mut FormNodeReader<'_>) -> Result<FormDefinition> 
         fields.push(FormFieldDefinition {
             id: FormFieldDefinition::validated_id(&reader.string()?)?,
             label: FormFieldDefinition::validated_label(&reader.string()?)?,
+            description: crate::variable_btree::read_description(reader.bytes, &mut reader.offset)?,
             kind: FormFieldKind::from_code(reader.u8()?)?,
             required: match reader.u8()? {
                 0 => false,
@@ -417,6 +421,7 @@ fn decode_definition(reader: &mut FormNodeReader<'_>) -> Result<FormDefinition> 
 fn encode_record_secure(out: &mut SecureVec, record: &FormRecord) -> Result<()> {
     put_string_secure(out, record.path.as_str())?;
     put_string_secure(out, &record.name)?;
+    crate::variable_btree::put_description(out, &record.description)?;
     put_string_secure(out, record.type_id.as_str())?;
     put_string_secure(out, &record.definition_alias)?;
     out.try_extend_from_slice(&record.definition_revision.to_le_bytes())?;
@@ -444,6 +449,7 @@ fn encode_record_secure(out: &mut SecureVec, record: &FormRecord) -> Result<()> 
 fn decode_record(reader: &mut FormNodeReader<'_>) -> Result<ParsedFormRecord> {
     let path = LockboxPath::new(reader.string()?)?;
     let name = FormRecord::validated_name(&reader.string()?)?;
+    let description = crate::variable_btree::read_description(reader.bytes, &mut reader.offset)?;
     let type_id = FormTypeId::new(reader.string()?)?;
     let definition_alias = FormDefinition::validated_alias(&reader.string()?)?;
     let definition_revision = reader.u32()?;
@@ -472,6 +478,7 @@ fn decode_record(reader: &mut FormNodeReader<'_>) -> Result<ParsedFormRecord> {
         });
     }
     Ok(ParsedFormRecord {
+        description,
         path,
         name,
         type_id,
@@ -531,12 +538,21 @@ fn definition_encoded_len(definition: &FormDefinition) -> usize {
         + definition
             .fields
             .iter()
-            .map(|field| 2 + field.id.len() + 2 + field.label.len() + 2)
+            .map(|field| {
+                2 + field.id.len()
+                    + 2
+                    + field.label.len()
+                    + 2
+                    + 4
+                    + field.description.as_ref().map_or(0, String::len)
+            })
             .sum::<usize>()
 }
 
 fn record_encoded_len(record: &FormRecord) -> usize {
-    2 + record.path.as_str().len()
+    4 + record.description.as_ref().map_or(0, String::len)
+        + 2
+        + record.path.as_str().len()
         + 2
         + record.name.len()
         + 2

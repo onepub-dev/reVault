@@ -6,8 +6,8 @@ use crate::crypto::strong_checksum;
 use crate::lockbox_id::LockboxId;
 use crate::{Error, Result};
 
-pub(crate) const MAGIC: &[u8; 8] = b"LBX4HDR\0";
-pub(crate) const FORMAT_VERSION: u16 = 4;
+pub(crate) const MAGIC: &[u8; 8] = b"LBX5HDR\0";
+pub(crate) const FORMAT_VERSION: u16 = 5;
 pub(crate) const SLOT_LEN: usize = 192;
 pub(crate) const SLOT_COUNT: usize = 2;
 pub(crate) const REGION_LEN: usize = SLOT_LEN * SLOT_COUNT;

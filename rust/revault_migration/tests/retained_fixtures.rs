@@ -130,6 +130,19 @@ fn export_fixture(dir: &Path, manifest: &Manifest, output: &Path) {
             )
             .unwrap();
         }
+        ("archive", 4) => {
+            use revault_migrate_v4::archive_reader as old;
+            let password = old::SecretString::try_from_slice(PASSWORD).unwrap();
+            let archive =
+                old::Lockbox::open_bytes(bytes, old::LockboxOpen::Password(&password)).unwrap();
+            revault_migrate_v4::export_archive::export_archive(
+                &archive,
+                output,
+                ARTIFACT_PASSWORD,
+                [1; 16],
+            )
+            .unwrap();
+        }
         ("archive", version) if version == u32::from(LOCKBOX_FORMAT_VERSION) => {
             let archive = Lockbox::open_bytes(bytes, LockboxOpen::Password(&password())).unwrap();
             assert_eq!(u32::from(archive.format_version()), manifest.native_version);
@@ -172,6 +185,18 @@ fn export_fixture(dir: &Path, manifest: &Manifest, output: &Path) {
                         vault_v3::VaultDirectory::open_or_create(&source, &password).unwrap();
                     assert_eq!(vault.structure_version().unwrap(), version);
                     revault_migrate_archive_v3::export_vault(
+                        &vault,
+                        output,
+                        ARTIFACT_PASSWORD,
+                        [1; 16],
+                    )
+                    .unwrap();
+                }
+                3 if manifest.container_version == 4 => {
+                    use revault_migrate_v4::vault_reader as old;
+                    let password = old::SecretString::try_from_slice(PASSWORD).unwrap();
+                    let vault = old::VaultDirectory::open_or_create(&source, &password).unwrap();
+                    revault_migrate_v4::export_archive::export_vault(
                         &vault,
                         output,
                         ARTIFACT_PASSWORD,
@@ -379,6 +404,15 @@ fn require_content_inventory(manifest: &Manifest, records: &[Value]) {
         assert!(kinds.contains(kind), "fixture lacks {kind}");
     }
     assert!(!manifest.coverage.is_empty());
+    if manifest.kind == "archive" && manifest.native_version >= 5 {
+        for kind in [
+            "variable_with_description",
+            "form_definition_with_descriptions",
+            "form_record_with_description",
+        ] {
+            assert!(kinds.contains(kind), "format-5 fixture lacks {kind}");
+        }
+    }
     if manifest.kind == "archive" {
         let field_kinds: std::collections::BTreeSet<_> = records
             .iter()
@@ -452,7 +486,7 @@ fn historical_fixtures_export_with_frozen_readers() {
         require_content_inventory(&manifest, &snapshot(&artifact));
         count += 1;
     }
-    assert_eq!(count, 7, "update the explicit historical fixture inventory");
+    assert_eq!(count, 9, "update the explicit historical fixture inventory");
 }
 
 #[test]

@@ -303,6 +303,10 @@ public sealed class Revault
         public void SetVariable(string name, string value) => owner.operations.LockboxSetVariable(Handle, name, value);
         /// <summary>Stores a secret variable from mutable bytes.</summary>
         public void SetSecretVariable(string name, byte[] value) => owner.operations.LockboxSetSecretVariable(Handle, name, value);
+        /// <summary>Get/set/clear item guidance; commit Lockbox writes. Fields belong to definitions.</summary>
+        public string? ItemDescription(string target, string reference, string operation = "get", string? field = null, string? text = null) =>
+            owner.operations.LockboxItemDescription(Handle, System.Text.Json.JsonSerializer.Serialize(new { target, reference, operation, field, text }));
+
         /// <summary>Returns a plain variable when it is present.</summary>
         public string? GetVariable(string name) => owner.operations.LockboxGetVariable(Handle, name);
         /// <summary>Returns the encrypted Lockbox description, or null when unset. Example: <c>box.SetDescription("Production credentials"); box.Commit(); Console.WriteLine(box.Description);</c></summary>
@@ -446,6 +450,10 @@ public sealed class Revault
         public IReadOnlyList<Contact> ListContacts() => owner.operations.VaultDirectoryListContacts(Handle);
         /// <summary>Stores profile email.</summary>
         public void StoreProfileEmail(string name, string email) => owner.operations.VaultDirectoryStoreProfileEmail(Handle, name, email);
+        /// <summary>Get/set/clear item guidance; commit Lockbox writes. Fields belong to definitions.</summary>
+        public string? ItemDescription(string target, string reference, string operation = "get", string? field = null, string? text = null) =>
+            owner.operations.VaultDirectoryItemDescription(Handle, System.Text.Json.JsonSerializer.Serialize(new { target, reference, operation, field, text }));
+
         /// <summary>Returns the email recorded for a profile, when present.</summary>
         public string? ProfileEmail(string name) => owner.operations.VaultDirectoryProfileEmail(Handle, name);
         /// <summary>Stores backup.</summary>

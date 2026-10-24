@@ -95,6 +95,10 @@ public final class Conformance {
       box.clearDescription(); check(box.description() == null, "description cleared");
       box.setVariable("normal", "value"); check(box.getVariable("normal").equals("value"), "variable");
       pass("lockbox_set_variable"); pass("lockbox_get_variable", 3);
+      box.itemDescription("variable", "normal", "set", null, "Purpose\nSecond line");
+      check("Purpose\nSecond line".equals(box.itemDescription("variable", "normal", "get", null, null)), "item description");
+      box.itemDescription("variable", "normal", "clear", null, null);
+      pass("lockbox_item_description", 3);
       box.moveVariables(java.util.List.of(new PathMove("normal", "moved")));
       check(box.getVariable("moved").equals("value"), "moved variable");
       box.moveVariables(java.util.List.of(new PathMove("moved", "normal")));
@@ -371,6 +375,8 @@ public final class Conformance {
         check(!vault.resolveForm("login").typeId().isEmpty(), "resolve");
         check(vault.listForms().size() > 0, "forms");
         pass("vault_directory_define_form"); pass("vault_directory_resolve_form"); pass("vault_directory_list_forms");
+        check("Login form".equals(vault.itemDescription("definition", "login", "get", null, null)), "vault description");
+        pass("vault_directory_item_description");
         check(vault.listFormRevisions(vaultForm.typeId()).size() > 0, "vault revisions");
         pass("vault_directory_list_form_revisions", 2);
         check(vault.seedForms() > 0, "seed"); pass("vault_directory_seed_forms");

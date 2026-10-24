@@ -59,26 +59,43 @@ class FormField extends Table
         return $o != 0 ? $this->bb->getBool($o + $this->bb_pos) : false;
     }
 
+    public function getDescription()
+    {
+        $o = $this->__offset(12);
+        return $o != 0 ? $this->__string($o + $this->bb_pos) : null;
+    }
+
+    /**
+     * @return bool
+     */
+    public function getHasDescription()
+    {
+        $o = $this->__offset(14);
+        return $o != 0 ? $this->bb->getBool($o + $this->bb_pos) : false;
+    }
+
     /**
      * @param FlatbufferBuilder $builder
      * @return void
      */
     public static function startFormField(FlatbufferBuilder $builder)
     {
-        $builder->StartObject(4);
+        $builder->StartObject(6);
     }
 
     /**
      * @param FlatbufferBuilder $builder
      * @return FormField
      */
-    public static function createFormField(FlatbufferBuilder $builder, $id, $label, $kind, $required)
+    public static function createFormField(FlatbufferBuilder $builder, $id, $label, $kind, $required, $description, $has_description)
     {
-        $builder->startObject(4);
+        $builder->startObject(6);
         self::addId($builder, $id);
         self::addLabel($builder, $label);
         self::addKind($builder, $kind);
         self::addRequired($builder, $required);
+        self::addDescription($builder, $description);
+        self::addHasDescription($builder, $has_description);
         $o = $builder->endObject();
         return $o;
     }
@@ -121,6 +138,26 @@ class FormField extends Table
     public static function addRequired(FlatbufferBuilder $builder, $required)
     {
         $builder->addBoolX(3, $required, false);
+    }
+
+    /**
+     * @param FlatbufferBuilder $builder
+     * @param StringOffset
+     * @return void
+     */
+    public static function addDescription(FlatbufferBuilder $builder, $description)
+    {
+        $builder->addOffsetX(4, $description, 0);
+    }
+
+    /**
+     * @param FlatbufferBuilder $builder
+     * @param bool
+     * @return void
+     */
+    public static function addHasDescription(FlatbufferBuilder $builder, $hasDescription)
+    {
+        $builder->addBoolX(5, $hasDescription, false);
     }
 
     /**

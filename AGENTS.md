@@ -86,6 +86,10 @@ For the current pre-1.0 compatibility lines:
 - `0.5.x` is the format-4 compatibility line, initially released as CLI and
   bindings `0.5.0`. Its implementation is integrated into `main`; continue
   development and releases from `main`, preserving compatibility with `0.5.0`.
+- `0.6.x` is the planned format-5 compatibility line for native item descriptions.
+  Its first release requires migration qualification from published `0.5.0`;
+  after `0.6.0` is published, later patches require bidirectional compatibility
+  with that baseline. Keep all embargoed work local until coordinated release.
 - Do not reuse `0.3.x` for format 3: published Dart `0.3.15` uses format 2.
 
 These release-line numbers are compatibility identifiers, not archive format
@@ -103,8 +107,9 @@ Version declarations alone do not establish release readiness.
   version. Internal implementation package versions are independent and must
   not be presented as archive-format identifiers.
 - Publish one historical migration package per source archive/container
-  version: `revault_migrate_v1`, `revault_migrate_v2`, and
-  `revault_migrate_v3`. Each package owns both archive and vault export commands
+  version: `revault_migrate_v1`, `revault_migrate_v2`,
+  `revault_migrate_v3`, and `revault_migrate_v4`. Each package owns both archive
+  and vault export commands
   and bundles the required historical readers. Vault structure versions are
   separate from container versions; preserve every supported combination.
   Do not publish separate historical reader or test-fixture crates.

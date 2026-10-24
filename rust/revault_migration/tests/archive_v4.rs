@@ -131,7 +131,7 @@ fn migration_removes_abandoned_imports_preserves_owner_and_verifies_resumed_outp
         .unwrap();
     let opened =
         current::Lockbox::open(&output, current::LockboxOpen::Password(&current_password)).unwrap();
-    assert_eq!(opened.format_version(), 4);
+    assert_eq!(opened.format_version(), 5);
     assert!(opened.owner_signing_key_matches(&owner_current).unwrap());
     assert_eq!(
         opened

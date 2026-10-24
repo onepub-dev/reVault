@@ -33,19 +33,29 @@ public final class Variable extends Table {
   public String sensitivity() { int o = __offset(6); return o != 0 ? __string(o + bb_pos) : null; }
   public ByteBuffer sensitivityAsByteBuffer() { return __vector_as_bytebuffer(6, 1); }
   public ByteBuffer sensitivityInByteBuffer(ByteBuffer _bb) { return __vector_in_bytebuffer(_bb, 6, 1); }
+  public String description() { int o = __offset(8); return o != 0 ? __string(o + bb_pos) : null; }
+  public ByteBuffer descriptionAsByteBuffer() { return __vector_as_bytebuffer(8, 1); }
+  public ByteBuffer descriptionInByteBuffer(ByteBuffer _bb) { return __vector_in_bytebuffer(_bb, 8, 1); }
+  public boolean hasDescription() { int o = __offset(10); return o != 0 ? 0!=bb.get(o + bb_pos) : false; }
 
   public static int createVariable(FlatBufferBuilder builder,
       int nameOffset,
-      int sensitivityOffset) {
-    builder.startTable(2);
+      int sensitivityOffset,
+      int descriptionOffset,
+      boolean hasDescription) {
+    builder.startTable(4);
+    Variable.addDescription(builder, descriptionOffset);
     Variable.addSensitivity(builder, sensitivityOffset);
     Variable.addName(builder, nameOffset);
+    Variable.addHasDescription(builder, hasDescription);
     return Variable.endVariable(builder);
   }
 
-  public static void startVariable(FlatBufferBuilder builder) { builder.startTable(2); }
+  public static void startVariable(FlatBufferBuilder builder) { builder.startTable(4); }
   public static void addName(FlatBufferBuilder builder, int nameOffset) { builder.addOffset(0, nameOffset, 0); }
   public static void addSensitivity(FlatBufferBuilder builder, int sensitivityOffset) { builder.addOffset(1, sensitivityOffset, 0); }
+  public static void addDescription(FlatBufferBuilder builder, int descriptionOffset) { builder.addOffset(2, descriptionOffset, 0); }
+  public static void addHasDescription(FlatBufferBuilder builder, boolean hasDescription) { builder.addBoolean(3, hasDescription, false); }
   public static int endVariable(FlatBufferBuilder builder) {
     int o = builder.endTable();
     return o;
@@ -67,14 +77,21 @@ public final class Variable extends Table {
     _o.setName(_oName);
     String _oSensitivity = sensitivity();
     _o.setSensitivity(_oSensitivity);
+    String _oDescription = description();
+    _o.setDescription(_oDescription);
+    boolean _oHasDescription = hasDescription();
+    _o.setHasDescription(_oHasDescription);
   }
   public static int pack(FlatBufferBuilder builder, VariableT _o) {
     if (_o == null) return 0;
     int _name = _o.getName() == null ? 0 : builder.createString(_o.getName());
     int _sensitivity = _o.getSensitivity() == null ? 0 : builder.createString(_o.getSensitivity());
+    int _description = _o.getDescription() == null ? 0 : builder.createString(_o.getDescription());
     return createVariable(
       builder,
       _name,
-      _sensitivity);
+      _sensitivity,
+      _description,
+      _o.getHasDescription());
   }
 }

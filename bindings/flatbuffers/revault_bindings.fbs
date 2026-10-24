@@ -45,6 +45,8 @@ table FormField {
   label:string (id: 1);
   kind:string (id: 2);
   required:bool (id: 3);
+  description:string (id: 4);
+  has_description:bool (id: 5);
 }
 
 table FormFieldList {
@@ -79,6 +81,8 @@ table FormRecord {
   definition_alias:string (id: 3);
   definition_revision:uint (id: 4);
   values:[revault.internal.FormValue] (id: 5);
+  description:string (id: 6);
+  has_description:bool (id: 7);
 }
 
 table FormRecordList {
@@ -227,6 +231,8 @@ table RuntimeOptions {
 table Variable {
   name:string (id: 0);
   sensitivity:string (id: 1);
+  description:string (id: 2);
+  has_description:bool (id: 3);
 }
 
 table VariableList {

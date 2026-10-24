@@ -1,0 +1,1 @@
+PUBLIC TEST-ONLY signing key for this synthetic format-5 fixture. Never use outside this fixture.

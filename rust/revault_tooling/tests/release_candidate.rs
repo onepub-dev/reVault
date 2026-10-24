@@ -51,7 +51,7 @@ impl Fixture {
         write(
             root,
             "candidate.json",
-            json!({"schema":1,"repository":"org/repo","run_id":42,"source_sha":sha,"source_ref":"release-candidates/test","scope":"all","cli_version":"0.5.1","bindings_version":"0.5.2","artifacts":artifacts}),
+            json!({"schema":1,"repository":"org/repo","run_id":42,"source_sha":sha,"source_ref":"release-candidates/test","scope":"all","cli_version":"0.6.0","bindings_version":"0.6.0","artifacts":artifacts}),
         );
         write(
             root,
@@ -69,7 +69,7 @@ impl Fixture {
         write(
             root,
             "tag-refs.json",
-            json!([{"ref":"refs/tags/revault-dart-v0.5.2","object":{"type":"commit","sha":sha}}]),
+            json!([{"ref":"refs/tags/revault-dart-v0.6.0","object":{"type":"commit","sha":sha}}]),
         );
         write(
             root,
@@ -280,9 +280,9 @@ fn coordinator_preserves_trusted_publication_workflow_entry_points() {
             "--scope",
             "all",
             "--cli-version",
-            "0.5.1",
+            "0.6.0",
             "--bindings-version",
-            "0.5.2",
+            "0.6.0",
         ]));
         assert!(f
             .calls()

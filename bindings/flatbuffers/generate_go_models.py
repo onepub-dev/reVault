@@ -130,7 +130,7 @@ lines += [
     "}",
     "func encodeFormFields(values []FormField) []byte {",
     "  items := make([]*transport.FormFieldT, 0, len(values))",
-    "  for _, value := range values { items = append(items, &transport.FormFieldT{Id: value.Id, Label: value.Label, Kind: value.Kind, Required: value.Required}) }",
+    "  for _, value := range values { items = append(items, &transport.FormFieldT{Id: value.Id, Label: value.Label, Kind: value.Kind, Required: value.Required, Description: value.Description, HasDescription: value.HasDescription}) }",
     "  builder := flatbuffers.NewBuilder(256); root := (&transport.FormFieldListT{Values: items}).Pack(builder); builder.Finish(root); return append([]byte(nil), builder.FinishedBytes()...)",
     "}",
 ]

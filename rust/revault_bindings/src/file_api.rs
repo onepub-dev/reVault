@@ -386,7 +386,7 @@ mod tests {
         let path = root.join("future.lbox");
         // A synthetic discriminator is necessary: no public future writer exists.
         let mut archive = vec![0; 384];
-        archive[..10].copy_from_slice(b"LBX5HDR\0\x05\0");
+        archive[..10].copy_from_slice(b"LBX6HDR\0\x06\0");
         std::fs::write(&path, &archive).unwrap();
         for mode in ["read", "write"] {
             assert!(file(&path, mode, ptr::null()).is_null());
@@ -444,6 +444,21 @@ mod tests {
                     false,
                 )
             });
+            let variable = b"PURPOSE";
+            assert!(unsafe {
+                lockbox_set_variable(
+                    writer.0,
+                    variable.as_ptr().cast(),
+                    variable.len(),
+                    b"value".as_ptr().cast(),
+                    5,
+                )
+            });
+            let set = br#"{"target":"variable","reference":"PURPOSE","operation":"set","text":"First\nSecond"}"#;
+            let result =
+                unsafe { lockbox_item_description(writer.0, set.as_ptr().cast(), set.len()) };
+            assert!(!result.ptr.is_null(), "{}", diagnostic());
+            unsafe { buffer_free(result) };
             assert!(unsafe { lockbox_commit(writer.0) });
             drop(writer);
             for mode in ["read", "open"] {
@@ -456,6 +471,19 @@ mod tests {
                     },
                 );
                 contents(&reader, payload);
+                let get = br#"{"target":"variable","reference":"PURPOSE","operation":"get"}"#;
+                let result =
+                    unsafe { lockbox_item_description(reader.0, get.as_ptr().cast(), get.len()) };
+                assert!(!result.ptr.is_null(), "{}", diagnostic());
+                let bytes = unsafe { std::slice::from_raw_parts(result.ptr, result.len) };
+                let description =
+                    flatbuffers::root::<bindings_transport::OptionalString>(bytes).unwrap();
+                assert!(description.present());
+                assert_eq!(description.value(), Some("First\nSecond"));
+                unsafe { buffer_free(result) };
+                let refused =
+                    unsafe { lockbox_item_description(reader.0, set.as_ptr().cast(), set.len()) };
+                assert!(refused.ptr.is_null());
                 assert!(!unsafe { lockbox_commit(reader.0) });
                 assert!(unsafe { &*reader.0.cast::<Lockbox>() }.is_file_read_only());
             }

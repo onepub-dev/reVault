@@ -34,6 +34,7 @@ pub(super) fn fixture(
             name: format!("Definition {n}"),
             description: "description".into(),
             fields: vec![FormFieldDefinition {
+                description: None,
                 id: "password".into(),
                 label: "Password".into(),
                 kind: FormFieldKind::Secret,
@@ -57,6 +58,7 @@ pub(super) fn fixture(
         .map(|n| {
             let d = &definitions[usize::from(n == 2)];
             FormRecord {
+                description: None,
                 path: LockboxPath::new(format!("/forms/{n}")).unwrap(),
                 name: format!("Record {n}"),
                 type_id: d.type_id.clone(),
@@ -141,6 +143,7 @@ pub(super) fn collect(
                 assert!(definition.is_none() && record.is_none());
                 record = Some((
                     FormRecord {
+                        description: None,
                         path,
                         name,
                         type_id,

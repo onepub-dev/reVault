@@ -7,6 +7,7 @@ members = [
     "revault_migrate_v1",
     "revault_migrate_v2",
     "revault_migrate_v3",
+    "revault_migrate_v4",
     "revault_migration",
     "revault_cli",
     "revault_publish_protocol",

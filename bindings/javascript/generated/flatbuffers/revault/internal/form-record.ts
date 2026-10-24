@@ -68,8 +68,20 @@ valuesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+description():string|null
+description(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+description(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+hasDescription():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startFormRecord(builder:flatbuffers.Builder) {
-  builder.startObject(6);
+  builder.startObject(8);
 }
 
 static addPath(builder:flatbuffers.Builder, pathOffset:flatbuffers.Offset) {
@@ -108,12 +120,20 @@ static startValuesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addDescription(builder:flatbuffers.Builder, descriptionOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(6, descriptionOffset, 0);
+}
+
+static addHasDescription(builder:flatbuffers.Builder, hasDescription:boolean) {
+  builder.addFieldInt8(7, +hasDescription, +false);
+}
+
 static endFormRecord(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createFormRecord(builder:flatbuffers.Builder, pathOffset:flatbuffers.Offset, nameOffset:flatbuffers.Offset, typeIdOffset:flatbuffers.Offset, definitionAliasOffset:flatbuffers.Offset, definitionRevision:number, valuesOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createFormRecord(builder:flatbuffers.Builder, pathOffset:flatbuffers.Offset, nameOffset:flatbuffers.Offset, typeIdOffset:flatbuffers.Offset, definitionAliasOffset:flatbuffers.Offset, definitionRevision:number, valuesOffset:flatbuffers.Offset, descriptionOffset:flatbuffers.Offset, hasDescription:boolean):flatbuffers.Offset {
   FormRecord.startFormRecord(builder);
   FormRecord.addPath(builder, pathOffset);
   FormRecord.addName(builder, nameOffset);
@@ -121,6 +141,8 @@ static createFormRecord(builder:flatbuffers.Builder, pathOffset:flatbuffers.Offs
   FormRecord.addDefinitionAlias(builder, definitionAliasOffset);
   FormRecord.addDefinitionRevision(builder, definitionRevision);
   FormRecord.addValues(builder, valuesOffset);
+  FormRecord.addDescription(builder, descriptionOffset);
+  FormRecord.addHasDescription(builder, hasDescription);
   return FormRecord.endFormRecord(builder);
 }
 
@@ -131,7 +153,9 @@ unpack(): FormRecordT {
     this.typeId(),
     this.definitionAlias(),
     this.definitionRevision(),
-    this.bb!.createObjList<FormValue, FormValueT>(this.values.bind(this), this.valuesLength())
+    this.bb!.createObjList<FormValue, FormValueT>(this.values.bind(this), this.valuesLength()),
+    this.description(),
+    this.hasDescription()
   );
 }
 
@@ -143,6 +167,8 @@ unpackTo(_o: FormRecordT): void {
   _o.definitionAlias = this.definitionAlias();
   _o.definitionRevision = this.definitionRevision();
   _o.values = this.bb!.createObjList<FormValue, FormValueT>(this.values.bind(this), this.valuesLength());
+  _o.description = this.description();
+  _o.hasDescription = this.hasDescription();
 }
 }
 
@@ -153,7 +179,9 @@ constructor(
   public typeId: string|Uint8Array|null = null,
   public definitionAlias: string|Uint8Array|null = null,
   public definitionRevision: number = 0,
-  public values: (FormValueT)[] = []
+  public values: (FormValueT)[] = [],
+  public description: string|Uint8Array|null = null,
+  public hasDescription: boolean = false
 ){}
 
 
@@ -163,6 +191,7 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const typeId = (this.typeId !== null ? builder.createString(this.typeId!) : 0);
   const definitionAlias = (this.definitionAlias !== null ? builder.createString(this.definitionAlias!) : 0);
   const values = FormRecord.createValuesVector(builder, builder.createObjectOffsetList(this.values));
+  const description = (this.description !== null ? builder.createString(this.description!) : 0);
 
   return FormRecord.createFormRecord(builder,
     path,
@@ -170,7 +199,9 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
     typeId,
     definitionAlias,
     this.definitionRevision,
-    values
+    values,
+    description,
+    this.hasDescription
   );
 }
 }

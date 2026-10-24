@@ -179,6 +179,8 @@ module Revault
     extern 'void ruby_lockbox_list_with_options(void *, void *, size_t, void *, size_t, bool, bool, bool, bool, size_t, void *)'
     extern 'void ruby_lockbox_stat(void *, void *, size_t, void *)'
     extern 'void ruby_lockbox_get_variable(void *, void *, size_t, void *)'
+    extern 'void ruby_lockbox_item_description(void *, void *, size_t, void *)'
+    extern 'void ruby_vault_directory_item_description(void *, void *, size_t, void *)'
     extern 'void ruby_lockbox_list_variables(void *, void *)'
     extern 'void ruby_lockbox_variable_sensitivity(void *, void *, size_t, void *)'
     extern 'void ruby_lockbox_get_symlink_target(void *, void *, size_t, void *)'
@@ -493,6 +495,14 @@ module Revault
 
     def lockbox_get_variable(handle, name)
       value = Revault::Internal::DomainCodec.decode('OptionalString', take(buffer_call(:lockbox_get_variable, handle, Fiddle::Pointer[name], name.bytesize)))
+      value.present ? value.value : nil
+    end
+    def lockbox_item_description(handle, name)
+      value = Revault::Internal::DomainCodec.decode('OptionalString', take(buffer_call(:lockbox_item_description, handle, Fiddle::Pointer[name], name.bytesize)))
+      value.present ? value.value : nil
+    end
+    def vault_directory_item_description(handle, name)
+      value = Revault::Internal::DomainCodec.decode('OptionalString', take(buffer_call(:vault_directory_item_description, handle, Fiddle::Pointer[name], name.bytesize)))
       value.present ? value.value : nil
     end
 

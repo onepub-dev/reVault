@@ -544,6 +544,7 @@ fn prepared_forms_lockbox(items: usize) -> BenchLockbox {
 
 fn form_field(id: &str, label: &str, kind: FormFieldKind, required: bool) -> FormFieldDefinition {
     FormFieldDefinition {
+        description: None,
         id: id.to_string(),
         label: label.to_string(),
         kind,

@@ -15,6 +15,10 @@ fn published_cli_and_candidate_read_and_update_each_others_archives_and_vaults()
     let candidate = Path::new(env!("CARGO_BIN_EXE_lockbox"));
     let declaration: serde_json::Value =
         serde_json::from_str(include_str!("../../release-compatibility.json")).unwrap();
+    if declaration["baseline_role"] == "migration_source" {
+        published_previous_line_migrates(baseline, candidate, &declaration);
+        return;
+    }
     let expected_baseline = declaration["baseline_cli_version"].as_str().unwrap();
     let line: Vec<&str> = declaration["public_line"]
         .as_str()
@@ -162,5 +166,312 @@ fn published_cli_and_candidate_read_and_update_each_others_archives_and_vaults()
             .status
             .success());
         success(peer, &["session", "stop"]);
+
+        // Native descriptions must survive writes by every release in this line.
+        success(
+            candidate,
+            &[
+                "shared.lbox",
+                "variables",
+                "description",
+                "set",
+                "VALUE",
+                "Purpose\nSecond line",
+            ],
+        );
+        success(
+            candidate,
+            &[
+                "shared.lbox",
+                "forms",
+                "define",
+                "login",
+                "--field",
+                "username:text",
+            ],
+        );
+        success(
+            candidate,
+            &["shared.lbox", "forms", "add", "/account", "--type", "login"],
+        );
+        success(
+            candidate,
+            &[
+                "shared.lbox",
+                "forms",
+                "field-description",
+                "set",
+                "login",
+                "username",
+                "Full email\nInclude domain",
+            ],
+        );
+        success(
+            candidate,
+            &[
+                "shared.lbox",
+                "forms",
+                "description",
+                "set",
+                "/account",
+                "Company account",
+            ],
+        );
+        success(
+            candidate,
+            &[
+                "vault",
+                "forms",
+                "define",
+                "login",
+                "--field",
+                "username:text",
+            ],
+        );
+        success(
+            candidate,
+            &[
+                "vault",
+                "forms",
+                "field-description",
+                "set",
+                "login",
+                "username",
+                "Vault guidance",
+            ],
+        );
+        success(candidate, &["session", "stop"]);
+        success(
+            baseline,
+            &["shared.lbox", "variables", "set", "VALUE", "legacy update"],
+        );
+        success(
+            baseline,
+            &["vault", "profile", "create", "description-compat"],
+        );
+        success(baseline, &["session", "stop"]);
+        assert_eq!(
+            success(
+                candidate,
+                &["shared.lbox", "variables", "description", "get", "VALUE"]
+            ),
+            b"Purpose\nSecond line"
+        );
+        assert_eq!(
+            success(
+                candidate,
+                &[
+                    "shared.lbox",
+                    "forms",
+                    "field-description",
+                    "get",
+                    "login",
+                    "username"
+                ]
+            ),
+            b"Full email\nInclude domain"
+        );
+        assert_eq!(
+            success(
+                candidate,
+                &["shared.lbox", "forms", "description", "get", "/account"]
+            ),
+            b"Company account"
+        );
+        assert_eq!(
+            success(
+                candidate,
+                &[
+                    "vault",
+                    "forms",
+                    "field-description",
+                    "get",
+                    "login",
+                    "username"
+                ]
+            ),
+            b"Vault guidance"
+        );
+        success(candidate, &["session", "stop"]);
     }
+}
+
+fn published_previous_line_migrates(
+    baseline: &Path,
+    candidate: &Path,
+    declaration: &serde_json::Value,
+) {
+    let root = TestTempDir::new("previous-line-migration");
+    let vault = root.path().join("vault");
+    let agent = common::agent_socket_dir(&root.path().join("agent"));
+    let _guard = TestAgentGuard::new(&agent, Some(&vault));
+    let run = |binary: &Path, args: &[&str]| {
+        Command::new(binary)
+            .current_dir(root.path())
+            .args(args)
+            .env("LOCKBOX_VAULT_DIR", &vault)
+            .env("LOCKBOX_VAULT_PASSWORD", "migration fixture vault password")
+            .env("LOCKBOX_KEY", "migration fixture archive content key")
+            .env_remove("LOCKBOX_PASSWORD")
+            .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+            .env("LOCKBOX_SESSION_AGENT_DIR", &agent)
+            .env("LOCKBOX_SESSION_AGENT_LOG", root.path().join("agent.log"))
+            .test_output()
+            .unwrap()
+    };
+    let success = |binary: &Path, args: &[&str]| {
+        let out = run(binary, args);
+        assert!(
+            out.status.success(),
+            "{} {args:?}\n{}\n{}",
+            binary.display(),
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        out.stdout
+    };
+    let version = success(baseline, &["--version"]);
+    assert!(String::from_utf8_lossy(&version)
+        .split_whitespace()
+        .any(|part| Some(part) == declaration["baseline_cli_version"].as_str()));
+    success(baseline, &["vault", "init"]);
+    success(
+        baseline,
+        &["vault", "profile", "create", "migration-profile"],
+    );
+    success(
+        baseline,
+        &[
+            "vault",
+            "profile",
+            "export",
+            "before.pub",
+            "--format",
+            "raw",
+        ],
+    );
+    success(baseline, &["shared.lbox", "create", "--signing", "none"]);
+    let payload = b"migration payload\0\xff".repeat(4097);
+    std::fs::write(root.path().join("input"), &payload).unwrap();
+    success(
+        baseline,
+        &["shared.lbox", "add", "input", "--to", "/payload"],
+    );
+    success(
+        baseline,
+        &["shared.lbox", "variable", "set", "VALUE", "original"],
+    );
+    success(baseline, &["vault", "lockbox", "remember", "shared.lbox"]);
+    success(baseline, &["session", "stop"]);
+    let old_archive = std::fs::read(root.path().join("shared.lbox")).unwrap();
+    let old_vault = std::fs::read(vault.join("local-vault.lbox")).unwrap();
+    assert!(!run(candidate, &["shared.lbox", "cat", "/payload"])
+        .status
+        .success());
+    let exporters = candidate.parent().unwrap();
+    let vault_exporter = exporters.join(format!(
+        "revault-migrate-vault-v4{}",
+        std::env::consts::EXE_SUFFIX
+    ));
+    let archive_exporter = exporters.join(format!(
+        "revault-migrate-archive-v4{}",
+        std::env::consts::EXE_SUFFIX
+    ));
+    assert!(
+        vault_exporter.is_file() && archive_exporter.is_file(),
+        "build revault_migrate_v4 binaries beside the candidate before this test"
+    );
+    success(
+        candidate,
+        &[
+            "doctor",
+            "migrate",
+            "vault",
+            "--replace",
+            "--exporter",
+            vault_exporter.to_str().unwrap(),
+        ],
+    );
+    success(
+        candidate,
+        &["vault", "profile", "export", "after.pub", "--format", "raw"],
+    );
+    assert_eq!(
+        std::fs::read(root.path().join("before.pub")).unwrap(),
+        std::fs::read(root.path().join("after.pub")).unwrap()
+    );
+    assert!(
+        String::from_utf8_lossy(&success(candidate, &["vault", "lockbox", "list"]))
+            .contains("shared.lbox")
+    );
+    success(
+        candidate,
+        &[
+            "doctor",
+            "migrate",
+            "lockbox",
+            "shared.lbox",
+            "--replace",
+            "--exporter",
+            archive_exporter.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(
+        success(candidate, &["shared.lbox", "cat", "/payload"]),
+        payload
+    );
+    assert_eq!(
+        success(candidate, &["shared.lbox", "variable", "get", "VALUE"]),
+        b"original\n"
+    );
+    success(
+        candidate,
+        &[
+            "shared.lbox",
+            "variables",
+            "description",
+            "set",
+            "VALUE",
+            "Native\nDescription",
+        ],
+    );
+    assert_eq!(
+        success(
+            candidate,
+            &["shared.lbox", "variables", "description", "get", "VALUE"]
+        ),
+        b"Native\nDescription"
+    );
+    success(candidate, &["session", "stop"]);
+    assert!(!run(baseline, &["shared.lbox", "cat", "/payload"])
+        .status
+        .success());
+    assert!(!run(baseline, &["vault", "profile", "list"])
+        .status
+        .success());
+    assert_eq!(
+        std::fs::read(root.path().join("shared.lbox.v4-v5.pre-migration")).unwrap(),
+        old_archive
+    );
+    assert_eq!(
+        std::fs::read(
+            root.path()
+                .join("vault.v3-v3.pre-migration/local-vault.lbox")
+        )
+        .unwrap(),
+        old_vault
+    );
+    assert_ne!(
+        std::fs::read(root.path().join("shared.lbox")).unwrap(),
+        old_archive
+    );
+    success(candidate, &["doctor", "migrate", "vault", "--replace"]);
+    success(
+        candidate,
+        &["doctor", "migrate", "lockbox", "shared.lbox", "--replace"],
+    );
+    assert_eq!(
+        success(candidate, &["shared.lbox", "cat", "/payload"]),
+        payload
+    );
 }
