@@ -1,6 +1,6 @@
 [package]
 name = "revault_bindings"
-version = "0.2.33"
+version = "0.2.34"
 edition = "2021"
 rust-version = "1.88"
 license-file = "../revault_lockbox_api/LICENSE"
@@ -16,15 +16,15 @@ default = ["native"]
 native = []
 
 [dependencies]
-revault_lockbox_api = { version = "0.0.51", path = "../revault_lockbox_api", features = ["bindings"] }
-revault_vault_api = { version = "0.0.52", path = "../revault_vault_api", features = ["exchange-http"] }
+revault_lockbox_api = { version = "0.0.52", path = "../revault_lockbox_api", features = ["bindings"] }
+revault_vault_api = { version = "0.0.53", path = "../revault_vault_api", features = ["exchange-http"] }
 flatbuffers = "=25.12.19"
 zeroize = "1.9"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [dev-dependencies]
-revault_key_server = { path = "../revault_key_server" , version = "0.0.47" }
+revault_key_server = { path = "../revault_key_server" , version = "0.0.48" }
 tempfile = "3"
 criterion = "0.8.2"
 zeroize = "1.9"
