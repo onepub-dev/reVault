@@ -923,7 +923,16 @@ fn encoded_requests_are_accepted_by_store_handler() {
     .unwrap();
     let response = store.handle(request.operation, &request.payload);
     assert_success(&response);
-    let mut reader = Reader::new(&response[14..]);
+    let envelope = revault_publish_protocol::protocol::decode_response(&response, 2048).unwrap();
+    // Topology metadata follows the envelope; it is not part of the publish
+    // payload and must not be mistaken for a leaked verification URL.
+    assert!(
+        revault_publish_protocol::protocol::decode_publish_response_document(&envelope.payload)
+            .unwrap()
+            .verification_url
+            .is_none()
+    );
+    let mut reader = Reader::new(&envelope.payload);
     reader.message_version().unwrap();
     let publish_code = reader.string().unwrap();
     let delete_token = reader.bytes().unwrap();

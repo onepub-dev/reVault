@@ -12,7 +12,7 @@ pub struct ExporterRelease {
 pub const EXPORTERS: &[ExporterRelease] = &[
     ExporterRelease {
         package: "revault_migrate_v4",
-        version: "0.1.0",
+        version: "0.1.1",
         binary: "revault-migrate-archive-v4",
         protocol: 3,
         artifact: "archive",
@@ -21,7 +21,7 @@ pub const EXPORTERS: &[ExporterRelease] = &[
     },
     ExporterRelease {
         package: "revault_migrate_v4",
-        version: "0.1.0",
+        version: "0.1.1",
         binary: "revault-migrate-vault-v4",
         protocol: 4,
         artifact: "vault",

@@ -333,8 +333,7 @@ impl<S: Storage> ReadImage<S> {
                     self.anchor.sealed_len,
                     &selected.descriptor,
                 )?;
-                let mut stored =
-                    crate::archive_reader::page_buffer::ZeroizingBytes::new(vec![
+                let mut stored = crate::archive_reader::page_buffer::ZeroizingBytes::new(vec![
                         0;
                         selected.extent.len
                             as usize

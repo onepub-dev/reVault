@@ -11,46 +11,48 @@ final class RevaultBuffer extends ffi.Struct {
 }
 
 // BEGIN generated file operation types
-typedef _LockboxFileNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint64,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Size,
-);
-typedef _LockboxFileDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-);
+typedef _LockboxFileNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Size,
+    );
+typedef _LockboxFileDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+    );
 @ffi.Native<_LockboxFileNative>(
   symbol: 'lockbox_file',
   assetId: 'package:revault_api/src/revault_native.dart',
@@ -84,76 +86,56 @@ typedef _BufferLastErrorDetailsNative = RevaultBuffer Function();
 typedef _BufferLastErrorDetailsDart = RevaultBuffer Function();
 typedef _BufferFreeNative = ffi.Void Function(RevaultBuffer);
 typedef _BufferFreeDart = void Function(RevaultBuffer);
-typedef _SecretLenNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Size>,
-);
-typedef _SecretLenDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Size>,
-);
-typedef _SecretCopyNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _SecretCopyDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _SecretLenNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Size>);
+typedef _SecretLenDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Size>);
+typedef _SecretCopyNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _SecretCopyDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
 typedef _SecretFreeNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
 typedef _SecretFreeDart = void Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxFormatVersionNative = ffi.Uint16 Function();
 typedef _LockboxFormatVersionDart = int Function();
-typedef _LockboxProbeFormatVersionNative = ffi.Uint16 Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxProbeFormatVersionDart = int Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxCreateNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxCreateDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxCreateWithOptionsNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint64,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Size,
-);
-typedef _LockboxCreateWithOptionsDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-);
-typedef _LockboxCreatePasswordNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxCreatePasswordDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _LockboxProbeFormatVersionNative =
+    ffi.Uint16 Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _LockboxProbeFormatVersionDart =
+    int Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxCreateNative =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _LockboxCreateDart =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxCreateWithOptionsNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Size,
+    );
+typedef _LockboxCreateWithOptionsDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+    );
+typedef _LockboxCreatePasswordNative =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _LockboxCreatePasswordDart =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int);
 typedef _LockboxCreatePasswordWithSigningKeyNative =
     ffi.Pointer<ffi.Void> Function(
       ffi.Pointer<ffi.Uint8>,
@@ -166,12 +148,10 @@ typedef _LockboxCreatePasswordWithSigningKeyDart =
       int,
       ffi.Pointer<ffi.Void>,
     );
-typedef _LockboxCreateContactNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxCreateContactDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-);
+typedef _LockboxCreateContactNative =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxCreateContactDart =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxCreateContactWithSigningKeyNative =
     ffi.Pointer<ffi.Void> Function(
       ffi.Pointer<ffi.Void>,
@@ -182,821 +162,741 @@ typedef _LockboxCreateContactWithSigningKeyDart =
       ffi.Pointer<ffi.Void>,
       ffi.Pointer<ffi.Void>,
     );
-typedef _LockboxCreateWithSigningKeyNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxCreateWithSigningKeyDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxOpenNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxOpenDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxOpenWithOptionsNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint64,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Size,
-);
-typedef _LockboxOpenWithOptionsDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-);
-typedef _LockboxOpenPasswordWithBudgetNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint32,
-);
-typedef _LockboxOpenPasswordWithBudgetDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-);
-typedef _LockboxExtractFileWithPolicyNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint64,
-  ffi.Uint64,
-  ffi.Size,
-  ffi.Bool,
-  ffi.Bool,
-);
-typedef _LockboxExtractFileWithPolicyDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-  int,
-  int,
-  bool,
-  bool,
-);
-typedef _LockboxOpenPasswordNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxOpenPasswordDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxOpenContactNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxOpenContactDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxAddFileNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Bool,
-);
-typedef _LockboxAddFileDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  bool,
-);
-typedef _LockboxAddFileWithPermissionsNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint32,
-  ffi.Bool,
-);
-typedef _LockboxAddFileWithPermissionsDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-  bool,
-);
-typedef _LockboxGetFileNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxGetFileDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxExtractFileNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Bool,
-);
-typedef _LockboxExtractFileDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  bool,
-);
-typedef _LockboxExtractDirectoryNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint64,
-  ffi.Uint64,
-  ffi.Size,
-  ffi.Bool,
-  ffi.Bool,
-  ffi.Bool,
-);
-typedef _LockboxExtractDirectoryDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-  int,
-  int,
-  bool,
-  bool,
-  bool,
-);
-typedef _LockboxStreamContentNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Bool,
-);
-typedef _LockboxStreamContentDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  bool,
-);
-typedef _LockboxCacheStatsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
+typedef _LockboxCreateWithSigningKeyNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _LockboxCreateWithSigningKeyDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _LockboxOpenNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxOpenDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _LockboxOpenWithOptionsNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Size,
+    );
+typedef _LockboxOpenWithOptionsDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+    );
+typedef _LockboxOpenPasswordWithBudgetNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint32,
+    );
+typedef _LockboxOpenPasswordWithBudgetDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+    );
+typedef _LockboxExtractFileWithPolicyNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Size,
+      ffi.Bool,
+      ffi.Bool,
+    );
+typedef _LockboxExtractFileWithPolicyDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+      int,
+      int,
+      bool,
+      bool,
+    );
+typedef _LockboxOpenPasswordNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxOpenPasswordDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _LockboxOpenContactNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _LockboxOpenContactDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _LockboxAddFileNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Bool,
+    );
+typedef _LockboxAddFileDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      bool,
+    );
+typedef _LockboxAddFileWithPermissionsNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint32,
+      ffi.Bool,
+    );
+typedef _LockboxAddFileWithPermissionsDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+      bool,
+    );
+typedef _LockboxGetFileNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxGetFileDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxExtractFileNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Bool,
+    );
+typedef _LockboxExtractFileDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      bool,
+    );
+typedef _LockboxExtractDirectoryNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Size,
+      ffi.Bool,
+      ffi.Bool,
+      ffi.Bool,
+    );
+typedef _LockboxExtractDirectoryDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+      int,
+      int,
+      bool,
+      bool,
+      bool,
+    );
+typedef _LockboxStreamContentNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Bool);
+typedef _LockboxStreamContentDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, bool);
+typedef _LockboxCacheStatsNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxCacheStatsDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
-typedef _LockboxImportStatsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
+typedef _LockboxImportStatsNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxImportStatsDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
-typedef _LockboxResetImportStatsNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-);
+typedef _LockboxResetImportStatsNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxResetImportStatsDart = bool Function(ffi.Pointer<ffi.Void>);
-typedef _LockboxInspectFileNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxInspectFileDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxPageInspectionNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxPageInspectionDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxRecoveryReportNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxRecoveryReportDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxRecoveryReportRenderNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Bool,
-  ffi.Size,
-);
-typedef _LockboxRecoveryReportRenderDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  bool,
-  int,
-);
-typedef _LockboxRecoveryScanPathNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxRecoveryScanPathDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _LockboxInspectFileNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _LockboxInspectFileDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxPageInspectionNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxPageInspectionDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxRecoveryReportNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxRecoveryReportDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxRecoveryReportRenderNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Bool, ffi.Size);
+typedef _LockboxRecoveryReportRenderDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, bool, int);
+typedef _LockboxRecoveryScanPathNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxRecoveryScanPathDart =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
 typedef _LockboxStorageLenNative = ffi.Uint64 Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxStorageLenDart = int Function(ffi.Pointer<ffi.Void>);
-typedef _LockboxSetWorkloadProfileNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxSetWorkloadProfileDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxSetCacheLimitNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint64,
-);
-typedef _LockboxSetCacheLimitDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-);
-typedef _LockboxSetWorkerPolicyNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Size,
-);
-typedef _LockboxSetWorkerPolicyDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-);
-typedef _LockboxRuntimeOptionsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxRuntimeOptionsDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
+typedef _LockboxSetWorkloadProfileNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _LockboxSetWorkloadProfileDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxSetCacheLimitNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+    );
+typedef _LockboxSetCacheLimitDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int, int);
+typedef _LockboxSetWorkerPolicyNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Size,
+    );
+typedef _LockboxSetWorkerPolicyDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int, int);
+typedef _LockboxRuntimeOptionsNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxRuntimeOptionsDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxCommitNative = ffi.Bool Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxCommitDart = bool Function(ffi.Pointer<ffi.Void>);
-typedef _LockboxCreateDirNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Bool,
-);
-typedef _LockboxCreateDirDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  bool,
-);
-typedef _LockboxDeleteNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxDeleteDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxRemoveDirNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Bool,
-);
-typedef _LockboxRemoveDirDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  bool,
-);
-typedef _LockboxCreateParentDirsNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxCreateParentDirsDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxRenameNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxRenameDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxListNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Bool,
-);
-typedef _LockboxListDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  bool,
-);
-typedef _LockboxListWithOptionsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Bool,
-  ffi.Bool,
-  ffi.Bool,
-  ffi.Bool,
-  ffi.Size,
-);
-typedef _LockboxListWithOptionsDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  bool,
-  bool,
-  bool,
-  bool,
-  int,
-);
-typedef _LockboxStatNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxStatDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxSetVariableNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxSetVariableDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _LockboxCreateDirNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Bool,
+    );
+typedef _LockboxCreateDirDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int, bool);
+typedef _LockboxDeleteNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _LockboxDeleteDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxRemoveDirNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Bool,
+    );
+typedef _LockboxRemoveDirDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int, bool);
+typedef _LockboxCreateParentDirsNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _LockboxCreateParentDirsDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxRenameNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxRenameDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _LockboxListNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Bool,
+    );
+typedef _LockboxListDart =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      bool,
+    );
+typedef _LockboxListWithOptionsNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Bool,
+      ffi.Bool,
+      ffi.Bool,
+      ffi.Bool,
+      ffi.Size,
+    );
+typedef _LockboxListWithOptionsDart =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      bool,
+      bool,
+      bool,
+      bool,
+      int,
+    );
+typedef _LockboxStatNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxStatDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxSetVariableNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxSetVariableDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
 typedef _LockboxSetSecretVariableNative = _LockboxSetVariableNative;
 typedef _LockboxSetSecretVariableDart = _LockboxSetVariableDart;
-typedef _LockboxGetVariableNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxGetVariableDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _ContactExchangeExecuteNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _ContactExchangeExecuteDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxItemDescriptionNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxItemDescriptionDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryItemDescriptionNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryItemDescriptionDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxGetSecretVariableNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Pointer<ffi.Void>>,
-);
-typedef _LockboxGetSecretVariableDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Pointer<ffi.Void>>,
-);
-typedef _LockboxDeleteVariableNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxDeleteVariableDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxMoveVariablesNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxMoveVariablesDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxListVariablesNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxListVariablesDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxVariableSensitivityNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxVariableSensitivityDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxAddSymlinkNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Bool,
-);
-typedef _LockboxAddSymlinkDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  bool,
-);
-typedef _LockboxGetSymlinkTargetNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxGetSymlinkTargetDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _LockboxGetVariableNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxGetVariableDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _ContactExchangeExecuteNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _ContactExchangeExecuteDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxItemDescriptionNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxItemDescriptionDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryItemDescriptionNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryItemDescriptionDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxGetSecretVariableNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Pointer<ffi.Void>>,
+    );
+typedef _LockboxGetSecretVariableDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Pointer<ffi.Void>>,
+    );
+typedef _LockboxDeleteVariableNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _LockboxDeleteVariableDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxMoveVariablesNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _LockboxMoveVariablesDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxListVariablesNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxListVariablesDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxVariableSensitivityNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxVariableSensitivityDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxAddSymlinkNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Bool,
+    );
+typedef _LockboxAddSymlinkDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      bool,
+    );
+typedef _LockboxGetSymlinkTargetNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxGetSymlinkTargetDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
 typedef _LockboxIdNative = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxIdDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
-typedef _LockboxExistsNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxExistsDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxIsDirNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxIsDirDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxPermissionsNative = ffi.Uint32 Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxPermissionsDart = int Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxSetPermissionsNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint32,
-);
-typedef _LockboxSetPermissionsDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-);
-typedef _LockboxReadRangeNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint64,
-  ffi.Uint64,
-);
-typedef _LockboxReadRangeDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-  int,
-);
-typedef _LockboxRecoveryScanNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxRecoveryScanDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxRecoverySalvageNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxRecoverySalvageDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxAddPasswordNative = ffi.Uint64 Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxAddPasswordDart = int Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxAddContactNative = ffi.Uint64 Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxAddContactDart = int Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxDeleteKeyNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Uint64,
-);
+typedef _LockboxExistsNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _LockboxExistsDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxIsDirNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _LockboxIsDirDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxPermissionsNative =
+    ffi.Uint32 Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxPermissionsDart =
+    int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxSetPermissionsNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint32,
+    );
+typedef _LockboxSetPermissionsDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int, int);
+typedef _LockboxReadRangeNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+      ffi.Uint64,
+    );
+typedef _LockboxReadRangeDart =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+      int,
+    );
+typedef _LockboxRecoveryScanNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxRecoveryScanDart =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _LockboxRecoverySalvageNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _LockboxRecoverySalvageDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _LockboxAddPasswordNative =
+    ffi.Uint64 Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxAddPasswordDart =
+    int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxAddContactNative =
+    ffi.Uint64 Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxAddContactDart =
+    int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _LockboxDeleteKeyNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Uint64);
 typedef _LockboxDeleteKeyDart = bool Function(ffi.Pointer<ffi.Void>, int);
-typedef _LockboxListKeySlotsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxListKeySlotsDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxSetOwnerSigningKeyNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxSetOwnerSigningKeyDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxOwnerInspectionNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxOwnerInspectionDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxDefineFormNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxDefineFormDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxListFormDefinitionsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxListFormDefinitionsDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxResolveFormNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxResolveFormDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxListFormRevisionsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxListFormRevisionsDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxCreateFormRecordNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxCreateFormRecordDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxSetFormFieldNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxSetFormFieldDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _LockboxListKeySlotsNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxListKeySlotsDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxSetOwnerSigningKeyNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Void>);
+typedef _LockboxSetOwnerSigningKeyDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Void>);
+typedef _LockboxOwnerInspectionNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxOwnerInspectionDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxDefineFormNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxDefineFormDart =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _LockboxListFormDefinitionsNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxListFormDefinitionsDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxResolveFormNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxResolveFormDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxListFormRevisionsNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxListFormRevisionsDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxCreateFormRecordNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxCreateFormRecordDart =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _LockboxSetFormFieldNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxSetFormFieldDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
 typedef _LockboxSetSecretFormFieldNative = _LockboxSetFormFieldNative;
 typedef _LockboxSetSecretFormFieldDart = _LockboxSetFormFieldDart;
-typedef _LockboxListFormRecordsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxListFormRecordsDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _LockboxGetFormRecordNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxGetFormRecordDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxDeleteFormRecordNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxDeleteFormRecordDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxMoveFormRecordsNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxMoveFormRecordsDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxGetFormFieldNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _LockboxGetFormFieldDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _LockboxGetSecretFormFieldNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Pointer<ffi.Void>>,
-);
-typedef _LockboxGetSecretFormFieldDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Pointer<ffi.Void>>,
-);
+typedef _LockboxListFormRecordsNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxListFormRecordsDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxGetFormRecordNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxGetFormRecordDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxDeleteFormRecordNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _LockboxDeleteFormRecordDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxMoveFormRecordsNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _LockboxMoveFormRecordsDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxGetFormFieldNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _LockboxGetFormFieldDart =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _LockboxGetSecretFormFieldNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Pointer<ffi.Void>>,
+    );
+typedef _LockboxGetSecretFormFieldDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Pointer<ffi.Void>>,
+    );
 typedef _LockboxToBytesNative = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxToBytesDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxFreeNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
@@ -1007,376 +907,287 @@ typedef _VaultForgetAllNative = ffi.Bool Function();
 typedef _VaultForgetAllDart = bool Function();
 typedef _KeyContactGenerateNative = ffi.Pointer<ffi.Void> Function();
 typedef _KeyContactGenerateDart = ffi.Pointer<ffi.Void> Function();
-typedef _KeyContactFromPrivateNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _KeyContactFromPrivateDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _KeyContactFromPrivateNative =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _KeyContactFromPrivateDart =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int);
 typedef _KeyContactPublicNative = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _KeyContactPublicDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
-typedef _KeyContactPrivateNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
+typedef _KeyContactPrivateNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _KeyContactPrivateDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
-typedef _KeyContactPublicFromBytesNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _KeyContactPublicFromBytesDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _KeyContactPublicFromBytesNative =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _KeyContactPublicFromBytesDart =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int);
 typedef _KeyContactPublicFreeNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
 typedef _KeyContactPublicFreeDart = void Function(ffi.Pointer<ffi.Void>);
 typedef _KeyContactFreeNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
 typedef _KeyContactFreeDart = void Function(ffi.Pointer<ffi.Void>);
-typedef _KeyContactEncryptNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _KeyContactEncryptDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _KeyContactDecryptNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _KeyContactDecryptDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _KeyContactWrappedPublicNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _KeyContactWrappedPublicDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _KeyContactWrappedCiphertextNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _KeyContactWrappedCiphertextDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _KeyContactWrappedEncryptedNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _KeyContactWrappedEncryptedDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
+typedef _KeyContactEncryptNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _KeyContactEncryptDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _KeyContactDecryptNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Void>);
+typedef _KeyContactDecryptDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Void>);
+typedef _KeyContactWrappedPublicNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _KeyContactWrappedPublicDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _KeyContactWrappedCiphertextNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _KeyContactWrappedCiphertextDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _KeyContactWrappedEncryptedNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _KeyContactWrappedEncryptedDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _KeyContactWrappedFreeNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
 typedef _KeyContactWrappedFreeDart = void Function(ffi.Pointer<ffi.Void>);
 typedef _KeySigningGenerateNative = ffi.Pointer<ffi.Void> Function();
 typedef _KeySigningGenerateDart = ffi.Pointer<ffi.Void> Function();
-typedef _KeySigningFromPrivateNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _KeySigningFromPrivateDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _KeySigningFromPrivateNative =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _KeySigningFromPrivateDart =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int);
 typedef _KeySigningPublicNative = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _KeySigningPublicDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
-typedef _KeySigningPrivateNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
+typedef _KeySigningPrivateNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _KeySigningPrivateDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
-typedef _KeySigningPublicFromBytesNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _KeySigningPublicFromBytesDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _KeySigningPublicFromBytesNative =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _KeySigningPublicFromBytesDart =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int);
 typedef _KeySigningPublicFreeNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
 typedef _KeySigningPublicFreeDart = void Function(ffi.Pointer<ffi.Void>);
 typedef _KeySigningFreeNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
 typedef _KeySigningFreeDart = void Function(ffi.Pointer<ffi.Void>);
-typedef _VaultKeyExportPrivateNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultKeyExportPrivateDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultKeyExportPublicNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultKeyExportPublicDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultKeyImportPrivateNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultKeyImportPrivateDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultKeyImportPublicNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultKeyImportPublicDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultKeyFingerprintNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultKeyFingerprintDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultKeyFormatHexNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultKeyFormatHexDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultKeyDecodeHexNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultKeyDecodeHexDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultKeyFormatCrockfordNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultKeyFormatCrockfordDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultKeyFormatCrockfordReadingNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultKeyFormatCrockfordReadingDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultKeyDecodeCrockfordNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultKeyDecodeCrockfordDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultKeyHexEncodeNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultKeyHexEncodeDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultKeyHexDecodeNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultKeyHexDecodeDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryOpenNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryOpenDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _ContactExchangeOpenNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _ContactExchangeOpenDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _VaultKeyExportPrivateNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultKeyExportPrivateDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultKeyExportPublicNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultKeyExportPublicDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultKeyImportPrivateNative =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultKeyImportPrivateDart =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultKeyImportPublicNative =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultKeyImportPublicDart =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultKeyFingerprintNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultKeyFingerprintDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultKeyFormatHexNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultKeyFormatHexDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultKeyDecodeHexNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultKeyDecodeHexDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultKeyFormatCrockfordNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultKeyFormatCrockfordDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultKeyFormatCrockfordReadingNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultKeyFormatCrockfordReadingDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultKeyDecodeCrockfordNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultKeyDecodeCrockfordDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultKeyHexEncodeNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultKeyHexEncodeDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultKeyHexDecodeNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultKeyHexDecodeDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryOpenNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryOpenDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _ContactExchangeOpenNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _ContactExchangeOpenDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
 typedef _VaultStructureVersionCurrentNative = ffi.Uint32 Function();
 typedef _VaultStructureVersionCurrentDart = int Function();
-typedef _VaultDirectoryProbeStructureVersionNative = ffi.Uint32 Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryProbeStructureVersionDart = int Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _VaultDirectoryProbeStructureVersionNative =
+    ffi.Uint32 Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryProbeStructureVersionDart =
+    int Function(ffi.Pointer<ffi.Uint8>, int, ffi.Pointer<ffi.Uint8>, int);
 typedef _VaultDirectoryOpenOrCreateDefaultNative =
     ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
-typedef _VaultDirectoryOpenOrCreateDefaultDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryReplaceDefaultNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryReplaceDefaultDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryChangePasswordNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryChangePasswordDart = bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryChangeDefaultPasswordNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryChangeDefaultPasswordDart = bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryReplaceNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryReplaceDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryOpenOrCreateNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryOpenOrCreateDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryRootNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
+typedef _VaultDirectoryOpenOrCreateDefaultDart =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryReplaceDefaultNative =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultDirectoryReplaceDefaultDart =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryChangePasswordNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryChangePasswordDart =
+    bool Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultDirectoryChangeDefaultPasswordNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryChangeDefaultPasswordDart =
+    bool Function(ffi.Pointer<ffi.Uint8>, int, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryReplaceNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryReplaceDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultDirectoryOpenOrCreateNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryOpenOrCreateDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultDirectoryRootNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _VaultDirectoryRootDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
-typedef _VaultDirectoryStructureVersionNative = ffi.Uint32 Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryStructureVersionDart = int Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryListPrivateKeysNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryListPrivateKeysDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryListPrivateKeyNamesNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryListPrivateKeyNamesDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryListContactNamesNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryListContactNamesDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryListFormAliasesNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryListFormAliasesDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryPrivateKeyExistsNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryPrivateKeyExistsDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryDeletePrivateKeyNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryDeletePrivateKeyDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryStorePrivateKeyNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryStorePrivateKeyDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryLoadPrivateKeyNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryLoadPrivateKeyDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _VaultDirectoryStructureVersionNative =
+    ffi.Uint32 Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryStructureVersionDart =
+    int Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListPrivateKeysNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListPrivateKeysDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListPrivateKeyNamesNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListPrivateKeyNamesDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListContactNamesNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListContactNamesDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListFormAliasesNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListFormAliasesDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryPrivateKeyExistsNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultDirectoryPrivateKeyExistsDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryDeletePrivateKeyNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultDirectoryDeletePrivateKeyDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryStorePrivateKeyNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _VaultDirectoryStorePrivateKeyDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _VaultDirectoryLoadPrivateKeyNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryLoadPrivateKeyDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
 typedef _VaultDirectoryLoadPrivateKeyGenerationNative =
     ffi.Pointer<ffi.Void> Function(
       ffi.Pointer<ffi.Void>,
@@ -1391,133 +1202,125 @@ typedef _VaultDirectoryLoadPrivateKeyGenerationDart =
       int,
       int,
     );
-typedef _VaultDirectoryStoreContactNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryStoreContactDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryLoadContactNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryLoadContactDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryContactExistsNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryContactExistsDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryDeleteContactNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryDeleteContactDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryListContactsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryListContactsDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryStoreProfileEmailNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryStoreProfileEmailDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryProfileEmailNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryProfileEmailDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryStoreBackupNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryStoreBackupDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryLoadBackupNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryLoadBackupDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryBackupCountNative = ffi.Uint64 Function(
-  ffi.Pointer<ffi.Void>,
-);
+typedef _VaultDirectoryStoreContactNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _VaultDirectoryStoreContactDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _VaultDirectoryLoadContactNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryLoadContactDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultDirectoryContactExistsNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultDirectoryContactExistsDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryDeleteContactNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultDirectoryDeleteContactDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryListContactsNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListContactsDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryStoreProfileEmailNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryStoreProfileEmailDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultDirectoryProfileEmailNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryProfileEmailDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryStoreBackupNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryStoreBackupDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultDirectoryLoadBackupNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryLoadBackupDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryBackupCountNative =
+    ffi.Uint64 Function(ffi.Pointer<ffi.Void>);
 typedef _VaultDirectoryBackupCountDart = int Function(ffi.Pointer<ffi.Void>);
-typedef _VaultDirectoryRestorePrivateKeyNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Void>,
-  ffi.Bool,
-);
-typedef _VaultDirectoryRestorePrivateKeyDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Void>,
-  bool,
-);
+typedef _VaultDirectoryRestorePrivateKeyNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+      ffi.Bool,
+    );
+typedef _VaultDirectoryRestorePrivateKeyDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+      bool,
+    );
 typedef _VaultDirectoryLoadOwnerSigningKeyNative =
     ffi.Pointer<ffi.Void> Function(
       ffi.Pointer<ffi.Void>,
       ffi.Pointer<ffi.Uint8>,
       ffi.Size,
     );
-typedef _VaultDirectoryLoadOwnerSigningKeyDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _VaultDirectoryLoadOwnerSigningKeyDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
 typedef _VaultDirectoryLoadOwnerSigningKeyGenerationNative =
     ffi.Pointer<ffi.Void> Function(
       ffi.Pointer<ffi.Void>,
@@ -1532,18 +1335,20 @@ typedef _VaultDirectoryLoadOwnerSigningKeyGenerationDart =
       int,
       int,
     );
-typedef _VaultDirectoryStoreContactSigningKeyNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryStoreContactSigningKeyDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Void>,
-);
+typedef _VaultDirectoryStoreContactSigningKeyNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _VaultDirectoryStoreContactSigningKeyDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+    );
 typedef _VaultDirectoryLoadContactSigningKeyNative =
     ffi.Pointer<ffi.Void> Function(
       ffi.Pointer<ffi.Void>,
@@ -1556,338 +1361,279 @@ typedef _VaultDirectoryLoadContactSigningKeyDart =
       ffi.Pointer<ffi.Uint8>,
       int,
     );
-typedef _VaultDirectoryListProfileGenerationsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryListProfileGenerationsDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryRotatePrivateKeyNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryRotatePrivateKeyDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryRememberLockboxNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryRememberLockboxDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectorySetLockboxAliasNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectorySetLockboxAliasDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryListLockboxAliasesNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryListLockboxAliasesDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryRemoveLockboxAliasNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryRemoveLockboxAliasDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryResolveLockboxAliasNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryResolveLockboxAliasDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultReadOnlyListLockboxAliasesNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultReadOnlyListLockboxAliasesDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultReadOnlyResolveLockboxAliasNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultReadOnlyResolveLockboxAliasDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryListKnownLockboxesNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryListKnownLockboxesDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryForgetLockboxNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryForgetLockboxDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryRememberAccessSlotLabelNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint64,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryRememberAccessSlotLabelDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryListAccessSlotLabelsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryListAccessSlotLabelsDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryFindAccessSlotLabelsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryFindAccessSlotLabelsDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryForgetAccessSlotLabelNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint64,
-);
-typedef _VaultDirectoryForgetAccessSlotLabelDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-);
-typedef _VaultDirectoryDefineFormNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryDefineFormDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryResolveFormNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryResolveFormDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryListFormsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryListFormsDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultDirectoryListFormRevisionsNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryListFormRevisionsDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectorySeedFormsNative = ffi.Size Function(
-  ffi.Pointer<ffi.Void>,
-);
+typedef _VaultDirectoryListProfileGenerationsNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryListProfileGenerationsDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryRotatePrivateKeyNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryRotatePrivateKeyDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryRememberLockboxNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryRememberLockboxDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultDirectorySetLockboxAliasNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectorySetLockboxAliasDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultDirectoryListLockboxAliasesNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListLockboxAliasesDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryRemoveLockboxAliasNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultDirectoryRemoveLockboxAliasDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryResolveLockboxAliasNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryResolveLockboxAliasDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultReadOnlyListLockboxAliasesNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultReadOnlyListLockboxAliasesDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultReadOnlyResolveLockboxAliasNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultReadOnlyResolveLockboxAliasDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryListKnownLockboxesNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListKnownLockboxesDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryForgetLockboxNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultDirectoryForgetLockboxDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryRememberAccessSlotLabelNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryRememberAccessSlotLabelDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultDirectoryListAccessSlotLabelsNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryListAccessSlotLabelsDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryFindAccessSlotLabelsNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryFindAccessSlotLabelsDart =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultDirectoryForgetAccessSlotLabelNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+    );
+typedef _VaultDirectoryForgetAccessSlotLabelDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int, int);
+typedef _VaultDirectoryDefineFormNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryDefineFormDart =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultDirectoryResolveFormNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryResolveFormDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryListFormsNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListFormsDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListFormRevisionsNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryListFormRevisionsDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectorySeedFormsNative =
+    ffi.Size Function(ffi.Pointer<ffi.Void>);
 typedef _VaultDirectorySeedFormsDart = int Function(ffi.Pointer<ffi.Void>);
-typedef _VaultDirectoryRememberPasswordNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryRememberPasswordDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultDirectoryRememberedPasswordNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultDirectoryRememberedPasswordDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultBackupDefaultNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Bool,
-);
-typedef _VaultBackupDefaultDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  bool,
-);
-typedef _VaultRestoreDefaultNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Bool,
-);
-typedef _VaultRestoreDefaultDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  bool,
-);
+typedef _VaultDirectoryRememberPasswordNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryRememberPasswordDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultDirectoryRememberedPasswordNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryRememberedPasswordDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultBackupDefaultNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, ffi.Size, ffi.Bool);
+typedef _VaultBackupDefaultDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, int, bool);
+typedef _VaultRestoreDefaultNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, ffi.Size, ffi.Bool);
+typedef _VaultRestoreDefaultDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, int, bool);
 typedef _VaultDirectoryFreeNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
 typedef _VaultDirectoryFreeDart = void Function(ffi.Pointer<ffi.Void>);
 typedef _ContactExchangeFreeNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
 typedef _ContactExchangeFreeDart = void Function(ffi.Pointer<ffi.Void>);
-typedef _VaultReadOnlyOpenNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultReadOnlyOpenDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultReadOnlyOpenDefaultNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultReadOnlyOpenDefaultDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultReadOnlyListProfileNamesNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultReadOnlyListProfileNamesDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultReadOnlyListContactNamesNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultReadOnlyListContactNamesDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultReadOnlyListFormAliasesNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultReadOnlyListFormAliasesDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultReadOnlyListKnownLockboxesNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultReadOnlyListKnownLockboxesDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Void>,
-);
+typedef _VaultReadOnlyOpenNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultReadOnlyOpenDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultReadOnlyOpenDefaultNative =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultReadOnlyOpenDefaultDart =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultReadOnlyListProfileNamesNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultReadOnlyListProfileNamesDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultReadOnlyListContactNamesNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultReadOnlyListContactNamesDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultReadOnlyListFormAliasesNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultReadOnlyListFormAliasesDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultReadOnlyListKnownLockboxesNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultReadOnlyListKnownLockboxesDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _VaultReadOnlyFreeNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
 typedef _VaultReadOnlyFreeDart = void Function(ffi.Pointer<ffi.Void>);
 typedef _VaultAgentServeNative = ffi.Bool Function();
 typedef _VaultAgentServeDart = bool Function();
 typedef _VaultAgentVerifyTransportNative = ffi.Bool Function();
 typedef _VaultAgentVerifyTransportDart = bool Function();
-typedef _VaultAgentGetNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultAgentGetDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultAgentPutNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultAgentPutDart = bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultAgentForgetNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
+typedef _VaultAgentGetNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultAgentGetDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultAgentPutNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultAgentPutDart =
+    bool Function(ffi.Pointer<ffi.Uint8>, int, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultAgentForgetNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
 typedef _VaultAgentForgetDart = bool Function(ffi.Pointer<ffi.Uint8>, int);
 typedef _VaultAgentStopNative = ffi.Bool Function();
 typedef _VaultAgentStopDart = bool Function();
@@ -1899,21 +1645,15 @@ typedef _VaultAgentSleepSupportNative = RevaultBuffer Function();
 typedef _VaultAgentSleepSupportDart = RevaultBuffer Function();
 typedef _VaultPlatformStatusNative = RevaultBuffer Function();
 typedef _VaultPlatformStatusDart = RevaultBuffer Function();
-typedef _VaultPlatformSetScopeNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
+typedef _VaultPlatformSetScopeNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
 typedef _VaultPlatformSetScopeDart = bool Function(ffi.Pointer<ffi.Uint8>, int);
 typedef _VaultPlatformForgetPasswordNative = ffi.Bool Function();
 typedef _VaultPlatformForgetPasswordDart = bool Function();
-typedef _VaultPlatformPutPasswordNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultPlatformPutPasswordDart = bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _VaultPlatformPutPasswordNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultPlatformPutPasswordDart =
+    bool Function(ffi.Pointer<ffi.Uint8>, int);
 typedef _VaultPlatformEnableNative = ffi.Bool Function();
 typedef _VaultPlatformEnableDart = bool Function();
 typedef _VaultPlatformDisableNative = ffi.Bool Function();
@@ -1930,192 +1670,189 @@ typedef _VaultAgentLogPathNative = RevaultBuffer Function();
 typedef _VaultAgentLogPathDart = RevaultBuffer Function();
 typedef _VaultAgentLogDestinationNative = RevaultBuffer Function();
 typedef _VaultAgentLogDestinationDart = RevaultBuffer Function();
-typedef _VaultAgentGetVaultUnlockKeyNative = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultAgentGetVaultUnlockKeyDart = RevaultBuffer Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultAgentPutVaultUnlockKeyNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint64,
-);
-typedef _VaultAgentPutVaultUnlockKeyDart = bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-);
-typedef _VaultAgentForgetVaultUnlockKeyNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultAgentForgetVaultUnlockKeyDart = bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultAgentGetOwnerSigningKeyNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultAgentGetOwnerSigningKeyDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultAgentPutOwnerSigningKeyNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Void>,
-  ffi.Uint64,
-);
-typedef _VaultAgentPutOwnerSigningKeyDart = bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Void>,
-  int,
-);
-typedef _VaultAgentForgetOwnerSigningKeyNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultAgentForgetOwnerSigningKeyDart = bool Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultAgentBeginActivityNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultAgentBeginActivityDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _VaultAgentGetVaultUnlockKeyNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultAgentGetVaultUnlockKeyDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultAgentPutVaultUnlockKeyNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+    );
+typedef _VaultAgentPutVaultUnlockKeyDart =
+    bool Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+    );
+typedef _VaultAgentForgetVaultUnlockKeyNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultAgentForgetVaultUnlockKeyDart =
+    bool Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultAgentGetOwnerSigningKeyNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultAgentGetOwnerSigningKeyDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultAgentPutOwnerSigningKeyNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+      ffi.Uint64,
+    );
+typedef _VaultAgentPutOwnerSigningKeyDart =
+    bool Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+      int,
+    );
+typedef _VaultAgentForgetOwnerSigningKeyNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultAgentForgetOwnerSigningKeyDart =
+    bool Function(ffi.Pointer<ffi.Uint8>, int, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultAgentBeginActivityNative =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultAgentBeginActivityDart =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int);
 typedef _VaultAgentEndActivityNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
 typedef _VaultAgentEndActivityDart = void Function(ffi.Pointer<ffi.Void>);
 typedef _VaultLocalNative = ffi.Pointer<ffi.Void> Function();
 typedef _VaultLocalDart = ffi.Pointer<ffi.Void> Function();
-typedef _VaultCreateLockboxPasswordNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultCreateLockboxPasswordDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultOpenLockboxPasswordNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultOpenLockboxPasswordDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
-typedef _VaultCreateLockboxContentKeyNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultCreateLockboxContentKeyDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultCreateLockboxContactNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultCreateLockboxContactDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultOpenLockboxContentKeyNative = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultOpenLockboxContentKeyDart = ffi.Pointer<ffi.Void> Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Void>,
-);
-typedef _VaultCacheLockboxPasswordNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-  ffi.Uint64,
-);
-typedef _VaultCacheLockboxPasswordDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-  int,
-);
-typedef _VaultCloseLockboxNative = ffi.Bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  ffi.Size,
-);
-typedef _VaultCloseLockboxDart = bool Function(
-  ffi.Pointer<ffi.Void>,
-  ffi.Pointer<ffi.Uint8>,
-  int,
-);
+typedef _VaultCreateLockboxPasswordNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultCreateLockboxPasswordDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultOpenLockboxPasswordNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultOpenLockboxPasswordDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultCreateLockboxContentKeyNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _VaultCreateLockboxContentKeyDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _VaultCreateLockboxContactNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _VaultCreateLockboxContactDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _VaultOpenLockboxContentKeyNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _VaultOpenLockboxContentKeyDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _VaultCacheLockboxPasswordNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+    );
+typedef _VaultCacheLockboxPasswordDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+    );
+typedef _VaultCloseLockboxNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultCloseLockboxDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
 typedef _VaultCloseAllNative = ffi.Bool Function(ffi.Pointer<ffi.Void>);
 typedef _VaultCloseAllDart = bool Function(ffi.Pointer<ffi.Void>);
 typedef _VaultFreeNative = ffi.Void Function(ffi.Pointer<ffi.Void>);

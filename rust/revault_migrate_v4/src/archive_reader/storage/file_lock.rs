@@ -247,7 +247,7 @@ fn try_acquire(
     if let Some(parent) = lock_path.parent() {
         fs::create_dir_all(parent).map_err(|err| AcquireFailure::Io(err.to_string()))?;
     }
-    let mut file = match OpenOptions::new()
+    let mut file = match std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(lock_path)

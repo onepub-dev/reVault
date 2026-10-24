@@ -2158,13 +2158,17 @@ mod tests {
 
     #[test]
     fn exporter_registry_and_capability_contract_are_exact() {
-        for version in 1..=3 {
+        for version in 1..=4 {
             for kind in [ArtifactKind::Vault, ArtifactKind::Archive] {
                 let release = exporter_release(kind, version).unwrap();
                 assert_eq!(release.package, format!("revault_migrate_v{version}"));
                 assert_eq!(
                     release.version,
-                    if version == 2 { "0.1.1" } else { "0.1.0" }
+                    if matches!(version, 2 | 4) {
+                        "0.1.1"
+                    } else {
+                        "0.1.0"
+                    }
                 );
             }
         }

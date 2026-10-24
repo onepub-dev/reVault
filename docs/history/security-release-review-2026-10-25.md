@@ -181,6 +181,25 @@ checksum `73c8b077141c8688b32afbc882fd33426e142339f2a16eba1eb5418b5c3db375`.
 Existing support package versions were skipped. The next candidate must install
 this exact public version and exercise migration before CLI publication.
 
+Candidate `40106736673` at `a438d974` passed the exact registry dependency
+and public CLI migration gate, then exposed platform/source-check failures.
+The format-4 helper's non-Unix lock path referred to an unqualified
+`OpenOptions`; Windows compilation requires `std::fs::OpenOptions`. This is
+packaged as v4 helper 0.1.1, without overwriting published 0.1.0. Its isolated
+package manifest and lockfile differ from the published package only in its
+own version; Windows GNU target checking, installed capabilities and the
+public CLI migration compatibility test pass. The workspace lock returns to
+the v4 package's original `toml_edit` 0.25.15 for its publication. Published v2
+0.1.1 retains its own immutable 0.25.13 dependency lock; the candidate registry
+gate installs each exact published package with its lockfile.
+
+The server protocol test had incorrectly treated the topology tail as publish
+payload. It now decodes the envelope and explicitly asserts that no verification
+URL is returned. That regression and server Clippy pass. Source checks also
+identified one Rust line-wrap and two Dart formatting corrections; these do not
+change runtime behavior. Remaining matrix results must be collected before
+the replacement candidate is prepared.
+
 The integrated #226 branch was deleted locally and remotely after checking both
 tips were ancestors of remote main. Its clean worktree is retained detached.
 Only its exact ref was temporarily excluded from deletion protection, and the
