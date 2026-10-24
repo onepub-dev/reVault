@@ -1,0 +1,1596 @@
+[
+  {
+    "ref": "refs/heads/agent/bindings-api-v2",
+    "sha": "32ff46edfc0448c9de621af668badb613b388b84",
+    "ancestor": true,
+    "name": "agent/bindings-api-v2",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/agent/code-quality-remediation",
+    "sha": "2cda76dcedc5b8a23a027fc23c2e0f68d6f0d4e1",
+    "ancestor": false,
+    "unique": [
+      "8cb6d3a2d2a8a4afccb3e08ba741f4e6d6354730",
+      "fb4a7c73b6273a2cce117d4bd1fcae3f392ed5b6",
+      "9d61bcfd6246150d10df3cd0829837d1e79d4fdf",
+      "2cda76dcedc5b8a23a027fc23c2e0f68d6f0d4e1"
+    ],
+    "subjects": [
+      "8cb6d3a2 Harden workflows and recovery example",
+      "fb4a7c73 Fix Windows store compaction access",
+      "9d61bcfd Stabilize Windows IPC and failover checks",
+      "2cda76dc Wait for failover verification replication"
+    ],
+    "name": "agent/code-quality-remediation",
+    "remote": false,
+    "reason": "Aggregate patch exactly matches its squash commit in main"
+  },
+  {
+    "ref": "refs/heads/dependabot/cargo/rust/dbus-0.9.12",
+    "sha": "6a71bb0e0a9494dfdf6acecad5d5cb29ecd6d9d6",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "dependabot/cargo/rust/dbus-0.9.12",
+    "remote": false,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/heads/dependabot/cargo/rust/keyring-4.1.5",
+    "sha": "8f487fb93ad8ec0cafadc991725f4c4c9d88d22f",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "dependabot/cargo/rust/keyring-4.1.5",
+    "remote": false,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/heads/feature/release-candidates",
+    "sha": "3adf72f5f9f35a0ad1626ad4035813766473907c",
+    "ancestor": true,
+    "name": "feature/release-candidates",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/integrate-v4-main-20261015",
+    "sha": "2e6e86e8060498b56346377d957109afef857c7e",
+    "ancestor": true,
+    "name": "integrate-v4-main-20261015",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/issue-189-package-native-bindings",
+    "sha": "c7d15c4b0b7ec9097e6a7022d690c80189481fbb",
+    "ancestor": false,
+    "unique": [
+      "e4ba3994f4d1c46fb1d4e6eb4d72779d5f19eb0c",
+      "405967ffd8198c0b90206c4f4b7b74e14e96d29d",
+      "c8ba9f495c1b83372ebf76b45477be9ac16ac68a",
+      "d0762fd957d8977ce0d1d575a9e48e2afb3037b7",
+      "d36cdb4045722dbe8782b69d198042f3b9677e05",
+      "c7d15c4b0b7ec9097e6a7022d690c80189481fbb"
+    ],
+    "subjects": [
+      "e4ba3994 feat: add complete cross-language API bindings",
+      "405967ff ci: align cross targets with Rust 1.95",
+      "c8ba9f49 Fix Windows agent pipe request race",
+      "d0762fd9 Fix Windows migration exporter stack overflow",
+      "d36cdb40 Fix Windows archive exporter stack overflow",
+      "c7d15c4b Fix publish failover verification race"
+    ],
+    "name": "issue-189-package-native-bindings",
+    "remote": false,
+    "reason": "Aggregate patch exactly matches its squash commit in main"
+  },
+  {
+    "ref": "refs/heads/issue-233-package-registry-quality",
+    "sha": "f1e62d5c2835ae47ffb1d6e6a7ee8889a598b17c",
+    "ancestor": false,
+    "unique": [
+      "1ad7870b1601c15cdca5a16fab6873ac7fb4a10c",
+      "aea50b21b027b47d0921b40605b7ac4113cf5efc",
+      "fe47f61844fdd373608be08df1b184a87e0ca2a8",
+      "b0884c1552a23c9f58391116663adddb92e05a68",
+      "c293f7881202f3d636582afce3b135452de7e7df",
+      "c606d9ca73f1925dcc87feb6c997f01a0b1629a9",
+      "f97915b5436fdd92a5b1527a60649967dd6fe803",
+      "a4abda8deef7831eaf67d3d31ed49fca1be0989f",
+      "26b59ef6d50fbff18494ad533cbeb7ed5eae993e",
+      "ee09a7254e1ef3986f2aab4d4e26c86d2720787e",
+      "5b7e64683939ca923025a684ec3e7287fa11943b",
+      "559cbcc71716606ea8d2d454d3466b98dfd90de2",
+      "232348df7831cbbf900616eb5a8f8ebaa63f8d4b",
+      "b6df2aaa6f8b28db2790d5b092563b9510fff4a2",
+      "6584aa9356720a3f7ae58f91196318d5c0771059",
+      "4d8e5c98f4da3142862c1c36002b764805601004",
+      "e77b713ed2011bd9b597794e9b529b67ec63e8cc",
+      "fbb2e01760300b77e22ce6a2369b8e1fba579724",
+      "b3f22fdcf4b678401b9f0f81c692b9937f34487b",
+      "3021b15b98a6edc1b8bcdef481925f3202a67bf5",
+      "61c28c2b08672576f1ccc53fe6ef4bf2f603f1a4"
+    ],
+    "subjects": [
+      "1ad7870b Fix #233: enforce package registry quality",
+      "aea50b21 Fix #233: migrate binding transport to FlatBuffers",
+      "fe47f618 Fix #233: allow release workflow checkout",
+      "b0884c15 Fix #233: declare nested dist workspace",
+      "c293f788 Fix #233: centralize dist configuration",
+      "c606d9ca Fix #233: configure publish job permissions",
+      "f97915b5 Fix #233: regenerate dist release assets",
+      "a4abda8d Fix #233: isolate generated transport lints",
+      "26b59ef6 Fix #233: support fetched FlatBuffers CMake target",
+      "ee09a725 Fix #233: format generated Dart bindings",
+      "5b7e6468 Fix #233: isolate pub score analysis",
+      "559cbcc7 Fix #233: format generated Go models",
+      "232348df Fix #233: add Kotlin FlatBuffers runtime",
+      "b6df2aaa Fix #233: use hoisted TypeScript compiler",
+      "6584aa93 Fix #233: format generated C# models",
+      "4d8e5c98 Fix #233: enforce Ruby 3.1 lint quality",
+      "e77b713e Fix #233: validate PHP and Swift packages",
+      "fbb2e017 Fix #233: make Lua syntax lint portable",
+      "b3f22fdc Fix #233: validate npm package directories",
+      "3021b15b Fix #233: document native ABI safety",
+      "61c28c2b test: remove flaky topology cache timing assertion"
+    ],
+    "name": "issue-233-package-registry-quality",
+    "remote": false,
+    "reason": "Aggregate patch exactly matches its squash commit in main"
+  },
+  {
+    "ref": "refs/heads/issue-260-target-first-lockbox-cli",
+    "sha": "8ff98fb00d4a305d8fbebd94f5960660a387e95d",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "issue-260-target-first-lockbox-cli",
+    "remote": false,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/heads/issue-267-add-sync-command",
+    "sha": "f8f52f06d794918910fa00f1c7c6e77ccf36ddd9",
+    "ancestor": true,
+    "name": "issue-267-add-sync-command",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/issue-268-require-target-first",
+    "sha": "12346c8221919f6577ed4c06366e6d8ed6eccbb5",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "issue-268-require-target-first",
+    "remote": false,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/heads/issue-269-variable-move-directory",
+    "sha": "d2b12fc6683dc8f2dbcda2a31b7770ace1313b86",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "issue-269-variable-move-directory",
+    "remote": false,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/heads/issue-270-document-case-sensitivity",
+    "sha": "4cb418a42d4954608eb1e8a3e95fa469ed45bb12",
+    "ancestor": false,
+    "unique": [
+      "4cb418a42d4954608eb1e8a3e95fa469ed45bb12"
+    ],
+    "subjects": [
+      "4cb418a4 Fix #270: define identifier case sensitivity"
+    ],
+    "name": "issue-270-document-case-sensitivity",
+    "remote": false,
+    "reason": "Integrated as 08024bb3 with target-first CLI context"
+  },
+  {
+    "ref": "refs/heads/issue-271-disallow-variable-directory-collisions",
+    "sha": "806a74e4723c48e37507ab80398e3fc2558a3f3a",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "issue-271-disallow-variable-directory-collisions",
+    "remote": false,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/heads/issue-310-zip-read-performance",
+    "sha": "d1a7a2eb18430d293ef7c0bfa21520d625e9ee4c",
+    "ancestor": true,
+    "name": "issue-310-zip-read-performance",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/issue-324-mutation-commit",
+    "sha": "b1810d202f9670d0c2e5eaab07a8665a4637b467",
+    "ancestor": true,
+    "name": "issue-324-mutation-commit",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/issue-327-create-lockbox-alias",
+    "sha": "77cfd919eddb0e9344b990283b2baf990108bca3",
+    "ancestor": true,
+    "name": "issue-327-create-lockbox-alias",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/issue-328-unicode-aliases",
+    "sha": "1db0cb59c7d88609eb1879815a7d4c2c18e53fff",
+    "ancestor": true,
+    "name": "issue-328-unicode-aliases",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/issue-333-descriptions",
+    "sha": "d7a631790a7d734a49bcc2ff3ff77cf0106174dd",
+    "ancestor": true,
+    "name": "issue-333-descriptions",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/list",
+    "sha": "300ecd82787dc28830e1f38ac947cde472195eae",
+    "ancestor": true,
+    "name": "list",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/ls",
+    "sha": "300ecd82787dc28830e1f38ac947cde472195eae",
+    "ancestor": true,
+    "name": "ls",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/release/api-v0.3.12",
+    "sha": "36118cf88d94d43f9c544e04e45f4189988770a1",
+    "ancestor": true,
+    "name": "release/api-v0.3.12",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/release/cli-0.4.1",
+    "sha": "3e79d6a9d0520a264ef0df33cd3aa96337b0d46e",
+    "ancestor": false,
+    "unique": [
+      "3e79d6a9d0520a264ef0df33cd3aa96337b0d46e"
+    ],
+    "subjects": [
+      "3e79d6a9 Prepare cli release: CLI 0.4.1, bindings"
+    ],
+    "name": "release/cli-0.4.1",
+    "remote": false,
+    "reason": "Superseded historical release preparation; current main owns release tooling, versions and CI"
+  },
+  {
+    "ref": "refs/heads/release/dart-0.4.0-format3",
+    "sha": "63cb9b73a8e43ca790244793710871ba837eda8e",
+    "ancestor": true,
+    "name": "release/dart-0.4.0-format3",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/release/format3-0.4.0",
+    "sha": "f1e6e67faf7b488c5f7f9c1ccc09b63605a22217",
+    "ancestor": true,
+    "name": "release/format3-0.4.0",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/release/password-profiles-v3",
+    "sha": "2285af45f61b28dc4be7d9aa25d93a5155b7ea13",
+    "ancestor": false,
+    "unique": [
+      "3e15aaf254b9eeadffafc019953798688334a823",
+      "b78d0b34982e4cb450e6213bdbb726ae67083225",
+      "06a537dd04e23e67f420a944eb2fe3aabf9c7f5d",
+      "a43cdce77c454d5305a98c17e49778dc503d9758",
+      "2285af45f61b28dc4be7d9aa25d93a5155b7ea13"
+    ],
+    "subjects": [
+      "3e15aaf2 Run password profile lifecycle in Linux CI",
+      "b78d0b34 Disambiguate release packages and refresh dependent lockfiles",
+      "06a537dd Preserve trusted publishing retry workflow during dist validation",
+      "a43cdce7 Use workspace package name for cargo fmt",
+      "2285af45 Update profile help test for password credentials"
+    ],
+    "name": "release/password-profiles-v3",
+    "remote": false,
+    "reason": "Superseded historical release preparation; current main owns release tooling, versions and CI"
+  },
+  {
+    "ref": "refs/heads/release/revault-api-v0.2.0",
+    "sha": "3511b3bd95443e63af5a7bd606147157bc18b1df",
+    "ancestor": true,
+    "name": "release/revault-api-v0.2.0",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/release/revault-api-v0.2.1",
+    "sha": "746272078ff7ef71c2081dcc3d013fb9404228f7",
+    "ancestor": true,
+    "name": "release/revault-api-v0.2.1",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/release/revault-api-v0.2.2",
+    "sha": "3e5b6ee30813c6fd6466873cc20c4ab8cff66550",
+    "ancestor": true,
+    "name": "release/revault-api-v0.2.2",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/release/revault-api-v0.2.3",
+    "sha": "1830ca3ae03ae4daa7cdcf0fc733307e8c491ff9",
+    "ancestor": true,
+    "name": "release/revault-api-v0.2.3",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/release/v0.2.10",
+    "sha": "10ce9c9df68efac137846f4d277dc293b243bfa2",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "release/v0.2.10",
+    "remote": false,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/heads/release/v0.2.11",
+    "sha": "2196a8bbde328f523c369fbdf4be9b0b8535d2a9",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "release/v0.2.11",
+    "remote": false,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/heads/release/v0.2.12",
+    "sha": "d7da4a3b364140d773032fdb521d2edb917842f6",
+    "ancestor": false,
+    "unique": [
+      "d7da4a3b364140d773032fdb521d2edb917842f6"
+    ],
+    "subjects": [
+      "d7da4a3b Released 0.2.0."
+    ],
+    "name": "release/v0.2.12",
+    "remote": false,
+    "reason": "Superseded historical release preparation; current main owns release tooling, versions and CI"
+  },
+  {
+    "ref": "refs/heads/release/v0.2.9",
+    "sha": "ae9222a0d3f5796bc217d2b5991150bbfe5991bf",
+    "ancestor": true,
+    "name": "release/v0.2.9",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/heads/security/advisory-fixes-2026-10",
+    "sha": "300ecd82787dc28830e1f38ac947cde472195eae",
+    "ancestor": true,
+    "name": "security/advisory-fixes-2026-10",
+    "remote": false,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/agent/code-quality-remediation",
+    "sha": "2cda76dcedc5b8a23a027fc23c2e0f68d6f0d4e1",
+    "ancestor": false,
+    "unique": [
+      "8cb6d3a2d2a8a4afccb3e08ba741f4e6d6354730",
+      "fb4a7c73b6273a2cce117d4bd1fcae3f392ed5b6",
+      "9d61bcfd6246150d10df3cd0829837d1e79d4fdf",
+      "2cda76dcedc5b8a23a027fc23c2e0f68d6f0d4e1"
+    ],
+    "subjects": [
+      "8cb6d3a2 Harden workflows and recovery example",
+      "fb4a7c73 Fix Windows store compaction access",
+      "9d61bcfd Stabilize Windows IPC and failover checks",
+      "2cda76dc Wait for failover verification replication"
+    ],
+    "name": "agent/code-quality-remediation",
+    "remote": true,
+    "reason": "Aggregate patch exactly matches its squash commit in main"
+  },
+  {
+    "ref": "refs/remotes/origin/ci/mirror-binary-index-20260902",
+    "sha": "8174e4b2473c150e81fd5b6c22c9c3478a508365",
+    "ancestor": true,
+    "name": "ci/mirror-binary-index-20260902",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/bytes-1.12.1",
+    "sha": "252b50b77e2de3858894bf44bbdf800ecd07d9b1",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "dependabot/cargo/rust/bytes-1.12.1",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/clap-4.6.4",
+    "sha": "0d91049e9c3daa83c8c15472ca8ff1c2828b5b13",
+    "ancestor": false,
+    "unique": [
+      "0d91049e9c3daa83c8c15472ca8ff1c2828b5b13"
+    ],
+    "subjects": [
+      "0d91049e build(deps): bump clap from 4.6.1 to 4.6.4 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/clap-4.6.4",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/clap-4.6.7",
+    "sha": "811be10d11983936c05760d8f364d44a7a26fedf",
+    "ancestor": false,
+    "unique": [
+      "811be10d11983936c05760d8f364d44a7a26fedf"
+    ],
+    "subjects": [
+      "811be10d Bump clap from 4.6.6 to 4.6.7 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/clap-4.6.7",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/clap_complete-4.6.9",
+    "sha": "d6f199241bdd23defd443b2757bdf8acd36dea9a",
+    "ancestor": true,
+    "name": "dependabot/cargo/rust/clap_complete-4.6.9",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/cmov-0.5.4",
+    "sha": "d68fb29e30a04c1373756b0c0575a941278d001b",
+    "ancestor": false,
+    "unique": [
+      "d68fb29e30a04c1373756b0c0575a941278d001b"
+    ],
+    "subjects": [
+      "d68fb29e Bump cmov from 0.5.3 to 0.5.4 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/cmov-0.5.4",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/dbus-0.9.12",
+    "sha": "6a71bb0e0a9494dfdf6acecad5d5cb29ecd6d9d6",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "dependabot/cargo/rust/dbus-0.9.12",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/ed25519-dalek-3.0.0",
+    "sha": "62c65621f4c1562926834db1f14f5786fd66108e",
+    "ancestor": false,
+    "unique": [
+      "62c65621f4c1562926834db1f14f5786fd66108e"
+    ],
+    "subjects": [
+      "62c65621 build(deps): bump ed25519-dalek from 2.2.0 to 3.0.0 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/ed25519-dalek-3.0.0",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/flatbuffers-25.12.19",
+    "sha": "c1c46fe595b3fb67858a40d59cd6ae8596f111c7",
+    "ancestor": false,
+    "unique": [
+      "c1c46fe595b3fb67858a40d59cd6ae8596f111c7"
+    ],
+    "subjects": [
+      "c1c46fe5 build(deps): bump flatbuffers from 25.2.10 to 25.12.19 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/flatbuffers-25.12.19",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/fuzz/cmov-0.5.4",
+    "sha": "9b46f5a27dd20a74972251348946d9da12a0ad94",
+    "ancestor": false,
+    "unique": [
+      "9b46f5a27dd20a74972251348946d9da12a0ad94"
+    ],
+    "subjects": [
+      "9b46f5a2 Bump cmov from 0.5.3 to 0.5.4 in /rust/fuzz"
+    ],
+    "name": "dependabot/cargo/rust/fuzz/cmov-0.5.4",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/keyring-4.1.5",
+    "sha": "8f487fb93ad8ec0cafadc991725f4c4c9d88d22f",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "dependabot/cargo/rust/keyring-4.1.5",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/keyring-4.1.6",
+    "sha": "c9d9d31d9545578bb9159a340936af97a98ad27d",
+    "ancestor": false,
+    "unique": [
+      "c9d9d31d9545578bb9159a340936af97a98ad27d"
+    ],
+    "subjects": [
+      "c9d9d31d build(deps): bump keyring from 4.1.5 to 4.1.6 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/keyring-4.1.6",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/keyring-4.2.0",
+    "sha": "f9039fd884237ad8d5150f4baeb25da0201f85e1",
+    "ancestor": false,
+    "unique": [
+      "f9039fd884237ad8d5150f4baeb25da0201f85e1"
+    ],
+    "subjects": [
+      "f9039fd8 Bump keyring from 4.1.5 to 4.2.0 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/keyring-4.2.0",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/libc-0.2.189",
+    "sha": "98ad1d5bbd565c5854050ebb69d969db1e2e92ed",
+    "ancestor": false,
+    "unique": [
+      "98ad1d5bbd565c5854050ebb69d969db1e2e92ed"
+    ],
+    "subjects": [
+      "98ad1d5b Bump libc from 0.2.186 to 0.2.189 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/libc-0.2.189",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/oxiarc-zstd-0.4.0",
+    "sha": "2ee9e985da0b613dcbe0c023903377be96342b95",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "dependabot/cargo/rust/oxiarc-zstd-0.4.0",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/oxiarc-zstd-0.4.1",
+    "sha": "fb3f35e4aff21740896bf165f24a9f9c2d24c5a7",
+    "ancestor": true,
+    "name": "dependabot/cargo/rust/oxiarc-zstd-0.4.1",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/oxiarc-zstd-0.4.2",
+    "sha": "1f65d9575da1d2b691d68d3ac7417d3312c90fb2",
+    "ancestor": false,
+    "unique": [
+      "1f65d9575da1d2b691d68d3ac7417d3312c90fb2"
+    ],
+    "subjects": [
+      "1f65d957 Bump oxiarc-zstd from 0.4.1 to 0.4.2 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/oxiarc-zstd-0.4.2",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/rustls-0.23.45",
+    "sha": "c1192e68910aecfacafa9d2934476e9dbec4f1a6",
+    "ancestor": false,
+    "unique": [
+      "c1192e68910aecfacafa9d2934476e9dbec4f1a6"
+    ],
+    "subjects": [
+      "c1192e68 Bump rustls from 0.23.44 to 0.23.45 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/rustls-0.23.45",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/serde-1.0.229",
+    "sha": "d66e442d40c93616e3a7781fae3b0580caff8403",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "dependabot/cargo/rust/serde-1.0.229",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/serde_json-1.0.151",
+    "sha": "d4ee5b133b49bb2c603a8b320321d400ee6d4318",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "dependabot/cargo/rust/serde_json-1.0.151",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/sha2-0.11.0",
+    "sha": "c7d64a87e0e256767b768f36aba31cb0bb40319e",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "dependabot/cargo/rust/sha2-0.11.0",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/sysinfo-0.39.6",
+    "sha": "c8e0d15c857835aa35df2ee5ff0513d94363d8a7",
+    "ancestor": false,
+    "unique": [
+      "c8e0d15c857835aa35df2ee5ff0513d94363d8a7"
+    ],
+    "subjects": [
+      "c8e0d15c build(deps): bump sysinfo from 0.38.4 to 0.39.6 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/sysinfo-0.39.6",
+    "remote": true,
+    "reason": "Obsolete active dependency; remaining sysinfo belongs to frozen historical exporters"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/time-0.3.55",
+    "sha": "305932957664bc0c00b3045f3569ac2df16cd1ba",
+    "ancestor": false,
+    "unique": [
+      "305932957664bc0c00b3045f3569ac2df16cd1ba"
+    ],
+    "subjects": [
+      "30593295 build(deps): bump time from 0.3.53 to 0.3.55 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/time-0.3.55",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/tokio-1.53.0",
+    "sha": "f6ae995921a3d5b2b1eb49d5e68959a040f8baf7",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "dependabot/cargo/rust/tokio-1.53.0",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/tokio-1.53.1",
+    "sha": "1a609ad37f5532d1897610d2e094289d00e1f715",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "dependabot/cargo/rust/tokio-1.53.1",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/toml-1.1.2spec-1.1.0",
+    "sha": "01ed6b9c02b6601f3a01ca3d853f51d4f37f71a7",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "dependabot/cargo/rust/toml-1.1.2spec-1.1.0",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/toml-1.1.3spec-1.1.0",
+    "sha": "8cd6b32db62eeb5040dcd59676c0bf2b504ddcf4",
+    "ancestor": true,
+    "name": "dependabot/cargo/rust/toml-1.1.3spec-1.1.0",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/toml-1.1.4spec-1.1.0",
+    "sha": "efee738221048c5a22a3acd92e2a7283291db5dd",
+    "ancestor": false,
+    "unique": [
+      "efee738221048c5a22a3acd92e2a7283291db5dd"
+    ],
+    "subjects": [
+      "efee7382 build(deps): bump toml in /rust"
+    ],
+    "name": "dependabot/cargo/rust/toml-1.1.4spec-1.1.0",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/toml-1.1.6spec-1.1.0",
+    "sha": "4cdb51f3ca030295c83d33d6831f8502b82de992",
+    "ancestor": false,
+    "unique": [
+      "4cdb51f3ca030295c83d33d6831f8502b82de992"
+    ],
+    "subjects": [
+      "4cdb51f3 Bump toml from 1.1.5+spec-1.1.0 to 1.1.6+spec-1.1.0 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/toml-1.1.6spec-1.1.0",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/toml_edit-0.25.15spec-1.1.0",
+    "sha": "4c76cfa15a72f2b6c834b2af9acb78e79e9d3144",
+    "ancestor": false,
+    "unique": [
+      "4c76cfa15a72f2b6c834b2af9acb78e79e9d3144"
+    ],
+    "subjects": [
+      "4c76cfa1 Bump toml_edit from 0.25.13+spec-1.1.0 to 0.25.15+spec-1.1.0 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/toml_edit-0.25.15spec-1.1.0",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/ureq-3.4.0",
+    "sha": "28d69cc76dcf3502d0784800d5032ff8def960de",
+    "ancestor": false,
+    "unique": [
+      "28d69cc76dcf3502d0784800d5032ff8def960de"
+    ],
+    "subjects": [
+      "28d69cc7 build(deps): bump ureq from 3.3.0 to 3.4.0 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/ureq-3.4.0",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/ureq-3.4.2",
+    "sha": "a4e5e08aae10f7a5150d77bb32d2fcdb82995159",
+    "ancestor": false,
+    "unique": [
+      "a4e5e08aae10f7a5150d77bb32d2fcdb82995159"
+    ],
+    "subjects": [
+      "a4e5e08a Bump ureq from 3.4.1 to 3.4.2 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/ureq-3.4.2",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/windows-sys-0.61.2",
+    "sha": "8f8a65f220ccb5f7d2c1c822ecac9f34e646290b",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "dependabot/cargo/rust/windows-sys-0.61.2",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/x25519-dalek-3.0.0",
+    "sha": "1d3df21be414d7524f89982eae14bd25a7f5fde6",
+    "ancestor": true,
+    "name": "dependabot/cargo/rust/x25519-dalek-3.0.0",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/zbus-5.19.0",
+    "sha": "da37103cb96deef59d8e21244bc86198d8ac3808",
+    "ancestor": false,
+    "unique": [
+      "da37103cb96deef59d8e21244bc86198d8ac3808"
+    ],
+    "subjects": [
+      "da37103c build(deps): bump zbus from 5.16.0 to 5.19.0 in /rust"
+    ],
+    "name": "dependabot/cargo/rust/zbus-5.19.0",
+    "remote": true,
+    "reason": "Requested dependency versions already integrated or superseded; historical readers stay frozen"
+  },
+  {
+    "ref": "refs/remotes/origin/dependabot/cargo/rust/zip-8.6.0",
+    "sha": "19b56cec2ad63f0dc89bd6769ad4dd42f1ff9539",
+    "ancestor": true,
+    "name": "dependabot/cargo/rust/zip-8.6.0",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/feature-native-archive-jobs",
+    "sha": "8341b66370226e4c4ffe88f5128b21858fdf7713",
+    "ancestor": true,
+    "name": "feature-native-archive-jobs",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/feature/lockbox-descriptions",
+    "sha": "9fdf106aacf5e7e957dde576ff6fbafbb18e4028",
+    "ancestor": true,
+    "name": "feature/lockbox-descriptions",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/feature/release-candidates",
+    "sha": "3adf72f5f9f35a0ad1626ad4035813766473907c",
+    "ancestor": true,
+    "name": "feature/release-candidates",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/fix-clippy-ci-gate",
+    "sha": "0879914b97ccbf616b3890900099e726f2f5d066",
+    "ancestor": true,
+    "name": "fix-clippy-ci-gate",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-180-identity-import-export",
+    "sha": "d22fca1055fd4ef11ef9c3a7788d0a783dab479a",
+    "ancestor": true,
+    "name": "issue-180-identity-import-export",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-189-package-native-bindings",
+    "sha": "c7d15c4b0b7ec9097e6a7022d690c80189481fbb",
+    "ancestor": false,
+    "unique": [
+      "e4ba3994f4d1c46fb1d4e6eb4d72779d5f19eb0c",
+      "405967ffd8198c0b90206c4f4b7b74e14e96d29d",
+      "c8ba9f495c1b83372ebf76b45477be9ac16ac68a",
+      "d0762fd957d8977ce0d1d575a9e48e2afb3037b7",
+      "d36cdb4045722dbe8782b69d198042f3b9677e05",
+      "c7d15c4b0b7ec9097e6a7022d690c80189481fbb"
+    ],
+    "subjects": [
+      "e4ba3994 feat: add complete cross-language API bindings",
+      "405967ff ci: align cross targets with Rust 1.95",
+      "c8ba9f49 Fix Windows agent pipe request race",
+      "d0762fd9 Fix Windows migration exporter stack overflow",
+      "d36cdb40 Fix Windows archive exporter stack overflow",
+      "c7d15c4b Fix publish failover verification race"
+    ],
+    "name": "issue-189-package-native-bindings",
+    "remote": true,
+    "reason": "Aggregate patch exactly matches its squash commit in main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-233-package-registry-quality",
+    "sha": "f1e62d5c2835ae47ffb1d6e6a7ee8889a598b17c",
+    "ancestor": false,
+    "unique": [
+      "1ad7870b1601c15cdca5a16fab6873ac7fb4a10c",
+      "aea50b21b027b47d0921b40605b7ac4113cf5efc",
+      "fe47f61844fdd373608be08df1b184a87e0ca2a8",
+      "b0884c1552a23c9f58391116663adddb92e05a68",
+      "c293f7881202f3d636582afce3b135452de7e7df",
+      "c606d9ca73f1925dcc87feb6c997f01a0b1629a9",
+      "f97915b5436fdd92a5b1527a60649967dd6fe803",
+      "a4abda8deef7831eaf67d3d31ed49fca1be0989f",
+      "26b59ef6d50fbff18494ad533cbeb7ed5eae993e",
+      "ee09a7254e1ef3986f2aab4d4e26c86d2720787e",
+      "5b7e64683939ca923025a684ec3e7287fa11943b",
+      "559cbcc71716606ea8d2d454d3466b98dfd90de2",
+      "232348df7831cbbf900616eb5a8f8ebaa63f8d4b",
+      "b6df2aaa6f8b28db2790d5b092563b9510fff4a2",
+      "6584aa9356720a3f7ae58f91196318d5c0771059",
+      "4d8e5c98f4da3142862c1c36002b764805601004",
+      "e77b713ed2011bd9b597794e9b529b67ec63e8cc",
+      "fbb2e01760300b77e22ce6a2369b8e1fba579724",
+      "b3f22fdcf4b678401b9f0f81c692b9937f34487b",
+      "3021b15b98a6edc1b8bcdef481925f3202a67bf5",
+      "61c28c2b08672576f1ccc53fe6ef4bf2f603f1a4"
+    ],
+    "subjects": [
+      "1ad7870b Fix #233: enforce package registry quality",
+      "aea50b21 Fix #233: migrate binding transport to FlatBuffers",
+      "fe47f618 Fix #233: allow release workflow checkout",
+      "b0884c15 Fix #233: declare nested dist workspace",
+      "c293f788 Fix #233: centralize dist configuration",
+      "c606d9ca Fix #233: configure publish job permissions",
+      "f97915b5 Fix #233: regenerate dist release assets",
+      "a4abda8d Fix #233: isolate generated transport lints",
+      "26b59ef6 Fix #233: support fetched FlatBuffers CMake target",
+      "ee09a725 Fix #233: format generated Dart bindings",
+      "5b7e6468 Fix #233: isolate pub score analysis",
+      "559cbcc7 Fix #233: format generated Go models",
+      "232348df Fix #233: add Kotlin FlatBuffers runtime",
+      "b6df2aaa Fix #233: use hoisted TypeScript compiler",
+      "6584aa93 Fix #233: format generated C# models",
+      "4d8e5c98 Fix #233: enforce Ruby 3.1 lint quality",
+      "e77b713e Fix #233: validate PHP and Swift packages",
+      "fbb2e017 Fix #233: make Lua syntax lint portable",
+      "b3f22fdc Fix #233: validate npm package directories",
+      "3021b15b Fix #233: document native ABI safety",
+      "61c28c2b test: remove flaky topology cache timing assertion"
+    ],
+    "name": "issue-233-package-registry-quality",
+    "remote": true,
+    "reason": "Aggregate patch exactly matches its squash commit in main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-267-add-sync-command",
+    "sha": "536e98d0684c5b4e988f38e9128529bdd598ec47",
+    "ancestor": true,
+    "name": "issue-267-add-sync-command",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-268-require-target-first",
+    "sha": "12346c8221919f6577ed4c06366e6d8ed6eccbb5",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "issue-268-require-target-first",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-269-variable-move-directory",
+    "sha": "d2b12fc6683dc8f2dbcda2a31b7770ace1313b86",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "issue-269-variable-move-directory",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-270-document-case-sensitivity",
+    "sha": "4cb418a42d4954608eb1e8a3e95fa469ed45bb12",
+    "ancestor": false,
+    "unique": [
+      "4cb418a42d4954608eb1e8a3e95fa469ed45bb12"
+    ],
+    "subjects": [
+      "4cb418a4 Fix #270: define identifier case sensitivity"
+    ],
+    "name": "issue-270-document-case-sensitivity",
+    "remote": true,
+    "reason": "Integrated as 08024bb3 with target-first CLI context"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-271-disallow-variable-directory-collisions",
+    "sha": "806a74e4723c48e37507ab80398e3fc2558a3f3a",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "issue-271-disallow-variable-directory-collisions",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-303-crash-recoverable-redaction",
+    "sha": "8b1488b3bc1bddfbf4806dc17efaf87663ac57a6",
+    "ancestor": true,
+    "name": "issue-303-crash-recoverable-redaction",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-310-zip-read-performance",
+    "sha": "b086e6ad19938fa337e4e9956b3ad9b06771cc6d",
+    "ancestor": true,
+    "name": "issue-310-zip-read-performance",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-310-zip-read-performance-rebased",
+    "sha": "95ad3088acb7ca959bc08b2d4a9e9692335d30ec",
+    "ancestor": true,
+    "name": "issue-310-zip-read-performance-rebased",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-313-transaction-allocation-rollback",
+    "sha": "f49b1f850acfccdc468c289e5bb212d1cd3f946b",
+    "ancestor": true,
+    "name": "issue-313-transaction-allocation-rollback",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-314-external-backing-store",
+    "sha": "aa10ad530e6305d7766a0e7791b131130983f4d4",
+    "ancestor": true,
+    "name": "issue-314-external-backing-store",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-327-create-lockbox-alias",
+    "sha": "77cfd919eddb0e9344b990283b2baf990108bca3",
+    "ancestor": true,
+    "name": "issue-327-create-lockbox-alias",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-328-unicode-aliases",
+    "sha": "1db0cb59c7d88609eb1879815a7d4c2c18e53fff",
+    "ancestor": true,
+    "name": "issue-328-unicode-aliases",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-333-descriptions",
+    "sha": "ff4a999379cdb97f9bd3069aeaa4c966fecb0de2",
+    "ancestor": true,
+    "name": "issue-333-descriptions",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-334-readonly-vault-credentials",
+    "sha": "3319b35b974fabfef331091f62f8a21cbec84ddc",
+    "ancestor": true,
+    "name": "issue-334-readonly-vault-credentials",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/issue-4142-documentation-bindings",
+    "sha": "31825cc1deef5b8e79ee120c84007660e52a1f60",
+    "ancestor": false,
+    "unique": [
+      "31825cc1deef5b8e79ee120c84007660e52a1f60"
+    ],
+    "subjects": [
+      "31825cc1 Fix #4142: expose unencrypted read-only lockboxes to Java"
+    ],
+    "name": "issue-4142-documentation-bindings",
+    "remote": true,
+    "reason": "Superseded by integrated plaintext read-only support across bindings"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/02e5540d8bba-1788920201447967335",
+    "sha": "02e5540d8bbafd7b022e3487a3caae126df4e972",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "release-candidates/02e5540d8bba-1788920201447967335",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/0cb2e34493ce-retry-38738349751-20261016",
+    "sha": "0cb2e34493ce7ff44a52027e5ea516aab804ae17",
+    "ancestor": true,
+    "name": "release-candidates/0cb2e34493ce-retry-38738349751-20261016",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/0ce11386d144-1789080276923781420",
+    "sha": "0ce11386d144d02b0fd3fc079ecc1cf4cc7e61ef",
+    "ancestor": true,
+    "name": "release-candidates/0ce11386d144-1789080276923781420",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/122414e31f45-1789253376740941018",
+    "sha": "122414e31f4544482f9aa17c3dcd444344cb23f0",
+    "ancestor": true,
+    "name": "release-candidates/122414e31f45-1789253376740941018",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/13f46875-dart-0.5.2",
+    "sha": "13f468759c631f42ad159a2909db6b33a72ccdd0",
+    "ancestor": true,
+    "name": "release-candidates/13f46875-dart-0.5.2",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/1671b0ac2c35-1789076580759698055",
+    "sha": "1671b0ac2c357826ce3d34f85a0c45434307f942",
+    "ancestor": true,
+    "name": "release-candidates/1671b0ac2c35-1789076580759698055",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/19d80486d6a6-1788917156836845525",
+    "sha": "19d80486d6a6357706c922193ee1b9d4847fe358",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "release-candidates/19d80486d6a6-1788917156836845525",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/1acd23f2ef9c-1791878981311435251",
+    "sha": "1acd23f2ef9c6e0094fd3d575b0d88180d71a2f9",
+    "ancestor": true,
+    "name": "release-candidates/1acd23f2ef9c-1791878981311435251",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/2da87bb70395-1788947614795268208",
+    "sha": "2da87bb7039571ea1fe7ca72b470e07fd3bcebd9",
+    "ancestor": true,
+    "name": "release-candidates/2da87bb70395-1788947614795268208",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/2fdbd9379a57-1788861567237840172",
+    "sha": "2fdbd9379a573dbeedac3786bf00c6c3ed37fb1c",
+    "ancestor": true,
+    "name": "release-candidates/2fdbd9379a57-1788861567237840172",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/301c34efad3f-1789044377489397615",
+    "sha": "301c34efad3f5ef3ae5e34ea47bfa8000e0c619c",
+    "ancestor": true,
+    "name": "release-candidates/301c34efad3f-1789044377489397615",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/353ded7da454-1791886030081686580",
+    "sha": "353ded7da454de970a075819add09073e4190e28",
+    "ancestor": true,
+    "name": "release-candidates/353ded7da454-1791886030081686580",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/3963db363717-1788929674849397963",
+    "sha": "3963db363717d5a66ab1490d8e015a15e651f4a8",
+    "ancestor": true,
+    "name": "release-candidates/3963db363717-1788929674849397963",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/3b334e57778e-1789091135690662248",
+    "sha": "3b334e57778ec36f7cc7dfaa71ad789b215af45c",
+    "ancestor": true,
+    "name": "release-candidates/3b334e57778e-1789091135690662248",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/3e79d6a9d052-1791631288081702232",
+    "sha": "3e79d6a9d0520a264ef0df33cd3aa96337b0d46e",
+    "ancestor": false,
+    "unique": [
+      "3e79d6a9d0520a264ef0df33cd3aa96337b0d46e"
+    ],
+    "subjects": [
+      "3e79d6a9 Prepare cli release: CLI 0.4.1, bindings"
+    ],
+    "name": "release-candidates/3e79d6a9d052-1791631288081702232",
+    "remote": true,
+    "reason": "Superseded historical release preparation; current main owns release tooling, versions and CI"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/48c1530a-dart-0.5.2",
+    "sha": "48c1530a94d72c5b82104e05aec9a29fe43e11be",
+    "ancestor": true,
+    "name": "release-candidates/48c1530a-dart-0.5.2",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/544d89f7580f-1788913398650285493",
+    "sha": "544d89f7580f069d7d90923ecf7d22da28974a1b",
+    "ancestor": true,
+    "name": "release-candidates/544d89f7580f-1788913398650285493",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/54cbd379d1e0-1789094595564531935",
+    "sha": "54cbd379d1e0539d7144bb661cdb9fd05e1b640f",
+    "ancestor": true,
+    "name": "release-candidates/54cbd379d1e0-1789094595564531935",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/5f8754c3edd8-1788933564720789935",
+    "sha": "5f8754c3edd8b8956973a6db343181d53c317592",
+    "ancestor": true,
+    "name": "release-candidates/5f8754c3edd8-1788933564720789935",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/61488e4f8db4-1788921113978759484",
+    "sha": "61488e4f8db47dfb99ad190e1314849da88773bf",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "release-candidates/61488e4f8db4-1788921113978759484",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/7173a8df2d05-1789251012202440978",
+    "sha": "7173a8df2d05c4a65a3d599092e55a55ee24f36b",
+    "ancestor": true,
+    "name": "release-candidates/7173a8df2d05-1789251012202440978",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/77e54db59b68-1791631734581814480",
+    "sha": "77e54db59b680f30b5adec6a754ba0e6f06d3c98",
+    "ancestor": true,
+    "name": "release-candidates/77e54db59b68-1791631734581814480",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/7af9b407dfb8-dart-0.5.2",
+    "sha": "7af9b407dfb87bb70767c8a6a03a9921dab598c1",
+    "ancestor": true,
+    "name": "release-candidates/7af9b407dfb8-dart-0.5.2",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/7cb57d5667c6-1791889078172843127",
+    "sha": "7cb57d5667c6308b0ee91793f195b84db5378800",
+    "ancestor": true,
+    "name": "release-candidates/7cb57d5667c6-1791889078172843127",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/8bc0737f-dart-0.5.2",
+    "sha": "8bc0737f807e5b50482892fa4a8eef7c41fe8fd0",
+    "ancestor": true,
+    "name": "release-candidates/8bc0737f-dart-0.5.2",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/8c7e73e66054-1789262886890892036",
+    "sha": "8c7e73e660542a95e722883887127ef3621bd998",
+    "ancestor": true,
+    "name": "release-candidates/8c7e73e66054-1789262886890892036",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/95ebe0cfda30-1789209439024062043",
+    "sha": "95ebe0cfda30a68c88d9e559007fba843cf9227a",
+    "ancestor": true,
+    "name": "release-candidates/95ebe0cfda30-1789209439024062043",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/981933766520-1788916106517945141",
+    "sha": "9819337665201287f4a0389d1f45ab703b7443ab",
+    "ancestor": true,
+    "name": "release-candidates/981933766520-1788916106517945141",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/9b71f6c9c98b-1792068898002220611",
+    "sha": "9b71f6c9c98bac073cde8485110b5e9b965262bc",
+    "ancestor": true,
+    "name": "release-candidates/9b71f6c9c98b-1792068898002220611",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/a4a9ee224e7e-1788904924221735979",
+    "sha": "a4a9ee224e7e6fdd3e9d7133062a0e00e2db13ed",
+    "ancestor": true,
+    "name": "release-candidates/a4a9ee224e7e-1788904924221735979",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/b086e6ad-framed-ipc-20261014",
+    "sha": "b086e6ad19938fa337e4e9956b3ad9b06771cc6d",
+    "ancestor": true,
+    "name": "release-candidates/b086e6ad-framed-ipc-20261014",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/bf491e0e-ipc-ci-20261014",
+    "sha": "bf491e0e831c4d8b5ee08982b3eb8d9fffb67607",
+    "ancestor": true,
+    "name": "release-candidates/bf491e0e-ipc-ci-20261014",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/c17c21128730-1791895966812642129",
+    "sha": "c17c21128730f66e5b8a4bed4ddd6c3b101f0555",
+    "ancestor": true,
+    "name": "release-candidates/c17c21128730-1791895966812642129",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/d0f018462fc9-1788862974882440619",
+    "sha": "d0f018462fc9c96dcfeab26947c4c1a6c77cd590",
+    "ancestor": true,
+    "name": "release-candidates/d0f018462fc9-1788862974882440619",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/d33734a2a0b6-1791915608494058328",
+    "sha": "d33734a2a0b64ea13a1782c65a97be5d87dd6608",
+    "ancestor": true,
+    "name": "release-candidates/d33734a2a0b6-1791915608494058328",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/d33734a2a0b6-ci-split-20261014",
+    "sha": "560fc3cc12fbc8b82594f384ce21af42b925da1b",
+    "ancestor": false,
+    "unique": [
+      "560fc3cc12fbc8b82594f384ce21af42b925da1b"
+    ],
+    "subjects": [
+      "560fc3cc Split required API coverage across bounded CI jobs"
+    ],
+    "name": "release-candidates/d33734a2a0b6-ci-split-20261014",
+    "remote": true,
+    "reason": "Superseded historical release preparation; current main owns release tooling, versions and CI"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/d47a7145ffcc-retry-38749417754-20261016",
+    "sha": "d47a7145ffcc38e1fc8c45d5a1eec4298f31c324",
+    "ancestor": true,
+    "name": "release-candidates/d47a7145ffcc-retry-38749417754-20261016",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/d58e7208ef4f-1789089115044996807",
+    "sha": "d58e7208ef4f339b44815b319b9b9a8683b2b0d8",
+    "ancestor": true,
+    "name": "release-candidates/d58e7208ef4f-1789089115044996807",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/ec0d8666db69-1788913918565664299",
+    "sha": "ec0d8666db69161ee27fdc4255a47f621627add6",
+    "ancestor": true,
+    "name": "release-candidates/ec0d8666db69-1788913918565664299",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/ec244c1041b6-1788930102474841192",
+    "sha": "ec244c1041b6cf2fbdace996dbdad2b96cf187a1",
+    "ancestor": true,
+    "name": "release-candidates/ec244c1041b6-1788930102474841192",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/f1fb863a1bcc-1788945303632121027",
+    "sha": "f1fb863a1bccfabff129d999a899c1b649198518",
+    "ancestor": true,
+    "name": "release-candidates/f1fb863a1bcc-1788945303632121027",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/f29745961349-1788935406215480624",
+    "sha": "f297459613491308fef9cc532d60e48e94e9b335",
+    "ancestor": true,
+    "name": "release-candidates/f29745961349-1788935406215480624",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/f3b69ee0bbc9-1791894818709828338",
+    "sha": "f3b69ee0bbc99117616b6a3e125111de319fb445",
+    "ancestor": true,
+    "name": "release-candidates/f3b69ee0bbc9-1791894818709828338",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/f5ea315af728-1789080986168177110",
+    "sha": "f5ea315af728f3299a3dc647e396a51f27934ae7",
+    "ancestor": true,
+    "name": "release-candidates/f5ea315af728-1789080986168177110",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/f67a01dce2e1-1791882145119842800",
+    "sha": "f67a01dce2e1ebff53910f7b45a2570b16ddda75",
+    "ancestor": true,
+    "name": "release-candidates/f67a01dce2e1-1791882145119842800",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/f9e0146ed5c9-1788902866728214014",
+    "sha": "f9e0146ed5c9b7f4491e498f99eef5855bd1f782",
+    "ancestor": true,
+    "name": "release-candidates/f9e0146ed5c9-1788902866728214014",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/fa5ab2eebdd7-1789251647526147905",
+    "sha": "fa5ab2eebdd75ce42e531a0f26e7af57b9bcad6c",
+    "ancestor": true,
+    "name": "release-candidates/fa5ab2eebdd7-1789251647526147905",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/fce1025d6691-1788925647018635755",
+    "sha": "fce1025d6691e21035ccc30ba39716092e6c848d",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "release-candidates/fce1025d6691-1788925647018635755",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release-candidates/format3-0.4.1-f1e6e67f",
+    "sha": "f1e6e67faf7b488c5f7f9c1ccc09b63605a22217",
+    "ancestor": true,
+    "name": "release-candidates/format3-0.4.1-f1e6e67f",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release/api-v0.3.12",
+    "sha": "36118cf88d94d43f9c544e04e45f4189988770a1",
+    "ancestor": true,
+    "name": "release/api-v0.3.12",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release/dart-0.4.0-format3",
+    "sha": "63cb9b73a8e43ca790244793710871ba837eda8e",
+    "ancestor": true,
+    "name": "release/dart-0.4.0-format3",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release/format3-0.4.0",
+    "sha": "f1e6e67faf7b488c5f7f9c1ccc09b63605a22217",
+    "ancestor": true,
+    "name": "release/format3-0.4.0",
+    "remote": true,
+    "reason": "Ancestor of integrated local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release/password-profiles-v3",
+    "sha": "2285af45f61b28dc4be7d9aa25d93a5155b7ea13",
+    "ancestor": false,
+    "unique": [
+      "3e15aaf254b9eeadffafc019953798688334a823",
+      "b78d0b34982e4cb450e6213bdbb726ae67083225",
+      "06a537dd04e23e67f420a944eb2fe3aabf9c7f5d",
+      "a43cdce77c454d5305a98c17e49778dc503d9758",
+      "2285af45f61b28dc4be7d9aa25d93a5155b7ea13"
+    ],
+    "subjects": [
+      "3e15aaf2 Run password profile lifecycle in Linux CI",
+      "b78d0b34 Disambiguate release packages and refresh dependent lockfiles",
+      "06a537dd Preserve trusted publishing retry workflow during dist validation",
+      "a43cdce7 Use workspace package name for cargo fmt",
+      "2285af45 Update profile help test for password credentials"
+    ],
+    "name": "release/password-profiles-v3",
+    "remote": true,
+    "reason": "Superseded historical release preparation; current main owns release tooling, versions and CI"
+  },
+  {
+    "ref": "refs/remotes/origin/release/v0.2.10",
+    "sha": "10ce9c9df68efac137846f4d277dc293b243bfa2",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "release/v0.2.10",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release/v0.2.11",
+    "sha": "2196a8bbde328f523c369fbdf4be9b0b8535d2a9",
+    "ancestor": false,
+    "unique": [],
+    "subjects": [],
+    "name": "release/v0.2.11",
+    "remote": true,
+    "reason": "Every patch is equivalent to a patch in local main"
+  },
+  {
+    "ref": "refs/remotes/origin/release/v0.2.12",
+    "sha": "d7da4a3b364140d773032fdb521d2edb917842f6",
+    "ancestor": false,
+    "unique": [
+      "d7da4a3b364140d773032fdb521d2edb917842f6"
+    ],
+    "subjects": [
+      "d7da4a3b Released 0.2.0."
+    ],
+    "name": "release/v0.2.12",
+    "remote": true,
+    "reason": "Superseded historical release preparation; current main owns release tooling, versions and CI"
+  }
+]
