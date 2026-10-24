@@ -32,9 +32,20 @@ fn contents(index: u8, size: u8, seed: u8) -> Vec<u8> {
         .collect()
 }
 
-fn verify(lockbox: &Lockbox, expected: &BTreeMap<LockboxPath, Vec<u8>>) {
-    for (path, contents) in expected {
-        assert_eq!(lockbox.get_file(path).unwrap(), *contents, "{path}");
+fn verify<State>(lockbox: &Lockbox<State>, expected: &BTreeMap<LockboxPath, Vec<u8>>) {
+    for index in 0..32 {
+        let path = path(index);
+        if let Some(contents) = expected.get(&path) {
+            assert_eq!(lockbox.get_file(&path).unwrap(), *contents, "{path}");
+        } else {
+            assert!(
+                matches!(
+                    lockbox.get_file(&path),
+                    Err(revault_lockbox_api::Error::NotFound(_))
+                ),
+                "unexpected live file {path}"
+            );
+        }
     }
 }
 
@@ -47,7 +58,7 @@ fuzz_target!(|data: &[u8]| {
     .unwrap();
     let mut expected = BTreeMap::new();
 
-    for operation in data.chunks_exact(4).take(128) {
+    for (op_index, operation) in data.chunks_exact(4).take(128).enumerate() {
         let path = path(operation[1]);
         match operation[0] % 4 {
             0 | 1 => {
@@ -62,7 +73,9 @@ fuzz_target!(|data: &[u8]| {
                 }
             }
             _ => {
-                lockbox.commit().unwrap();
+                lockbox
+                    .commit()
+                    .unwrap_or_else(|error| panic!("commit after operation {op_index}: {error:?}"));
                 verify(&lockbox, &expected);
                 lockbox = Lockbox::open_bytes_for_write(
                     lockbox.try_to_bytes().unwrap(),
@@ -81,7 +94,5 @@ fuzz_target!(|data: &[u8]| {
         LockboxOpen::ContentKey(SecretVec::try_from_slice(CONTENT_KEY).unwrap()),
     )
     .unwrap();
-    for (path, contents) in &expected {
-        assert_eq!(reopened.get_file(path).unwrap(), *contents, "{path}");
-    }
+    verify(&reopened, &expected);
 });
