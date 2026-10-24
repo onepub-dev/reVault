@@ -423,6 +423,38 @@ pub(crate) fn write_output_file(path: &str, bytes: &[u8], overwrite: bool) -> Cl
     Ok(())
 }
 
+/// Stream a secret export into a private temporary file, publishing it only
+/// after the writer succeeds. This avoids a full plaintext heap buffer and
+/// preserves an existing backup when serialization or key loading fails.
+pub(crate) fn write_output_file_with(
+    path: &str,
+    overwrite: bool,
+    write: impl FnOnce(&mut fs::File) -> CliResult<()>,
+) -> CliResult<()> {
+    let destination = std::path::Path::new(path);
+    let parent = destination
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(std::path::Path::new("."));
+    let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
+    set_private_output_permissions(temporary.as_file())?;
+    write(temporary.as_file_mut())?;
+    temporary.as_file().sync_all()?;
+    let published = if overwrite {
+        temporary.persist(destination)
+    } else {
+        temporary.persist_noclobber(destination)
+    };
+    published.map_err(|error| {
+        if error.error.kind() == std::io::ErrorKind::AlreadyExists {
+            Error::AlreadyExists(path.to_owned())
+        } else {
+            Error::Io(format!("write {path}: {}", error.error))
+        }
+    })?;
+    Ok(())
+}
+
 #[cfg(unix)]
 fn configure_private_output_file(options: &mut fs::OpenOptions) {
     use std::os::unix::fs::OpenOptionsExt;

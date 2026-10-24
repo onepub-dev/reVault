@@ -358,6 +358,77 @@ fn dedupe_urls<T: AsRef<str>>(values: impl IntoIterator<Item = T>) -> Vec<String
 mod tests {
     use super::{topology_path, topology_url_from_publish_url};
 
+    fn response_fixture(response: Vec<u8>, limit: usize) -> Result<Vec<u8>, super::ClientError> {
+        use std::io::Write;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let writer = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let _ = socket.write_all(&response);
+        });
+        let mut socket = std::net::TcpStream::connect(address).unwrap();
+        let result =
+            super::read_plain_http_response(&mut socket, std::time::Duration::from_secs(2), limit);
+        drop(socket);
+        writer.join().unwrap();
+        result
+    }
+
+    #[test]
+    fn plain_http_rejects_oversized_headers_and_body_before_eof() {
+        let oversized_headers = vec![b'X'; super::MAX_HTTP_RESPONSE_HEADERS + 8192];
+        assert!(matches!(
+            response_fixture(oversized_headers, 32),
+            Err(super::ClientError::Http(_))
+        ));
+        let mut oversized_body = b"HTTP/1.1 200 OK\r\nContent-Length: 65536\r\n\r\n".to_vec();
+        oversized_body.extend_from_slice(&[b'B'; 8192]);
+        assert!(matches!(
+            response_fixture(oversized_body, 32),
+            Err(super::ClientError::Protocol(
+                crate::protocol::ProtocolError::PayloadTooLarge
+            ))
+        ));
+        let valid = b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nabc";
+        assert_eq!(response_fixture(valid.to_vec(), 3).unwrap(), valid);
+    }
+
+    #[test]
+    fn plain_http_slow_drip_cannot_extend_total_read_deadline() {
+        use std::io::Write;
+        use std::time::{Duration, Instant};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let writer = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            if socket
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 40\r\n\r\n")
+                .is_err()
+            {
+                return;
+            }
+            for _ in 0..40 {
+                if socket.write_all(b"x").is_err() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        });
+        let mut socket = std::net::TcpStream::connect(address).unwrap();
+        let started = Instant::now();
+        let result = super::read_plain_http_response(&mut socket, Duration::from_millis(400), 64);
+        let elapsed = started.elapsed();
+        let _ = socket.shutdown(std::net::Shutdown::Both);
+        drop(socket);
+        writer.join().unwrap();
+        assert!(matches!(result, Err(super::ClientError::Io(error))
+            if matches!(error.kind(), std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock)));
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "slow drip extended the deadline: {elapsed:?}"
+        );
+    }
+
     #[test]
     fn topology_path_strips_existing_query_token() {
         assert_eq!(

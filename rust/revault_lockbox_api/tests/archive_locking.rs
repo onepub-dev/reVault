@@ -3,6 +3,46 @@ use common::{add_file, p, password, public_api_unique_dir, signing_key};
 use revault_lockbox_api::{Error, Lockbox, LockboxOpen, LockboxProtection, SecretVec};
 use std::{fs, path::Path, process::Command};
 const KEY: &[u8] = b"archive locking test key";
+
+#[cfg(unix)]
+#[test]
+fn vault_sidecar_rejects_links_and_writable_parent_without_touching_targets() {
+    use revault_lockbox_api::{lock_path_for, FileLockScope, ScopedFileLock};
+    use std::os::unix::fs::{symlink, PermissionsExt};
+    let root = public_api_unique_dir("sidecar-boundary");
+    fs::create_dir_all(&root).unwrap();
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+    let archive = root.join("vault.lbox");
+    let sidecar = lock_path_for(&archive);
+    let sentinel = root.join("unrelated-file");
+    let contents = b"synthetic unrelated file; must never become lock metadata";
+    fs::write(&sentinel, contents).unwrap();
+
+    // This is a lock-layer test: planting an unsafe sidecar has no public CLI
+    // equivalent and all targets are synthetic files in this private fixture.
+    symlink(&sentinel, &sidecar).unwrap();
+    assert!(ScopedFileLock::acquire(&archive, FileLockScope::Vault).is_err());
+    assert_eq!(fs::read(&sentinel).unwrap(), contents);
+    fs::remove_file(&sidecar).unwrap();
+    fs::hard_link(&sentinel, &sidecar).unwrap();
+    assert!(ScopedFileLock::acquire(&archive, FileLockScope::Vault).is_err());
+    assert_eq!(fs::read(&sentinel).unwrap(), contents);
+    fs::remove_file(&sidecar).unwrap();
+
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o770)).unwrap();
+    let rejected = ScopedFileLock::acquire(&archive, FileLockScope::Vault);
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(rejected.is_err());
+    assert!(!sidecar.exists());
+    let guard = ScopedFileLock::acquire(&archive, FileLockScope::Vault).unwrap();
+    assert_eq!(
+        fs::metadata(&sidecar).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    drop(guard);
+    assert_eq!(fs::read(&sentinel).unwrap(), contents);
+    fs::remove_dir_all(root).unwrap();
+}
 fn key() -> SecretVec {
     SecretVec::try_from_slice(KEY).unwrap()
 }

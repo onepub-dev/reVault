@@ -14,6 +14,49 @@ use std::io::Cursor;
 
 const KEY: &[u8] = b"public api suite key";
 
+#[cfg(unix)]
+#[test]
+fn host_file_import_rejects_a_symlink_in_place_of_the_checked_file() {
+    use std::fs;
+    use std::os::unix::fs::symlink;
+    let root = unique_dir("nofollow-import");
+    fs::create_dir_all(&root).unwrap();
+    let source = root.join("selected.bin");
+    let outside = root.join("outside.bin");
+    fs::write(&source, b"initial selected content").unwrap();
+    fs::write(&outside, b"synthetic private content outside selection").unwrap();
+    assert!(fs::symlink_metadata(&source).unwrap().is_file());
+    // Deterministically model the swap after a caller's metadata check. The
+    // public import API must refuse the new symlink at the actual open.
+    fs::remove_file(&source).unwrap();
+    symlink(&outside, &source).unwrap();
+    let path = root.join("archive.lbox");
+    let mut archive = Lockbox::create_file(
+        &path,
+        LockboxProtection::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
+        &signing_key(),
+    )
+    .unwrap();
+    assert!(archive
+        .add_file_from_path(&source, &p("/selected.bin"), false)
+        .is_err());
+    assert!(archive.stat(&p("/selected.bin")).is_none());
+    archive.commit().unwrap();
+    drop(archive);
+    let reopened = Lockbox::open(
+        &path,
+        LockboxOpen::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
+    )
+    .unwrap();
+    assert!(reopened.stat(&p("/selected.bin")).is_none());
+    assert_eq!(
+        fs::read(&outside).unwrap(),
+        b"synthetic private content outside selection"
+    );
+    drop(reopened);
+    fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn public_api_files_listing_variables_symlink_and_rename_flow() {
     let root = unique_dir("files");

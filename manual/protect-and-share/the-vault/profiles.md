@@ -39,6 +39,12 @@ lbx vault profiles backup ./personal.profile-backup --name personal
 
 {% hint style="danger" %}
 A Profile backup contains private keys or the Profile's password in plaintext. Anyone who obtains it may be able to open Lockboxes accessible to that Profile. Store it as carefully as the data itself. Whole-Vault backups also preserve password Profiles and remain encrypted.
+
+Profile exports are streamed into a private temporary file and replace the
+destination only after writing succeeds. Restore accepts regular Profile backup
+files up to 8 MiB; it rejects a changing file size or invalid UTF-8 before parsing.
+Owned plaintext restore buffers are wiped on success and failure. These memory
+protections do not encrypt the backup file itself.
 {% endhint %}
 
 Restore a backup with:

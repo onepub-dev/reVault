@@ -1300,12 +1300,12 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
     (year, month, day)
 }
 
-fn decode_hex(value: &str) -> CliResult<Vec<u8>> {
+fn decode_hex(value: &str) -> CliResult<zeroize::Zeroizing<Vec<u8>>> {
     let value = value.trim();
     if !value.len().is_multiple_of(2) {
         return Err(Error::InvalidInput("hex value has odd length".to_string()).into());
     }
-    let mut out = Vec::with_capacity(value.len() / 2);
+    let mut out = zeroize::Zeroizing::new(Vec::with_capacity(value.len() / 2));
     let bytes = value.as_bytes();
     let mut index = 0usize;
     while index < bytes.len() {
@@ -1328,9 +1328,29 @@ fn hex_digit(byte: u8) -> CliResult<u8> {
 
 fn profile_restore_options(options: ProfileRestoreArgs) -> CliResult<()> {
     let vault = default_vault()?;
-    let raw = zeroize::Zeroizing::new(fs::read_to_string(&options.input_path)?);
+    // Allocate once from a bounded, held file size. Wrapping before reading
+    // wipes partial reads, invalid UTF-8, and later parse failures as well.
+    const MAX_PROFILE_BACKUP_BYTES: u64 = 8 * 1024 * 1024;
+    let mut source = fs::File::open(&options.input_path)?;
+    let metadata = source.metadata()?;
+    let length = metadata.len();
+    if !metadata.is_file() || length > MAX_PROFILE_BACKUP_BYTES {
+        return Err(cli_error(
+            "profile backup must be a regular file no larger than 8 MiB",
+        ));
+    }
+    let mut raw_bytes = zeroize::Zeroizing::new(Vec::with_capacity(length as usize + 1));
+    std::io::Read::read_to_end(
+        &mut std::io::Read::take(&mut source, length + 1),
+        &mut raw_bytes,
+    )?;
+    if raw_bytes.len() as u64 != length {
+        return Err(cli_error("profile backup changed size while being read"));
+    }
+    let raw = std::str::from_utf8(&raw_bytes)
+        .map_err(|_| cli_error("profile backup is not valid UTF-8"))?;
     if raw.starts_with("{\"password_profile_version\":") {
-        let backup = serde_json::from_str::<PasswordProfileBackup>(&raw)?;
+        let backup = serde_json::from_str::<PasswordProfileBackup>(raw)?;
         if backup.password_profile_version != 1 {
             return Err(cli_error("unsupported password profile backup version"));
         }
@@ -1344,7 +1364,7 @@ fn profile_restore_options(options: ProfileRestoreArgs) -> CliResult<()> {
         println!("Password profile restored: {name}");
         return Ok(());
     }
-    let backup = parse_profile_backup(&raw)?;
+    let backup = parse_profile_backup(raw)?;
     let name = options.name.unwrap_or(backup.name);
     let keypair = import_private_key(SecretVec::try_from_slice(
         backup.private_key_pem.as_bytes(),
@@ -1382,20 +1402,22 @@ fn profile_backup_options(options: ProfileBackupArgs) -> CliResult<()> {
         let backup = PasswordProfileBackup {
             password_profile_version: 1,
             name: options.name.clone(),
-            password: password.with_str(str::to_string)?,
+            password: zeroize::Zeroizing::new(password.with_str(str::to_string)?),
         };
-        let mut bytes = serde_json::to_vec(&backup)?;
-        let result =
-            super::variables::write_output_file(&options.output_path, &bytes, options.overwrite);
-        use zeroize::Zeroize;
-        bytes.zeroize();
-        result?;
+        super::variables::write_output_file_with(
+            &options.output_path,
+            options.overwrite,
+            |file| {
+                serde_json::to_writer(file, &backup)?;
+                Ok(())
+            },
+        )?;
         println!("Profile backup completed successfully.");
         return Ok(());
     }
-    let mut output = zeroize::Zeroizing::new(Vec::new());
-    write_profile_backup(&mut *output, &vault, &options.name)?;
-    super::variables::write_output_file(&options.output_path, &output, options.overwrite)?;
+    super::variables::write_output_file_with(&options.output_path, options.overwrite, |file| {
+        write_profile_backup(file, &vault, &options.name)
+    })?;
     println!("Profile backup completed successfully.");
     println!("profile={}", options.name);
     println!(
@@ -1415,14 +1437,7 @@ struct ParsedProfileBackup {
 struct PasswordProfileBackup {
     password_profile_version: u32,
     name: String,
-    password: String,
-}
-
-impl Drop for PasswordProfileBackup {
-    fn drop(&mut self) {
-        use zeroize::Zeroize;
-        self.password.zeroize();
-    }
+    password: zeroize::Zeroizing<String>,
 }
 
 fn parse_profile_backup(text: &str) -> CliResult<ParsedProfileBackup> {
@@ -1433,13 +1448,13 @@ fn parse_profile_backup(text: &str) -> CliResult<ParsedProfileBackup> {
         .filter(|name| !name.is_empty())
         .ok_or_else(|| Error::InvalidInput("profile backup is missing Profile".to_string()))?
         .to_string();
-    let private_key_pem = zeroize::Zeroizing::new(extract_labeled_block(
+    let private_key_pem = extract_labeled_block(
         text,
         "BEGIN LOCKBOX PRIVATE KEY",
         "END LOCKBOX PRIVATE KEY",
         "profile backup is missing profile private key",
-    )?);
-    let signing_private_hex = zeroize::Zeroizing::new(extract_owner_signing_hex(text)?);
+    )?;
+    let signing_private_hex = extract_owner_signing_hex(text)?;
     Ok(ParsedProfileBackup {
         name,
         private_key_pem,
@@ -1452,7 +1467,7 @@ fn extract_labeled_block(
     begin_label: &str,
     end_label: &str,
     missing_message: &str,
-) -> CliResult<String> {
+) -> CliResult<zeroize::Zeroizing<String>> {
     let lines = text.lines().collect::<Vec<_>>();
     let start = lines
         .iter()
@@ -1463,24 +1478,31 @@ fn extract_labeled_block(
         .position(|line| line.contains(end_label))
         .map(|offset| start + offset)
         .ok_or_else(|| Error::InvalidInput(missing_message.to_string()))?;
-    let mut block = lines[start..=end].join("\n");
-    block.push('\n');
+    let capacity = lines[start..=end].iter().map(|line| line.len() + 1).sum();
+    let mut block = zeroize::Zeroizing::new(String::with_capacity(capacity));
+    for line in &lines[start..=end] {
+        block.push_str(line);
+        block.push('\n');
+    }
     Ok(block)
 }
 
-fn extract_owner_signing_hex(text: &str) -> CliResult<String> {
+fn extract_owner_signing_hex(text: &str) -> CliResult<zeroize::Zeroizing<String>> {
     let Some((_, rest)) = text.split_once("Owner signing private key record (hex):") else {
         return Err(Error::InvalidInput(
             "profile backup is missing owner signing private key".to_string(),
         )
         .into());
     };
-    let hex = rest
+    let mut hex = zeroize::Zeroizing::new(String::with_capacity(rest.len()));
+    for line in rest
         .lines()
         .map(str::trim)
         .skip_while(|line| line.is_empty())
         .take_while(|line| !line.is_empty() && line.bytes().all(|byte| byte.is_ascii_hexdigit()))
-        .collect::<String>();
+    {
+        hex.push_str(line);
+    }
     if hex.is_empty() {
         return Err(Error::InvalidInput(
             "profile backup is missing owner signing private key".to_string(),
@@ -1491,19 +1513,21 @@ fn extract_owner_signing_hex(text: &str) -> CliResult<String> {
 }
 
 fn owner_signing_key_from_hex_text(text: &str) -> CliResult<OwnerSigningKeyPair> {
-    let hex = zeroize::Zeroizing::new(
-        text.lines()
-            .map(str::trim)
-            .filter(|line| !line.is_empty() && line.bytes().all(|byte| byte.is_ascii_hexdigit()))
-            .collect::<String>(),
-    );
+    let mut hex = zeroize::Zeroizing::new(String::with_capacity(text.len()));
+    for line in text
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && line.bytes().all(|byte| byte.is_ascii_hexdigit()))
+    {
+        hex.push_str(line);
+    }
     if hex.is_empty() {
         return Err(Error::InvalidInput(
             "owner signing private key file does not contain hex key material".to_string(),
         )
         .into());
     }
-    let bytes = zeroize::Zeroizing::new(decode_hex(&hex)?);
+    let bytes = decode_hex(&hex)?;
     let record = SecretVec::try_from_slice(&bytes)?;
     Ok(OwnerSigningKeyPair::from_private_key_record(record)?)
 }
