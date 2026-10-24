@@ -2,6 +2,9 @@ Release all
 CLI: 0.6.0
 Bindings: 0.6.0
 
+- Complete binding lint and source package release checks
+- Format reciprocal exchange C# facade for release lint
+- [release candidate] Prepare all release: CLI 0.6.0, bindings 0.6.0
 - Build candidate WebAssembly packages from current source
 - Fix format-4 exporter Windows build and candidate regressions
 - [release candidate] Prepare all release: CLI 0.6.0, bindings 0.6.0
