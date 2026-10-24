@@ -4,8 +4,10 @@ Status on 2026-10-25: eight findings from the October security review have
 private draft GitHub security advisories. The fixes are committed on
 `security/advisory-fixes-2026-10` at `8e93aaebebf3517bdc3a5282e4bceda6dff771c1`.
 They are integrated into local `main`, with additional Profile backup hardening
-and regression coverage at `458d077c`. Neither the integrated fixes nor the
-advisories have been pushed, released, or disclosed. The affected
+and regression coverage at `458d077c`. Integrated main was pushed at `ec0d9030`
+to start the authorized release pipeline. Migration dependency
+`revault_migrate_v4` 0.1.0 is published; the fixed CLI/bindings and private
+advisories are not yet published. The affected
 Rust packages passed offline locked `cargo check --all-targets` and Clippy with
 warnings denied; those checks do not establish release readiness. The private
 advisories are the source of truth for finding details. Keep them private until
@@ -22,7 +24,7 @@ authorization. See the [October 25 review](history/security-release-review-2026-
 
 ## Before package publication
 
-- [ ] Review each fix and its private advisory together. Confirm that the
+- [x] Review each fix and its private advisory together. Confirm that the
   impact, severity, affected versions, and proposed mitigation still match the
   code. Check whether each published crate, CLI, or binding actually exposes
   the affected behavior; do not mark an unaffected package as vulnerable.
@@ -35,10 +37,10 @@ authorization. See the [October 25 review](history/security-release-review-2026-
   package. Keep the CLI and bindings in the correct archive/Vault compatibility
   line. Record, for each advisory, the last affected version and first patched
   version of every relevant ecosystem package.
-- [ ] Prepare security entries in the relevant package changelogs and release
+- [x] Prepare security entries in the relevant package changelogs and release
   notes. Give users the upgrade path and link to the advisory once public;
   avoid publishing exploit details ahead of the coordinated release.
-- [ ] Review the key-server deployment plan separately. A patched crate does
+- [x] Review the key-server deployment plan separately. A patched crate does
   not remediate a running server. Determine whether the private advisories call
   for credential or token invalidation or other incident response.
 

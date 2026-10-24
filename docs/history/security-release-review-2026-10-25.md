@@ -118,6 +118,21 @@ after disclosure. No production actions have been performed by this review.
 
 ## Remaining gates
 
+Main `ec0d9030fae8c7aa6db7e6e0facbd30495139bde` was pushed to begin the
+authorized pipeline. Dependency workflow `40099928113` first failed because
+Trusted Publishing cannot create a new crate. The existing Cargo owner
+credential then published only `revault_migrate_v4` 0.1.0 from that same main.
+Its registry checksum is
+`9e5b3d9502f5e937e99116a3353055f9cb74faa8d62fd0fd00c4df4d9d10e993`;
+it is non-yanked. Trusted Publishing was configured and read back for
+`onepub-dev/reVault`, workflow `revault_cli-v-release.yml`, environment `release`.
+The dependency workflow's second attempt passed, verifying all required versions
+are present; existing immutable versions were skipped. All eight private advisory
+drafts now carry reviewed affected ranges, reserved patched versions and the
+focused regression evidence. Their reserved versions must match the final
+candidate and be available before disclosure. The fixed CLI/bindings have not yet
+been published and the advisories remain drafts.
+
 Local packaged format-4 migration passed: `cargo package` produced the crate,
 the extracted package was installed with `cargo install --offline --locked`,
 and both binary capability contracts matched. The release-mode
