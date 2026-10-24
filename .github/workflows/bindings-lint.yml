@@ -215,6 +215,7 @@ jobs:
           cargo package --locked --manifest-path bindings/rust/Cargo.toml \
             --config 'patch.crates-io.revault_lockbox_api.path="rust/revault_lockbox_api"' \
             --config 'patch.crates-io.revault_secure_memory.path="rust/revault_secure_memory"' \
+            --config 'patch.crates-io.revault_publish_protocol.path="rust/revault_publish_protocol"' \
             --config 'patch.crates-io.revault_vault_api.path="rust/revault_vault_api"'
       - name: Upload registry validation reports
         if: always()

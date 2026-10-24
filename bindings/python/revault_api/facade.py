@@ -1900,8 +1900,6 @@ def _ReadOnlyVaultDirectory_resolve_lockbox_alias(self, name):
     return _call(self, 'vault_read_only_resolve_lockbox_alias', (name,))
 ReadOnlyVaultDirectory.resolve_lockbox_alias = _ReadOnlyVaultDirectory_resolve_lockbox_alias
 
-from enum import Enum
-
 class ComparisonChannel(str, Enum):
     """Independent authenticated channel used for full-fingerprint comparison."""
     IN_PERSON = 'in-person'

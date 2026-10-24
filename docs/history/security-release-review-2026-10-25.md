@@ -37,14 +37,14 @@ versions and its actual output must be checked against registries.
 
 | Private advisory | Direct Rust package exposure | Last published version reviewed | Expected first patched version, subject to candidate preparation |
 | --- | --- | --- | --- |
-| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.54, 0.0.55 |
+| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.55, 0.0.56 |
 | GHSA-hm5c-7xh9-3wgc | revault_cli | 0.5.1 | 0.6.0 |
-| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.55 |
-| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.55 |
-| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.54 |
-| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.48 |
-| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.50 |
-| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.50 |
+| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.56 |
+| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.56 |
+| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.55 |
+| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.49 |
+| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.51 |
+| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.51 |
 
 Downloaded crates.io 0.0.1 packages for these five crate names identify source
 `0894fc1b00bbfd014427e523241d436506de0d64`. That source already contains the
@@ -228,6 +228,25 @@ refusal test now uses the format-5 marker and a future container version, coveri
 past/current/future journal targets. The interrupted bulk migration fixture uses
 the current archive format and the separate current Vault structure constant.
 Both focused migration regressions and CLI Clippy pass after these corrections.
+
+Candidate `40111659958` at `ff3ff649` passed the registry migration gate,
+current-source WebAssembly build/package assembly and the installed Linux matrix
+of 16 APIs and 480 interoperability paths. Source lint then found C# exchange
+whitespace, corrected in `c12ad5dc`. A local sweep of all later lint stages found
+and corrected two Python import-placement issues, one stale native-binding
+future-format assertion, and the missing publish-protocol override in the
+source Rust package check. These require another candidate revision.
+
+The local sweep passed C# formatting/build without warnings, JavaScript syntax,
+both strict TypeScript checks, Python Ruff, PHP/Ruby/Lua syntax and lint, Swift
+build/test, and npm/NuGet/Composer/Ruby/LuaRocks/Python/Rust package validation.
+File lifecycle checks passed for Python (6), PHP (18), Ruby (18), Lua (16),
+JavaScript (3 with 1 skipped) and Dart (5 with 1 skipped). All 15 native-binding
+tests are evidenced passing across the original run and two focused reruns:
+the socket test required the normal IPC-enabled environment, and the future
+fixture assertion now matches its explicit format-6 input and current support
+constant. Bindings Clippy also passes. These local checks do not replace the
+new exact-source candidate gate.
 
 The integrated #226 branch was deleted locally and remotely after checking both
 tips were ancestors of remote main. Its clean worktree is retained detached.

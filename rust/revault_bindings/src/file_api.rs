@@ -392,10 +392,16 @@ mod tests {
             assert!(file(&path, mode, ptr::null()).is_null());
             let error = diagnostic();
             assert!(
-                error.contains("unsupported lockbox format version 5"),
+                error.contains("unsupported lockbox format version 6"),
                 "{error}"
             );
-            assert!(error.contains("supports version 4"), "{error}");
+            assert!(
+                error.contains(&format!(
+                    "supports version {}",
+                    revault_lockbox_api::LOCKBOX_FORMAT_VERSION
+                )),
+                "{error}"
+            );
             assert!(error.contains("Install a newer reVault release"), "{error}");
             assert_eq!(std::fs::read(&path).unwrap(), archive);
         }
