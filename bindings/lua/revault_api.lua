@@ -316,6 +316,7 @@ end
 
 local Models = {}
 local child_fields = {
+  ContactExchangeStatusList = { { "values", "ContactExchangeStatus", true } },
   AccessSlotLabelList = { { "values", "AccessSlotLabel", true } },
   AgentEntryList = { { "values", "AgentEntry", true } },
   ContactList = { { "values", "Contact", true } },
@@ -364,6 +365,12 @@ local function model(name)
   function class.decode(bytes) return wrap(name, flatbuffers.decode(name, bytes)) end
   Models[name] = class
 end
+--- Public reciprocal exchange state; verified means this Vault saved both keys.
+-- @type ContactExchangeStatus
+model("ContactExchangeStatus")
+--- Ordered public statuses returned by the shared Rust exchange workflow.
+-- @type ContactExchangeStatusList
+model("ContactExchangeStatusList")
 --- A local human-readable label attached to one lockbox access slot.
 -- @type AccessSlotLabel
 model("AccessSlotLabel")
