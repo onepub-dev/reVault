@@ -1539,13 +1539,13 @@ pub(crate) const CLI_PUBLISH_PACKAGES: &[&str] = &[
     "revault_secure_memory",
     "revault_lockbox_api",
     "revault_migration_format",
+    "revault_publish_protocol",
     "revault_vault_api",
     "revault_migrate_v1",
     "revault_migrate_v2",
     "revault_migrate_v3",
     "revault_migrate_v4",
     "revault_migration",
-    "revault_publish_protocol",
     "revault_key_server",
     "revault_cli",
 ];
@@ -1949,6 +1949,42 @@ mod tests {
                     !layout.join(unsupported).exists(),
                     "unexpected Android {unsupported} package"
                 );
+            }
+        }
+    }
+
+    #[test]
+    fn cli_publication_orders_runtime_dependencies_before_consumers() {
+        let rust = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        for (position, package) in CLI_PUBLISH_PACKAGES.iter().enumerate() {
+            let manifest = find_package_manifest(rust, package).unwrap();
+            let document = fs::read_to_string(manifest)
+                .unwrap()
+                .parse::<toml_edit::DocumentMut>()
+                .unwrap();
+            let mut scopes = vec![document.as_table()];
+            if let Some(targets) = document.get("target").and_then(toml_edit::Item::as_table) {
+                scopes.extend(targets.iter().filter_map(|(_, target)| target.as_table()));
+            }
+            for scope in scopes {
+                for kind in ["dependencies", "build-dependencies"] {
+                    let Some(dependencies) = scope.get(kind).and_then(toml_edit::Item::as_table)
+                    else {
+                        continue;
+                    };
+                    for (alias, dependency) in dependencies {
+                        let name = dependency
+                            .get("package")
+                            .and_then(toml_edit::Item::as_str)
+                            .unwrap_or(alias);
+                        if let Some(required) = CLI_PUBLISH_PACKAGES
+                            .iter()
+                            .position(|package| *package == name)
+                        {
+                            assert!(required < position, "{name} must publish before {package}");
+                        }
+                    }
+                }
             }
         }
     }

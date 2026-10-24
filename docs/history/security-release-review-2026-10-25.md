@@ -37,14 +37,14 @@ versions and its actual output must be checked against registries.
 
 | Private advisory | Direct Rust package exposure | Last published version reviewed | Expected first patched version, subject to candidate preparation |
 | --- | --- | --- | --- |
-| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.50, 0.0.51 |
+| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.51, 0.0.52 |
 | GHSA-hm5c-7xh9-3wgc | revault_cli | 0.5.1 | 0.6.0 |
-| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.51 |
-| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.51 |
-| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.50 |
-| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.44 |
-| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.46 |
-| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.46 |
+| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.52 |
+| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.52 |
+| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.51 |
+| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.45 |
+| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.47 |
+| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.47 |
 
 Downloaded crates.io 0.0.1 packages for these five crate names identify source
 `0894fc1b00bbfd014427e523241d436506de0d64`. That source already contains the
@@ -117,6 +117,20 @@ affected operators/users with the upgrade and independent-verification guidance
 after disclosure. No production actions have been performed by this review.
 
 ## Remaining gates
+
+Candidate `40100479912` at `30100cd0` was cancelled during its driver build:
+review found that #226's new Vault-to-protocol dependency required publishing
+the protocol before Vault. The corrected order passes a new regression against
+normal, build and target-specific workspace dependencies and tooling Clippy.
+No candidate package or release tag was published. The replacement preparation
+advances internal package patch versions again; unused candidate versions are
+not public releases and must not be named as the first patched versions.
+
+The integrated #226 branch was deleted locally and remotely after checking both
+tips were ancestors of remote main. Its clean worktree is retained detached.
+Only its exact ref was temporarily excluded from deletion protection, and the
+original ruleset was read back and verified restored. The browser integration,
+phone approval and WASM-unlock design branches remain intentional holdbacks.
 
 Main `ec0d9030fae8c7aa6db7e6e0facbd30495139bde` was pushed to begin the
 authorized pipeline. Dependency workflow `40099928113` first failed because
