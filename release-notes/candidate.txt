@@ -2,6 +2,8 @@ Release all
 CLI: 0.6.0
 Bindings: 0.6.0
 
+- Publish protocol before dependent Vault crate
+- [release candidate] Prepare all release: CLI 0.6.0, bindings 0.6.0
 - Record migration dependency publication and private advisory review
 - Record packaged format-4 migration qualification
 - Prepare security release notes and include format-4 exporter bootstrap
