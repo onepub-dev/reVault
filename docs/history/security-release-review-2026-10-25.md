@@ -37,14 +37,14 @@ versions and its actual output must be checked against registries.
 
 | Private advisory | Direct Rust package exposure | Last published version reviewed | Expected first patched version, subject to candidate preparation |
 | --- | --- | --- | --- |
-| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.56, 0.0.57 |
+| GHSA-6wg9-rg68-69v6 | revault_lockbox_api, revault_vault_api | 0.0.49, 0.0.50 | 0.0.57, 0.0.58 |
 | GHSA-hm5c-7xh9-3wgc | revault_cli | 0.5.1 | 0.6.0 |
-| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.57 |
-| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.57 |
-| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.56 |
-| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.50 |
-| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.52 |
-| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.52 |
+| GHSA-xww5-725p-f6hc | revault_vault_api | 0.0.50 | 0.0.58 |
+| GHSA-48j6-c3j4-83m3 | revault_vault_api | 0.0.50 | 0.0.58 |
+| GHSA-7jxm-8453-75wf | revault_cli, revault_lockbox_api | 0.5.1, 0.0.49 | 0.6.0, 0.0.57 |
+| GHSA-rgp7-g6f6-jx3f | revault_publish_protocol | 0.0.43 | 0.0.51 |
+| GHSA-gx4w-7f7m-jr43 | revault_key_server | 0.0.45 | 0.0.53 |
+| GHSA-xcpq-38j3-f3wj | revault_key_server | 0.0.45 | 0.0.53 |
 
 Downloaded crates.io 0.0.1 packages for these five crate names identify source
 `0894fc1b00bbfd014427e523241d436506de0d64`. That source already contains the
@@ -281,6 +281,21 @@ CLI lifecycles. The full current CLI E2E contract passes with realistic coverage
 of 137 commands, including rejection paths for 56. All seven xtask tests and
 Clippy for xtask, core, Vault and CLI pass with warnings denied. The next
 exact-source candidate remains required.
+
+Candidate `40121959977` passed the corrected Linux CLI E2E gate. Meanwhile, the
+retained full core unit run from `40106736673` completed after 3h44m with 731
+passed, one failed and 20 ignored. The remaining failure was
+`nested_vault_guard_retains_lock_after_outer_guard_drops`: it placed its Vault
+sidecar directly under `/tmp`, which the security boundary correctly refuses.
+The fixture now creates an owned `0700` directory, retaining both assertions
+that the nested handle keeps the lock and that its final drop releases it.
+This test-only correction requires another exact-source candidate; passing
+checks from earlier revisions do not establish its release readiness.
+All seven archive-lock unit tests and core Clippy pass after the correction.
+The previously unreached core tail also passes locally: seven doc tests and all
+14 integration targets except the public API suite owned by installed-package
+qualification. The CI-only endian case remains ignored in this local run;
+feature-specific external-source tests remain owned by their separate CI job.
 
 The integrated #226 branch was deleted locally and remotely after checking both
 tips were ancestors of remote main. Its clean worktree is retained detached.

@@ -1053,7 +1053,10 @@ mod archive_lock_tests {
     #[test]
     fn nested_vault_guard_retains_lock_after_outer_guard_drops() {
         use super::file_lock::{FileLockScope, ScopedFileLock};
-        let path = path("nested-vault-lock");
+        use std::os::unix::fs::DirBuilderExt;
+        let root = path("nested-vault-lock");
+        fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
+        let path = root.join("vault.lbox");
         let outer = ScopedFileLock::acquire(&path, FileLockScope::Vault).unwrap();
         let inner = ScopedFileLock::acquire(&path, FileLockScope::Vault).unwrap();
         drop(outer);
@@ -1068,5 +1071,6 @@ mod archive_lock_tests {
         archive_lock::acquire(&other, &sidecar, false, Instant::now()).unwrap();
         drop(other);
         fs::remove_file(sidecar).unwrap();
+        fs::remove_dir(root).unwrap();
     }
 }
