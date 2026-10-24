@@ -1,31 +1,102 @@
 Release all
-CLI: 0.5.1
-Bindings: 0.5.1
+CLI: 0.6.0
+Bindings: 0.6.0
 
-- Prepare frozen exporter dependencies before offline CLI tests
-- Use registered release identity and resolve Dart helper dependencies
-- Repair merged API coverage and fuzz workspace validation
-- Publish migration dependencies and retirement notices through trusted CI
-- Consolidate historical migrations and validate releases from main
-- Merge format-4 development into main and preserve integrated CLI fixes
-- Restore deferred format-4 sources for main integration
-- Fix published v3 exporter pin and keep legacy fixtures unpublished
-- Record published CLI 0.4.1 compatibility line
-- Prepare cli release: CLI 0.4.1, bindings
-- Regenerate CLI MSI definition for all four binaries
-- Keep IPC smoke credentials private and separate build timeout
-- Refresh Rust binding locks after native D-Bus removal
-- Fix release readiness checks for the format-3 CLI
-- Allow release preparation from prerelease source versions
-- Merge recovery and alias-list fixes into #327
-- Merge main into #327 and preserve standalone creation
-- Recover historical archives with current CLI and preserve access
-- Merge alias resolution fixes into migration branch
-- Fix historical migration unlock and add bulk migration
-- Resolve bare lockbox names through local files and aliases
-- Update documentation for plural CLI command groups
-- Use plural CLI groups and fix Vault container migration
-- Restore format-3 compatibility and defer v4 recovery
-- Fix #327: register lockbox aliases during create
-- Unify lockbox selection and require explicit archive creation
-- Fix exact variable moves and renames
+- Record migration dependency publication and private advisory review
+- Record packaged format-4 migration qualification
+- Prepare security release notes and include format-4 exporter bootstrap
+- Update doctor and future-format regressions for format 5
+- Complete exchange binding conformance and dependency locks
+- Harden Profile backup buffers and cover security boundaries
+- Record original #226 history after current-main integration
+- Fix #226: integrate full reciprocal exchange across CLI and bindings
+- Record completed branch audit and intentional holdbacks
+- Merge #322 headless documentation and retained validation evidence
+- Merge already-integrated fix branch histories
+- Record local 0.6.0 integration validation
+- Record local integration in security release checklist
+- Merge format-5 descriptions and security work
+- Merge plaintext read-only binding support
+- Merge October dependency updates
+- Expose plaintext read-only archive opening across bindings
+- Update Cargo dependencies for October 2026
+- Fix #4142: expose unencrypted read-only lockboxes to Java
+- Merge #324 mutation regression into main
+- Document #324 historical storage fix boundary
+- Fix #324: retain mutation regressions and verify deleted files
+- Merge #324 historical fix documentation
+- Document #324 historical storage fix boundary
+- Merge #324 mutation regression into format-5 work
+- Fix #324: retain mutation regressions and verify deleted files
+- Implement #333: native item descriptions in format 5
+- Merge branch 'security/advisory-fixes-2026-10' into issue-333-descriptions
+- Document security release and disclosure checklist
+- Merge branch 'security/advisory-fixes-2026-10' into issue-333-descriptions
+- Fix #333: add multiline descriptions to variables and forms
+- Harden key sharing and Vault I/O boundaries
+- Fix Swift read-only signing key disposal in conformance
+- Fix Dart conformance formatting after Vault merge
+- Merge branch 'issue-334-readonly-vault-credentials'
+- Merge branch 'fix-clippy-ci-gate'
+- Fix Rust Clippy warnings in recovery commands
+- Fix #334: test reader locks in Android native conformance
+- Fix #334: isolate lock timeouts in process tests
+- Fix #334: run reader lock tests on desktop CI
+- Fix #334: test read-only Vault locks across processes
+- Fix #334: allow credential reads from read-only vaults
+- Improve helper guidance and invalid path diagnostics
+- Recover verified files and preserve partial ranges with diagnostics
+- Add revault-tool install command
+- Compile Android acceptance runners before emulator startup
+- Use executable DCli SDK for Android release jobs
+- Fix Android release setup and candidate test fixtures
+- [release candidate] Prepare Dart 0.5.2
+- Add Android support for Dart and native C/C++ bindings
+- fix: report newer lockbox formats across language bindings
+- Repair binding publication retries and preserve tag-triggered releases [skip ci]
+- Fix Rust-compatible resolution for terminal crate releases [skip ci]
+- Fix #322: bound D-Bus credential and connection waits
+- Fix #322: remove native D-Bus dependency from Linux CLI
+- Fix #226: add reciprocal invitation-scoped key exchange
+- Update standalone Rust binding lockfile for x25519 3
+- Merge fa17c691e045693fcc668a25719dff057e58a946 into 689a2bc2a292d02bee819e968768dcbb333ea8a9
+- fix(release): normalize Windows package paths
+- ci: scope Dart releases to Dart conformance
+- fix(release): avoid Windows evidence stack overflow
+- fix(windows): avoid Rust TLS during DLL teardown
+- style: format Dart conformance with CI SDK
+- docs: allow mechanical release metadata changes
+- docs: define efficient release monitoring
+- release: prepare Dart revault_api 0.3.2
+- release: publish Dart revault_api 0.3.1
+- ci: add Dart-only release tags
+- feat: prepare Dart 0.3 API and standalone vaults
+- feat(cli): replace sync with mirror projects
+- Add explicit sync rule inspection and clearing
+- Clarify sync safeguards and stored rules
+- Document target-first sync usage
+- Refine sync metadata naming and help
+- Fix #267: add safe directory synchronization
+- fix native last-error conformance
+- fix PHP release conformance
+- fix(windows): retry named-pipe reconnect gaps
+- fix(lua): decode signed FlatBuffer vtable offsets
+- fix(lua): decode signed FlatBuffer vtable offsets
+- fix(windows): retry transient agent probes
+- fix(kotlin): install Gradle 8.13 on JDK 22
+- fix(kotlin): align conformance Gradle version
+- fix(windows): clear stale mutex error state
+- fix(windows): clear stale mutex error state
+- fix(windows): enforce a single session agent
+- test(windows): persist native phase output
+- fix(dart): match stored profile email in conformance
+- test(native): isolate and time conformance phases
+- fix(dart): use public package entry point in conformance
+- fix(conformance): dispatch Windows agent child
+- fix(conformance): dispatch Windows agent child
+- test(conformance): bound Windows agent shutdown
+- fix(conformance): preserve all moved form values
+- fix(release): normalize Windows conformance workspace
+- fix(release): support MSVC C conformance build
+- fix(release): normalize Windows CMake paths
+- fix(release): validate C conformance artifact paths
