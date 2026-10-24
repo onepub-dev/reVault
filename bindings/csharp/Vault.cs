@@ -668,7 +668,8 @@ public sealed class Revault
     }
 }
 /// <summary>Full reciprocal exchange. Compare identities and fingerprint independently between calls. No Session Agent is used.</summary>
-public enum ComparisonChannel {
+public enum ComparisonChannel
+{
     /// <summary>Compare with the person present.</summary>
     InPerson,
     /// <summary>Call an independently known number.</summary>
@@ -681,9 +682,10 @@ public sealed class ContactExchange : IDisposable
 {
     private readonly BindingOperations operations;
     private IntPtr handle;
-    internal ContactExchange(BindingOperations operations, IntPtr handle) { this.operations=operations; this.handle=handle; }
-    private IReadOnlyList<ContactExchangeStatus> Execute(object request) {
-        if(handle==IntPtr.Zero) throw new ObjectDisposedException(nameof(ContactExchange));
+    internal ContactExchange(BindingOperations operations, IntPtr handle) { this.operations = operations; this.handle = handle; }
+    private IReadOnlyList<ContactExchangeStatus> Execute(object request)
+    {
+        if (handle == IntPtr.Zero) throw new ObjectDisposedException(nameof(ContactExchange));
         return operations.ContactExchangeExecute(handle, System.Text.Json.JsonSerializer.Serialize(request));
     }
     /// <summary>Create an invitation; retry relay-pending delivery using List.</summary>
@@ -693,7 +695,7 @@ public sealed class ContactExchange : IDisposable
     ///   if (offer.RelayPending) session.List();
     /// }
     /// </code></example>
-    public ContactExchangeStatus Invite(string relay,string profile,string recipientEmail,uint ttlHours=24) => Execute(new {operation="invite",relay,profile,recipient_email=recipientEmail,ttl_hours=ttlHours})[0];
+    public ContactExchangeStatus Invite(string relay, string profile, string recipientEmail, uint ttlHours = 24) => Execute(new { operation = "invite", relay, profile, recipient_email = recipientEmail, ttl_hours = ttlHours })[0];
     /// <summary>Accept with the selected profile's complete public identity.</summary>
     /// <example><code>
     /// using (var session = api.OpenContactExchange(vaultPath, vaultPassphrase)) {
@@ -701,14 +703,14 @@ public sealed class ContactExchange : IDisposable
     ///   Console.WriteLine(reply.Fingerprint);
     /// }
     /// </code></example>
-    public ContactExchangeStatus Accept(string invitation,string profile) => Execute(new {operation="accept",invitation,profile})[0];
+    public ContactExchangeStatus Accept(string invitation, string profile) => Execute(new { operation = "accept", invitation, profile })[0];
     /// <summary>List public status, optionally without relay requests.</summary>
     /// <example><code>
     /// using (var session = api.OpenContactExchange(vaultPath, vaultPassphrase)) {
     ///   foreach (var status in session.List(offline: true)) Console.WriteLine(status.Id);
     /// }
     /// </code></example>
-    public IReadOnlyList<ContactExchangeStatus> List(bool offline=false) => Execute(new {operation="list",offline});
+    public IReadOnlyList<ContactExchangeStatus> List(bool offline = false) => Execute(new { operation = "list", offline });
     /// <summary>Save both keys after independent full-fingerprint comparison using in-person, known-phone-call or trusted-messenger.</summary>
     /// <example><code>
     /// using (var session = api.OpenContactExchange(vaultPath, vaultPassphrase)) {
@@ -716,14 +718,14 @@ public sealed class ContactExchange : IDisposable
     ///   session.Verify(exchangeId, "bob", comparedFingerprint, ComparisonChannel.InPerson);
     /// }
     /// </code></example>
-    public ContactExchangeStatus Verify(string id,string contactName,string fingerprint,ComparisonChannel channel) => Execute(new {operation="verify",id,contact_name=contactName,fingerprint,channel=channel switch { ComparisonChannel.InPerson => "in-person", ComparisonChannel.KnownPhoneCall => "known-phone-call", ComparisonChannel.TrustedMessenger => "trusted-messenger", _ => throw new ArgumentOutOfRangeException(nameof(channel)) }})[0];
+    public ContactExchangeStatus Verify(string id, string contactName, string fingerprint, ComparisonChannel channel) => Execute(new { operation = "verify", id, contact_name = contactName, fingerprint, channel = channel switch { ComparisonChannel.InPerson => "in-person", ComparisonChannel.KnownPhoneCall => "known-phone-call", ComparisonChannel.TrustedMessenger => "trusted-messenger", _ => throw new ArgumentOutOfRangeException(nameof(channel)) } })[0];
     /// <summary>Authenticate an archive against the saved contact signing key.</summary>
     /// <example><code>
     /// using (var session = api.OpenContactExchange(vaultPath, vaultPassphrase)) {
     ///   session.VerifyAuthor("alice", receivedArchivePath);
     /// }
     /// </code></example>
-    public void VerifyAuthor(string contactName,string lockboxPath) => Execute(new {operation="verify_author",contact_name=contactName,lockbox_path=lockboxPath});
+    public void VerifyAuthor(string contactName, string lockboxPath) => Execute(new { operation = "verify_author", contact_name = contactName, lockbox_path = lockboxPath });
 
     /// <summary>Cancel an owned invitation before acceptance.</summary>
     /// <example><code>
@@ -731,19 +733,19 @@ public sealed class ContactExchange : IDisposable
     ///   session.Cancel(exchangeId);
     /// }
     /// </code></example>
-    public void Cancel(string id) => Execute(new {operation="cancel",id});
+    public void Cancel(string id) => Execute(new { operation = "cancel", id });
     /// <summary>Forget local state, preserving verified contacts.</summary>
     /// <example><code>
     /// using (var session = api.OpenContactExchange(vaultPath, vaultPassphrase)) {
     ///   session.Forget(exchangeId);
     /// }
     /// </code></example>
-    public void Forget(string id) => Execute(new {operation="forget",id});
+    public void Forget(string id) => Execute(new { operation = "forget", id });
     /// <summary>Release protected credentials without cancelling any invitation.</summary>
     /// <example><code>
     /// using (var session = api.OpenContactExchange(vaultPath, vaultPassphrase)) {
     ///   Console.WriteLine(session.List(offline: true).Count);
     /// }
     /// </code></example>
-    public void Dispose() { if(handle!=IntPtr.Zero) { operations.ContactExchangeFree(handle); handle=IntPtr.Zero; } }
+    public void Dispose() { if (handle != IntPtr.Zero) { operations.ContactExchangeFree(handle); handle = IntPtr.Zero; } }
 }
