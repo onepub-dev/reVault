@@ -2,6 +2,8 @@ Release all
 CLI: 0.6.0
 Bindings: 0.6.0
 
+- Use a private directory for nested Vault lock regression
+- [release candidate] Prepare all release: CLI 0.6.0, bindings 0.6.0
 - Complete CLI exchange coverage and create safe Vault parents
 - [release candidate] Prepare all release: CLI 0.6.0, bindings 0.6.0
 - Complete binding lint and source package release checks
