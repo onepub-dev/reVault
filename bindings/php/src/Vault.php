@@ -92,6 +92,17 @@ final class Revault
         return new Lockbox($this->operations, $this->operations->lockboxFile($path, $mode, $password !== null ? 'password' : ($contact !== null ? 'contact' : 'content-key'), $password ?? $contentKey ?? '', $contact?->nativeHandle(), $signingKey?->nativeHandle(), $cache, $options['cacheBytes'] ?? (64 << 20), $options['workload'] ?? 'interactive', $options['worker'] ?? 'auto', $options['jobs'] ?? 0));
     }
 
+    /** Opens an existing plaintext archive read-only without a credential. */
+    public function openUnencryptedLockboxFile(string $path, ?array $options = null): Lockbox
+    {
+        $options ??= [];
+        $cache = $options['cacheMode'] ?? 'bytes';
+        if ($cache === 'automatic') $cache = 'auto';
+        return new Lockbox($this->operations, $this->operations->lockboxFile($path, 'read', 'unencrypted', '', null, null,
+            $cache, $options['cacheBytes'] ?? (64 << 20), $options['workload'] ?? 'interactive',
+            $options['worker'] ?? 'auto', $options['jobs'] ?? 0));
+    }
+
     /** Returns the newest Lockbox archive format version supported by this engine. */
     public function lockboxFormatVersion(): int
     {
@@ -473,6 +484,16 @@ class Lockbox extends OwnedHandle
     public static function open(string $path, ?string $password = null, ?string $contentKey = null, ?OwnedHandle $contact = null, ?array $options = null, ?OwnedHandle $signingKey = null, ?bool $writable = null): self
     {
         return Revault::runtime()->lockboxFileInternal($path, $writable === null ? 'open' : ($writable ? 'write' : 'read'), $password, $contentKey, $contact, $signingKey, $options);
+    }
+
+    /** Opens an existing plaintext archive under a shared read-only file lock.
+     * No credential or Session Agent is used. Close the handle to release the lock;
+     * encrypted archives fail.
+     * Example: $box = Lockbox::openUnencrypted($path); try { echo $box->getFile('/index.html'); } finally { $box->close(); }
+     */
+    public static function openUnencrypted(string $path, ?array $options = null): self
+    {
+        return Revault::runtime()->openUnencryptedLockboxFile($path, $options);
     }
 
     /** Stages a file at the Lockbox path; replace controls an existing entry. */

@@ -466,6 +466,15 @@ class Lockbox {
   }
 
 // END generated file operation facade
+  /** Opens an existing plaintext archive with a shared read-only file lock.
+   * No key, signer, or Session Agent is used. Close the returned handle before
+   * opening a writer. Encrypted archives are rejected.
+   * Example: { auto box = Lockbox::open_unencrypted_file(path); auto bytes = box.get_file("/index.html"); }
+   */
+  static Lockbox open_unencrypted_file(const std::string& path) {
+    return adopt(detail::file_handle(path, "read", "unencrypted", {}, nullptr, nullptr,
+                                     "bytes", 64ULL << 20, "interactive", "auto", 0));
+  }
   /** Opens an existing lockbox. */
   static Lockbox open(const std::vector<std::uint8_t>& archive,
                       const std::vector<std::uint8_t>& key) {

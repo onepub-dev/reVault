@@ -36,7 +36,7 @@ void * lockbox_create_contact(const void * contact);
 void * lockbox_create_contact_with_signing_key(const void * contact, const void * signing_key);
 void * lockbox_create_with_signing_key(const uint8_t * content_key, size_t key_len, const void * signing_key);
 // BEGIN generated file operation abi
-/** Native file operation; mode is open/create/replace. A signer selects exclusive write access. See file_api.rs for credential, tuning and ownership contracts. */
+/** Native file operation; mode is open/read/write/create/replace. Credential unencrypted opens only an existing plaintext file read-only, with no secret or signer. See file_api.rs for tuning and ownership contracts. */
 void *lockbox_file(const char *path, size_t path_len, const char *mode, size_t mode_len, const char *credential, size_t credential_len, const uint8_t *secret, size_t secret_len, const void *contact, const void *signer, const char *cache_mode, size_t cache_len, uint64_t cache_bytes, const char *workload, size_t workload_len, const char *worker, size_t worker_len, size_t jobs);
 // END generated file operation abi
 void * lockbox_open(const uint8_t * archive, size_t archive_len, const uint8_t * key, size_t key_len);
@@ -2943,6 +2943,18 @@ function Lockbox.open(path, options)
   local mode = 'open'
   if options and options.writable ~= nil then mode = options.writable and 'write' or 'read' end
   return file_handle(path, mode, options)
+end
+--- Opens an existing plaintext archive under a shared read-only file lock.
+--- No credential or Session Agent is used; close the handle when finished.
+--- Encrypted archives raise an error.
+--- Example: local box = Lockbox.open_unencrypted(path); print(box:get_file('/index.html')); box:close()
+function Lockbox.open_unencrypted(path, options)
+  local runtime = Revault.runtime()
+  local tuning = options or {}
+  local cache = tuning.cache_mode or 'bytes'
+  if cache == 'automatic' then cache = 'auto' end
+  return Lockbox.new(runtime.operations, runtime.operations:lockbox_file(path, 'read', 'unencrypted', '', nil, nil,
+    cache, tuning.cache_bytes or (64 * 1024 * 1024), tuning.workload or 'interactive', tuning.worker or 'auto', tuning.jobs or 0))
 end
 
 Lockbox.close = Lockbox.free

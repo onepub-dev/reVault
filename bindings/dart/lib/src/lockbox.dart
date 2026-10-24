@@ -257,6 +257,43 @@ final class Lockbox extends Owned implements ffi.Finalizable {
     }
   }
 
+  /// Opens an existing plaintext archive with a shared read-only file lock.
+  ///
+  /// No password, content key, signing key, Vault, or Session Agent is used.
+  /// Encrypted archives fail. [close] releases the file lock; mutations and
+  /// [commit] are unavailable on the returned handle.
+  ///
+  /// Example:
+  /// ```dart
+  /// final box = Lockbox.openUnencrypted('/srv/docs/package.lbox');
+  /// try {
+  ///   final contents = box.getFile('/index.html');
+  ///   print(contents.length);
+  /// } finally {
+  ///   box.close();
+  /// }
+  /// ```
+  static Lockbox openUnencrypted(String path, {LockboxOptions? options}) {
+    final runtime = Revault.runtime;
+    final tuning = options ?? const LockboxOptions();
+    return Lockbox.internal(
+      runtime,
+      runtime.operations.lockboxFile(
+        path,
+        'read',
+        'unencrypted',
+        Uint8List(0),
+        ffi.nullptr,
+        ffi.nullptr,
+        tuning.cacheMode.nativeName,
+        tuning.cacheBytes,
+        tuning.workload.nativeName,
+        tuning.worker.nativeName,
+        tuning.jobs,
+      ),
+    );
+  }
+
   static Lockbox _file(
     String path,
     String mode, {

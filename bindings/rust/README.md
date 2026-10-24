@@ -83,6 +83,17 @@ cover the public operation inventory.
 ## Create, open, and replace
 
 Open functions require existing Vaults and Lockboxes and never create them.
+For a plaintext archive, pass `LockboxOpen::Unencrypted` to the path-based
+reader; no credential or Session Agent is involved, and dropping the handle
+releases its shared file lock:
+
+```rust
+use revault_api::lockbox::{Lockbox, LockboxOpen, LockboxPath};
+let box_ = Lockbox::open(path.as_ref(), LockboxOpen::Unencrypted)?;
+let contents = box_.get_file(&LockboxPath::new("/index.html")?)?;
+drop(box_);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
 Use open or create only when creation is acceptable and replacement APIs only
 after an explicit destructive choice. `Lockbox::commit` persists pending
 changes. When a `Lockbox` value goes out of scope, Rust releases the content

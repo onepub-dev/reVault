@@ -37,7 +37,7 @@ fn main() {
         );
     fs::write(php, source).unwrap();
 
-    let declaration=format!("/** Native file operation; mode is open/create/replace. A signer selects exclusive write access. See file_api.rs for credential, tuning and ownership contracts. */\nvoid *lockbox_file({ARGS});");
+    let declaration=format!("/** Native file operation; mode is open/read/write/create/replace. Credential unencrypted opens only an existing plaintext file read-only, with no secret or signer. See file_api.rs for tuning and ownership contracts. */\nvoid *lockbox_file({ARGS});");
     for p in [
         "rust/revault_bindings/revault_api.h",
         "bindings/php/revault_ffi.h",

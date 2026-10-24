@@ -195,6 +195,11 @@ public sealed class Revault
     public Lockbox OpenLockboxFile(string path, byte[] contentKey, ProfileSigningKeyPair? signer = null, bool? writable = null) => new(this,
         operations.LockboxFile(path, writable.HasValue ? (writable.Value ? "write" : "read") : "open", "content-key", contentKey, IntPtr.Zero, signer?.Handle ?? IntPtr.Zero, "bytes", 64UL << 20, "interactive", "auto", 0));
 
+    /// <summary>Opens an existing plaintext archive under a shared read-only lock, without a credential or Session Agent.</summary>
+    /// <example>using (var box = api.OpenUnencryptedLockboxFile(path)) { var payload = box.GetFile("/index.html"); }</example>
+    public Lockbox OpenUnencryptedLockboxFile(string path) => new(this,
+        operations.LockboxFile(path, "read", "unencrypted", Array.Empty<byte>(), IntPtr.Zero, IntPtr.Zero, "bytes", 64UL << 20, "interactive", "auto", 0));
+
     /// <summary>Creates lockbox.</summary>
     public Lockbox CreateLockbox(byte[] key) => new(this, operations.LockboxCreate(key));
     /// <summary>Creates lockbox.</summary>

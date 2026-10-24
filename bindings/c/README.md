@@ -100,6 +100,19 @@ Every returned `RevaultBuffer` must be released with `buffer_free`; every
 owned handle has a corresponding `*_free`. Secret handles are opaque and must
 be copied only for the duration of the operation, cleared, then freed.
 
+To read an existing plaintext archive, call `lockbox_file` with mode `read`,
+credential `unencrypted`, empty secret, and null contact and signer. The native
+handle holds a shared file lock and rejects mutations:
+
+```c
+void *box = lockbox_file(path, strlen(path), "read", 4, "unencrypted", 11,
+                         NULL, 0, NULL, NULL, "bytes", 5, 64ULL << 20,
+                         "interactive", 11, "auto", 4, 0);
+if (!box) { /* inspect buffer_last_error(), then handle the failure */ }
+/* Read archive entries through lockbox_get_file or lockbox_read_range. */
+lockbox_free(box);
+```
+
 ## Core API concepts
 
 The runtime, Vault, Lockbox, and agent are separate handles. Loading the ABI

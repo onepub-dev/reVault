@@ -252,6 +252,41 @@ public final class Revault {
     return new Lockbox(operations.lockboxFile(path, writable == null ? "open" : (writable ? "write" : "read"), "content-key", contentKey, MemorySegment.NULL, signer == null ? MemorySegment.NULL : signer.handle, "bytes", 64L << 20, "interactive", "auto", 0));
   }
 
+  /**
+   * Opens an existing unencrypted lockbox with native shared read-only ownership.
+   * No content key, password, signer, or Session Agent is used. The options
+   * explicitly bound the native cache and select its worker policy. Closing the
+   * returned lockbox releases its handle; it never commits or replaces the file.
+   * Encrypted, missing, corrupt, or incompatibly locked files throw RevaultException.
+   *
+   * <pre>{@code
+   * var options = new Revault.LockboxOptions(CacheMode.DISABLED, 0,
+   *     WorkloadProfile.INTERACTIVE, WorkerPolicy.SINGLE, 0);
+   * try (var box = api.openUnencryptedLockboxFile("/srv/docs/package.lbox", options)) {
+   *   byte[] firstChunk = box.readRange("/index.html", 0, 65536);
+   * }
+   * }</pre>
+   * The executable example is bindings/e2e/java/PlaintextFileConformance.java.
+   * @param path path to an existing plaintext lockbox, never created by this call
+   * @param options explicit native memory and worker settings
+   * @return a caller-owned read-only lockbox that must be closed
+   */
+  public Lockbox openUnencryptedLockboxFile(String path, LockboxOptions options) {
+    java.util.Objects.requireNonNull(path, "path");
+    java.util.Objects.requireNonNull(options, "options");
+    return new Lockbox(operations.lockboxFile(path, "read", "unencrypted", new byte[0],
+        MemorySegment.NULL, MemorySegment.NULL, options.cacheMode(), options.cacheBytes(),
+        options.workload(), options.worker(), options.jobs()));
+  }
+
+  /** Opens an existing plaintext archive read-only with default cache and worker settings.
+   * <pre>try (var box = api.openUnencryptedLockboxFile(path)) { byte[] payload = box.getFile("/index.html"); }</pre>
+   */
+  public Lockbox openUnencryptedLockboxFile(String path) {
+    return openUnencryptedLockboxFile(path, new LockboxOptions(
+        CacheMode.BYTES, 64L << 20, WorkloadProfile.INTERACTIVE, WorkerPolicy.AUTO, 0));
+  }
+
   /** Creates lockbox. */
   public Lockbox createLockbox(byte[] key) { return new Lockbox(operations.lockboxCreate(key)); }
   /** Creates lockbox. */

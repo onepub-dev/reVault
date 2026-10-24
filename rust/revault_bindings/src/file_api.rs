@@ -4,8 +4,10 @@ use super::*;
 /// Opens, creates, or atomically replaces a native lockbox and retains its lock.
 ///
 /// `mode` is UTF-8 `open`, `read`, `write`, `create`, or `replace`. `credential` is `password`,
-/// `content-key`, `contact`, or `vault`. `secret` contains UTF-8 password bytes or the raw
-/// content key, and is empty for contact credentials. `contact` is a public key
+/// `content-key`, `contact`, `vault`, or `unencrypted`. `secret` contains UTF-8
+/// password bytes or a raw content key, and is empty for contact and unencrypted
+/// credentials. Unencrypted access opens existing plaintext files read-only;
+/// it accepts no signer, contact, or secret. `contact` is a public key
 /// for creation, a private keypair for contact opening, or an open VaultDirectory
 /// for vault credential resolution. Otherwise it must be null. Vault resolution
 /// is process-local, uses remembered passwords/profile keys, and never uses the agent.
@@ -57,6 +59,11 @@ pub unsafe extern "C" fn lockbox_file(
         if matches!(credential, "contact" | "vault") == contact.is_null()
             || (matches!(credential, "contact" | "vault") && !secret.is_empty())
             || (credential == "vault" && !matches!(mode, "open" | "read" | "write"))
+            || (credential == "unencrypted"
+                && (!matches!(mode, "open" | "read")
+                    || !secret.is_empty()
+                    || !signer.is_null()
+                    || !contact.is_null()))
         {
             return Err(invalid());
         }
@@ -94,6 +101,7 @@ pub unsafe extern "C" fn lockbox_file(
                 );
             }
             let open = match credential {
+                "unencrypted" => LockboxOpen::Unencrypted,
                 "password" => LockboxOpen::Password(password.as_ref().unwrap()),
                 "content-key" => {
                     LockboxOpen::ContentKey(revault_lockbox_api::SecretVec::try_from_slice(secret)?)
@@ -280,6 +288,92 @@ mod tests {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+
+    #[test]
+    fn unencrypted_file_open_is_read_only_and_preserves_bytes() {
+        use revault_lockbox_api::{Encryption, LockboxCreateOptions, LockboxPath, Signing};
+        let root = std::env::temp_dir().join(format!(
+            "revault-ffi-plaintext-{}",
+            revault_lockbox_api::LockboxId::new_random().unwrap()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let path = root.join("docs.lbox");
+        {
+            // The public Rust API creates the fixture; the file ABI only opens it.
+            let mut writer = Lockbox::create_file_with_options(
+                &path,
+                LockboxCreateOptions::new(Encryption::None, Signing::None),
+            )
+            .unwrap();
+            writer
+                .add_file(
+                    &LockboxPath::new("/hello").unwrap(),
+                    b"plaintext bytes",
+                    false,
+                )
+                .unwrap();
+            writer.commit().unwrap();
+        }
+        let before = std::fs::read(&path).unwrap();
+        let name = path.to_str().unwrap();
+        let open = |mode: &str, secret: &[u8], signer: *const c_void| unsafe {
+            lockbox_file(
+                name.as_ptr().cast(),
+                name.len(),
+                mode.as_ptr().cast(),
+                mode.len(),
+                b"unencrypted".as_ptr().cast(),
+                11,
+                if secret.is_empty() {
+                    ptr::null()
+                } else {
+                    secret.as_ptr()
+                },
+                secret.len(),
+                ptr::null(),
+                signer,
+                b"disabled".as_ptr().cast(),
+                8,
+                0,
+                b"read-mostly".as_ptr().cast(),
+                11,
+                b"single".as_ptr().cast(),
+                6,
+                0,
+            )
+        };
+        assert!(open("replace", &[], ptr::null()).is_null());
+        assert!(open("write", &[], ptr::null()).is_null());
+        assert!(open("read", b"unexpected credential", ptr::null()).is_null());
+        let signing = key_signing_generate();
+        assert!(open("read", &[], signing).is_null());
+        unsafe { key_signing_free(signing) };
+        let raw = open("read", &[], ptr::null());
+        assert!(!raw.is_null(), "{}", diagnostic());
+        let reader = Handle(raw);
+        contents(&reader, b"plaintext bytes");
+        let bytes = unsafe { lockbox_read_range(reader.0, b"/hello".as_ptr().cast(), 6, 2, 5) };
+        assert!(!bytes.ptr.is_null(), "{}", diagnostic());
+        assert_eq!(
+            unsafe { std::slice::from_raw_parts(bytes.ptr, bytes.len) },
+            b"ainte"
+        );
+        unsafe { buffer_free(bytes) };
+        assert!(!unsafe {
+            lockbox_add_file(
+                reader.0,
+                b"/new".as_ptr().cast(),
+                4,
+                b"x".as_ptr(),
+                1,
+                false,
+            )
+        });
+        assert!(!unsafe { lockbox_commit(reader.0) });
+        drop(reader);
+        assert_eq!(before, std::fs::read(&path).unwrap());
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

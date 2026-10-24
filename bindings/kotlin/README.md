@@ -55,6 +55,18 @@ signing.close()
 
 `Revault.load()` loads the installed native library but does not open a Vault or
 Lockbox. `Vault.open` and `Lockbox.open` are non-creating operations. The
+Java runtime method is also available through Kotlin's `Revault` alias for
+existing plaintext archives:
+
+```kotlin
+Revault.load().openUnencryptedLockboxFile("/srv/docs/package.lbox").use { box ->
+    val page = box.getFile("/index.html")
+    println(page.size)
+}
+```
+
+This call holds a shared read-only file lock and uses no credential or Session
+Agent. It rejects encrypted archives. The
 Vault passphrase, Lockbox password, and content key are distinct secrets;
 callers own their `ByteArray`s and should clear them as soon as the operation
 returns. Native failures are typed Java/Kotlin exceptions. Agent use is

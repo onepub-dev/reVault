@@ -386,6 +386,17 @@ export class Lockbox extends OwnedHandle {
     return Lockbox._file(path, mode, options);
   }
 
+  /** Open an existing plaintext archive with a shared read-only lock.
+   * No credential or Session Agent is used. Close the handle to release the lock;
+   * encrypted archives are rejected.
+   * @example const box = Lockbox.openUnencrypted(path); try { console.log(box.getFile('/index.html')); } finally { box.close(); }
+   */
+  static openUnencrypted(path, options = {}) {
+    const runtime = Revault.runtime;
+    const cacheMode = options.cacheMode === 'automatic' ? 'auto' : (options.cacheMode ?? 'bytes');
+    return new Lockbox(runtime.operations, runtime.operations.lockboxFile(path, 'read', 'unencrypted', new Uint8Array(), null, null, cacheMode, options.cacheBytes ?? (64 << 20), options.workload ?? 'interactive', options.worker ?? 'auto', options.jobs ?? 0));
+  }
+
   /** @internal Marshals file credentials and runtime tuning to Rust. */
   static _file(path, mode, {password, contentKey, contact, signingKey, options = {}}) {
     if ([password, contentKey, contact].filter(value => value != null).length !== 1) throw new TypeError('Supply exactly one of password, contentKey, or contact.');

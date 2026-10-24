@@ -252,6 +252,23 @@ class Lockbox(_OwnedHandle):
         return Lockbox._file(path, 'open' if writable is None else ('write' if writable else 'read'), password, content_key, contact, signing_key, options)
 
     @staticmethod
+    def open_unencrypted(path, *, options=None):
+        """Open an existing plaintext archive with a shared read-only lock.
+
+        No credential or Session Agent is used. Close the handle when finished;
+        encrypted archives fail. Example::
+
+            with Lockbox.open_unencrypted(path) as box:
+                payload = box.get_file('/index.html')
+        """
+        cache_mode = getattr(options, 'cache_mode', 'bytes')
+        if cache_mode == 'automatic': cache_mode = 'auto'
+        return _call(Revault.load(), 'lockbox_file', (str(path), 'read', 'unencrypted', b'',
+            None, None, cache_mode, getattr(options, 'cache_bytes', 64 << 20),
+            getattr(options, 'workload', 'interactive'), getattr(options, 'worker', 'auto'),
+            getattr(options, 'jobs', 0)))
+
+    @staticmethod
     def _file(path, mode, password, content_key, contact, signing_key, options):
         if sum(value is not None for value in (password, content_key, contact)) != 1:
             raise ValueError('Supply exactly one of password, content_key, or contact.')
