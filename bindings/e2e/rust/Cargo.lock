@@ -1490,7 +1490,7 @@ dependencies = [
 
 [[package]]
 name = "revault_lockbox_api"
-version = "0.0.53"
+version = "0.0.54"
 dependencies = [
  "argon2",
  "cap-fs-ext",
@@ -1515,7 +1515,7 @@ dependencies = [
 
 [[package]]
 name = "revault_publish_protocol"
-version = "0.0.47"
+version = "0.0.48"
 dependencies = [
  "getrandom 0.4.3",
  "httparse",
@@ -1539,7 +1539,7 @@ dependencies = [
 
 [[package]]
 name = "revault_vault_api"
-version = "0.0.54"
+version = "0.0.55"
 dependencies = [
  "async-io",
  "base64ct",
