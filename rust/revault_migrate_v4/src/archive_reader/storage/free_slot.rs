@@ -1,0 +1,291 @@
+use std::collections::BTreeMap;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FreeSlot {
+    pub(crate) offset: u64,
+    pub(crate) len: u64,
+}
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct FreeSpace {
+    by_offset: BTreeMap<u64, u64>,
+    by_len: BTreeMap<(u64, u64), ()>,
+}
+
+impl FreeSpace {
+    pub(crate) fn add(&mut self, slot: FreeSlot) {
+        if slot.len == 0 {
+            return;
+        }
+        let mut start = slot.offset;
+        let mut end = slot.offset.saturating_add(slot.len);
+
+        if let Some((&prev_offset, &prev_len)) = self.by_offset.range(..=slot.offset).next_back() {
+            let prev_end = prev_offset.saturating_add(prev_len);
+            if prev_end >= start {
+                self.remove_exact(prev_offset, prev_len);
+                start = prev_offset;
+                end = end.max(prev_end);
+            }
+        }
+
+        while let Some((&next_offset, &next_len)) = self.by_offset.range(start..).next() {
+            if next_offset > end {
+                break;
+            }
+            self.remove_exact(next_offset, next_len);
+            end = end.max(next_offset.saturating_add(next_len));
+        }
+
+        self.insert_exact(start, end - start);
+    }
+
+    pub(crate) fn allocate(&mut self, len: u64) -> Option<FreeSlot> {
+        let (&(slot_len, offset), _) = self.by_len.range((len, 0)..).next()?;
+        self.remove_exact(offset, slot_len);
+        if slot_len > len {
+            self.add(FreeSlot {
+                offset: offset + len,
+                len: slot_len - len,
+            });
+        }
+        Some(FreeSlot { offset, len })
+    }
+
+    pub(crate) fn allocate_away_from(
+        &mut self,
+        len: u64,
+        avoid_offset: u64,
+        min_distance: u64,
+    ) -> Option<FreeSlot> {
+        let mut selected = None;
+        for (&slot_offset, &slot_len) in &self.by_offset {
+            if slot_len < len {
+                continue;
+            }
+            let max_start = slot_offset.saturating_add(slot_len - len);
+            if slot_offset.abs_diff(avoid_offset) >= min_distance {
+                selected = Some((slot_offset, slot_len, slot_offset));
+                break;
+            }
+            let after_start = avoid_offset.saturating_add(min_distance).max(slot_offset);
+            if after_start <= max_start {
+                selected = Some((slot_offset, slot_len, after_start));
+                break;
+            }
+        }
+
+        let (slot_offset, slot_len, offset) = selected?;
+        self.remove_exact(slot_offset, slot_len);
+        if offset > slot_offset {
+            self.add(FreeSlot {
+                offset: slot_offset,
+                len: offset - slot_offset,
+            });
+        }
+        let end = offset.saturating_add(len);
+        let slot_end = slot_offset.saturating_add(slot_len);
+        if end < slot_end {
+            self.add(FreeSlot {
+                offset: end,
+                len: slot_end - end,
+            });
+        }
+        Some(FreeSlot { offset, len })
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.by_offset.clear();
+        self.by_len.clear();
+    }
+
+    pub(crate) fn slots_by_offset(&self) -> Vec<FreeSlot> {
+        self.by_offset
+            .iter()
+            .map(|(&offset, &len)| FreeSlot { offset, len })
+            .collect()
+    }
+
+    pub(crate) fn contains(&self, slot: FreeSlot) -> bool {
+        let Some((&offset, &len)) = self.by_offset.range(..=slot.offset).next_back() else {
+            return false;
+        };
+        let Some(slot_end) = slot.offset.checked_add(slot.len) else {
+            return false;
+        };
+        offset
+            .checked_add(len)
+            .is_some_and(|free_end| slot.len != 0 && slot_end <= free_end)
+    }
+
+    pub(crate) fn overlaps(&self, slot: FreeSlot) -> bool {
+        let Some(slot_end) = slot.offset.checked_add(slot.len) else {
+            return true;
+        };
+        if slot.len == 0 {
+            return false;
+        }
+        self.by_offset
+            .range(..slot_end)
+            .next_back()
+            .is_some_and(|(&offset, &len)| offset.saturating_add(len) > slot.offset)
+    }
+
+    pub(crate) fn replace_slots(&mut self, slots: impl IntoIterator<Item = FreeSlot>) {
+        self.clear();
+        for slot in slots {
+            self.add(slot);
+        }
+    }
+
+    fn insert_exact(&mut self, offset: u64, len: u64) {
+        self.by_offset.insert(offset, len);
+        self.by_len.insert((len, offset), ());
+    }
+
+    fn remove_exact(&mut self, offset: u64, len: u64) {
+        self.by_offset.remove(&offset);
+        self.by_len.remove(&(len, offset));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn coalesces_adjacent_and_overlapping_slots() {
+        let mut free = FreeSpace::default();
+        free.add(FreeSlot {
+            offset: 200,
+            len: 50,
+        });
+        free.add(FreeSlot {
+            offset: 100,
+            len: 100,
+        });
+        free.add(FreeSlot {
+            offset: 240,
+            len: 100,
+        });
+
+        assert_eq!(
+            free.slots_by_offset(),
+            vec![FreeSlot {
+                offset: 100,
+                len: 240
+            }]
+        );
+    }
+
+    #[test]
+    fn allocates_best_fit_and_keeps_remainder() {
+        let mut free = FreeSpace::default();
+        free.add(FreeSlot {
+            offset: 1_000,
+            len: 1_000,
+        });
+        free.add(FreeSlot {
+            offset: 5_000,
+            len: 200,
+        });
+
+        assert_eq!(
+            free.allocate(128),
+            Some(FreeSlot {
+                offset: 5_000,
+                len: 128
+            })
+        );
+        assert_eq!(
+            free.slots_by_offset(),
+            vec![
+                FreeSlot {
+                    offset: 1_000,
+                    len: 1_000
+                },
+                FreeSlot {
+                    offset: 5_128,
+                    len: 72
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn allocates_away_from_avoided_offset_when_possible() {
+        let mut free = FreeSpace::default();
+        free.add(FreeSlot {
+            offset: 100,
+            len: 50,
+        });
+        free.add(FreeSlot {
+            offset: 1_000,
+            len: 100,
+        });
+
+        assert_eq!(
+            free.allocate_away_from(20, 110, 500),
+            Some(FreeSlot {
+                offset: 1_000,
+                len: 20
+            })
+        );
+        assert_eq!(
+            free.slots_by_offset(),
+            vec![
+                FreeSlot {
+                    offset: 100,
+                    len: 50
+                },
+                FreeSlot {
+                    offset: 1_020,
+                    len: 80
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn contains_only_ranges_fully_inside_free_space() {
+        let mut free = FreeSpace::default();
+        free.add(FreeSlot {
+            offset: 100,
+            len: 100,
+        });
+        assert!(free.contains(FreeSlot {
+            offset: 120,
+            len: 40,
+        }));
+        assert!(!free.contains(FreeSlot {
+            offset: 190,
+            len: 20,
+        }));
+    }
+
+    #[test]
+    fn overlaps_detects_partial_intersections() {
+        let mut free = FreeSpace::default();
+        free.add(FreeSlot {
+            offset: 100,
+            len: 100,
+        });
+
+        assert!(free.overlaps(FreeSlot {
+            offset: 50,
+            len: 51
+        }));
+        assert!(free.overlaps(FreeSlot {
+            offset: 199,
+            len: 50,
+        }));
+        assert!(!free.overlaps(FreeSlot {
+            offset: 50,
+            len: 50
+        }));
+        assert!(!free.overlaps(FreeSlot {
+            offset: 200,
+            len: 50,
+        }));
+    }
+}

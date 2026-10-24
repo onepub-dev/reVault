@@ -1860,8 +1860,16 @@ var FormField = class _FormField {
     const offset = this.bb.__offset(this.bb_pos, 10);
     return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
   }
+  description(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 12);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  hasDescription() {
+    const offset = this.bb.__offset(this.bb_pos, 14);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
   static startFormField(builder) {
-    builder.startObject(4);
+    builder.startObject(6);
   }
   static addId(builder, idOffset) {
     builder.addFieldOffset(0, idOffset, 0);
@@ -1875,16 +1883,24 @@ var FormField = class _FormField {
   static addRequired(builder, required) {
     builder.addFieldInt8(3, +required, 0);
   }
+  static addDescription(builder, descriptionOffset) {
+    builder.addFieldOffset(4, descriptionOffset, 0);
+  }
+  static addHasDescription(builder, hasDescription) {
+    builder.addFieldInt8(5, +hasDescription, 0);
+  }
   static endFormField(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createFormField(builder, idOffset, labelOffset, kindOffset, required) {
+  static createFormField(builder, idOffset, labelOffset, kindOffset, required, descriptionOffset, hasDescription) {
     _FormField.startFormField(builder);
     _FormField.addId(builder, idOffset);
     _FormField.addLabel(builder, labelOffset);
     _FormField.addKind(builder, kindOffset);
     _FormField.addRequired(builder, required);
+    _FormField.addDescription(builder, descriptionOffset);
+    _FormField.addHasDescription(builder, hasDescription);
     return _FormField.endFormField(builder);
   }
   unpack() {
@@ -1892,7 +1908,9 @@ var FormField = class _FormField {
       this.id(),
       this.label(),
       this.kind(),
-      this.required()
+      this.required(),
+      this.description(),
+      this.hasDescription()
     );
   }
   unpackTo(_o) {
@@ -1900,25 +1918,32 @@ var FormField = class _FormField {
     _o.label = this.label();
     _o.kind = this.kind();
     _o.required = this.required();
+    _o.description = this.description();
+    _o.hasDescription = this.hasDescription();
   }
 };
 var FormFieldT = class {
-  constructor(id = null, label = null, kind = null, required = false) {
+  constructor(id = null, label = null, kind = null, required = false, description = null, hasDescription = false) {
     this.id = id;
     this.label = label;
     this.kind = kind;
     this.required = required;
+    this.description = description;
+    this.hasDescription = hasDescription;
   }
   pack(builder) {
     const id = this.id !== null ? builder.createString(this.id) : 0;
     const label = this.label !== null ? builder.createString(this.label) : 0;
     const kind = this.kind !== null ? builder.createString(this.kind) : 0;
+    const description = this.description !== null ? builder.createString(this.description) : 0;
     return FormField.createFormField(
       builder,
       id,
       label,
       kind,
-      this.required
+      this.required,
+      description,
+      this.hasDescription
     );
   }
 };
@@ -2358,8 +2383,16 @@ var FormRecord = class _FormRecord {
     const offset = this.bb.__offset(this.bb_pos, 14);
     return offset ? this.bb.__vector_len(this.bb_pos + offset) : 0;
   }
+  description(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 16);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  hasDescription() {
+    const offset = this.bb.__offset(this.bb_pos, 18);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
   static startFormRecord(builder) {
-    builder.startObject(6);
+    builder.startObject(8);
   }
   static addPath(builder, pathOffset) {
     builder.addFieldOffset(0, pathOffset, 0);
@@ -2389,11 +2422,17 @@ var FormRecord = class _FormRecord {
   static startValuesVector(builder, numElems) {
     builder.startVector(4, numElems, 4);
   }
+  static addDescription(builder, descriptionOffset) {
+    builder.addFieldOffset(6, descriptionOffset, 0);
+  }
+  static addHasDescription(builder, hasDescription) {
+    builder.addFieldInt8(7, +hasDescription, 0);
+  }
   static endFormRecord(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createFormRecord(builder, pathOffset, nameOffset, typeIdOffset, definitionAliasOffset, definitionRevision, valuesOffset) {
+  static createFormRecord(builder, pathOffset, nameOffset, typeIdOffset, definitionAliasOffset, definitionRevision, valuesOffset, descriptionOffset, hasDescription) {
     _FormRecord.startFormRecord(builder);
     _FormRecord.addPath(builder, pathOffset);
     _FormRecord.addName(builder, nameOffset);
@@ -2401,6 +2440,8 @@ var FormRecord = class _FormRecord {
     _FormRecord.addDefinitionAlias(builder, definitionAliasOffset);
     _FormRecord.addDefinitionRevision(builder, definitionRevision);
     _FormRecord.addValues(builder, valuesOffset);
+    _FormRecord.addDescription(builder, descriptionOffset);
+    _FormRecord.addHasDescription(builder, hasDescription);
     return _FormRecord.endFormRecord(builder);
   }
   unpack() {
@@ -2410,7 +2451,9 @@ var FormRecord = class _FormRecord {
       this.typeId(),
       this.definitionAlias(),
       this.definitionRevision(),
-      this.bb.createObjList(this.values.bind(this), this.valuesLength())
+      this.bb.createObjList(this.values.bind(this), this.valuesLength()),
+      this.description(),
+      this.hasDescription()
     );
   }
   unpackTo(_o) {
@@ -2420,16 +2463,20 @@ var FormRecord = class _FormRecord {
     _o.definitionAlias = this.definitionAlias();
     _o.definitionRevision = this.definitionRevision();
     _o.values = this.bb.createObjList(this.values.bind(this), this.valuesLength());
+    _o.description = this.description();
+    _o.hasDescription = this.hasDescription();
   }
 };
 var FormRecordT = class {
-  constructor(path = null, name = null, typeId = null, definitionAlias = null, definitionRevision = 0, values = []) {
+  constructor(path = null, name = null, typeId = null, definitionAlias = null, definitionRevision = 0, values = [], description = null, hasDescription = false) {
     this.path = path;
     this.name = name;
     this.typeId = typeId;
     this.definitionAlias = definitionAlias;
     this.definitionRevision = definitionRevision;
     this.values = values;
+    this.description = description;
+    this.hasDescription = hasDescription;
   }
   pack(builder) {
     const path = this.path !== null ? builder.createString(this.path) : 0;
@@ -2437,6 +2484,7 @@ var FormRecordT = class {
     const typeId = this.typeId !== null ? builder.createString(this.typeId) : 0;
     const definitionAlias = this.definitionAlias !== null ? builder.createString(this.definitionAlias) : 0;
     const values = FormRecord.createValuesVector(builder, builder.createObjectOffsetList(this.values));
+    const description = this.description !== null ? builder.createString(this.description) : 0;
     return FormRecord.createFormRecord(
       builder,
       path,
@@ -2444,7 +2492,9 @@ var FormRecordT = class {
       typeId,
       definitionAlias,
       this.definitionRevision,
-      values
+      values,
+      description,
+      this.hasDescription
     );
   }
 };
@@ -5104,8 +5154,16 @@ var Variable = class _Variable {
     const offset = this.bb.__offset(this.bb_pos, 6);
     return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
   }
+  description(optionalEncoding) {
+    const offset = this.bb.__offset(this.bb_pos, 8);
+    return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  }
+  hasDescription() {
+    const offset = this.bb.__offset(this.bb_pos, 10);
+    return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+  }
   static startVariable(builder) {
-    builder.startObject(2);
+    builder.startObject(4);
   }
   static addName(builder, nameOffset) {
     builder.addFieldOffset(0, nameOffset, 0);
@@ -5113,39 +5171,56 @@ var Variable = class _Variable {
   static addSensitivity(builder, sensitivityOffset) {
     builder.addFieldOffset(1, sensitivityOffset, 0);
   }
+  static addDescription(builder, descriptionOffset) {
+    builder.addFieldOffset(2, descriptionOffset, 0);
+  }
+  static addHasDescription(builder, hasDescription) {
+    builder.addFieldInt8(3, +hasDescription, 0);
+  }
   static endVariable(builder) {
     const offset = builder.endObject();
     return offset;
   }
-  static createVariable(builder, nameOffset, sensitivityOffset) {
+  static createVariable(builder, nameOffset, sensitivityOffset, descriptionOffset, hasDescription) {
     _Variable.startVariable(builder);
     _Variable.addName(builder, nameOffset);
     _Variable.addSensitivity(builder, sensitivityOffset);
+    _Variable.addDescription(builder, descriptionOffset);
+    _Variable.addHasDescription(builder, hasDescription);
     return _Variable.endVariable(builder);
   }
   unpack() {
     return new VariableT(
       this.name(),
-      this.sensitivity()
+      this.sensitivity(),
+      this.description(),
+      this.hasDescription()
     );
   }
   unpackTo(_o) {
     _o.name = this.name();
     _o.sensitivity = this.sensitivity();
+    _o.description = this.description();
+    _o.hasDescription = this.hasDescription();
   }
 };
 var VariableT = class {
-  constructor(name = null, sensitivity = null) {
+  constructor(name = null, sensitivity = null, description = null, hasDescription = false) {
     this.name = name;
     this.sensitivity = sensitivity;
+    this.description = description;
+    this.hasDescription = hasDescription;
   }
   pack(builder) {
     const name = this.name !== null ? builder.createString(this.name) : 0;
     const sensitivity = this.sensitivity !== null ? builder.createString(this.sensitivity) : 0;
+    const description = this.description !== null ? builder.createString(this.description) : 0;
     return Variable.createVariable(
       builder,
       name,
-      sensitivity
+      sensitivity,
+      description,
+      this.hasDescription
     );
   }
 };

@@ -45,6 +45,10 @@ public final class FormRecord extends Table {
   public int valuesLength() { int o = __offset(14); return o != 0 ? __vector_len(o) : 0; }
   public com.onepub.revault.internal.FormValue.Vector valuesVector() { return valuesVector(new com.onepub.revault.internal.FormValue.Vector()); }
   public com.onepub.revault.internal.FormValue.Vector valuesVector(com.onepub.revault.internal.FormValue.Vector obj) { int o = __offset(14); return o != 0 ? obj.__assign(__vector(o), 4, bb) : null; }
+  public String description() { int o = __offset(16); return o != 0 ? __string(o + bb_pos) : null; }
+  public ByteBuffer descriptionAsByteBuffer() { return __vector_as_bytebuffer(16, 1); }
+  public ByteBuffer descriptionInByteBuffer(ByteBuffer _bb) { return __vector_in_bytebuffer(_bb, 16, 1); }
+  public boolean hasDescription() { int o = __offset(18); return o != 0 ? 0!=bb.get(o + bb_pos) : false; }
 
   public static int createFormRecord(FlatBufferBuilder builder,
       int pathOffset,
@@ -52,18 +56,22 @@ public final class FormRecord extends Table {
       int typeIdOffset,
       int definitionAliasOffset,
       long definitionRevision,
-      int valuesOffset) {
-    builder.startTable(6);
+      int valuesOffset,
+      int descriptionOffset,
+      boolean hasDescription) {
+    builder.startTable(8);
+    FormRecord.addDescription(builder, descriptionOffset);
     FormRecord.addValues(builder, valuesOffset);
     FormRecord.addDefinitionRevision(builder, definitionRevision);
     FormRecord.addDefinitionAlias(builder, definitionAliasOffset);
     FormRecord.addTypeId(builder, typeIdOffset);
     FormRecord.addName(builder, nameOffset);
     FormRecord.addPath(builder, pathOffset);
+    FormRecord.addHasDescription(builder, hasDescription);
     return FormRecord.endFormRecord(builder);
   }
 
-  public static void startFormRecord(FlatBufferBuilder builder) { builder.startTable(6); }
+  public static void startFormRecord(FlatBufferBuilder builder) { builder.startTable(8); }
   public static void addPath(FlatBufferBuilder builder, int pathOffset) { builder.addOffset(0, pathOffset, 0); }
   public static void addName(FlatBufferBuilder builder, int nameOffset) { builder.addOffset(1, nameOffset, 0); }
   public static void addTypeId(FlatBufferBuilder builder, int typeIdOffset) { builder.addOffset(2, typeIdOffset, 0); }
@@ -72,6 +80,8 @@ public final class FormRecord extends Table {
   public static void addValues(FlatBufferBuilder builder, int valuesOffset) { builder.addOffset(5, valuesOffset, 0); }
   public static int createValuesVector(FlatBufferBuilder builder, int[] data) { builder.startVector(4, data.length, 4); for (int i = data.length - 1; i >= 0; i--) builder.addOffset(data[i]); return builder.endVector(); }
   public static void startValuesVector(FlatBufferBuilder builder, int numElems) { builder.startVector(4, numElems, 4); }
+  public static void addDescription(FlatBufferBuilder builder, int descriptionOffset) { builder.addOffset(6, descriptionOffset, 0); }
+  public static void addHasDescription(FlatBufferBuilder builder, boolean hasDescription) { builder.addBoolean(7, hasDescription, false); }
   public static int endFormRecord(FlatBufferBuilder builder) {
     int o = builder.endTable();
     return o;
@@ -102,6 +112,10 @@ public final class FormRecord extends Table {
     com.onepub.revault.internal.FormValueT[] _oValues = new com.onepub.revault.internal.FormValueT[valuesLength()];
     for (int _j = 0; _j < valuesLength(); ++_j) {_oValues[_j] = (values(_j) != null ? values(_j).unpack() : null);}
     _o.setValues(_oValues);
+    String _oDescription = description();
+    _o.setDescription(_oDescription);
+    boolean _oHasDescription = hasDescription();
+    _o.setHasDescription(_oHasDescription);
   }
   public static int pack(FlatBufferBuilder builder, FormRecordT _o) {
     if (_o == null) return 0;
@@ -116,6 +130,7 @@ public final class FormRecord extends Table {
       for (com.onepub.revault.internal.FormValueT _e : _o.getValues()) { __values[_j] = com.onepub.revault.internal.FormValue.pack(builder, _e); _j++;}
       _values = createValuesVector(builder, __values);
     }
+    int _description = _o.getDescription() == null ? 0 : builder.createString(_o.getDescription());
     return createFormRecord(
       builder,
       _path,
@@ -123,6 +138,8 @@ public final class FormRecord extends Table {
       _typeId,
       _definitionAlias,
       _o.getDefinitionRevision(),
-      _values);
+      _values,
+      _description,
+      _o.getHasDescription());
   }
 }

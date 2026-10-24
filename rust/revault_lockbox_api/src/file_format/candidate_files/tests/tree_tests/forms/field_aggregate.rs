@@ -74,6 +74,7 @@ fn typed_form_field_upgrade_aggregate_probe() {
             name: "Aggregate upgrade".into(),
             description: "Nine independent values".into(),
             fields: vec![FormFieldDefinition {
+                description: None,
                 id: "value".into(),
                 label: "Current label".into(),
                 kind: FormFieldKind::Notes,
@@ -92,6 +93,7 @@ fn typed_form_field_upgrade_aggregate_probe() {
         .unwrap();
         for n in 0..9 {
             let record = FormRecord {
+                description: None,
                 path: LockboxPath::new(format!("/records/{n}")).unwrap(),
                 name: format!("Record {n}"),
                 type_id: type_id.clone(),

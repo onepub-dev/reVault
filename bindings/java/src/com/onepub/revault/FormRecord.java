@@ -9,9 +9,13 @@ public final class FormRecord {
   private final String definitionAlias;
   private final long definitionRevision;
   private final java.util.List<FormValue> values;
+  private final String description;
+  private final boolean hasDescription;
+  /** Creates a value without an item description. */
+  public FormRecord(String path, String name, String typeId, String definitionAlias, long definitionRevision, java.util.List<FormValue> values) { this(path, name, typeId, definitionAlias, definitionRevision, values, "", false); }
 
   /** Creates an application-owned FormRecord value. */
-  public FormRecord(String path, String name, String typeId, String definitionAlias, long definitionRevision, java.util.List<FormValue> values) {
+  public FormRecord(String path, String name, String typeId, String definitionAlias, long definitionRevision, java.util.List<FormValue> values, String description, boolean hasDescription) {
     this.view = null;
     this.path = path;
     this.name = name;
@@ -19,6 +23,8 @@ public final class FormRecord {
     this.definitionAlias = definitionAlias;
     this.definitionRevision = definitionRevision;
     this.values = values;
+    this.description = description;
+    this.hasDescription = hasDescription;
   }
 
   FormRecord(com.onepub.revault.internal.FormRecord view) {
@@ -29,6 +35,8 @@ public final class FormRecord {
     this.definitionAlias = null;
     this.definitionRevision = 0;
     this.values = null;
+    this.description = null;
+    this.hasDescription = false;
   }
 
   /** Absolute lockbox path that identifies the record. */
@@ -62,6 +70,16 @@ public final class FormRecord {
     var result = new java.util.ArrayList<FormValue>(view.valuesLength());
     for (int index = 0; index < view.valuesLength(); index++) result.add(new FormValue(view.values(index)));
     return java.util.List.copyOf(result);
+  }
+
+  /** Multiline context specific to this record. */
+  public String description() {
+    return view == null ? description : view.description();
+  }
+
+  /** Whether the record description is present, including empty text. */
+  public boolean hasDescription() {
+    return view == null ? hasDescription : view.hasDescription();
   }
 
 }

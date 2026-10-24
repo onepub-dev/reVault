@@ -280,8 +280,8 @@ fn migrate_vault(
         return Ok(());
     }
     let source_container_version = probe_archive_path(&source.join("local-vault.lbox"))?;
-    let experimental_export = source_container_version == 4 && exporter.is_some();
-    let source_version = if experimental_export {
+    let historical_v4 = source_container_version == 4;
+    let source_version = if historical_v4 {
         CURRENT_VAULT_STRUCTURE_VERSION
     } else {
         probe_vault_source_version(&source, &source_password)?
@@ -292,7 +292,6 @@ fn migrate_vault(
         ));
     }
     if replace
-        && !experimental_export
         && source_version == CURRENT_VAULT_STRUCTURE_VERSION
         && source_container_version == u32::from(LOCKBOX_FORMAT_VERSION)
     {
@@ -308,8 +307,7 @@ fn migrate_vault(
     // A current structure needs only a container rewrite. Preserve every raw
     // record through the archive workflow, including aliases and credentials
     // that are not represented by historical Vault migration schemas.
-    let preserve_records =
-        !experimental_export && source_version == CURRENT_VAULT_STRUCTURE_VERSION;
+    let preserve_records = source_version == CURRENT_VAULT_STRUCTURE_VERSION;
     let fingerprint = fingerprint_path(&source.join("local-vault.lbox"))?;
     let operation_id = deterministic_operation_id(
         ArtifactKind::Vault,
@@ -362,15 +360,8 @@ fn migrate_vault(
                 )?;
                 export_archive(&lockbox, &artifact, &migration_key, operation_id)?;
             } else {
-                let exporter = resolve_exporter(
-                    ArtifactKind::Vault,
-                    if experimental_export {
-                        4
-                    } else {
-                        source_container_version
-                    },
-                    exporter,
-                )?;
+                let exporter =
+                    resolve_exporter(ArtifactKind::Vault, source_container_version, exporter)?;
                 let artifact_password = SecretString::from_secure_vec(migration_key.try_clone()?);
                 run_historical_vault_exporter(
                     &exporter,
@@ -686,13 +677,6 @@ fn resolve_exporter(
     source_version: u32,
     explicit: Option<PathBuf>,
 ) -> CliResult<PathBuf> {
-    if source_version == 4 {
-        let path = explicit.ok_or_else(|| cli_error(
-            "experimental format-4 migration requires an isolated checkpoint exporter; build tools/build_experimental_v4_exporter.dart and pass --exporter <path>"
-        ))?;
-        validate_exporter_capabilities(&path, experimental_v4_exporter(kind)?)?;
-        return Ok(path);
-    }
     let release = exporter_release(kind, source_version).ok_or_else(|| {
         cli_error(format!(
             "no crates.io exporter is registered for {kind:?} format version {source_version}"
@@ -806,28 +790,6 @@ fn recovery_command_path(path: &Path) -> String {
 fn installed_exporter(binary_name: &str) -> Option<PathBuf> {
     let binary = env::current_exe().ok()?.parent()?.join(binary_name);
     binary.is_file().then_some(binary)
-}
-
-fn experimental_v4_exporter(kind: ArtifactKind) -> CliResult<ExporterRelease> {
-    Ok(ExporterRelease {
-        package: "revault_experimental_v4_exporter",
-        version: "0.0.0",
-        binary: match kind {
-            ArtifactKind::Archive => "revault-migrate-archive-experimental-v4",
-            ArtifactKind::Vault => "revault-migrate-vault-experimental-v4",
-            ArtifactKind::Journal => {
-                return Err(cli_error("journals are not historical source archives"))
-            }
-        },
-        protocol: 3,
-        artifact: if kind == ArtifactKind::Archive {
-            "archive"
-        } else {
-            "vault"
-        },
-        native_version: 4,
-        migration_schema: 3,
-    })
 }
 
 fn exporter_release(kind: ArtifactKind, source_version: u32) -> Option<ExporterRelease> {

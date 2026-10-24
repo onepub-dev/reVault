@@ -19,6 +19,7 @@ fn descriptions_persist_move_and_preserve_secret_values_and_revisions() {
             "Login",
             "Login guidance",
             vec![FormFieldDefinition {
+                description: None,
                 id: "password".into(),
                 label: "Password".into(),
                 kind: FormFieldKind::Secret,
@@ -114,9 +115,13 @@ fn descriptions_persist_move_and_preserve_secret_values_and_revisions() {
         Lockbox::create_in_memory(LockboxProtection::Password(&password), &signer).unwrap();
     let definition = read.resolve_form_definition("login").unwrap();
     let descriptions = read.form_field_descriptions(&definition).unwrap();
-    other
-        .import_form_definition_with_descriptions(definition.clone(), descriptions.clone())
-        .unwrap();
+    assert_eq!(
+        read.list_variables().unwrap().len(),
+        1,
+        "descriptions must not create hidden variables"
+    );
+    assert!(definition.fields[0].description.is_some());
+    other.import_form_definition(definition.clone()).unwrap();
     other
         .import_form_definition_with_descriptions(definition.clone(), descriptions)
         .unwrap();

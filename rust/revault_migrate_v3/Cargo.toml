@@ -140,7 +140,7 @@ default-features = false
 
 [dependencies.revault_migration_format]
 version = "^0.0.43"
-path = "../revault_migration_format"
+# Keep the published schema-3 dependency; the workspace format now owns schema 4.
 
 [dependencies.tempfile]
 version = "^3"

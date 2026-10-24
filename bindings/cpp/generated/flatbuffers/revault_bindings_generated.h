@@ -686,6 +686,8 @@ struct FormFieldT : public ::flatbuffers::NativeTable {
   std::string label{};
   std::string kind{};
   bool required = false;
+  std::string description{};
+  bool has_description = false;
 };
 
 struct FormField FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -695,7 +697,9 @@ struct FormField FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_ID = 4,
     VT_LABEL = 6,
     VT_KIND = 8,
-    VT_REQUIRED = 10
+    VT_REQUIRED = 10,
+    VT_DESCRIPTION = 12,
+    VT_HAS_DESCRIPTION = 14
   };
   const ::flatbuffers::String *id() const {
     return GetPointer<const ::flatbuffers::String *>(VT_ID);
@@ -709,6 +713,12 @@ struct FormField FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool required() const {
     return GetField<uint8_t>(VT_REQUIRED, 0) != 0;
   }
+  const ::flatbuffers::String *description() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_DESCRIPTION);
+  }
+  bool has_description() const {
+    return GetField<uint8_t>(VT_HAS_DESCRIPTION, 0) != 0;
+  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_ID) &&
@@ -718,6 +728,9 @@ struct FormField FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_KIND) &&
            verifier.VerifyString(kind()) &&
            VerifyField<uint8_t>(verifier, VT_REQUIRED, 1) &&
+           VerifyOffset(verifier, VT_DESCRIPTION) &&
+           verifier.VerifyString(description()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_DESCRIPTION, 1) &&
            verifier.EndTable();
   }
   FormFieldT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -741,6 +754,12 @@ struct FormFieldBuilder {
   void add_required(bool required) {
     fbb_.AddElement<uint8_t>(FormField::VT_REQUIRED, static_cast<uint8_t>(required), 0);
   }
+  void add_description(::flatbuffers::Offset<::flatbuffers::String> description) {
+    fbb_.AddOffset(FormField::VT_DESCRIPTION, description);
+  }
+  void add_has_description(bool has_description) {
+    fbb_.AddElement<uint8_t>(FormField::VT_HAS_DESCRIPTION, static_cast<uint8_t>(has_description), 0);
+  }
   explicit FormFieldBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -757,11 +776,15 @@ inline ::flatbuffers::Offset<FormField> CreateFormField(
     ::flatbuffers::Offset<::flatbuffers::String> id = 0,
     ::flatbuffers::Offset<::flatbuffers::String> label = 0,
     ::flatbuffers::Offset<::flatbuffers::String> kind = 0,
-    bool required = false) {
+    bool required = false,
+    ::flatbuffers::Offset<::flatbuffers::String> description = 0,
+    bool has_description = false) {
   FormFieldBuilder builder_(_fbb);
+  builder_.add_description(description);
   builder_.add_kind(kind);
   builder_.add_label(label);
   builder_.add_id(id);
+  builder_.add_has_description(has_description);
   builder_.add_required(required);
   return builder_.Finish();
 }
@@ -771,16 +794,21 @@ inline ::flatbuffers::Offset<FormField> CreateFormFieldDirect(
     const char *id = nullptr,
     const char *label = nullptr,
     const char *kind = nullptr,
-    bool required = false) {
+    bool required = false,
+    const char *description = nullptr,
+    bool has_description = false) {
   auto id__ = id ? _fbb.CreateString(id) : 0;
   auto label__ = label ? _fbb.CreateString(label) : 0;
   auto kind__ = kind ? _fbb.CreateString(kind) : 0;
+  auto description__ = description ? _fbb.CreateString(description) : 0;
   return revault::internal::CreateFormField(
       _fbb,
       id__,
       label__,
       kind__,
-      required);
+      required,
+      description__,
+      has_description);
 }
 
 ::flatbuffers::Offset<FormField> CreateFormField(::flatbuffers::FlatBufferBuilder &_fbb, const FormFieldT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
@@ -1187,6 +1215,8 @@ struct FormRecordT : public ::flatbuffers::NativeTable {
   std::string definition_alias{};
   uint32_t definition_revision = 0;
   std::vector<std::unique_ptr<revault::internal::FormValueT>> values{};
+  std::string description{};
+  bool has_description = false;
   FormRecordT() = default;
   FormRecordT(const FormRecordT &o);
   FormRecordT(FormRecordT&&) FLATBUFFERS_NOEXCEPT = default;
@@ -1202,7 +1232,9 @@ struct FormRecord FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_TYPE_ID = 8,
     VT_DEFINITION_ALIAS = 10,
     VT_DEFINITION_REVISION = 12,
-    VT_VALUES = 14
+    VT_VALUES = 14,
+    VT_DESCRIPTION = 16,
+    VT_HAS_DESCRIPTION = 18
   };
   const ::flatbuffers::String *path() const {
     return GetPointer<const ::flatbuffers::String *>(VT_PATH);
@@ -1222,6 +1254,12 @@ struct FormRecord FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<revault::internal::FormValue>> *values() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<revault::internal::FormValue>> *>(VT_VALUES);
   }
+  const ::flatbuffers::String *description() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_DESCRIPTION);
+  }
+  bool has_description() const {
+    return GetField<uint8_t>(VT_HAS_DESCRIPTION, 0) != 0;
+  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_PATH) &&
@@ -1236,6 +1274,9 @@ struct FormRecord FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_VALUES) &&
            verifier.VerifyVector(values()) &&
            verifier.VerifyVectorOfTables(values()) &&
+           VerifyOffset(verifier, VT_DESCRIPTION) &&
+           verifier.VerifyString(description()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_DESCRIPTION, 1) &&
            verifier.EndTable();
   }
   FormRecordT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -1265,6 +1306,12 @@ struct FormRecordBuilder {
   void add_values(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<revault::internal::FormValue>>> values) {
     fbb_.AddOffset(FormRecord::VT_VALUES, values);
   }
+  void add_description(::flatbuffers::Offset<::flatbuffers::String> description) {
+    fbb_.AddOffset(FormRecord::VT_DESCRIPTION, description);
+  }
+  void add_has_description(bool has_description) {
+    fbb_.AddElement<uint8_t>(FormRecord::VT_HAS_DESCRIPTION, static_cast<uint8_t>(has_description), 0);
+  }
   explicit FormRecordBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -1283,14 +1330,18 @@ inline ::flatbuffers::Offset<FormRecord> CreateFormRecord(
     ::flatbuffers::Offset<::flatbuffers::String> type_id = 0,
     ::flatbuffers::Offset<::flatbuffers::String> definition_alias = 0,
     uint32_t definition_revision = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<revault::internal::FormValue>>> values = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<revault::internal::FormValue>>> values = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> description = 0,
+    bool has_description = false) {
   FormRecordBuilder builder_(_fbb);
+  builder_.add_description(description);
   builder_.add_values(values);
   builder_.add_definition_revision(definition_revision);
   builder_.add_definition_alias(definition_alias);
   builder_.add_type_id(type_id);
   builder_.add_name(name);
   builder_.add_path(path);
+  builder_.add_has_description(has_description);
   return builder_.Finish();
 }
 
@@ -1301,12 +1352,15 @@ inline ::flatbuffers::Offset<FormRecord> CreateFormRecordDirect(
     const char *type_id = nullptr,
     const char *definition_alias = nullptr,
     uint32_t definition_revision = 0,
-    const std::vector<::flatbuffers::Offset<revault::internal::FormValue>> *values = nullptr) {
+    const std::vector<::flatbuffers::Offset<revault::internal::FormValue>> *values = nullptr,
+    const char *description = nullptr,
+    bool has_description = false) {
   auto path__ = path ? _fbb.CreateString(path) : 0;
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto type_id__ = type_id ? _fbb.CreateString(type_id) : 0;
   auto definition_alias__ = definition_alias ? _fbb.CreateString(definition_alias) : 0;
   auto values__ = values ? _fbb.CreateVector<::flatbuffers::Offset<revault::internal::FormValue>>(*values) : 0;
+  auto description__ = description ? _fbb.CreateString(description) : 0;
   return revault::internal::CreateFormRecord(
       _fbb,
       path__,
@@ -1314,7 +1368,9 @@ inline ::flatbuffers::Offset<FormRecord> CreateFormRecordDirect(
       type_id__,
       definition_alias__,
       definition_revision,
-      values__);
+      values__,
+      description__,
+      has_description);
 }
 
 ::flatbuffers::Offset<FormRecord> CreateFormRecord(::flatbuffers::FlatBufferBuilder &_fbb, const FormRecordT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
@@ -3463,6 +3519,8 @@ struct VariableT : public ::flatbuffers::NativeTable {
   typedef Variable TableType;
   std::string name{};
   std::string sensitivity{};
+  std::string description{};
+  bool has_description = false;
 };
 
 struct Variable FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -3470,7 +3528,9 @@ struct Variable FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef VariableBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_NAME = 4,
-    VT_SENSITIVITY = 6
+    VT_SENSITIVITY = 6,
+    VT_DESCRIPTION = 8,
+    VT_HAS_DESCRIPTION = 10
   };
   const ::flatbuffers::String *name() const {
     return GetPointer<const ::flatbuffers::String *>(VT_NAME);
@@ -3478,12 +3538,21 @@ struct Variable FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *sensitivity() const {
     return GetPointer<const ::flatbuffers::String *>(VT_SENSITIVITY);
   }
+  const ::flatbuffers::String *description() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_DESCRIPTION);
+  }
+  bool has_description() const {
+    return GetField<uint8_t>(VT_HAS_DESCRIPTION, 0) != 0;
+  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_NAME) &&
            verifier.VerifyString(name()) &&
            VerifyOffset(verifier, VT_SENSITIVITY) &&
            verifier.VerifyString(sensitivity()) &&
+           VerifyOffset(verifier, VT_DESCRIPTION) &&
+           verifier.VerifyString(description()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_DESCRIPTION, 1) &&
            verifier.EndTable();
   }
   VariableT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -3501,6 +3570,12 @@ struct VariableBuilder {
   void add_sensitivity(::flatbuffers::Offset<::flatbuffers::String> sensitivity) {
     fbb_.AddOffset(Variable::VT_SENSITIVITY, sensitivity);
   }
+  void add_description(::flatbuffers::Offset<::flatbuffers::String> description) {
+    fbb_.AddOffset(Variable::VT_DESCRIPTION, description);
+  }
+  void add_has_description(bool has_description) {
+    fbb_.AddElement<uint8_t>(Variable::VT_HAS_DESCRIPTION, static_cast<uint8_t>(has_description), 0);
+  }
   explicit VariableBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -3515,23 +3590,32 @@ struct VariableBuilder {
 inline ::flatbuffers::Offset<Variable> CreateVariable(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<::flatbuffers::String> name = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> sensitivity = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> sensitivity = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> description = 0,
+    bool has_description = false) {
   VariableBuilder builder_(_fbb);
+  builder_.add_description(description);
   builder_.add_sensitivity(sensitivity);
   builder_.add_name(name);
+  builder_.add_has_description(has_description);
   return builder_.Finish();
 }
 
 inline ::flatbuffers::Offset<Variable> CreateVariableDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     const char *name = nullptr,
-    const char *sensitivity = nullptr) {
+    const char *sensitivity = nullptr,
+    const char *description = nullptr,
+    bool has_description = false) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto sensitivity__ = sensitivity ? _fbb.CreateString(sensitivity) : 0;
+  auto description__ = description ? _fbb.CreateString(description) : 0;
   return revault::internal::CreateVariable(
       _fbb,
       name__,
-      sensitivity__);
+      sensitivity__,
+      description__,
+      has_description);
 }
 
 ::flatbuffers::Offset<Variable> CreateVariable(::flatbuffers::FlatBufferBuilder &_fbb, const VariableT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
@@ -4845,6 +4929,8 @@ inline void FormField::UnPackTo(FormFieldT *_o, const ::flatbuffers::resolver_fu
   { auto _e = label(); if (_e) _o->label = _e->str(); }
   { auto _e = kind(); if (_e) _o->kind = _e->str(); }
   { auto _e = required(); _o->required = _e; }
+  { auto _e = description(); if (_e) _o->description = _e->str(); }
+  { auto _e = has_description(); _o->has_description = _e; }
 }
 
 inline ::flatbuffers::Offset<FormField> FormField::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const FormFieldT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -4859,12 +4945,16 @@ inline ::flatbuffers::Offset<FormField> CreateFormField(::flatbuffers::FlatBuffe
   auto _label = _o->label.empty() ? 0 : _fbb.CreateString(_o->label);
   auto _kind = _o->kind.empty() ? 0 : _fbb.CreateString(_o->kind);
   auto _required = _o->required;
+  auto _description = _o->description.empty() ? 0 : _fbb.CreateString(_o->description);
+  auto _has_description = _o->has_description;
   return revault::internal::CreateFormField(
       _fbb,
       _id,
       _label,
       _kind,
-      _required);
+      _required,
+      _description,
+      _has_description);
 }
 
 inline FormFieldListT::FormFieldListT(const FormFieldListT &o) {
@@ -5043,7 +5133,9 @@ inline FormRecordT::FormRecordT(const FormRecordT &o)
         name(o.name),
         type_id(o.type_id),
         definition_alias(o.definition_alias),
-        definition_revision(o.definition_revision) {
+        definition_revision(o.definition_revision),
+        description(o.description),
+        has_description(o.has_description) {
   values.reserve(o.values.size());
   for (const auto &values_ : o.values) { values.emplace_back((values_) ? new revault::internal::FormValueT(*values_) : nullptr); }
 }
@@ -5055,6 +5147,8 @@ inline FormRecordT &FormRecordT::operator=(FormRecordT o) FLATBUFFERS_NOEXCEPT {
   std::swap(definition_alias, o.definition_alias);
   std::swap(definition_revision, o.definition_revision);
   std::swap(values, o.values);
+  std::swap(description, o.description);
+  std::swap(has_description, o.has_description);
   return *this;
 }
 
@@ -5073,6 +5167,8 @@ inline void FormRecord::UnPackTo(FormRecordT *_o, const ::flatbuffers::resolver_
   { auto _e = definition_alias(); if (_e) _o->definition_alias = _e->str(); }
   { auto _e = definition_revision(); _o->definition_revision = _e; }
   { auto _e = values(); if (_e) { _o->values.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->values[_i]) { _e->Get(_i)->UnPackTo(_o->values[_i].get(), _resolver); } else { _o->values[_i] = std::unique_ptr<revault::internal::FormValueT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->values.resize(0); } }
+  { auto _e = description(); if (_e) _o->description = _e->str(); }
+  { auto _e = has_description(); _o->has_description = _e; }
 }
 
 inline ::flatbuffers::Offset<FormRecord> FormRecord::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const FormRecordT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -5089,6 +5185,8 @@ inline ::flatbuffers::Offset<FormRecord> CreateFormRecord(::flatbuffers::FlatBuf
   auto _definition_alias = _o->definition_alias.empty() ? 0 : _fbb.CreateString(_o->definition_alias);
   auto _definition_revision = _o->definition_revision;
   auto _values = _o->values.size() ? _fbb.CreateVector<::flatbuffers::Offset<revault::internal::FormValue>> (_o->values.size(), [](size_t i, _VectorArgs *__va) { return CreateFormValue(*__va->__fbb, __va->__o->values[i].get(), __va->__rehasher); }, &_va ) : 0;
+  auto _description = _o->description.empty() ? 0 : _fbb.CreateString(_o->description);
+  auto _has_description = _o->has_description;
   return revault::internal::CreateFormRecord(
       _fbb,
       _path,
@@ -5096,7 +5194,9 @@ inline ::flatbuffers::Offset<FormRecord> CreateFormRecord(::flatbuffers::FlatBuf
       _type_id,
       _definition_alias,
       _definition_revision,
-      _values);
+      _values,
+      _description,
+      _has_description);
 }
 
 inline FormRecordListT::FormRecordListT(const FormRecordListT &o) {
@@ -6035,6 +6135,8 @@ inline void Variable::UnPackTo(VariableT *_o, const ::flatbuffers::resolver_func
   (void)_resolver;
   { auto _e = name(); if (_e) _o->name = _e->str(); }
   { auto _e = sensitivity(); if (_e) _o->sensitivity = _e->str(); }
+  { auto _e = description(); if (_e) _o->description = _e->str(); }
+  { auto _e = has_description(); _o->has_description = _e; }
 }
 
 inline ::flatbuffers::Offset<Variable> Variable::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const VariableT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
@@ -6047,10 +6149,14 @@ inline ::flatbuffers::Offset<Variable> CreateVariable(::flatbuffers::FlatBufferB
   struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const VariableT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _name = _o->name.empty() ? 0 : _fbb.CreateString(_o->name);
   auto _sensitivity = _o->sensitivity.empty() ? 0 : _fbb.CreateString(_o->sensitivity);
+  auto _description = _o->description.empty() ? 0 : _fbb.CreateString(_o->description);
+  auto _has_description = _o->has_description;
   return revault::internal::CreateVariable(
       _fbb,
       _name,
-      _sensitivity);
+      _sensitivity,
+      _description,
+      _has_description);
 }
 
 inline VariableListT::VariableListT(const VariableListT &o) {

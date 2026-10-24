@@ -136,6 +136,7 @@ jobs:
           -p revault_migrate_v1
           -p revault_migrate_v2
           -p revault_migrate_v3
+          -p revault_migrate_v4
           -p revault_migration
           -p revault_publish_protocol
           -p revault_key_server
@@ -181,6 +182,7 @@ jobs:
               -p revault_migrate_v1 \
               -p revault_migrate_v2 \
               -p revault_migrate_v3 \
+              -p revault_migrate_v4 \
               -p revault_migration
           - group: services and tooling
             cache: services-tooling
@@ -387,6 +389,7 @@ jobs:
           -p revault_migrate_v1
           -p revault_migrate_v2
           -p revault_migrate_v3
+          -p revault_migrate_v4
 
       - name: Run realistic CLI E2E contract
         run: ${{ matrix.command }}
@@ -401,7 +404,7 @@ jobs:
           dart pub global activate dcli_sdk 10.3.0 --overwrite
           dart pub get --enforce-lockfile --directory ../.github/scripts
           ../.github/scripts/compatibility_baseline.dart
-      - name: Check bidirectional compatibility with the published CLI
+      - name: Check declared compatibility or migration with the published CLI
         if: runner.os == 'Linux'
         run: cargo test --locked -p revault_cli --test line_compatibility -- --ignored
 

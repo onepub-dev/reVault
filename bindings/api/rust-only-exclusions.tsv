@@ -112,3 +112,4 @@ salvage_with_file_fragments_and_progress	CLI directory-recovery pipeline with fr
 plan_file_fragments	CLI directory-recovery planning with optional mutable archive and sidecar callback; no foreign partial-file ownership contract.
 plan_file_fragments_and_progress	CLI directory-recovery planning with progress and sidecar callbacks; no foreign partial-file ownership contract.
 recover_file_ranges	CLI authenticated partial-file extraction with streamed sidecar callback; no foreign partial-file ownership contract.
+add_file_from_open_file	Rust-owned std::fs::File transfer; foreign callers read their already-open file and pass bytes using lockbox_add_file

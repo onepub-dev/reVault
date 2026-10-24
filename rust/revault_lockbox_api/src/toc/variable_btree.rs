@@ -9,7 +9,7 @@ use crate::secret_vec::{secure_read_access, SecureVec};
 use crate::security::{validate_variable_name, validate_variable_value_ref};
 use crate::{Error, Result, SecretString, VariableName, VariableSensitivity};
 
-const VARIABLE_NODE_VERSION: u8 = 1;
+const VARIABLE_NODE_VERSION: u8 = 2;
 const VARIABLE_LEAF: u8 = 1;
 const VARIABLE_INTERNAL: u8 = 2;
 const VARIABLE_NODE_PREFIX_BYTES: usize = 2;
@@ -26,22 +26,33 @@ pub(crate) struct VariableEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum VariableValue {
-    Normal(String),
-    Secret(Arc<SecretString>),
+    Normal(String, Option<String>),
+    Secret(Arc<SecretString>, Option<String>),
 }
 
 impl VariableValue {
+    pub(crate) fn description(&self) -> &Option<String> {
+        match self {
+            Self::Normal(_, description) | Self::Secret(_, description) => description,
+        }
+    }
+    pub(crate) fn set_description(&mut self, text: Option<String>) {
+        match self {
+            Self::Normal(_, description) | Self::Secret(_, description) => *description = text,
+        }
+    }
+
     pub(crate) fn sensitivity(&self) -> VariableSensitivity {
         match self {
-            Self::Normal(_) => VariableSensitivity::Normal,
-            Self::Secret(_) => VariableSensitivity::Secret,
+            Self::Normal(_, _) => VariableSensitivity::Normal,
+            Self::Secret(_, _) => VariableSensitivity::Secret,
         }
     }
 
     pub(crate) fn with_plaintext<R>(&self, f: impl FnOnce(&str) -> R) -> Result<R> {
         match self {
-            Self::Normal(value) => Ok(f(value)),
-            Self::Secret(value) => value.with_str(f).map_err(Into::into),
+            Self::Normal(value, _) => Ok(f(value)),
+            Self::Secret(value, _) => value.with_str(f).map_err(Into::into),
         }
     }
 }
@@ -153,12 +164,13 @@ pub(crate) fn encode_variable_leaf_secure(entries: &[VariableEntry]) -> Result<S
         out.try_extend_from_slice(&(entry.name.len() as u16).to_le_bytes())?;
         out.try_extend_from_slice(entry.name.as_bytes())?;
         out.try_extend_from_slice(&[sensitivity_tag(entry.value.sensitivity())])?;
+        put_description(&mut out, entry.value.description())?;
         match &entry.value {
-            VariableValue::Normal(value) => {
+            VariableValue::Normal(value, _) => {
                 out.try_extend_from_slice(&(value.len() as u32).to_le_bytes())?;
                 out.try_extend_from_slice(value.as_bytes())?;
             }
-            VariableValue::Secret(value) => {
+            VariableValue::Secret(value, _) => {
                 let value_len = value.with_str(str::len)?;
                 out.try_extend_from_slice(&(value_len as u32).to_le_bytes())?;
                 value.append_to_secure_vec(&mut out)?;
@@ -261,10 +273,15 @@ pub(crate) fn decode_variable_node_secure(payload: &SecureVec) -> Result<Variabl
             let mut entries = Vec::with_capacity(parsed_entries.len());
             for entry in parsed_entries {
                 let value = match entry.value {
-                    ParsedVariableValue::Normal(value) => VariableValue::Normal(value),
+                    ParsedVariableValue::Normal(value) => {
+                        VariableValue::Normal(value, entry.description.clone())
+                    }
                     ParsedVariableValue::Secret { offset, len } => {
                         let bytes = payload.try_clone_range(offset, len)?;
-                        VariableValue::Secret(Arc::new(SecretString::from_secure_vec(bytes)))
+                        VariableValue::Secret(
+                            Arc::new(SecretString::from_secure_vec(bytes)),
+                            entry.description.clone(),
+                        )
                     }
                 };
                 entries.push(VariableEntry {
@@ -284,6 +301,7 @@ enum SecureVariableNodeMetadata {
 
 struct ParsedVariableEntry {
     name: String,
+    description: Option<String>,
     value: ParsedVariableValue,
 }
 
@@ -324,7 +342,12 @@ fn decode_variable_leaf_secure_metadata(payload: &[u8]) -> Result<SecureVariable
         if offset + 4 > payload.len() {
             return Err(Error::CorruptRecord);
         }
-        let value_len = read_u32_le(&payload[offset..offset + 4])? as usize;
+        let description = read_description(payload, &mut offset)?;
+        let value_len = read_u32_le(
+            payload
+                .get(offset..offset + 4)
+                .ok_or(Error::CorruptRecord)?,
+        )? as usize;
         offset += 4;
         if offset + value_len > payload.len() {
             return Err(Error::CorruptRecord);
@@ -341,7 +364,11 @@ fn decode_variable_leaf_secure_metadata(payload: &[u8]) -> Result<SecureVariable
             },
         };
         offset += value_len;
-        entries.push(ParsedVariableEntry { name, value });
+        entries.push(ParsedVariableEntry {
+            name,
+            value,
+            description,
+        });
     }
     if offset != payload.len() {
         return Err(Error::CorruptRecord);
@@ -356,6 +383,8 @@ fn decode_variable_leaf_secure_metadata(payload: &[u8]) -> Result<SecureVariable
 
 fn variable_entry_encoded_len(entry: &VariableEntry) -> usize {
     2 + entry.name.len()
+        + 4
+        + entry.value.description().as_ref().map_or(0, String::len)
         + 1
         + 4
         + entry
@@ -439,4 +468,37 @@ fn public_variable_name_and_sensitivity(
         VariableName::new(name)?.as_str().to_string(),
         encoded_sensitivity,
     ))
+}
+pub(crate) fn put_description(out: &mut SecureVec, description: &Option<String>) -> Result<()> {
+    match description {
+        None => {
+            out.try_extend_from_slice(&u32::MAX.to_le_bytes())?;
+            Ok(())
+        }
+        Some(text) => {
+            validate_variable_value_ref(text)?;
+            out.try_extend_from_slice(&(text.len() as u32).to_le_bytes())?;
+            out.try_extend_from_slice(text.as_bytes())?;
+            Ok(())
+        }
+    }
+}
+pub(crate) fn read_description(payload: &[u8], offset: &mut usize) -> Result<Option<String>> {
+    let len = read_u32_le(
+        payload
+            .get(*offset..*offset + 4)
+            .ok_or(Error::CorruptRecord)?,
+    )?;
+    *offset += 4;
+    if len == u32::MAX {
+        return Ok(None);
+    }
+    let end = offset
+        .checked_add(len as usize)
+        .ok_or(Error::CorruptRecord)?;
+    let text = std::str::from_utf8(payload.get(*offset..end).ok_or(Error::CorruptRecord)?)
+        .map_err(|_| Error::CorruptRecord)?;
+    validate_variable_value_ref(text)?;
+    *offset = end;
+    Ok(Some(text.to_owned()))
 }

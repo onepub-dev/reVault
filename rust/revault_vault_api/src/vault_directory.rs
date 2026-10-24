@@ -2174,6 +2174,7 @@ fn form_field(
     required: bool,
 ) -> FormFieldDefinition {
     FormFieldDefinition {
+        description: None,
         id: id.to_string(),
         label: label.to_string(),
         kind,

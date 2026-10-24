@@ -52,6 +52,7 @@ fn run(selected_source: bool) {
         description: "d".repeat(size),
         fields: (0..8)
             .map(|n| FormFieldDefinition {
+                description: None,
                 id: format!("field_{n}"),
                 label: if n == 0 {
                     "l".repeat(size)
@@ -64,6 +65,7 @@ fn run(selected_source: bool) {
             .collect(),
     };
     let record = FormRecord {
+        description: None,
         path: LockboxPath::new("/aggregate/record").unwrap(),
         name: "r".repeat(size),
         type_id: def.type_id.clone(),

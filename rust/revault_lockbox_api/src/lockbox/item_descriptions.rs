@@ -1,108 +1,57 @@
-//! Optional descriptions use the existing encrypted variable representation.
-//! Keeping the wire representation unchanged lets format-4 readers retain them.
+//! Descriptions belong to the variable, field definition, or record they describe.
 use super::Lockbox;
 use crate::{Error, FormDefinition, LockboxPath, Result, VariableName, WritableLockboxState};
-use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
-pub(super) fn metadata_name(kind: &str, identity: &str) -> Result<VariableName> {
-    let digest = Sha256::digest(identity.as_bytes());
-    let key = digest
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
-    VariableName::new(format!("/.revault/descriptions/{kind}/d_{key}"))
-}
-
 impl<State> Lockbox<State> {
-    /// Return field guidance for an exact definition revision. This accompanies
-    /// a definition when copying it between vaults or lockboxes.
+    /// Return field guidance captured by an exact definition revision.
     pub fn form_field_descriptions(
         &self,
         definition: &FormDefinition,
     ) -> Result<BTreeMap<String, String>> {
-        let identity = format!("{}/{}", definition.type_id, definition.revision);
-        match self.get_variable(&metadata_name("fields", &identity)?)? {
-            None => Ok(BTreeMap::new()),
-            Some(value) => {
-                let descriptions: BTreeMap<String, String> =
-                    serde_json::from_str(&value).map_err(|_| Error::CorruptRecord)?;
-                for (field, text) in &descriptions {
-                    Self::require_description_field(definition, field)
-                        .map_err(|_| Error::CorruptRecord)?;
-                    crate::security::validate_variable_value_ref(text)
-                        .map_err(|_| Error::CorruptRecord)?;
-                }
-                Ok(descriptions)
-            }
-        }
+        Ok(definition
+            .fields
+            .iter()
+            .filter_map(|field| {
+                field
+                    .description
+                    .clone()
+                    .map(|text| (field.id.clone(), text))
+            })
+            .collect())
     }
 
     /// Return guidance for a field in the latest matching definition.
     pub fn form_field_description(&self, reference: &str, field: &str) -> Result<Option<String>> {
         let definition = self.resolve_form_definition(reference)?;
-        Self::require_description_field(&definition, field)?;
-        Ok(self.form_field_descriptions(&definition)?.remove(field))
+        definition
+            .fields
+            .iter()
+            .find(|item| item.id == field)
+            .map(|item| item.description.clone())
+            .ok_or_else(|| Error::NotFound(format!("form field {field}")))
     }
 
-    fn require_description_field(definition: &FormDefinition, field: &str) -> Result<()> {
-        if definition.fields.iter().any(|item| item.id == field) {
-            Ok(())
-        } else {
-            Err(Error::NotFound(format!("form field {field}")))
-        }
-    }
-
-    pub(super) fn store_form_field_descriptions(
-        &mut self,
-        definition: &FormDefinition,
-        descriptions: &BTreeMap<String, String>,
-    ) -> Result<()>
-    where
-        State: WritableLockboxState,
-    {
-        for (field, text) in descriptions {
-            Self::require_description_field(definition, field)?;
-            crate::security::validate_variable_value_ref(text)?;
-        }
-        let identity = format!("{}/{}", definition.type_id, definition.revision);
-        let key = metadata_name("fields", &identity)?;
-        if descriptions.is_empty() {
-            self.delete_variable(&key)
-        } else {
-            let encoded = serde_json::to_string(descriptions).map_err(|_| Error::CorruptRecord)?;
-            self.set_variable(&key, &encoded)
-        }
-    }
-
-    /// Import an exact definition revision together with its field guidance.
-    /// Existing revisions may only be reimported with identical guidance.
+    /// Import an exact definition revision with field descriptions. Descriptions
+    /// are part of the definition and participate in revision conflict checks.
     pub fn import_form_definition_with_descriptions(
         &mut self,
-        definition: FormDefinition,
+        mut definition: FormDefinition,
         descriptions: BTreeMap<String, String>,
     ) -> Result<FormDefinition>
     where
         State: WritableLockboxState,
     {
         for (field, text) in &descriptions {
-            Self::require_description_field(&definition, field)?;
+            if !definition.fields.iter().any(|item| &item.id == field) {
+                return Err(Error::NotFound(format!("form field {field}")));
+            }
             crate::security::validate_variable_value_ref(text)?;
         }
-        let encoded = serde_json::to_string(&descriptions).map_err(|_| Error::CorruptRecord)?;
-        crate::security::validate_variable_value_ref(&encoded)?;
-        let exists = self
-            .list_form_definition_revisions(&definition.type_id)?
-            .iter()
-            .any(|item| item.revision == definition.revision);
-        if exists && self.form_field_descriptions(&definition)? != descriptions {
-            return Err(Error::InvalidOperation(
-                "definition revision already exists with different field descriptions".to_string(),
-            ));
+        for field in &mut definition.fields {
+            field.description = descriptions.get(&field.id).cloned();
         }
-        let definition = self.import_form_definition(definition)?;
-        self.store_form_field_descriptions(&definition, &descriptions)?;
-        Ok(definition)
+        self.import_form_definition(definition)
     }
 
     /// Revise form guidance without replacing its name, fields, or record values.
@@ -134,7 +83,7 @@ impl<State> Lockbox<State> {
         self.set_form_definition_description(reference, "")
     }
 
-    /// Create a definition revision with updated guidance for one field.
+    /// Create a definition revision with updated multiline guidance for one field.
     pub fn set_form_field_description(
         &mut self,
         reference: &str,
@@ -169,45 +118,44 @@ impl<State> Lockbox<State> {
     where
         State: WritableLockboxState,
     {
-        let definition = self.resolve_form_definition(reference)?;
-        Self::require_description_field(&definition, field)?;
-        let mut descriptions = self.form_field_descriptions(&definition)?;
-        if descriptions.get(field).map(String::as_str) == text {
+        let mut definition = self.resolve_form_definition(reference)?;
+        let item = definition
+            .fields
+            .iter_mut()
+            .find(|item| item.id == field)
+            .ok_or_else(|| Error::NotFound(format!("form field {field}")))?;
+        if item.description.as_deref() == text {
             return Ok(definition);
         }
-        if let Some(text) = text {
-            descriptions.insert(field.to_string(), text.to_string());
-        } else {
-            descriptions.remove(field);
-        }
-        let encoded = serde_json::to_string(&descriptions).map_err(|_| Error::CorruptRecord)?;
-        crate::security::validate_variable_value_ref(&encoded)?;
-        let revised = self.revise_form_definition(
+        item.description = text.map(str::to_owned);
+        self.revise_form_definition(
             &definition.type_id,
             &definition.name,
             &definition.description,
             definition.fields,
-        )?;
-        self.store_form_field_descriptions(&revised, &descriptions)?;
-        Ok(revised)
+        )
     }
 
     /// Read explanatory text for an existing variable without reading its value.
     pub fn variable_description(&self, name: &VariableName) -> Result<Option<String>> {
-        if self.variable_sensitivity(name)?.is_none() {
-            return Err(Error::NotFound(format!("variable {name}")));
-        }
-        self.get_variable(&metadata_name("variable", name.as_str())?)
+        self.ensure_variables_loaded()?;
+        self.variables
+            .borrow()
+            .as_ref()
+            .ok_or(Error::CorruptRecord)?
+            .get(name)
+            .map(|value| value.description().clone())
+            .ok_or_else(|| Error::NotFound(format!("variable {name}")))
     }
 
-    /// Set multiline UTF-8 guidance independently of a variable's sensitivity.
-    /// Commit the lockbox to persist the change. Empty text is distinct from absence.
+    /// Set multiline guidance independently of the variable's sensitivity.
+    /// Commit to persist the change. Empty text differs from absence.
     pub fn set_variable_description(&mut self, name: &VariableName, text: &str) -> Result<()>
     where
         State: WritableLockboxState,
     {
-        self.variable_description(name)?;
-        self.set_variable(&metadata_name("variable", name.as_str())?, text)
+        crate::security::validate_variable_value_ref(text)?;
+        self.change_variable_description(name, Some(text.to_owned()))
     }
 
     /// Clear a variable's description; the variable itself must exist.
@@ -215,27 +163,45 @@ impl<State> Lockbox<State> {
     where
         State: WritableLockboxState,
     {
-        self.variable_description(name)?;
-        self.delete_variable(&metadata_name("variable", name.as_str())?)
+        self.change_variable_description(name, None)
+    }
+
+    fn change_variable_description(
+        &mut self,
+        name: &VariableName,
+        text: Option<String>,
+    ) -> Result<()>
+    where
+        State: WritableLockboxState,
+    {
+        self.ensure_variables_loaded()?;
+        let mut variables = self.staged.variables.borrow_mut();
+        let value = variables
+            .as_mut()
+            .ok_or(Error::CorruptRecord)?
+            .get_mut(name)
+            .ok_or_else(|| Error::NotFound(format!("variable {name}")))?;
+        if value.description() != &text {
+            value.set_description(text);
+            self.staged.dirty_variables = true;
+        }
+        Ok(())
     }
 
     /// Read the description of an individual stored form record.
     pub fn form_record_description(&self, path: &LockboxPath) -> Result<Option<String>> {
-        let path = path.file_path()?;
-        if self.get_form_record(&path)?.is_none() {
-            return Err(Error::NotFound(format!("form record {path}")));
-        }
-        self.get_variable(&metadata_name("record", path.as_str())?)
+        self.get_form_record(&path.file_path()?)?
+            .map(|record| record.description)
+            .ok_or_else(|| Error::NotFound(format!("form record {path}")))
     }
 
-    /// Set a form record's own description without changing its field values.
+    /// Set a record's own description without changing its field values.
     pub fn set_form_record_description(&mut self, path: &LockboxPath, text: &str) -> Result<()>
     where
         State: WritableLockboxState,
     {
-        let path = path.file_path()?;
-        self.form_record_description(&path)?;
-        self.set_variable(&metadata_name("record", path.as_str())?, text)
+        crate::security::validate_variable_value_ref(text)?;
+        self.change_record_description(path, Some(text.to_owned()))
     }
 
     /// Clear a record's description; the record itself must exist.
@@ -243,8 +209,21 @@ impl<State> Lockbox<State> {
     where
         State: WritableLockboxState,
     {
+        self.change_record_description(path, None)
+    }
+
+    fn change_record_description(&mut self, path: &LockboxPath, text: Option<String>) -> Result<()>
+    where
+        State: WritableLockboxState,
+    {
         let path = path.file_path()?;
-        self.form_record_description(&path)?;
-        self.delete_variable(&metadata_name("record", path.as_str())?)
+        let mut record = self
+            .get_form_record(&path)?
+            .ok_or_else(|| Error::NotFound(format!("form record {path}")))?;
+        if record.description == text {
+            return Ok(());
+        }
+        record.description = text;
+        self.forms.put_record(path, record)
     }
 }

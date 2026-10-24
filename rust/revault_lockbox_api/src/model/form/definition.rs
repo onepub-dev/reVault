@@ -95,6 +95,13 @@ impl FormDefinition {
                 label: FormFieldDefinition::validated_label(&field.label)?,
                 kind: field.kind,
                 required: field.required,
+                description: field
+                    .description
+                    .map(|text| -> Result<String> {
+                        validate_text(&text, "field description")?;
+                        Ok(text)
+                    })
+                    .transpose()?,
             });
         }
         Ok(Self {
@@ -111,6 +118,8 @@ impl FormDefinition {
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// Schema for one named field in a form definition.
 pub struct FormFieldDefinition {
+    /// Optional multiline guidance for this field in this definition revision.
+    pub description: Option<String>,
     /// Stable, case-sensitive machine-readable identifier within the form.
     pub id: String,
     /// User-facing field label.

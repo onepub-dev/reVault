@@ -9,6 +9,7 @@ use revault_lockbox_api::{
 
 fn field(id: &str, label: &str, kind: FormFieldKind) -> FormFieldDefinition {
     FormFieldDefinition {
+        description: None,
         id: id.into(),
         label: label.into(),
         kind,

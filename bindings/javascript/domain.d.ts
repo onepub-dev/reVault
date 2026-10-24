@@ -31,6 +31,10 @@ export interface FormField {
   readonly kind: string;
   /** Whether a record must provide a value for this field. */
   readonly required: boolean;
+  /** Multiline guidance captured by this field definition revision. */
+  readonly description: string;
+  /** Whether guidance is present, including explicitly empty text. */
+  readonly hasDescription: boolean;
 }
 
 /** A versioned form schema used to validate and label structured records in a lockbox. */
@@ -77,6 +81,10 @@ export interface FormRecord {
   readonly definitionRevision: number;
   /** Ordered non-secret field metadata and values. */
   readonly values: readonly FormValue[];
+  /** Multiline context specific to this record. */
+  readonly description: string;
+  /** Whether the record description is present, including empty text. */
+  readonly hasDescription: boolean;
 }
 
 /** The files and metadata recovered, or found damaged, while inspecting or salvaging a lockbox. */
@@ -271,6 +279,10 @@ export interface Variable {
   readonly name: string;
   /** Whether the value is ordinary text or a protected secret. */
   readonly sensitivity: string;
+  /** Multiline description stored with this variable. */
+  readonly description: string;
+  /** Whether the variable description is present, including empty text. */
+  readonly hasDescription: boolean;
 }
 
 /** Whether a lockbox is owner-signed and, when available, the signing-key fingerprint. */
@@ -358,4 +370,4 @@ export interface ErrorDetails {
 /** A source and destination pair accepted by move operations. */
 export interface PathMoveInput { readonly source: string; readonly destination: string; }
 /** A field accepted when defining a form. */
-export interface FormFieldInput { readonly id: string; readonly label: string; readonly kind: string; readonly required: boolean; }
+export interface FormFieldInput { readonly id: string; readonly label: string; readonly kind: string; readonly required: boolean; readonly description?: string; readonly hasDescription?: boolean; }

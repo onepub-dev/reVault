@@ -29,7 +29,8 @@ export function encodeMessage(message) {
       const id = builder.createString(value.id ?? '');
       const label = builder.createString(value.label ?? '');
       const kind = builder.createString(value.kind ?? '');
-      return transport.FormField.createFormField(builder, id, label, kind, value.required === true);
+      const description = builder.createString(value.description ?? '');
+      return transport.FormField.createFormField(builder, id, label, kind, value.required === true, description, value.hasDescription === true);
     });
     const values = transport.FormFieldList.createValuesVector(builder, offsets);
     builder.finish(transport.FormFieldList.createFormFieldList(builder, values));

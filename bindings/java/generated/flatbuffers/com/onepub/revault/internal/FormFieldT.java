@@ -24,6 +24,8 @@ public class FormFieldT {
   private String label;
   private String kind;
   private boolean required;
+  private String description;
+  private boolean hasDescription;
 
   public String getId() { return id; }
 
@@ -41,11 +43,21 @@ public class FormFieldT {
 
   public void setRequired(boolean required) { this.required = required; }
 
+  public String getDescription() { return description; }
+
+  public void setDescription(String description) { this.description = description; }
+
+  public boolean getHasDescription() { return hasDescription; }
+
+  public void setHasDescription(boolean hasDescription) { this.hasDescription = hasDescription; }
+
 
   public FormFieldT() {
     this.id = null;
     this.label = null;
     this.kind = null;
     this.required = false;
+    this.description = null;
+    this.hasDescription = false;
   }
 }

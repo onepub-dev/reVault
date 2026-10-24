@@ -112,8 +112,8 @@ existing convention: clearing sets the description to an empty string.
 Descriptions are encrypted with the Lockbox but appear in ordinary descriptive
 output, so do not use them to store secret field values.
 
-Descriptions use the existing format-4 encrypted metadata representation.
-Older clients can still read the archive, but do not maintain these annotations
-when renaming or deleting records or revising definitions. Use an updated client
-for those operations. The encoded field-guidance map for one definition revision
-must fit within the normal variable limit of one mebibyte.
+Descriptions are native fields in the encrypted format-5 representation,
+introduced by the 0.6.x compatibility line. Migrate older Vaults and Lockboxes
+before opening them with this version. Format-4 clients cannot read these files.
+Each optional description accepts up to one mebibyte of UTF-8 text, subject to
+the containing definition's storage limits.

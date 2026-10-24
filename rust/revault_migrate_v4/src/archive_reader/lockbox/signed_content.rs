@@ -1,0 +1,302 @@
+use super::Lockbox;
+use crate::archive_reader::{Error, Result};
+use sha2::{Digest, Sha256};
+use std::io::{self, Write};
+
+// Encryption authenticates individual private pages. Without encryption, sign a
+// deterministic snapshot as well as the commit coordinates. Length prefixes and
+// section tags prevent ambiguous concatenations. Verify before returning a handle
+// or allowing recovery cleanup to modify storage.
+impl<State> Lockbox<State> {
+    pub(super) fn signed_content_digest(&self) -> Result<[u8; 32]> {
+        // Retain one verified packed frame across adjacent files while hashing
+        // the same canonical byte sequence. Single-file frames need no cache
+        // admission during this one-pass authentication scan.
+        let mut state = super::files::ContentStreamState::default();
+        self.signed_content_digest_with_file_hash(|archive, entry, digest| {
+            let mut copied = 0u64;
+            archive.stream_file_content(
+                entry,
+                &mut |chunk, reader| {
+                    let len = io::copy(reader, &mut HashWriter(digest))
+                        .map_err(|err| Error::Io(err.to_string()))?;
+                    if len != chunk.len {
+                        return Err(Error::CorruptRecord);
+                    }
+                    copied = copied.checked_add(len).ok_or(Error::CorruptRecord)?;
+                    Ok(())
+                },
+                false,
+                &mut state,
+            )?;
+            if copied != entry.len {
+                return Err(Error::CorruptRecord);
+            }
+            Ok(())
+        })
+    }
+
+    fn signed_content_digest_with_file_hash<'a>(
+        &'a self,
+        mut hash_file: impl FnMut(&'a Self, &super::TocEntry, &mut Sha256) -> Result<()>,
+    ) -> Result<[u8; 32]> {
+        let mut digest = Sha256::new();
+        let encoder = crate::archive_reader::toc_codec::TocEncoder::new(self.toc_entries.values());
+        if encoder.version() == 1 {
+            // Preserve the exact canonical digest of existing whole-frame TOCs.
+            digest.update(b"revault-plaintext-content-v3\0");
+        } else {
+            // A block-index commitment is not a whole-frame content checksum.
+            // Bind that interpretation, as well as the TOC bytes, into signing.
+            digest.update(b"revault-plaintext-content-v4\0");
+            digest.update([encoder.version()]);
+        }
+        let toc = encoder.encode();
+        field(&mut digest, &toc);
+        for entry in self.toc_entries.values().filter(|entry| !entry.deleted) {
+            match entry.node_kind {
+                crate::archive_reader::node_kind::NodeKind::File => {
+                    digest.update(entry.len.to_le_bytes());
+                    hash_file(self, entry, &mut digest)?;
+                }
+                crate::archive_reader::node_kind::NodeKind::Symlink => {
+                    field(
+                        &mut digest,
+                        self.get_symlink_target(&entry.path)?.as_str().as_bytes(),
+                    );
+                }
+                crate::archive_reader::node_kind::NodeKind::Directory => {}
+            }
+        }
+        digest.update(b"variables\0");
+        for (name, value) in self.clone_all_variable_values()? {
+            field(&mut digest, name.as_str().as_bytes());
+            digest.update([u8::from(
+                value.sensitivity() == crate::archive_reader::VariableSensitivity::Secret,
+            )]);
+            value.with_plaintext(|text| field(&mut digest, text.as_bytes()))?;
+        }
+        digest.update(b"forms\0");
+        let (definitions, records) = self.clone_all_form_state()?;
+        for entry in
+            crate::archive_reader::form_btree::form_entries_from_maps(&definitions, &records)
+        {
+            let encoded = crate::archive_reader::form_btree::encode_form_leaf_secure(&[entry])?;
+            encoded.with_bytes(|bytes| field(&mut digest, bytes))?;
+        }
+        digest.update(b"allocation-and-cleanup\0");
+        let root = self.read_commit_root_at(self.commit_root_offset)?;
+        for (offset, commitment) in [
+            (root.free_index_root_offset, root.free_index_root_commitment),
+            (
+                root.post_cleanup_free_index_root_offset,
+                root.post_cleanup_free_index_root_commitment,
+            ),
+        ] {
+            digest.update(offset.to_le_bytes());
+            if offset != 0 {
+                let slots = self.read_free_index_slots(offset, commitment, 0)?;
+                digest.update((slots.len() as u64).to_le_bytes());
+                for slot in slots {
+                    digest.update(slot.offset.to_le_bytes());
+                    digest.update(slot.len.to_le_bytes());
+                }
+            }
+        }
+        let mut offset = root.redaction_manifest_offset;
+        let mut commitment = root.redaction_manifest_commitment;
+        let mut count = 0;
+        while offset != 0 {
+            count += 1;
+            if count > crate::archive_reader::file_format::redaction_manifest::MAX_REDACTION_PAGES {
+                return Err(Error::CorruptRecord);
+            }
+            let manifest = self.read_redaction_manifest_page_at(offset, commitment)?;
+            field(
+                &mut digest,
+                &crate::archive_reader::file_format::redaction_manifest::encode_page(&manifest)?,
+            );
+            offset = manifest.next_page_offset;
+            commitment = manifest.next_page_commitment;
+        }
+        Ok(digest.finalize().into())
+    }
+}
+
+fn field(digest: &mut Sha256, bytes: &[u8]) {
+    digest.update((bytes.len() as u64).to_le_bytes());
+    digest.update(bytes);
+}
+
+struct HashWriter<'a>(&'a mut Sha256);
+impl Write for HashWriter<'_> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0.update(bytes);
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::archive_reader::*;
+
+    #[test]
+    fn streamed_signature_matches_per_file_digest_across_commits() {
+        let signer = OwnerSigningKeyPair::generate().unwrap();
+        let path = |name: &str| LockboxPath::new(name).unwrap();
+        fn assert_digest<State>(archive: &Lockbox<State>, phase: &str) {
+            let legacy = archive
+                .signed_content_digest_with_file_hash(|archive, entry, digest| {
+                    archive.extract_file_to_writer(&entry.path, super::HashWriter(digest))
+                })
+                .unwrap_or_else(|err| panic!("reference digest {phase}: {err:?}"));
+            assert_eq!(archive.signed_content_digest().unwrap(), legacy);
+        }
+        for compression in [Compression::None, Compression::default()] {
+            for size_padding in [SizePadding::Default, SizePadding::None] {
+                let mut archive = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                    compression,
+                    size_padding,
+                    ..LockboxCreateOptions::new(Encryption::None, Signing::Owner(&signer))
+                })
+                .unwrap();
+                archive.set_workload_profile(WorkloadProfile::BulkImport);
+                archive.create_dir(&path("/dir"), false).unwrap();
+                for i in 0..8 {
+                    archive
+                        .add_file(&path(&format!("/dir/{i}")), &vec![i as u8 + 1; 4096], false)
+                        .unwrap();
+                }
+                archive.add_file(&path("/empty"), b"", false).unwrap();
+                archive
+                    .add_symlink(&path("/link"), &path("/dir/0"), false)
+                    .unwrap();
+                archive
+                    .add_file(&path("/multiframe"), &vec![43; 2 * 1024 * 1024 + 13], false)
+                    .unwrap();
+                archive
+                    .add_file(&path("/zeros"), &vec![0; 32769], false)
+                    .unwrap();
+                archive
+                    .set_variable(&VariableName::new("state").unwrap(), "first")
+                    .unwrap();
+                archive.commit().unwrap();
+                assert_digest(&archive, "first commit");
+                archive.set_workload_profile(WorkloadProfile::Interactive);
+                archive
+                    .add_file(&path("/dir/3"), b"replacement", true)
+                    .unwrap();
+                archive.delete(&path("/dir/4")).unwrap();
+                archive
+                    .add_file(&path("/pending"), b"pending content", false)
+                    .unwrap();
+                archive
+                    .add_file(&path("/pending-empty"), b"", false)
+                    .unwrap();
+                // Compare pending file bytes separately: the whole digest also
+                // reads allocation metadata that becomes valid at commit.
+                let mut state = super::super::files::ContentStreamState::default();
+                for entry in archive.toc_entries.values().filter(|entry| {
+                    !entry.deleted
+                        && entry.node_kind == crate::archive_reader::node_kind::NodeKind::File
+                }) {
+                    let mut expected = Vec::new();
+                    archive
+                        .extract_file_to_writer(&entry.path, &mut expected)
+                        .unwrap();
+                    let mut actual = Vec::new();
+                    archive
+                        .stream_file_content(
+                            entry,
+                            &mut |_, reader| {
+                                std::io::copy(reader, &mut actual).unwrap();
+                                Ok(())
+                            },
+                            false,
+                            &mut state,
+                        )
+                        .unwrap();
+                    assert_eq!(actual, expected, "pending {}", entry.path);
+                }
+                drop(state);
+                archive.commit().unwrap();
+                assert_digest(&archive, "second commit");
+                let reopened =
+                    Lockbox::open_bytes(archive.to_bytes(), LockboxOpen::Unencrypted).unwrap();
+                assert_digest(&reopened, "reopen");
+                assert_eq!(reopened.get_file(&path("/dir/3")).unwrap(), b"replacement");
+                assert!(reopened.get_file(&path("/dir/4")).is_err());
+                assert_eq!(
+                    reopened.get_file(&path("/pending")).unwrap(),
+                    b"pending content"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn plaintext_signature_rejects_variable_tampering_even_with_recomputed_checksums() {
+        let signer = OwnerSigningKeyPair::generate().unwrap();
+        let mut lb = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+            compression: Compression::None,
+            ..LockboxCreateOptions::new(Encryption::None, Signing::Owner(&signer))
+        })
+        .unwrap();
+        lb.set_variable(
+            &VariableName::new("signed").unwrap(),
+            "original signed value",
+        )
+        .unwrap();
+        lb.commit().unwrap();
+        let mut bytes = lb.try_to_bytes().unwrap();
+        let marker = b"original signed value";
+        let position = bytes
+            .windows(marker.len())
+            .position(|window| window == marker)
+            .unwrap();
+        let page = (crate::archive_reader::constants::HEADER_LEN..position)
+            .rev()
+            .find(|offset| {
+                bytes.get(*offset..*offset + 8)
+                    == Some(crate::archive_reader::page::PAGE_MAGIC.as_slice())
+            })
+            .unwrap();
+        bytes[position] = b'X';
+        let body = page + crate::archive_reader::page::PAGE_HEADER_LEN;
+        let stored_len =
+            u32::from_le_bytes(bytes[page + 44..page + 48].try_into().unwrap()) as usize;
+        let checksum =
+            crate::archive_reader::crypto::strong_checksum(&bytes[body + 32..body + stored_len]);
+        bytes[body..body + 32].copy_from_slice(&checksum);
+        let opened = Lockbox::open_bytes(bytes, LockboxOpen::Unencrypted).unwrap();
+        assert!(opened
+            .get_variable(&VariableName::new("signed").unwrap())
+            .is_err());
+    }
+
+    #[test]
+    fn compaction_preserves_every_persistent_choice() {
+        let signer = OwnerSigningKeyPair::generate().unwrap();
+        for signing in [Signing::None, Signing::Owner(&signer)] {
+            let mut lb = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                compression: Compression::None,
+                ..LockboxCreateOptions::new(Encryption::None, signing)
+            })
+            .unwrap();
+            let path = LockboxPath::new("/file.txt").unwrap();
+            lb.add_file(&path, b"before", false).unwrap();
+            lb.commit().unwrap();
+            lb.add_file(&path, b"after", true).unwrap();
+            lb.commit().unwrap();
+            let options = lb.format_options();
+            lb.compact().unwrap();
+            let reopened =
+                Lockbox::open_bytes(lb.try_to_bytes().unwrap(), LockboxOpen::Unencrypted).unwrap();
+            assert_eq!(reopened.format_options(), options);
+            assert_eq!(reopened.get_file(&path).unwrap(), b"after");
+        }
+    }
+}

@@ -11,6 +11,24 @@ pub struct ExporterRelease {
 }
 pub const EXPORTERS: &[ExporterRelease] = &[
     ExporterRelease {
+        package: "revault_migrate_v4",
+        version: "0.1.0",
+        binary: "revault-migrate-archive-v4",
+        protocol: 3,
+        artifact: "archive",
+        native_version: 4,
+        migration_schema: 3,
+    },
+    ExporterRelease {
+        package: "revault_migrate_v4",
+        version: "0.1.0",
+        binary: "revault-migrate-vault-v4",
+        protocol: 4,
+        artifact: "vault",
+        native_version: 4,
+        migration_schema: 3,
+    },
+    ExporterRelease {
         package: "revault_migrate_v1",
         version: "0.1.0",
         binary: "revault-migrate-archive-v1",
@@ -83,6 +101,14 @@ pub fn capabilities_match(bytes: &[u8], release: ExporterRelease) -> bool {
     }
     if !valid || release.artifact != "vault" || release.protocol < 2 {
         return valid;
+    }
+    if release.protocol >= 4
+        && value
+            .get("raw_container_export")
+            .and_then(|value| value.as_bool())
+            != Some(true)
+    {
+        return false;
     }
     if release.native_version == 4 {
         return value

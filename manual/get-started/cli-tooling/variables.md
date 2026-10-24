@@ -58,9 +58,9 @@ are encrypted but visible in ordinary listing output, including descriptions of
 secret variables. Keep secret values in the variable itself.
 
 Moving a variable moves its description; removing it removes the description.
-Variable export excludes descriptions. Archives remain readable by older
-format-4 clients, but those clients do not maintain descriptions when moving or
-removing variables. Use an updated client for those operations.
+Variable export excludes descriptions. Native descriptions require format 5
+and the 0.6.x compatibility line. Migrate older Vaults and Lockboxes before
+opening them with this version; 0.5.x clients cannot read format-5 files.
 
 ## Export normal variables
 

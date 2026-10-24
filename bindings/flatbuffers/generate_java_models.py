@@ -60,6 +60,11 @@ for name in base:
     lines = ["package com.onepub.revault;", "", f"/** {description(name)} */", f"public final class {name} {{", f"  private final com.onepub.revault.internal.{name} view;"]
     for field, value in fields:
         lines.append(f"  private final {java_type(value)} {camel(field)};")
+    if name in ("Variable", "FormField", "FormRecord"):
+        original = [(field, value) for field, value in fields if field not in ("description", "has_description")]
+        old_params = ", ".join(f"{java_type(value)} {camel(field)}" for field, value in original)
+        args = ", ".join(camel(field) for field, _ in original)
+        lines += ["  /** Creates a value without an item description. */", f'  public {name}({old_params}) {{ this({args}, "", false); }}']
     params = ", ".join(f"{java_type(value)} {camel(field)}" for field, value in fields)
     lines += ["", f"  /** Creates an application-owned {name} value. */", f"  public {name}({params}) {{", "    this.view = null;"]
     for field, _ in fields:
@@ -134,7 +139,7 @@ codec += [
     "    var offsets = new int[values.size()];",
     "    for (int index = 0; index < values.size(); index++) {",
     "      var value = values.get(index);",
-    "      offsets[index] = com.onepub.revault.internal.FormField.createFormField(builder, builder.createString(value.id()), builder.createString(value.label()), builder.createString(value.kind()), value.required());",
+    "      offsets[index] = com.onepub.revault.internal.FormField.createFormField(builder, builder.createString(value.id()), builder.createString(value.label()), builder.createString(value.kind()), value.required(), builder.createString(value.description()), value.hasDescription());",
     "    }",
     "    var vector = com.onepub.revault.internal.FormFieldList.createValuesVector(builder, offsets);",
     "    var root = com.onepub.revault.internal.FormFieldList.createFormFieldList(builder, vector);",

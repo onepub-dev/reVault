@@ -94,6 +94,10 @@ pub fn cli() -> TaskResult {
 fn cli_shards() -> Vec<(&'static str, Vec<&'static str>)> {
     vec![
         (
+            "item-descriptions",
+            vec!["test", "-p", "revault_cli", "--test", "item_descriptions"],
+        ),
+        (
             "flow-vault",
             vec!["test", "-p", "revault_cli", "--test", "cli_flow", "vault_"],
         ),

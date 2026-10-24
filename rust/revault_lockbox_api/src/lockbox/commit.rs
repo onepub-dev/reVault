@@ -1864,6 +1864,7 @@ mod tests {
             "login",
             "Login",
             vec![FormFieldDefinition {
+                description: None,
                 id: "username".to_string(),
                 label: "Username".to_string(),
                 kind: FormFieldKind::Text,
@@ -2006,6 +2007,7 @@ mod tests {
             "login",
             "Login",
             vec![FormFieldDefinition {
+                description: None,
                 id: "username".to_string(),
                 label: "Username".to_string(),
                 kind: FormFieldKind::Text,

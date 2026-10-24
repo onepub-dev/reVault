@@ -6,12 +6,12 @@ local schema = {
   StringList = {{'values','[string]'}},
   PathMove = {{'source','string'}, {'destination','string'}},
   PathMoveList = {{'values','[revault.internal.PathMove]'}},
-  FormField = {{'id','string'}, {'label','string'}, {'kind','string'}, {'required','bool'}},
+  FormField = {{'id','string'}, {'label','string'}, {'kind','string'}, {'required','bool'}, {'description','string'}, {'has_description','bool'}},
   FormFieldList = {{'values','[revault.internal.FormField]'}},
   FormDefinition = {{'type_id','string'}, {'alias','string'}, {'revision','uint'}, {'name','string'}, {'description','string'}, {'fields','[revault.internal.FormField]'}},
   FormDefinitionList = {{'values','[revault.internal.FormDefinition]'}},
   FormValue = {{'field_id','string'}, {'label','string'}, {'kind','string'}, {'value','string'}, {'secret','bool'}},
-  FormRecord = {{'path','string'}, {'name','string'}, {'type_id','string'}, {'definition_alias','string'}, {'definition_revision','uint'}, {'values','[revault.internal.FormValue]'}},
+  FormRecord = {{'path','string'}, {'name','string'}, {'type_id','string'}, {'definition_alias','string'}, {'definition_revision','uint'}, {'values','[revault.internal.FormValue]'}, {'description','string'}, {'has_description','bool'}},
   FormRecordList = {{'values','[revault.internal.FormRecord]'}},
   OptionalFormRecord = {{'value','revault.internal.FormRecord'}},
   OptionalFormValue = {{'value','revault.internal.FormValue'}},
@@ -35,7 +35,7 @@ local schema = {
   StreamChunk = {{'path','string'}, {'file_offset','ulong'}, {'length','ulong'}, {'physical_offset','ulong'}, {'sparse','bool'}, {'data','[ubyte]'}},
   StreamChunkList = {{'values','[revault.internal.StreamChunk]'}},
   RuntimeOptions = {{'workload_profile','string'}, {'worker_policy','string'}},
-  Variable = {{'name','string'}, {'sensitivity','string'}},
+  Variable = {{'name','string'}, {'sensitivity','string'}, {'description','string'}, {'has_description','bool'}},
   VariableList = {{'values','[revault.internal.Variable]'}},
   OptionalString = {{'present','bool'}, {'value','string'}},
   OwnerInspection = {{'signed','bool'}, {'fingerprint','string'}, {'has_fingerprint','bool'}},
@@ -188,11 +188,15 @@ local function append_path_move(output, value)
 end
 
 local function append_form_field(output, value)
-  local vtable = append_vtable(output, {4, 8, 12, 16}, 20)
+  local vtable = append_vtable(output, {4, 8, 12, 16, 20, 24}, 28)
   local position = align(output)
   put_u32(output, position - vtable); put_u32(output, 0); put_u32(output, 0); put_u32(output, 0)
   output[#output + 1] = value.required and 1 or 0
   output[#output + 1] = 0; output[#output + 1] = 0; output[#output + 1] = 0
+  put_u32(output, 0)
+  output[#output + 1] = value.has_description and 1 or 0
+  output[#output + 1] = 0; output[#output + 1] = 0; output[#output + 1] = 0
+  append_string(output, position + 20, value.description or '')
   append_string(output, position + 4, value.id or '')
   append_string(output, position + 8, value.label or '')
   append_string(output, position + 12, value.kind or '')

@@ -4,7 +4,7 @@ description: Manual scope, component versions and compatibility policy.
 
 # Versions and compatibility
 
-This is the <code class="expression">space.vars.manual_status</code> manual for the current `master` development line. Its CLI examples target `revault_cli` <code class="expression">space.vars.cli_version</code>, and its operator pages target `revault_key_server` <code class="expression">space.vars.key_server_version</code>.
+This is the <code class="expression">space.vars.manual_status</code> manual for the current development line. Its CLI examples target `revault_cli` <code class="expression">space.vars.cli_version</code>, and its operator pages target `revault_key_server` <code class="expression">space.vars.key_server_version</code>.
 
 {% hint style="warning" %}
 reVault is pre-release software. The archive format and public APIs may change. Do not keep the only copy of important data in a Lockbox, and retain tested Vault/Profile recovery material.
@@ -33,9 +33,9 @@ Read [Migrating between versions](../maintain-and-recover/migrating-between-vers
 ## Migration checks for a release
 
 Release preparation checks permanently retained Lockbox and Vault files from
-historical writers. The repository keeps archive fixtures for formats v1–v4 and
+historical writers. The repository keeps archive fixtures for formats v1–v5 and
 Vault fixtures for structures v1–v3, including the historical structure-v2
-containers and the current structure-v3/container-v4 combination. Each fixture
+containers and the structure-v3/container-v4 and current structure-v3/container-v5 combinations. Each fixture
 records its producing versions, supported logical content and checksums.
 
 Fixtures with the required owner material are migrated to the current native
@@ -66,3 +66,15 @@ When reporting a problem, include the exact CLI or package version rather than s
 The v4 container changes physical allocation accounting and durable transaction recovery. Vault structure version 3 remains unchanged, but its enclosing Lockbox container must migrate to v4. Older containers are read by isolated migration executables rather than the current core.
 
 The C ABI and FlatBuffers operation schema have not changed for transaction maintenance. Every distributed native carrier, including the WASM build, must nevertheless be rebuilt with the v4 core and shipped with its matching facade package. Existing binaries do not gain v4 support from a documentation or facade-only update. See [API maintenance](apis/revault-api.md#transaction-maintenance-and-v4).
+## Native descriptions and format 5
+
+The 0.6.x line stores variable descriptions, field guidance and form-record
+descriptions directly in format 5. The 0.5.x line remains format 4. A new
+compatibility line is required because neither line can open the other's
+containers directly. Migrate the Vault first, then its older Lockboxes. Vault
+structure version remains 3; its container changes to format 5.
+
+The first 0.6.0 candidate uses published 0.5.0 as a migration source and tests
+old-client refusal of format 5. Later 0.6.x releases must use a published 0.6.x
+baseline for bidirectional compatibility tests. Declaring a version does not
+establish release readiness.

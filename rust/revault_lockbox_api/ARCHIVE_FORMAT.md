@@ -1,4 +1,4 @@
-# Lockbox archive format 4 — default 0.5 compatibility line
+# Lockbox archive format 5 — default 0.6 compatibility line
 
 Normative specification for the selected default page layout. Experimental native-block
 and test-only candidate layouts are outside this specification. The maintained
@@ -7,7 +7,12 @@ part of the publication/recovery rules below. This document must be read with
 its exact conformance source and retained vectors; it does not qualify release
 artifacts by itself.
 
-This document specifies the default format-4 encoding for reVault 0.5. All on-disk numeric fields are little-endian unless stated otherwise.
+This document specifies the default format-5 encoding for reVault 0.6. All on-disk numeric fields are little-endian unless stated otherwise.
+
+Format 5 retains the format-4 page, transaction, authentication and key-directory
+layouts, including their existing `v4` cryptographic domain strings. It changes
+the header discriminator and variable/form node payloads to carry descriptions
+on their owners. Node version 1 payloads require historical migration readers.
 
 On-disk structures are field encodings, not native memory layouts. Native-endian
 conversions, memory transmutation, and raw struct layout are not part of the
@@ -279,8 +284,8 @@ little-endian. The following offsets are relative to a slot:
 
 | Offset | Bytes | Field |
 | --- | --- | --- |
-| 0 | 8 | Magic `LBX4HDR\0` |
-| 8 | 2 | Native format version, 4 |
+| 0 | 8 | Magic `LBX5HDR\0` |
+| 8 | 2 | Native format version, 5 |
 | 10 | 2 | Format mode |
 | 12 | 4 | Slot length, 192 |
 | 16 | 8 | Publication generation, nonzero |
@@ -330,12 +335,12 @@ legacy encoding: encrypted, owner-signed, Zstd level 1, default padding.
 `0x0100` is not a second legacy encoding and is invalid. Runtime cache and worker
 policies are not stored in this field.
 
-Every 0.5 reader must support all valid persisted choices above. A later patch
+Every 0.6 reader must support all valid persisted choices above. A later patch
 must not emit new mandatory flags, codecs, versions or records unreadable by an
-earlier 0.5 reader. Such a change requires a new compatibility line. Experimental
+earlier 0.6 reader. Such a change requires a new compatibility line. Experimental
 native-block-layout and test-only candidate encodings are not alternate default
-0.5 wire formats. Historical formats 1–3 use explicit migration readers; the
-native v4 reader refuses them. Earlier development v4 encodings with obsolete
+0.6 wire formats. Historical formats 1–4 use explicit migration readers; the
+native format-5 reader refuses them. Earlier development v4 encodings with obsolete
 root/auth versions are not silently accepted as equivalent to this specification.
 
 ## Commit Model And Update Atomicity
@@ -922,7 +927,7 @@ Variable leaf and internal object payloads start with:
 
 ```text
 offset  size  field
-0       1     variable node version: 1
+0       1     variable node version: 2
 1       1     node kind: 1 = leaf, 2 = internal
 ```
 
@@ -943,9 +948,17 @@ Each variable entry is:
 offset  size  field
 0       n     stored variable name as 16-bit unsigned little-endian length-prefixed UTF-8 string
 n       1     sensitivity tag: 0 = normal, 1 = secret
-n+1     4     value byte length as 32-bit unsigned little-endian integer
-n+5     m     UTF-8 value bytes
+n+1     d     optional description (encoding below)
+...     4     value byte length as 32-bit unsigned little-endian integer
+...     m     UTF-8 value bytes
 ```
+
+Optional descriptions use a 32-bit unsigned little-endian prefix. `0xffffffff`
+means absent, with no following bytes. Otherwise the prefix is the UTF-8 byte
+length followed by exactly that many bytes; zero means explicitly empty.
+Descriptions support multiline text and use normal-variable text validation,
+including the one-mebibyte limit. The containing metadata page limits also apply.
+The same optional encoding is used by field definitions and form records.
 
 Stored variable names are sorted. Current normal variables use the `.plain/`
 prefix and current secret variables use the `.secret/` prefix. The sensitivity
@@ -971,7 +984,7 @@ Form leaf and internal object payloads start with:
 
 ```text
 offset  size  field
-0       1     form node version: 1
+0       1     form node version: 2
 1       1     node kind: 1 = leaf, 2 = internal
 ```
 
@@ -1021,11 +1034,12 @@ Each field definition is:
 offset  size  field
 0       n     field id as 16-bit unsigned little-endian length-prefixed UTF-8 string
 n       m     label as 16-bit unsigned little-endian length-prefixed UTF-8 string
+...     d     optional description using the variable-description encoding
 ...     1     field kind
 ...     1     required flag: 0 = false, 1 = true
 ```
 
-Each field definition contains a field id, label, kind, and required flag.
+Each field definition contains a field id, label, optional description, kind, and required flag.
 Supported field kinds are text, secret, URL, email, date, month, notes, and
 number. Date values are stored as `YYYY-MM-DD`. Month values are year-month
 values stored as `YYYY-MM`.
@@ -1049,6 +1063,7 @@ Form record payload:
 offset  size  field
 0       n     record lockbox path as 16-bit unsigned little-endian length-prefixed UTF-8 string
 n       m     record name as 16-bit unsigned little-endian length-prefixed UTF-8 string
+...     d     optional description using the variable-description encoding
 ...     n     form type id as 16-bit unsigned little-endian length-prefixed UTF-8 string
 ...     n     captured definition alias, 16-bit unsigned little-endian length-prefixed UTF-8 string
 ...     4     captured definition revision

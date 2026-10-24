@@ -210,7 +210,7 @@ def generate() -> str:
         "  /// Encodes atomic path moves for the native ABI.",
         "  static Uint8List pathMoves(List<PathMove> values) => fb.PathMoveListObjectBuilder(values: values.map((value) => fb.PathMoveObjectBuilder(source: value.source, destination: value.destination)).toList()).toBytes();",
         "  /// Encodes form fields for the native ABI.",
-        "  static Uint8List formFields(List<FormField> values) => fb.FormFieldListObjectBuilder(values: values.map((value) => fb.FormFieldObjectBuilder(id: value.id, label: value.label, kind: value.kind, $required: value.required)).toList()).toBytes();",
+        "  static Uint8List formFields(List<FormField> values) => fb.FormFieldListObjectBuilder(values: values.map((value) => fb.FormFieldObjectBuilder(id: value.id, label: value.label, kind: value.kind, $required: value.required, description: value.description, hasDescription: value.hasDescription)).toList()).toBytes();",
     ]
     lines += ["}", ""]
     return "\n".join(lines)

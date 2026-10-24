@@ -758,14 +758,24 @@ class FormField {
       const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
   bool get $required =>
       const fb.BoolReader().vTableGet(_bc, _bcOffset, 10, false);
+  String? get description =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 12);
+  bool get hasDescription =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 14, false);
 
   @override
   String toString() {
-    return 'FormField{id: ${id}, label: ${label}, kind: ${kind}, \$required: ${$required}}';
+    return 'FormField{id: ${id}, label: ${label}, kind: ${kind}, \$required: ${$required}, description: ${description}, hasDescription: ${hasDescription}}';
   }
 
-  FormFieldT unpack() =>
-      FormFieldT(id: id, label: label, kind: kind, $required: $required);
+  FormFieldT unpack() => FormFieldT(
+    id: id,
+    label: label,
+    kind: kind,
+    $required: $required,
+    description: description,
+    hasDescription: hasDescription,
+  );
 
   static int pack(fb.Builder fbBuilder, FormFieldT? object) {
     if (object == null) return 0;
@@ -778,8 +788,17 @@ class FormFieldT implements fb.Packable {
   String? label;
   String? kind;
   bool $required;
+  String? description;
+  bool hasDescription;
 
-  FormFieldT({this.id, this.label, this.kind, this.$required = false});
+  FormFieldT({
+    this.id,
+    this.label,
+    this.kind,
+    this.$required = false,
+    this.description,
+    this.hasDescription = false,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
@@ -788,17 +807,22 @@ class FormFieldT implements fb.Packable {
         ? null
         : fbBuilder.writeString(label!);
     final int? kindOffset = kind == null ? null : fbBuilder.writeString(kind!);
-    fbBuilder.startTable(4);
+    final int? descriptionOffset = description == null
+        ? null
+        : fbBuilder.writeString(description!);
+    fbBuilder.startTable(6);
     fbBuilder.addOffset(0, idOffset);
     fbBuilder.addOffset(1, labelOffset);
     fbBuilder.addOffset(2, kindOffset);
     fbBuilder.addBool(3, $required);
+    fbBuilder.addOffset(4, descriptionOffset);
+    fbBuilder.addBool(5, hasDescription);
     return fbBuilder.endTable();
   }
 
   @override
   String toString() {
-    return 'FormFieldT{id: ${id}, label: ${label}, kind: ${kind}, \$required: ${$required}}';
+    return 'FormFieldT{id: ${id}, label: ${label}, kind: ${kind}, \$required: ${$required}, description: ${description}, hasDescription: ${hasDescription}}';
   }
 }
 
@@ -816,7 +840,7 @@ class FormFieldBuilder {
   final fb.Builder fbBuilder;
 
   void begin() {
-    fbBuilder.startTable(4);
+    fbBuilder.startTable(6);
   }
 
   int addIdOffset(int? offset) {
@@ -839,6 +863,16 @@ class FormFieldBuilder {
     return fbBuilder.offset;
   }
 
+  int addDescriptionOffset(int? offset) {
+    fbBuilder.addOffset(4, offset);
+    return fbBuilder.offset;
+  }
+
+  int addHasDescription(bool? hasDescription) {
+    fbBuilder.addBool(5, hasDescription);
+    return fbBuilder.offset;
+  }
+
   int finish() {
     return fbBuilder.endTable();
   }
@@ -849,16 +883,22 @@ class FormFieldObjectBuilder extends fb.ObjectBuilder {
   final String? _label;
   final String? _kind;
   final bool? _$required;
+  final String? _description;
+  final bool? _hasDescription;
 
   FormFieldObjectBuilder({
     String? id,
     String? label,
     String? kind,
     bool? $required,
+    String? description,
+    bool? hasDescription,
   }) : _id = id,
        _label = label,
        _kind = kind,
-       _$required = $required;
+       _$required = $required,
+       _description = description,
+       _hasDescription = hasDescription;
 
   /// Finish building, and store into the [fbBuilder].
   @override
@@ -870,11 +910,16 @@ class FormFieldObjectBuilder extends fb.ObjectBuilder {
     final int? kindOffset = _kind == null
         ? null
         : fbBuilder.writeString(_kind!);
-    fbBuilder.startTable(4);
+    final int? descriptionOffset = _description == null
+        ? null
+        : fbBuilder.writeString(_description!);
+    fbBuilder.startTable(6);
     fbBuilder.addOffset(0, idOffset);
     fbBuilder.addOffset(1, labelOffset);
     fbBuilder.addOffset(2, kindOffset);
     fbBuilder.addBool(3, _$required);
+    fbBuilder.addOffset(4, descriptionOffset);
+    fbBuilder.addBool(5, _hasDescription);
     return fbBuilder.endTable();
   }
 
@@ -1513,10 +1558,14 @@ class FormRecord {
   List<FormValue>? get values => const fb.ListReader<FormValue>(
     FormValue.reader,
   ).vTableGetNullable(_bc, _bcOffset, 14);
+  String? get description =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 16);
+  bool get hasDescription =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 18, false);
 
   @override
   String toString() {
-    return 'FormRecord{path: ${path}, name: ${name}, typeId: ${typeId}, definitionAlias: ${definitionAlias}, definitionRevision: ${definitionRevision}, values: ${values}}';
+    return 'FormRecord{path: ${path}, name: ${name}, typeId: ${typeId}, definitionAlias: ${definitionAlias}, definitionRevision: ${definitionRevision}, values: ${values}, description: ${description}, hasDescription: ${hasDescription}}';
   }
 
   FormRecordT unpack() => FormRecordT(
@@ -1526,6 +1575,8 @@ class FormRecord {
     definitionAlias: definitionAlias,
     definitionRevision: definitionRevision,
     values: values?.map((e) => e.unpack()).toList(),
+    description: description,
+    hasDescription: hasDescription,
   );
 
   static int pack(fb.Builder fbBuilder, FormRecordT? object) {
@@ -1541,6 +1592,8 @@ class FormRecordT implements fb.Packable {
   String? definitionAlias;
   int definitionRevision;
   List<FormValueT>? values;
+  String? description;
+  bool hasDescription;
 
   FormRecordT({
     this.path,
@@ -1549,6 +1602,8 @@ class FormRecordT implements fb.Packable {
     this.definitionAlias,
     this.definitionRevision = 0,
     this.values,
+    this.description,
+    this.hasDescription = false,
   });
 
   @override
@@ -1564,19 +1619,24 @@ class FormRecordT implements fb.Packable {
     final int? valuesOffset = values == null
         ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
-    fbBuilder.startTable(6);
+    final int? descriptionOffset = description == null
+        ? null
+        : fbBuilder.writeString(description!);
+    fbBuilder.startTable(8);
     fbBuilder.addOffset(0, pathOffset);
     fbBuilder.addOffset(1, nameOffset);
     fbBuilder.addOffset(2, typeIdOffset);
     fbBuilder.addOffset(3, definitionAliasOffset);
     fbBuilder.addUint32(4, definitionRevision);
     fbBuilder.addOffset(5, valuesOffset);
+    fbBuilder.addOffset(6, descriptionOffset);
+    fbBuilder.addBool(7, hasDescription);
     return fbBuilder.endTable();
   }
 
   @override
   String toString() {
-    return 'FormRecordT{path: ${path}, name: ${name}, typeId: ${typeId}, definitionAlias: ${definitionAlias}, definitionRevision: ${definitionRevision}, values: ${values}}';
+    return 'FormRecordT{path: ${path}, name: ${name}, typeId: ${typeId}, definitionAlias: ${definitionAlias}, definitionRevision: ${definitionRevision}, values: ${values}, description: ${description}, hasDescription: ${hasDescription}}';
   }
 }
 
@@ -1594,7 +1654,7 @@ class FormRecordBuilder {
   final fb.Builder fbBuilder;
 
   void begin() {
-    fbBuilder.startTable(6);
+    fbBuilder.startTable(8);
   }
 
   int addPathOffset(int? offset) {
@@ -1627,6 +1687,16 @@ class FormRecordBuilder {
     return fbBuilder.offset;
   }
 
+  int addDescriptionOffset(int? offset) {
+    fbBuilder.addOffset(6, offset);
+    return fbBuilder.offset;
+  }
+
+  int addHasDescription(bool? hasDescription) {
+    fbBuilder.addBool(7, hasDescription);
+    return fbBuilder.offset;
+  }
+
   int finish() {
     return fbBuilder.endTable();
   }
@@ -1639,6 +1709,8 @@ class FormRecordObjectBuilder extends fb.ObjectBuilder {
   final String? _definitionAlias;
   final int? _definitionRevision;
   final List<FormValueObjectBuilder>? _values;
+  final String? _description;
+  final bool? _hasDescription;
 
   FormRecordObjectBuilder({
     String? path,
@@ -1647,12 +1719,16 @@ class FormRecordObjectBuilder extends fb.ObjectBuilder {
     String? definitionAlias,
     int? definitionRevision,
     List<FormValueObjectBuilder>? values,
+    String? description,
+    bool? hasDescription,
   }) : _path = path,
        _name = name,
        _typeId = typeId,
        _definitionAlias = definitionAlias,
        _definitionRevision = definitionRevision,
-       _values = values;
+       _values = values,
+       _description = description,
+       _hasDescription = hasDescription;
 
   /// Finish building, and store into the [fbBuilder].
   @override
@@ -1674,13 +1750,18 @@ class FormRecordObjectBuilder extends fb.ObjectBuilder {
         : fbBuilder.writeList(
             _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
           );
-    fbBuilder.startTable(6);
+    final int? descriptionOffset = _description == null
+        ? null
+        : fbBuilder.writeString(_description!);
+    fbBuilder.startTable(8);
     fbBuilder.addOffset(0, pathOffset);
     fbBuilder.addOffset(1, nameOffset);
     fbBuilder.addOffset(2, typeIdOffset);
     fbBuilder.addOffset(3, definitionAliasOffset);
     fbBuilder.addUint32(4, _definitionRevision);
     fbBuilder.addOffset(5, valuesOffset);
+    fbBuilder.addOffset(6, descriptionOffset);
+    fbBuilder.addBool(7, _hasDescription);
     return fbBuilder.endTable();
   }
 
@@ -4940,13 +5021,22 @@ class Variable {
       const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
   String? get sensitivity =>
       const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get description =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
+  bool get hasDescription =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 10, false);
 
   @override
   String toString() {
-    return 'Variable{name: ${name}, sensitivity: ${sensitivity}}';
+    return 'Variable{name: ${name}, sensitivity: ${sensitivity}, description: ${description}, hasDescription: ${hasDescription}}';
   }
 
-  VariableT unpack() => VariableT(name: name, sensitivity: sensitivity);
+  VariableT unpack() => VariableT(
+    name: name,
+    sensitivity: sensitivity,
+    description: description,
+    hasDescription: hasDescription,
+  );
 
   static int pack(fb.Builder fbBuilder, VariableT? object) {
     if (object == null) return 0;
@@ -4957,8 +5047,15 @@ class Variable {
 class VariableT implements fb.Packable {
   String? name;
   String? sensitivity;
+  String? description;
+  bool hasDescription;
 
-  VariableT({this.name, this.sensitivity});
+  VariableT({
+    this.name,
+    this.sensitivity,
+    this.description,
+    this.hasDescription = false,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
@@ -4966,15 +5063,20 @@ class VariableT implements fb.Packable {
     final int? sensitivityOffset = sensitivity == null
         ? null
         : fbBuilder.writeString(sensitivity!);
-    fbBuilder.startTable(2);
+    final int? descriptionOffset = description == null
+        ? null
+        : fbBuilder.writeString(description!);
+    fbBuilder.startTable(4);
     fbBuilder.addOffset(0, nameOffset);
     fbBuilder.addOffset(1, sensitivityOffset);
+    fbBuilder.addOffset(2, descriptionOffset);
+    fbBuilder.addBool(3, hasDescription);
     return fbBuilder.endTable();
   }
 
   @override
   String toString() {
-    return 'VariableT{name: ${name}, sensitivity: ${sensitivity}}';
+    return 'VariableT{name: ${name}, sensitivity: ${sensitivity}, description: ${description}, hasDescription: ${hasDescription}}';
   }
 }
 
@@ -4992,7 +5094,7 @@ class VariableBuilder {
   final fb.Builder fbBuilder;
 
   void begin() {
-    fbBuilder.startTable(2);
+    fbBuilder.startTable(4);
   }
 
   int addNameOffset(int? offset) {
@@ -5005,6 +5107,16 @@ class VariableBuilder {
     return fbBuilder.offset;
   }
 
+  int addDescriptionOffset(int? offset) {
+    fbBuilder.addOffset(2, offset);
+    return fbBuilder.offset;
+  }
+
+  int addHasDescription(bool? hasDescription) {
+    fbBuilder.addBool(3, hasDescription);
+    return fbBuilder.offset;
+  }
+
   int finish() {
     return fbBuilder.endTable();
   }
@@ -5013,10 +5125,18 @@ class VariableBuilder {
 class VariableObjectBuilder extends fb.ObjectBuilder {
   final String? _name;
   final String? _sensitivity;
+  final String? _description;
+  final bool? _hasDescription;
 
-  VariableObjectBuilder({String? name, String? sensitivity})
-    : _name = name,
-      _sensitivity = sensitivity;
+  VariableObjectBuilder({
+    String? name,
+    String? sensitivity,
+    String? description,
+    bool? hasDescription,
+  }) : _name = name,
+       _sensitivity = sensitivity,
+       _description = description,
+       _hasDescription = hasDescription;
 
   /// Finish building, and store into the [fbBuilder].
   @override
@@ -5027,9 +5147,14 @@ class VariableObjectBuilder extends fb.ObjectBuilder {
     final int? sensitivityOffset = _sensitivity == null
         ? null
         : fbBuilder.writeString(_sensitivity!);
-    fbBuilder.startTable(2);
+    final int? descriptionOffset = _description == null
+        ? null
+        : fbBuilder.writeString(_description!);
+    fbBuilder.startTable(4);
     fbBuilder.addOffset(0, nameOffset);
     fbBuilder.addOffset(1, sensitivityOffset);
+    fbBuilder.addOffset(2, descriptionOffset);
+    fbBuilder.addBool(3, _hasDescription);
     return fbBuilder.endTable();
   }
 

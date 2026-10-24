@@ -3,6 +3,144 @@ use common::CommandTestExt;
 use std::process::{Command, Output};
 
 #[test]
+fn every_description_command_and_input_source_persists() {
+    let root = tempfile::tempdir().unwrap();
+    let archive = root.path().join("items.lbox");
+    let archive = archive.to_str().unwrap();
+    let input_file = root.path().join("description.txt");
+    std::fs::write(&input_file, "From file\nSecond line").unwrap();
+    let invoke = |args: &[&str], input: &[u8]| {
+        Command::new(env!("CARGO_BIN_EXE_lockbox"))
+            .args(args)
+            .env_remove("LOCKBOX_KEY")
+            .env("LOCKBOX_PASSWORD", "synthetic-item-password")
+            .env("LOCKBOX_VAULT_PASSWORD", "synthetic-vault-password")
+            .env("LOCKBOX_VAULT_DIR", root.path().join("vault"))
+            .env("LOCKBOX_SESSION_AGENT_DIR", root.path().join("agent"))
+            .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+            .env("DESCRIPTION_TEST_TEXT", "From environment\nSecond line")
+            .test_output_with_input(input)
+            .unwrap()
+    };
+    let run = |args: &[&str], input: &[u8]| {
+        let result = invoke(args, input);
+        assert!(
+            result.status.success(),
+            "{args:?}: {}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        String::from_utf8(result.stdout).unwrap()
+    };
+    run(&["vault", "init"], b"");
+    run(&[archive, "create", "--password", "--signing", "none"], b"");
+    run(&[archive, "variables", "set", "HOST", "localhost"], b"");
+    run(
+        &[
+            archive,
+            "forms",
+            "define",
+            "login",
+            "--field",
+            "username:text",
+        ],
+        b"",
+    );
+    run(
+        &[archive, "forms", "add", "/account", "--type", "login"],
+        b"",
+    );
+    run(
+        &[
+            "vault",
+            "forms",
+            "define",
+            "login",
+            "--field",
+            "username:text",
+        ],
+        b"",
+    );
+    for (prefix, target, is_definition) in [
+        (
+            vec![archive, "variables", "description"],
+            vec!["HOST"],
+            false,
+        ),
+        (
+            vec![archive, "forms", "description"],
+            vec!["/account"],
+            false,
+        ),
+        (
+            vec![archive, "forms", "definition-description"],
+            vec!["login"],
+            true,
+        ),
+        (
+            vec![archive, "forms", "field-description"],
+            vec!["login", "username"],
+            false,
+        ),
+        (vec!["vault", "forms", "description"], vec!["login"], true),
+        (
+            vec!["vault", "forms", "field-description"],
+            vec!["login", "username"],
+            false,
+        ),
+    ] {
+        let mut get = prefix.clone();
+        get.push("get");
+        get.extend_from_slice(&target);
+        for (source, input, expected) in [
+            (
+                vec!["Initial\nInstructions"],
+                b"".as_slice(),
+                "Initial\nInstructions",
+            ),
+            (
+                vec!["--stdin"],
+                b"From stdin\nSecond line".as_slice(),
+                "From stdin\nSecond line",
+            ),
+            (
+                vec!["--file", input_file.to_str().unwrap()],
+                b"".as_slice(),
+                "From file\nSecond line",
+            ),
+            (
+                vec!["--from-env", "DESCRIPTION_TEST_TEXT"],
+                b"".as_slice(),
+                "From environment\nSecond line",
+            ),
+            (
+                vec!["--interactive"],
+                b"From prompt\n".as_slice(),
+                "From prompt",
+            ),
+        ] {
+            let mut set = prefix.clone();
+            set.push("set");
+            set.extend_from_slice(&target);
+            set.extend(source);
+            run(&set, input);
+            assert_eq!(run(&get, b""), expected);
+            run(&set, input);
+            assert_eq!(run(&get, b""), expected);
+        }
+        let mut clear = prefix;
+        clear.push("clear");
+        clear.extend(target);
+        run(&clear, b"");
+        run(&clear, b"");
+        if is_definition {
+            assert_eq!(run(&get, b""), "");
+        } else {
+            assert!(!invoke(&get, b"").status.success());
+        }
+    }
+}
+
+#[test]
 fn item_description_cli_persisted_lifecycle_and_multiline_output() {
     let dir = tempfile::tempdir().unwrap();
     let archive = dir.path().join("descriptions.lbox");
@@ -127,6 +265,23 @@ fn item_description_cli_persisted_lifecycle_and_multiline_output() {
     ] {
         assert!(shown.contains(text), "{shown}");
     }
+    run(
+        &[
+            "forms",
+            "define",
+            "login",
+            "--field",
+            "password:secret:required:Revised password",
+        ],
+        b"",
+    );
+    assert_eq!(
+        run(
+            &["forms", "field-description", "get", "login", "password"],
+            b""
+        ),
+        "App password\nKeep it private"
+    );
     run(&["forms", "move", "/staging", "/renamed"], b"");
     assert_eq!(
         run(&["forms", "description", "get", "/renamed/staging"], b""),

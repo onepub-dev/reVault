@@ -22,6 +22,8 @@ import java.nio.ByteOrder;
 public class VariableT {
   private String name;
   private String sensitivity;
+  private String description;
+  private boolean hasDescription;
 
   public String getName() { return name; }
 
@@ -31,9 +33,19 @@ public class VariableT {
 
   public void setSensitivity(String sensitivity) { this.sensitivity = sensitivity; }
 
+  public String getDescription() { return description; }
+
+  public void setDescription(String description) { this.description = description; }
+
+  public boolean getHasDescription() { return hasDescription; }
+
+  public void setHasDescription(boolean hasDescription) { this.hasDescription = hasDescription; }
+
 
   public VariableT() {
     this.name = null;
     this.sensitivity = null;
+    this.description = null;
+    this.hasDescription = false;
   }
 }

@@ -49,7 +49,7 @@ lines = [
 ]
 for name in base:
     fields = tables[name]
-    params = ", ".join(f"{ctype(value)} {pascal(field)}" for field, value in fields)
+    params = ", ".join(f"{ctype(value)} {pascal(field)}" + (' = ""' if field == "description" and name in ("Variable", "FormField", "FormRecord") else " = false" if field == "has_description" else "") for field, value in fields)
     lines += [f"/// <summary>{description(name)}</summary>"]
     for field, _ in fields:
         lines.append(f"/// <param name=\"{pascal(field)}\">{field_description(name, field)}</param>")
@@ -96,7 +96,7 @@ lines += [
     "    internal static FormValue? OptionalFormValue(byte[] bytes) { var value = Revault.Internal.Transport.OptionalFormValue.GetRootAsOptionalFormValue(new ByteBuffer(bytes)).UnPack().Value; return value is null ? null : FromInternal(value); }",
     "    internal static string? OptionalString(byte[] bytes) { var value = Revault.Internal.Transport.OptionalString.GetRootAsOptionalString(new ByteBuffer(bytes)).UnPack(); return value.Present ? value.Value : null; }",
     "    internal static byte[] EncodePathMoves(IReadOnlyList<PathMove> values) { var builder = new FlatBufferBuilder(256); var transport = new Revault.Internal.Transport.PathMoveListT { Values = values.Select(value => new Revault.Internal.Transport.PathMoveT { Source = value.Source, Destination = value.Destination }).ToList() }; var root = Revault.Internal.Transport.PathMoveList.Pack(builder, transport); builder.Finish(root.Value); return builder.SizedByteArray(); }",
-    "    internal static byte[] EncodeFormFields(IReadOnlyList<FormField> values) { var builder = new FlatBufferBuilder(256); var transport = new Revault.Internal.Transport.FormFieldListT { Values = values.Select(value => new Revault.Internal.Transport.FormFieldT { Id = value.Id, Label = value.Label, Kind = value.Kind, Required = value.Required }).ToList() }; var root = Revault.Internal.Transport.FormFieldList.Pack(builder, transport); builder.Finish(root.Value); return builder.SizedByteArray(); }",
+    "    internal static byte[] EncodeFormFields(IReadOnlyList<FormField> values) { var builder = new FlatBufferBuilder(256); var transport = new Revault.Internal.Transport.FormFieldListT { Values = values.Select(value => new Revault.Internal.Transport.FormFieldT { Id = value.Id, Label = value.Label, Kind = value.Kind, Required = value.Required, Description = value.Description, HasDescription = value.HasDescription }).ToList() }; var root = Revault.Internal.Transport.FormFieldList.Pack(builder, transport); builder.Finish(root.Value); return builder.SizedByteArray(); }",
     "}", "",
 ]
 OUTPUT.write_text("\n".join(lines).replace("Revault.Internal.Transport", TRANSPORT_NAMESPACE))

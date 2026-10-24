@@ -512,6 +512,8 @@ internal struct revault_internal__FormField: FlatBufferObject, Verifiable, Objec
     case label = 6
     case kind = 8
     case required_ = 10
+    case description = 12
+    case hasDescription = 14
     var v: Int32 { Int32(self.rawValue) }
     var p: VOffset { self.rawValue }
   }
@@ -523,25 +525,35 @@ internal struct revault_internal__FormField: FlatBufferObject, Verifiable, Objec
   internal var kind: String? { let o = _accessor.offset(VTOFFSET.kind.v); return o == 0 ? nil : _accessor.string(at: o) }
   internal var kindSegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.kind.v) }
   internal var required_: Bool { let o = _accessor.offset(VTOFFSET.required_.v); return o == 0 ? false : _accessor.readBuffer(of: Bool.self, at: o) }
-  internal static func startFormField(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 4) }
+  internal var description: String? { let o = _accessor.offset(VTOFFSET.description.v); return o == 0 ? nil : _accessor.string(at: o) }
+  internal var descriptionSegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.description.v) }
+  internal var hasDescription: Bool { let o = _accessor.offset(VTOFFSET.hasDescription.v); return o == 0 ? false : _accessor.readBuffer(of: Bool.self, at: o) }
+  internal static func startFormField(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 6) }
   internal static func add(id: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: id, at: VTOFFSET.id.p) }
   internal static func add(label: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: label, at: VTOFFSET.label.p) }
   internal static func add(kind: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: kind, at: VTOFFSET.kind.p) }
   internal static func add(required_: Bool, _ fbb: inout FlatBufferBuilder) { fbb.add(element: required_, def: false,
    at: VTOFFSET.required_.p) }
+  internal static func add(description: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: description, at: VTOFFSET.description.p) }
+  internal static func add(hasDescription: Bool, _ fbb: inout FlatBufferBuilder) { fbb.add(element: hasDescription, def: false,
+   at: VTOFFSET.hasDescription.p) }
   internal static func endFormField(_ fbb: inout FlatBufferBuilder, start: UOffset) -> Offset { let end = Offset(offset: fbb.endTable(at: start)); return end }
   internal static func createFormField(
     _ fbb: inout FlatBufferBuilder,
     idOffset id: Offset = Offset(),
     labelOffset label: Offset = Offset(),
     kindOffset kind: Offset = Offset(),
-    required_: Bool = false
+    required_: Bool = false,
+    descriptionOffset description: Offset = Offset(),
+    hasDescription: Bool = false
   ) -> Offset {
     let __start = revault_internal__FormField.startFormField(&fbb)
     revault_internal__FormField.add(id: id, &fbb)
     revault_internal__FormField.add(label: label, &fbb)
     revault_internal__FormField.add(kind: kind, &fbb)
     revault_internal__FormField.add(required_: required_, &fbb)
+    revault_internal__FormField.add(description: description, &fbb)
+    revault_internal__FormField.add(hasDescription: hasDescription, &fbb)
     return revault_internal__FormField.endFormField(&fbb, start: __start)
   }
 
@@ -576,11 +588,20 @@ internal struct revault_internal__FormField: FlatBufferObject, Verifiable, Objec
       __kind = Offset()
     }
 
+    let __description: Offset
+    if let s = obj.description {
+      __description = builder.create(string: s)
+    } else {
+      __description = Offset()
+    }
+
     let __root = revault_internal__FormField.startFormField(&builder)
     revault_internal__FormField.add(id: __id, &builder)
     revault_internal__FormField.add(label: __label, &builder)
     revault_internal__FormField.add(kind: __kind, &builder)
     revault_internal__FormField.add(required_: obj.required_, &builder)
+    revault_internal__FormField.add(description: __description, &builder)
+    revault_internal__FormField.add(hasDescription: obj.hasDescription, &builder)
     return revault_internal__FormField.endFormField(&builder, start: __root)
   }
 
@@ -590,6 +611,8 @@ internal struct revault_internal__FormField: FlatBufferObject, Verifiable, Objec
     try _v.visit(field: VTOFFSET.label.p, fieldName: "label", required: false, type: ForwardOffset<String>.self)
     try _v.visit(field: VTOFFSET.kind.p, fieldName: "kind", required: false, type: ForwardOffset<String>.self)
     try _v.visit(field: VTOFFSET.required_.p, fieldName: "required_", required: false, type: Bool.self)
+    try _v.visit(field: VTOFFSET.description.p, fieldName: "description", required: false, type: ForwardOffset<String>.self)
+    try _v.visit(field: VTOFFSET.hasDescription.p, fieldName: "hasDescription", required: false, type: Bool.self)
     _v.finish()
   }
 }
@@ -600,16 +623,21 @@ internal class revault_internal__FormFieldT: NativeObject {
   internal var label: String?
   internal var kind: String?
   internal var required_: Bool
+  internal var description: String?
+  internal var hasDescription: Bool
 
   internal init(_ _t: inout revault_internal__FormField) {
     id = _t.id
     label = _t.label
     kind = _t.kind
     required_ = _t.required_
+    description = _t.description
+    hasDescription = _t.hasDescription
   }
 
   internal init() {
     required_ = false
+    hasDescription = false
   }
 
   internal func serialize() -> ByteBuffer { return serialize(type: revault_internal__FormField.self) }
@@ -1071,6 +1099,8 @@ internal struct revault_internal__FormRecord: FlatBufferObject, Verifiable, Obje
     case definitionAlias = 10
     case definitionRevision = 12
     case values = 14
+    case description = 16
+    case hasDescription = 18
     var v: Int32 { Int32(self.rawValue) }
     var p: VOffset { self.rawValue }
   }
@@ -1087,13 +1117,19 @@ internal struct revault_internal__FormRecord: FlatBufferObject, Verifiable, Obje
   internal var hasValues: Bool { let o = _accessor.offset(VTOFFSET.values.v); return o == 0 ? false : true }
   internal var valuesCount: Int32 { let o = _accessor.offset(VTOFFSET.values.v); return o == 0 ? 0 : _accessor.vector(count: o) }
   internal func values(at index: Int32) -> revault_internal__FormValue? { let o = _accessor.offset(VTOFFSET.values.v); return o == 0 ? nil : revault_internal__FormValue(_accessor.bb, o: _accessor.indirect(_accessor.vector(at: o) + index * 4)) }
-  internal static func startFormRecord(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 6) }
+  internal var description: String? { let o = _accessor.offset(VTOFFSET.description.v); return o == 0 ? nil : _accessor.string(at: o) }
+  internal var descriptionSegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.description.v) }
+  internal var hasDescription: Bool { let o = _accessor.offset(VTOFFSET.hasDescription.v); return o == 0 ? false : _accessor.readBuffer(of: Bool.self, at: o) }
+  internal static func startFormRecord(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 8) }
   internal static func add(path: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: path, at: VTOFFSET.path.p) }
   internal static func add(name: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: name, at: VTOFFSET.name.p) }
   internal static func add(typeId: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: typeId, at: VTOFFSET.typeId.p) }
   internal static func add(definitionAlias: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: definitionAlias, at: VTOFFSET.definitionAlias.p) }
   internal static func add(definitionRevision: UInt32, _ fbb: inout FlatBufferBuilder) { fbb.add(element: definitionRevision, def: 0, at: VTOFFSET.definitionRevision.p) }
   internal static func addVectorOf(values: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: values, at: VTOFFSET.values.p) }
+  internal static func add(description: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: description, at: VTOFFSET.description.p) }
+  internal static func add(hasDescription: Bool, _ fbb: inout FlatBufferBuilder) { fbb.add(element: hasDescription, def: false,
+   at: VTOFFSET.hasDescription.p) }
   internal static func endFormRecord(_ fbb: inout FlatBufferBuilder, start: UOffset) -> Offset { let end = Offset(offset: fbb.endTable(at: start)); return end }
   internal static func createFormRecord(
     _ fbb: inout FlatBufferBuilder,
@@ -1102,7 +1138,9 @@ internal struct revault_internal__FormRecord: FlatBufferObject, Verifiable, Obje
     typeIdOffset typeId: Offset = Offset(),
     definitionAliasOffset definitionAlias: Offset = Offset(),
     definitionRevision: UInt32 = 0,
-    valuesVectorOffset values: Offset = Offset()
+    valuesVectorOffset values: Offset = Offset(),
+    descriptionOffset description: Offset = Offset(),
+    hasDescription: Bool = false
   ) -> Offset {
     let __start = revault_internal__FormRecord.startFormRecord(&fbb)
     revault_internal__FormRecord.add(path: path, &fbb)
@@ -1111,6 +1149,8 @@ internal struct revault_internal__FormRecord: FlatBufferObject, Verifiable, Obje
     revault_internal__FormRecord.add(definitionAlias: definitionAlias, &fbb)
     revault_internal__FormRecord.add(definitionRevision: definitionRevision, &fbb)
     revault_internal__FormRecord.addVectorOf(values: values, &fbb)
+    revault_internal__FormRecord.add(description: description, &fbb)
+    revault_internal__FormRecord.add(hasDescription: hasDescription, &fbb)
     return revault_internal__FormRecord.endFormRecord(&fbb, start: __start)
   }
 
@@ -1157,6 +1197,13 @@ internal struct revault_internal__FormRecord: FlatBufferObject, Verifiable, Obje
       __values__.append(revault_internal__FormValue.pack(&builder, obj: &i))
     }
     let __values = builder.createVector(ofOffsets: __values__)
+    let __description: Offset
+    if let s = obj.description {
+      __description = builder.create(string: s)
+    } else {
+      __description = Offset()
+    }
+
     let __root = revault_internal__FormRecord.startFormRecord(&builder)
     revault_internal__FormRecord.add(path: __path, &builder)
     revault_internal__FormRecord.add(name: __name, &builder)
@@ -1164,6 +1211,8 @@ internal struct revault_internal__FormRecord: FlatBufferObject, Verifiable, Obje
     revault_internal__FormRecord.add(definitionAlias: __definitionAlias, &builder)
     revault_internal__FormRecord.add(definitionRevision: obj.definitionRevision, &builder)
     revault_internal__FormRecord.addVectorOf(values: __values, &builder)
+    revault_internal__FormRecord.add(description: __description, &builder)
+    revault_internal__FormRecord.add(hasDescription: obj.hasDescription, &builder)
     return revault_internal__FormRecord.endFormRecord(&builder, start: __root)
   }
 
@@ -1175,6 +1224,8 @@ internal struct revault_internal__FormRecord: FlatBufferObject, Verifiable, Obje
     try _v.visit(field: VTOFFSET.definitionAlias.p, fieldName: "definitionAlias", required: false, type: ForwardOffset<String>.self)
     try _v.visit(field: VTOFFSET.definitionRevision.p, fieldName: "definitionRevision", required: false, type: UInt32.self)
     try _v.visit(field: VTOFFSET.values.p, fieldName: "values", required: false, type: ForwardOffset<Vector<ForwardOffset<revault_internal__FormValue>, revault_internal__FormValue>>.self)
+    try _v.visit(field: VTOFFSET.description.p, fieldName: "description", required: false, type: ForwardOffset<String>.self)
+    try _v.visit(field: VTOFFSET.hasDescription.p, fieldName: "hasDescription", required: false, type: Bool.self)
     _v.finish()
   }
 }
@@ -1187,6 +1238,8 @@ internal class revault_internal__FormRecordT: NativeObject {
   internal var definitionAlias: String?
   internal var definitionRevision: UInt32
   internal var values: [revault_internal__FormValueT?]
+  internal var description: String?
+  internal var hasDescription: Bool
 
   internal init(_ _t: inout revault_internal__FormRecord) {
     path = _t.path
@@ -1199,11 +1252,14 @@ internal class revault_internal__FormRecordT: NativeObject {
         var __v_ = _t.values(at: index)
         values.append(__v_?.unpack())
     }
+    description = _t.description
+    hasDescription = _t.hasDescription
   }
 
   internal init() {
     definitionRevision = 0
     values = []
+    hasDescription = false
   }
 
   internal func serialize() -> ByteBuffer { return serialize(type: revault_internal__FormRecord.self) }
@@ -3505,6 +3561,8 @@ internal struct revault_internal__Variable: FlatBufferObject, Verifiable, Object
   private enum VTOFFSET: VOffset {
     case name = 4
     case sensitivity = 6
+    case description = 8
+    case hasDescription = 10
     var v: Int32 { Int32(self.rawValue) }
     var p: VOffset { self.rawValue }
   }
@@ -3513,18 +3571,28 @@ internal struct revault_internal__Variable: FlatBufferObject, Verifiable, Object
   internal var nameSegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.name.v) }
   internal var sensitivity: String? { let o = _accessor.offset(VTOFFSET.sensitivity.v); return o == 0 ? nil : _accessor.string(at: o) }
   internal var sensitivitySegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.sensitivity.v) }
-  internal static func startVariable(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 2) }
+  internal var description: String? { let o = _accessor.offset(VTOFFSET.description.v); return o == 0 ? nil : _accessor.string(at: o) }
+  internal var descriptionSegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.description.v) }
+  internal var hasDescription: Bool { let o = _accessor.offset(VTOFFSET.hasDescription.v); return o == 0 ? false : _accessor.readBuffer(of: Bool.self, at: o) }
+  internal static func startVariable(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 4) }
   internal static func add(name: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: name, at: VTOFFSET.name.p) }
   internal static func add(sensitivity: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: sensitivity, at: VTOFFSET.sensitivity.p) }
+  internal static func add(description: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: description, at: VTOFFSET.description.p) }
+  internal static func add(hasDescription: Bool, _ fbb: inout FlatBufferBuilder) { fbb.add(element: hasDescription, def: false,
+   at: VTOFFSET.hasDescription.p) }
   internal static func endVariable(_ fbb: inout FlatBufferBuilder, start: UOffset) -> Offset { let end = Offset(offset: fbb.endTable(at: start)); return end }
   internal static func createVariable(
     _ fbb: inout FlatBufferBuilder,
     nameOffset name: Offset = Offset(),
-    sensitivityOffset sensitivity: Offset = Offset()
+    sensitivityOffset sensitivity: Offset = Offset(),
+    descriptionOffset description: Offset = Offset(),
+    hasDescription: Bool = false
   ) -> Offset {
     let __start = revault_internal__Variable.startVariable(&fbb)
     revault_internal__Variable.add(name: name, &fbb)
     revault_internal__Variable.add(sensitivity: sensitivity, &fbb)
+    revault_internal__Variable.add(description: description, &fbb)
+    revault_internal__Variable.add(hasDescription: hasDescription, &fbb)
     return revault_internal__Variable.endVariable(&fbb, start: __start)
   }
 
@@ -3552,9 +3620,18 @@ internal struct revault_internal__Variable: FlatBufferObject, Verifiable, Object
       __sensitivity = Offset()
     }
 
+    let __description: Offset
+    if let s = obj.description {
+      __description = builder.create(string: s)
+    } else {
+      __description = Offset()
+    }
+
     let __root = revault_internal__Variable.startVariable(&builder)
     revault_internal__Variable.add(name: __name, &builder)
     revault_internal__Variable.add(sensitivity: __sensitivity, &builder)
+    revault_internal__Variable.add(description: __description, &builder)
+    revault_internal__Variable.add(hasDescription: obj.hasDescription, &builder)
     return revault_internal__Variable.endVariable(&builder, start: __root)
   }
 
@@ -3562,6 +3639,8 @@ internal struct revault_internal__Variable: FlatBufferObject, Verifiable, Object
     var _v = try verifier.visitTable(at: position)
     try _v.visit(field: VTOFFSET.name.p, fieldName: "name", required: false, type: ForwardOffset<String>.self)
     try _v.visit(field: VTOFFSET.sensitivity.p, fieldName: "sensitivity", required: false, type: ForwardOffset<String>.self)
+    try _v.visit(field: VTOFFSET.description.p, fieldName: "description", required: false, type: ForwardOffset<String>.self)
+    try _v.visit(field: VTOFFSET.hasDescription.p, fieldName: "hasDescription", required: false, type: Bool.self)
     _v.finish()
   }
 }
@@ -3570,13 +3649,18 @@ internal class revault_internal__VariableT: NativeObject {
 
   internal var name: String?
   internal var sensitivity: String?
+  internal var description: String?
+  internal var hasDescription: Bool
 
   internal init(_ _t: inout revault_internal__Variable) {
     name = _t.name
     sensitivity = _t.sensitivity
+    description = _t.description
+    hasDescription = _t.hasDescription
   }
 
   internal init() {
+    hasDescription = false
   }
 
   internal func serialize() -> ByteBuffer { return serialize(type: revault_internal__Variable.self) }

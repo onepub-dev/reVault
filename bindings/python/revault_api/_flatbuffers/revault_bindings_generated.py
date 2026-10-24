@@ -681,8 +681,22 @@ class FormField(object):
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
         return False
 
+    # FormField
+    def Description(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # FormField
+    def HasDescription(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        if o != 0:
+            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+        return False
+
 def FormFieldStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(6)
 
 def FormFieldAddId(builder, id):
     builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(id), 0)
@@ -695,6 +709,12 @@ def FormFieldAddKind(builder, kind):
 
 def FormFieldAddRequired(builder, required):
     builder.PrependBoolSlot(3, required, 0)
+
+def FormFieldAddDescription(builder, description):
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(description), 0)
+
+def FormFieldAddHasDescription(builder, hasDescription):
+    builder.PrependBoolSlot(5, hasDescription, 0)
 
 def FormFieldEnd(builder):
     return builder.EndObject()
@@ -709,6 +729,8 @@ class FormFieldT(object):
         self.label = None  # type: str
         self.kind = None  # type: str
         self.required = False  # type: bool
+        self.description = None  # type: str
+        self.hasDescription = False  # type: bool
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -735,6 +757,8 @@ class FormFieldT(object):
         self.label = formField.Label()
         self.kind = formField.Kind()
         self.required = formField.Required()
+        self.description = formField.Description()
+        self.hasDescription = formField.HasDescription()
 
     # FormFieldT
     def Pack(self, builder):
@@ -744,6 +768,8 @@ class FormFieldT(object):
             label = builder.CreateString(self.label)
         if self.kind is not None:
             kind = builder.CreateString(self.kind)
+        if self.description is not None:
+            description = builder.CreateString(self.description)
         FormFieldStart(builder)
         if self.id is not None:
             FormFieldAddId(builder, id)
@@ -752,6 +778,9 @@ class FormFieldT(object):
         if self.kind is not None:
             FormFieldAddKind(builder, kind)
         FormFieldAddRequired(builder, self.required)
+        if self.description is not None:
+            FormFieldAddDescription(builder, description)
+        FormFieldAddHasDescription(builder, self.hasDescription)
         formField = FormFieldEnd(builder)
         return formField
 
@@ -1386,8 +1415,22 @@ class FormRecord(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         return o == 0
 
+    # FormRecord
+    def Description(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # FormRecord
+    def HasDescription(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
+        if o != 0:
+            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+        return False
+
 def FormRecordStart(builder):
-    builder.StartObject(6)
+    builder.StartObject(8)
 
 def FormRecordAddPath(builder, path):
     builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(path), 0)
@@ -1410,6 +1453,12 @@ def FormRecordAddValues(builder, values):
 def FormRecordStartValuesVector(builder, numElems):
     return builder.StartVector(4, numElems, 4)
 
+def FormRecordAddDescription(builder, description):
+    builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(description), 0)
+
+def FormRecordAddHasDescription(builder, hasDescription):
+    builder.PrependBoolSlot(7, hasDescription, 0)
+
 def FormRecordEnd(builder):
     return builder.EndObject()
 
@@ -1429,6 +1478,8 @@ class FormRecordT(object):
         self.definitionAlias = None  # type: str
         self.definitionRevision = 0  # type: int
         self.values = None  # type: List[FormValueT]
+        self.description = None  # type: str
+        self.hasDescription = False  # type: bool
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -1464,6 +1515,8 @@ class FormRecordT(object):
                 else:
                     formValue_ = FormValueT.InitFromObj(formRecord.Values(i))
                     self.values.append(formValue_)
+        self.description = formRecord.Description()
+        self.hasDescription = formRecord.HasDescription()
 
     # FormRecordT
     def Pack(self, builder):
@@ -1483,6 +1536,8 @@ class FormRecordT(object):
             for i in reversed(range(len(self.values))):
                 builder.PrependUOffsetTRelative(valueslist[i])
             values = builder.EndVector()
+        if self.description is not None:
+            description = builder.CreateString(self.description)
         FormRecordStart(builder)
         if self.path is not None:
             FormRecordAddPath(builder, path)
@@ -1495,6 +1550,9 @@ class FormRecordT(object):
         FormRecordAddDefinitionRevision(builder, self.definitionRevision)
         if self.values is not None:
             FormRecordAddValues(builder, values)
+        if self.description is not None:
+            FormRecordAddDescription(builder, description)
+        FormRecordAddHasDescription(builder, self.hasDescription)
         formRecord = FormRecordEnd(builder)
         return formRecord
 
@@ -4628,14 +4686,34 @@ class Variable(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
+    # Variable
+    def Description(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # Variable
+    def HasDescription(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        if o != 0:
+            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+        return False
+
 def VariableStart(builder):
-    builder.StartObject(2)
+    builder.StartObject(4)
 
 def VariableAddName(builder, name):
     builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(name), 0)
 
 def VariableAddSensitivity(builder, sensitivity):
     builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(sensitivity), 0)
+
+def VariableAddDescription(builder, description):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(description), 0)
+
+def VariableAddHasDescription(builder, hasDescription):
+    builder.PrependBoolSlot(3, hasDescription, 0)
 
 def VariableEnd(builder):
     return builder.EndObject()
@@ -4648,6 +4726,8 @@ class VariableT(object):
     def __init__(self):
         self.name = None  # type: str
         self.sensitivity = None  # type: str
+        self.description = None  # type: str
+        self.hasDescription = False  # type: bool
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -4672,6 +4752,8 @@ class VariableT(object):
             return
         self.name = variable.Name()
         self.sensitivity = variable.Sensitivity()
+        self.description = variable.Description()
+        self.hasDescription = variable.HasDescription()
 
     # VariableT
     def Pack(self, builder):
@@ -4679,11 +4761,16 @@ class VariableT(object):
             name = builder.CreateString(self.name)
         if self.sensitivity is not None:
             sensitivity = builder.CreateString(self.sensitivity)
+        if self.description is not None:
+            description = builder.CreateString(self.description)
         VariableStart(builder)
         if self.name is not None:
             VariableAddName(builder, name)
         if self.sensitivity is not None:
             VariableAddSensitivity(builder, sensitivity)
+        if self.description is not None:
+            VariableAddDescription(builder, description)
+        VariableAddHasDescription(builder, self.hasDescription)
         variable = VariableEnd(builder)
         return variable
 

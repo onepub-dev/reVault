@@ -50,8 +50,20 @@ required():boolean {
   return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
 }
 
+description():string|null
+description(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+description(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+hasDescription():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startFormField(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(6);
 }
 
 static addId(builder:flatbuffers.Builder, idOffset:flatbuffers.Offset) {
@@ -70,17 +82,27 @@ static addRequired(builder:flatbuffers.Builder, required:boolean) {
   builder.addFieldInt8(3, +required, +false);
 }
 
+static addDescription(builder:flatbuffers.Builder, descriptionOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(4, descriptionOffset, 0);
+}
+
+static addHasDescription(builder:flatbuffers.Builder, hasDescription:boolean) {
+  builder.addFieldInt8(5, +hasDescription, +false);
+}
+
 static endFormField(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createFormField(builder:flatbuffers.Builder, idOffset:flatbuffers.Offset, labelOffset:flatbuffers.Offset, kindOffset:flatbuffers.Offset, required:boolean):flatbuffers.Offset {
+static createFormField(builder:flatbuffers.Builder, idOffset:flatbuffers.Offset, labelOffset:flatbuffers.Offset, kindOffset:flatbuffers.Offset, required:boolean, descriptionOffset:flatbuffers.Offset, hasDescription:boolean):flatbuffers.Offset {
   FormField.startFormField(builder);
   FormField.addId(builder, idOffset);
   FormField.addLabel(builder, labelOffset);
   FormField.addKind(builder, kindOffset);
   FormField.addRequired(builder, required);
+  FormField.addDescription(builder, descriptionOffset);
+  FormField.addHasDescription(builder, hasDescription);
   return FormField.endFormField(builder);
 }
 
@@ -89,7 +111,9 @@ unpack(): FormFieldT {
     this.id(),
     this.label(),
     this.kind(),
-    this.required()
+    this.required(),
+    this.description(),
+    this.hasDescription()
   );
 }
 
@@ -99,6 +123,8 @@ unpackTo(_o: FormFieldT): void {
   _o.label = this.label();
   _o.kind = this.kind();
   _o.required = this.required();
+  _o.description = this.description();
+  _o.hasDescription = this.hasDescription();
 }
 }
 
@@ -107,7 +133,9 @@ constructor(
   public id: string|Uint8Array|null = null,
   public label: string|Uint8Array|null = null,
   public kind: string|Uint8Array|null = null,
-  public required: boolean = false
+  public required: boolean = false,
+  public description: string|Uint8Array|null = null,
+  public hasDescription: boolean = false
 ){}
 
 
@@ -115,12 +143,15 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   const id = (this.id !== null ? builder.createString(this.id!) : 0);
   const label = (this.label !== null ? builder.createString(this.label!) : 0);
   const kind = (this.kind !== null ? builder.createString(this.kind!) : 0);
+  const description = (this.description !== null ? builder.createString(this.description!) : 0);
 
   return FormField.createFormField(builder,
     id,
     label,
     kind,
-    this.required
+    this.required,
+    description,
+    this.hasDescription
   );
 }
 }

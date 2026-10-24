@@ -10,12 +10,14 @@ fn definition() -> FormDefinition {
         description: "desc2222".into(),
         fields: vec![
             FormFieldDefinition {
+                description: None,
                 id: "secret".into(),
                 label: "Secret".into(),
                 kind: FormFieldKind::Secret,
                 required: false,
             },
             FormFieldDefinition {
+                description: None,
                 id: "late".into(),
                 label: "Last label".into(),
                 kind: FormFieldKind::Notes,
@@ -38,6 +40,7 @@ fn typed_form_metadata_byte_budget_refuses_before_publication() {
     // exceeds the shared reader/writer byte budget. Publication must not change.
     definition.fields = (0..3100)
         .map(|index| FormFieldDefinition {
+            description: None,
             id: format!("field_{index}"),
             label: "Field".into(),
             kind: FormFieldKind::Text,
@@ -70,6 +73,7 @@ fn typed_form_guarded_admission_and_semantic_page_substitution_all_modes() {
     let def = definition();
     let secret = Arc::new(SecretString::try_from_slice(b"synthetic").unwrap());
     let record = FormRecord {
+        description: None,
         path: LockboxPath::new("/forms/record").unwrap(),
         name: "Record".into(),
         type_id: def.type_id.clone(),
@@ -212,6 +216,7 @@ fn typed_form_guarded_admission_and_semantic_page_substitution_all_modes() {
         large.type_id = FormTypeId::new("11111111-1111-1111-1111-111111111111").unwrap();
         large.fields = (0..4096)
             .map(|n| FormFieldDefinition {
+                description: None,
                 id: format!("field_{n}"),
                 label: "Field".into(),
                 kind: FormFieldKind::Text,

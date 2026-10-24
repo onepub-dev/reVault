@@ -163,11 +163,15 @@ local function append_path_move(output, value)
 end
 
 local function append_form_field(output, value)
-  local vtable = append_vtable(output, {4, 8, 12, 16}, 20)
+  local vtable = append_vtable(output, {4, 8, 12, 16, 20, 24}, 28)
   local position = align(output)
   put_u32(output, position - vtable); put_u32(output, 0); put_u32(output, 0); put_u32(output, 0)
   output[#output + 1] = value.required and 1 or 0
   output[#output + 1] = 0; output[#output + 1] = 0; output[#output + 1] = 0
+  put_u32(output, 0)
+  output[#output + 1] = value.has_description and 1 or 0
+  output[#output + 1] = 0; output[#output + 1] = 0; output[#output + 1] = 0
+  append_string(output, position + 20, value.description or '')
   append_string(output, position + 4, value.id or '')
   append_string(output, position + 8, value.label or '')
   append_string(output, position + 12, value.kind or '')

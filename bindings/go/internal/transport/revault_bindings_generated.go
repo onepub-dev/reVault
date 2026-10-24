@@ -695,10 +695,12 @@ func PathMoveListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 }
 
 type FormFieldT struct {
-	Id       string `json:"id"`
-	Label    string `json:"label"`
-	Kind     string `json:"kind"`
-	Required bool   `json:"required"`
+	Id             string `json:"id"`
+	Label          string `json:"label"`
+	Kind           string `json:"kind"`
+	Required       bool   `json:"required"`
+	Description    string `json:"description"`
+	HasDescription bool   `json:"has_description"`
 }
 
 func (t *FormFieldT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -717,11 +719,17 @@ func (t *FormFieldT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	if t.Kind != "" {
 		kindOffset = builder.CreateString(t.Kind)
 	}
+	descriptionOffset := flatbuffers.UOffsetT(0)
+	if t.Description != "" {
+		descriptionOffset = builder.CreateString(t.Description)
+	}
 	FormFieldStart(builder)
 	FormFieldAddId(builder, idOffset)
 	FormFieldAddLabel(builder, labelOffset)
 	FormFieldAddKind(builder, kindOffset)
 	FormFieldAddRequired(builder, t.Required)
+	FormFieldAddDescription(builder, descriptionOffset)
+	FormFieldAddHasDescription(builder, t.HasDescription)
 	return FormFieldEnd(builder)
 }
 
@@ -730,6 +738,8 @@ func (rcv *FormField) UnPackTo(t *FormFieldT) {
 	t.Label = string(rcv.Label())
 	t.Kind = string(rcv.Kind())
 	t.Required = rcv.Required()
+	t.Description = string(rcv.Description())
+	t.HasDescription = rcv.HasDescription()
 }
 
 func (rcv *FormField) UnPack() *FormFieldT {
@@ -812,8 +822,28 @@ func (rcv *FormField) MutateRequired(n bool) bool {
 	return rcv._tab.MutateBoolSlot(10, n)
 }
 
+func (rcv *FormField) Description() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(12))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *FormField) HasDescription() bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(14))
+	if o != 0 {
+		return rcv._tab.GetBool(o + rcv._tab.Pos)
+	}
+	return false
+}
+
+func (rcv *FormField) MutateHasDescription(n bool) bool {
+	return rcv._tab.MutateBoolSlot(14, n)
+}
+
 func FormFieldStart(builder *flatbuffers.Builder) {
-	builder.StartObject(4)
+	builder.StartObject(6)
 }
 func FormFieldAddId(builder *flatbuffers.Builder, id flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(id), 0)
@@ -826,6 +856,12 @@ func FormFieldAddKind(builder *flatbuffers.Builder, kind flatbuffers.UOffsetT) {
 }
 func FormFieldAddRequired(builder *flatbuffers.Builder, required bool) {
 	builder.PrependBoolSlot(3, required, false)
+}
+func FormFieldAddDescription(builder *flatbuffers.Builder, description flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(4, flatbuffers.UOffsetT(description), 0)
+}
+func FormFieldAddHasDescription(builder *flatbuffers.Builder, hasDescription bool) {
+	builder.PrependBoolSlot(5, hasDescription, false)
 }
 func FormFieldEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
@@ -1422,6 +1458,8 @@ type FormRecordT struct {
 	DefinitionAlias    string        `json:"definition_alias"`
 	DefinitionRevision uint32        `json:"definition_revision"`
 	Values             []*FormValueT `json:"values"`
+	Description        string        `json:"description"`
+	HasDescription     bool          `json:"has_description"`
 }
 
 func (t *FormRecordT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -1457,6 +1495,10 @@ func (t *FormRecordT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 		}
 		valuesOffset = builder.EndVector(valuesLength)
 	}
+	descriptionOffset := flatbuffers.UOffsetT(0)
+	if t.Description != "" {
+		descriptionOffset = builder.CreateString(t.Description)
+	}
 	FormRecordStart(builder)
 	FormRecordAddPath(builder, pathOffset)
 	FormRecordAddName(builder, nameOffset)
@@ -1464,6 +1506,8 @@ func (t *FormRecordT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	FormRecordAddDefinitionAlias(builder, definitionAliasOffset)
 	FormRecordAddDefinitionRevision(builder, t.DefinitionRevision)
 	FormRecordAddValues(builder, valuesOffset)
+	FormRecordAddDescription(builder, descriptionOffset)
+	FormRecordAddHasDescription(builder, t.HasDescription)
 	return FormRecordEnd(builder)
 }
 
@@ -1480,6 +1524,8 @@ func (rcv *FormRecord) UnPackTo(t *FormRecordT) {
 		rcv.Values(&x, j)
 		t.Values[j] = x.UnPack()
 	}
+	t.Description = string(rcv.Description())
+	t.HasDescription = rcv.HasDescription()
 }
 
 func (rcv *FormRecord) UnPack() *FormRecordT {
@@ -1590,8 +1636,28 @@ func (rcv *FormRecord) ValuesLength() int {
 	return 0
 }
 
+func (rcv *FormRecord) Description() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(16))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *FormRecord) HasDescription() bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(18))
+	if o != 0 {
+		return rcv._tab.GetBool(o + rcv._tab.Pos)
+	}
+	return false
+}
+
+func (rcv *FormRecord) MutateHasDescription(n bool) bool {
+	return rcv._tab.MutateBoolSlot(18, n)
+}
+
 func FormRecordStart(builder *flatbuffers.Builder) {
-	builder.StartObject(6)
+	builder.StartObject(8)
 }
 func FormRecordAddPath(builder *flatbuffers.Builder, path flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(path), 0)
@@ -1613,6 +1679,12 @@ func FormRecordAddValues(builder *flatbuffers.Builder, values flatbuffers.UOffse
 }
 func FormRecordStartValuesVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
 	return builder.StartVector(4, numElems, 4)
+}
+func FormRecordAddDescription(builder *flatbuffers.Builder, description flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(6, flatbuffers.UOffsetT(description), 0)
+}
+func FormRecordAddHasDescription(builder *flatbuffers.Builder, hasDescription bool) {
+	builder.PrependBoolSlot(7, hasDescription, false)
 }
 func FormRecordEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
@@ -4954,8 +5026,10 @@ func RuntimeOptionsEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 }
 
 type VariableT struct {
-	Name        string `json:"name"`
-	Sensitivity string `json:"sensitivity"`
+	Name           string `json:"name"`
+	Sensitivity    string `json:"sensitivity"`
+	Description    string `json:"description"`
+	HasDescription bool   `json:"has_description"`
 }
 
 func (t *VariableT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -4970,15 +5044,23 @@ func (t *VariableT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	if t.Sensitivity != "" {
 		sensitivityOffset = builder.CreateString(t.Sensitivity)
 	}
+	descriptionOffset := flatbuffers.UOffsetT(0)
+	if t.Description != "" {
+		descriptionOffset = builder.CreateString(t.Description)
+	}
 	VariableStart(builder)
 	VariableAddName(builder, nameOffset)
 	VariableAddSensitivity(builder, sensitivityOffset)
+	VariableAddDescription(builder, descriptionOffset)
+	VariableAddHasDescription(builder, t.HasDescription)
 	return VariableEnd(builder)
 }
 
 func (rcv *Variable) UnPackTo(t *VariableT) {
 	t.Name = string(rcv.Name())
 	t.Sensitivity = string(rcv.Sensitivity())
+	t.Description = string(rcv.Description())
+	t.HasDescription = rcv.HasDescription()
 }
 
 func (rcv *Variable) UnPack() *VariableT {
@@ -5041,14 +5123,40 @@ func (rcv *Variable) Sensitivity() []byte {
 	return nil
 }
 
+func (rcv *Variable) Description() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *Variable) HasDescription() bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
+	if o != 0 {
+		return rcv._tab.GetBool(o + rcv._tab.Pos)
+	}
+	return false
+}
+
+func (rcv *Variable) MutateHasDescription(n bool) bool {
+	return rcv._tab.MutateBoolSlot(10, n)
+}
+
 func VariableStart(builder *flatbuffers.Builder) {
-	builder.StartObject(2)
+	builder.StartObject(4)
 }
 func VariableAddName(builder *flatbuffers.Builder, name flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(name), 0)
 }
 func VariableAddSensitivity(builder *flatbuffers.Builder, sensitivity flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(1, flatbuffers.UOffsetT(sensitivity), 0)
+}
+func VariableAddDescription(builder *flatbuffers.Builder, description flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(description), 0)
+}
+func VariableAddHasDescription(builder *flatbuffers.Builder, hasDescription bool) {
+	builder.PrependBoolSlot(3, hasDescription, false)
 }
 func VariableEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

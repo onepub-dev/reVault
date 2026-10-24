@@ -382,6 +382,22 @@ class FormField : Table() {
             val o = __offset(10)
             return if(o != 0) 0.toByte() != bb.get(o + bb_pos) else false
         }
+    val description : String?
+        get() {
+            val o = __offset(12)
+            return if (o != 0) {
+                __string(o + bb_pos)
+            } else {
+                null
+            }
+        }
+    val descriptionAsByteBuffer : ByteBuffer get() = __vector_as_bytebuffer(12, 1)
+    fun descriptionInByteBuffer(_bb: ByteBuffer) : ByteBuffer = __vector_in_bytebuffer(_bb, 12, 1)
+    val hasDescription : Boolean
+        get() {
+            val o = __offset(14)
+            return if(o != 0) 0.toByte() != bb.get(o + bb_pos) else false
+        }
     companion object {
         fun validateVersion() = Constants.FLATBUFFERS_25_2_10()
         fun getRootAsFormField(_bb: ByteBuffer): FormField = getRootAsFormField(_bb, FormField())
@@ -389,19 +405,23 @@ class FormField : Table() {
             _bb.order(ByteOrder.LITTLE_ENDIAN)
             return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb))
         }
-        fun createFormField(builder: FlatBufferBuilder, idOffset: Int, labelOffset: Int, kindOffset: Int, required: Boolean) : Int {
-            builder.startTable(4)
+        fun createFormField(builder: FlatBufferBuilder, idOffset: Int, labelOffset: Int, kindOffset: Int, required: Boolean, descriptionOffset: Int, hasDescription: Boolean) : Int {
+            builder.startTable(6)
+            addDescription(builder, descriptionOffset)
             addKind(builder, kindOffset)
             addLabel(builder, labelOffset)
             addId(builder, idOffset)
+            addHasDescription(builder, hasDescription)
             addRequired(builder, required)
             return endFormField(builder)
         }
-        fun startFormField(builder: FlatBufferBuilder) = builder.startTable(4)
+        fun startFormField(builder: FlatBufferBuilder) = builder.startTable(6)
         fun addId(builder: FlatBufferBuilder, id: Int) = builder.addOffset(0, id, 0)
         fun addLabel(builder: FlatBufferBuilder, label: Int) = builder.addOffset(1, label, 0)
         fun addKind(builder: FlatBufferBuilder, kind: Int) = builder.addOffset(2, kind, 0)
         fun addRequired(builder: FlatBufferBuilder, required: Boolean) = builder.addBoolean(3, required, false)
+        fun addDescription(builder: FlatBufferBuilder, description: Int) = builder.addOffset(4, description, 0)
+        fun addHasDescription(builder: FlatBufferBuilder, hasDescription: Boolean) = builder.addBoolean(5, hasDescription, false)
         fun endFormField(builder: FlatBufferBuilder) : Int {
             val o = builder.endTable()
             return o
@@ -779,6 +799,22 @@ class FormRecord : Table() {
         get() {
             val o = __offset(14); return if (o != 0) __vector_len(o) else 0
         }
+    val description : String?
+        get() {
+            val o = __offset(16)
+            return if (o != 0) {
+                __string(o + bb_pos)
+            } else {
+                null
+            }
+        }
+    val descriptionAsByteBuffer : ByteBuffer get() = __vector_as_bytebuffer(16, 1)
+    fun descriptionInByteBuffer(_bb: ByteBuffer) : ByteBuffer = __vector_in_bytebuffer(_bb, 16, 1)
+    val hasDescription : Boolean
+        get() {
+            val o = __offset(18)
+            return if(o != 0) 0.toByte() != bb.get(o + bb_pos) else false
+        }
     companion object {
         fun validateVersion() = Constants.FLATBUFFERS_25_2_10()
         fun getRootAsFormRecord(_bb: ByteBuffer): FormRecord = getRootAsFormRecord(_bb, FormRecord())
@@ -786,17 +822,19 @@ class FormRecord : Table() {
             _bb.order(ByteOrder.LITTLE_ENDIAN)
             return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb))
         }
-        fun createFormRecord(builder: FlatBufferBuilder, pathOffset: Int, nameOffset: Int, typeIdOffset: Int, definitionAliasOffset: Int, definitionRevision: UInt, valuesOffset: Int) : Int {
-            builder.startTable(6)
+        fun createFormRecord(builder: FlatBufferBuilder, pathOffset: Int, nameOffset: Int, typeIdOffset: Int, definitionAliasOffset: Int, definitionRevision: UInt, valuesOffset: Int, descriptionOffset: Int, hasDescription: Boolean) : Int {
+            builder.startTable(8)
+            addDescription(builder, descriptionOffset)
             addValues(builder, valuesOffset)
             addDefinitionRevision(builder, definitionRevision)
             addDefinitionAlias(builder, definitionAliasOffset)
             addTypeId(builder, typeIdOffset)
             addName(builder, nameOffset)
             addPath(builder, pathOffset)
+            addHasDescription(builder, hasDescription)
             return endFormRecord(builder)
         }
-        fun startFormRecord(builder: FlatBufferBuilder) = builder.startTable(6)
+        fun startFormRecord(builder: FlatBufferBuilder) = builder.startTable(8)
         fun addPath(builder: FlatBufferBuilder, path: Int) = builder.addOffset(0, path, 0)
         fun addName(builder: FlatBufferBuilder, name: Int) = builder.addOffset(1, name, 0)
         fun addTypeId(builder: FlatBufferBuilder, typeId: Int) = builder.addOffset(2, typeId, 0)
@@ -811,6 +849,8 @@ class FormRecord : Table() {
             return builder.endVector()
         }
         fun startValuesVector(builder: FlatBufferBuilder, numElems: Int) = builder.startVector(4, numElems, 4)
+        fun addDescription(builder: FlatBufferBuilder, description: Int) = builder.addOffset(6, description, 0)
+        fun addHasDescription(builder: FlatBufferBuilder, hasDescription: Boolean) = builder.addBoolean(7, hasDescription, false)
         fun endFormRecord(builder: FlatBufferBuilder) : Int {
             val o = builder.endTable()
             return o
@@ -2393,6 +2433,22 @@ class Variable : Table() {
         }
     val sensitivityAsByteBuffer : ByteBuffer get() = __vector_as_bytebuffer(6, 1)
     fun sensitivityInByteBuffer(_bb: ByteBuffer) : ByteBuffer = __vector_in_bytebuffer(_bb, 6, 1)
+    val description : String?
+        get() {
+            val o = __offset(8)
+            return if (o != 0) {
+                __string(o + bb_pos)
+            } else {
+                null
+            }
+        }
+    val descriptionAsByteBuffer : ByteBuffer get() = __vector_as_bytebuffer(8, 1)
+    fun descriptionInByteBuffer(_bb: ByteBuffer) : ByteBuffer = __vector_in_bytebuffer(_bb, 8, 1)
+    val hasDescription : Boolean
+        get() {
+            val o = __offset(10)
+            return if(o != 0) 0.toByte() != bb.get(o + bb_pos) else false
+        }
     companion object {
         fun validateVersion() = Constants.FLATBUFFERS_25_2_10()
         fun getRootAsVariable(_bb: ByteBuffer): Variable = getRootAsVariable(_bb, Variable())
@@ -2400,15 +2456,19 @@ class Variable : Table() {
             _bb.order(ByteOrder.LITTLE_ENDIAN)
             return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb))
         }
-        fun createVariable(builder: FlatBufferBuilder, nameOffset: Int, sensitivityOffset: Int) : Int {
-            builder.startTable(2)
+        fun createVariable(builder: FlatBufferBuilder, nameOffset: Int, sensitivityOffset: Int, descriptionOffset: Int, hasDescription: Boolean) : Int {
+            builder.startTable(4)
+            addDescription(builder, descriptionOffset)
             addSensitivity(builder, sensitivityOffset)
             addName(builder, nameOffset)
+            addHasDescription(builder, hasDescription)
             return endVariable(builder)
         }
-        fun startVariable(builder: FlatBufferBuilder) = builder.startTable(2)
+        fun startVariable(builder: FlatBufferBuilder) = builder.startTable(4)
         fun addName(builder: FlatBufferBuilder, name: Int) = builder.addOffset(0, name, 0)
         fun addSensitivity(builder: FlatBufferBuilder, sensitivity: Int) = builder.addOffset(1, sensitivity, 0)
+        fun addDescription(builder: FlatBufferBuilder, description: Int) = builder.addOffset(2, description, 0)
+        fun addHasDescription(builder: FlatBufferBuilder, hasDescription: Boolean) = builder.addBoolean(3, hasDescription, false)
         fun endVariable(builder: FlatBufferBuilder) : Int {
             val o = builder.endTable()
             return o

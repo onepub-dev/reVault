@@ -1,0 +1,203 @@
+[package]
+name = "revault_migrate_v4"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license-file = "LICENSE"
+description = "Isolated migration exporter for reVault archive/container format 4"
+repository = "https://github.com/onepub-dev/reVault"
+readme = "README.md"
+[lib]
+test = false
+doctest = false
+[features]
+default = ["migration", "vault-integration", "issue303-protocol"]
+migration = []
+vault-integration = []
+issue303-protocol = []
+bindings = []
+test-support = []
+external-source = []
+native-block-layout = []
+native-zstd-encoder = []
+
+[dependencies.argon2]
+package = "argon2"
+version = "^0.6"
+features = ["zeroize"]
+
+[dependencies.chacha20poly1305]
+package = "chacha20poly1305"
+version = "^0.11"
+
+[dependencies.ed25519_dalek]
+package = "ed25519-dalek"
+version = "^3"
+
+[dependencies.getrandom]
+package = "getrandom"
+version = "^0.4"
+
+[dependencies.hkdf]
+package = "hkdf"
+version = "^0.13"
+
+[dependencies.hmac]
+package = "hmac"
+version = "^0.13"
+features = ["zeroize"]
+
+[dependencies.ml_dsa]
+package = "ml-dsa"
+version = "^0.1"
+features = ["getrandom","zeroize"]
+
+[dependencies.ml_kem]
+package = "ml-kem"
+version = "^0.3.2"
+features = ["getrandom","zeroize"]
+
+[dependencies.revault_secure_memory]
+package = "revault_secure_memory"
+version = "^0.1.0"
+path = "../revault_secure_memory"
+
+[dependencies.serde_json]
+package = "serde_json"
+version = "^1"
+
+[dependencies.sha2]
+package = "sha2"
+version = "^0.11"
+features = ["zeroize"]
+
+[dependencies.unicode_normalization]
+package = "unicode-normalization"
+version = "=0.1.25"
+
+[dependencies.x25519_dalek]
+package = "x25519-dalek"
+version = "^3"
+features = ["static_secrets"]
+
+[dependencies.zeroize]
+package = "zeroize"
+version = "^1.9"
+
+[dependencies.zstd_complete]
+package = "zstd-complete"
+version = "^0.3.0"
+features = ["c-port-validation"]
+
+[target."cfg(all(target_arch = \"wasm32\", target_os = \"unknown\"))".dependencies.getrandom]
+package = "getrandom"
+version = "^0.4"
+features = ["wasm_js"]
+
+[target."cfg(any(unix, windows))".dependencies.cap_fs_ext]
+package = "cap-fs-ext"
+version = "=4.0.3"
+
+[target."cfg(any(unix, windows))".dependencies.cap_std]
+package = "cap-std"
+version = "=4.0.3"
+
+[target."cfg(unix)".dependencies.libc]
+package = "libc"
+version = "^0.2"
+
+[target."cfg(windows)".dependencies.windows_sys]
+package = "windows-sys"
+version = "^0.61"
+features = ["Win32_Foundation","Win32_Security","Win32_Security_Authorization","Win32_System_Threading","Win32_System_IO","Win32_Storage_FileSystem","Win32_System_EventLog","Win32_System_Memory","Win32_System_Power","Win32_System_Pipes","Win32_UI_WindowsAndMessaging"]
+
+[dependencies.base64ct]
+package = "base64ct"
+version = "^1"
+features = ["alloc"]
+
+[dependencies.icu_normalizer]
+package = "icu_normalizer"
+version = "=2.3.0"
+default-features = false
+features = ["compiled_data"]
+
+[dependencies.icu_normalizer_data]
+package = "icu_normalizer_data"
+version = "=2.3.0"
+
+[dependencies.icu_properties]
+package = "icu_properties"
+version = "=2.3.0"
+
+[dependencies.icu_properties_data]
+package = "icu_properties_data"
+version = "=2.3.0"
+
+[dependencies.serde]
+package = "serde"
+version = "^1"
+features = ["derive"]
+
+[target."cfg(target_os = \"linux\")".dependencies.async_io]
+package = "async-io"
+version = "^2"
+
+[target."cfg(target_os = \"linux\")".dependencies.futures_lite]
+package = "futures-lite"
+version = "^2"
+
+[target."cfg(target_os = \"linux\")".dependencies.secret_service]
+package = "secret-service"
+version = "=5.1.0"
+features = ["rt-async-io-crypto-rust"]
+
+[target."cfg(target_os = \"linux\")".dependencies.uuid]
+package = "uuid"
+version = ">=1.8, <1.27"
+
+[target."cfg(target_os = \"linux\")".dependencies.zbus]
+package = "zbus"
+version = "^5"
+default-features = false
+features = ["async-io","blocking-api"]
+
+[target."cfg(target_os = \"macos\")".dependencies.keyring]
+package = "keyring"
+version = "^4.2.0"
+default-features = false
+features = ["v1"]
+
+[target."cfg(target_os = \"macos\")".dependencies.objc2_core_foundation]
+package = "objc2-core-foundation"
+version = "^0.3.2"
+features = ["CFRunLoop"]
+
+[target."cfg(target_os = \"macos\")".dependencies.objc2_io_kit]
+package = "objc2-io-kit"
+version = "^0.3.2"
+default-features = false
+features = ["libc","pwr_mgt"]
+
+[target."cfg(unix)".dependencies.socket2]
+package = "socket2"
+version = "^0.6"
+
+[target."cfg(windows)".dependencies.keyring]
+package = "keyring"
+version = "^4.2.0"
+default-features = false
+features = ["v1"]
+
+[dependencies.revault_migration_format]
+package = "revault_migration_format"
+version = "^0.0.43"
+# Frozen schema-3 protocol adapter; independent of the schema-4 workspace crate.
+
+[dependencies.tempfile]
+package = "tempfile"
+version = "^3"
+
+[dev-dependencies]
+subtle = "2.6"
+rayon = "1.12"

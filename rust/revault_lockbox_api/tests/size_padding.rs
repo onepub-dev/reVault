@@ -54,6 +54,7 @@ fn creation_padding_is_persistent_and_lifecycles_preserve_all_modes() {
                             "login",
                             "Login",
                             vec![revault_lockbox_api::FormFieldDefinition {
+                                description: None,
                                 id: "name".into(),
                                 label: "Name".into(),
                                 kind: revault_lockbox_api::FormFieldKind::Text,
@@ -264,6 +265,7 @@ fn secure_variables_and_forms_round_trip_all_sixteen_modes() {
                             "secret-test",
                             "Secret test",
                             vec![FormFieldDefinition {
+                                description: None,
                                 id: "password".into(),
                                 label: "Password".into(),
                                 kind: FormFieldKind::Secret,

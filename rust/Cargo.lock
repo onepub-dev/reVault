@@ -2456,7 +2456,7 @@ dependencies = [
 
 [[package]]
 name = "revault_cli"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "cap-fs-ext",
  "cap-std",
@@ -2549,7 +2549,7 @@ dependencies = [
  "ml-kem",
  "oxiarc-zstd",
  "rayon",
- "revault_secure_memory",
+ "revault_secure_memory 0.1.0",
  "serde_json",
  "sha2 0.11.0",
  "subtle",
@@ -2650,7 +2650,7 @@ dependencies = [
  "revault_migration_format 0.0.4",
  "revault_migration_format 0.0.43",
  "revault_page_api 0.0.4",
- "revault_secure_memory",
+ "revault_secure_memory 0.1.0",
  "secret-service",
  "serde",
  "serde_json",
@@ -2686,13 +2686,57 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-io-kit",
  "revault_migration_format 0.0.43",
- "revault_secure_memory",
+ "revault_secure_memory 0.1.0",
  "secret-service",
  "serde",
  "serde_json",
  "sha2 0.11.0",
  "tempfile",
  "unicode-normalization",
+ "windows-sys 0.61.2",
+ "x25519-dalek 3.0.0",
+ "zbus",
+ "zeroize",
+ "zstd-complete 0.3.0",
+]
+
+[[package]]
+name = "revault_migrate_v4"
+version = "0.1.0"
+dependencies = [
+ "argon2 0.6.0",
+ "async-io",
+ "base64ct",
+ "cap-fs-ext",
+ "cap-std",
+ "chacha20poly1305",
+ "ed25519-dalek 3.0.0",
+ "futures-lite",
+ "getrandom 0.4.3",
+ "hkdf 0.13.0",
+ "hmac 0.13.0",
+ "icu_normalizer",
+ "icu_normalizer_data",
+ "icu_properties",
+ "icu_properties_data",
+ "keyring",
+ "libc",
+ "ml-dsa",
+ "ml-kem",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "rayon",
+ "revault_migration_format 0.0.43",
+ "revault_secure_memory 0.1.0",
+ "secret-service",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "socket2",
+ "subtle",
+ "tempfile",
+ "unicode-normalization",
+ "uuid",
  "windows-sys 0.61.2",
  "x25519-dalek 3.0.0",
  "zbus",
@@ -2736,9 +2780,10 @@ dependencies = [
  "revault_lockbox_api 0.0.9",
  "revault_migrate_archive_v1",
  "revault_migrate_archive_v3",
+ "revault_migrate_v4",
  "revault_migrate_vault_v1",
  "revault_migrate_vault_v2",
- "revault_migration_format 0.0.43",
+ "revault_migration_format 0.0.44",
  "revault_vault_api 0.0.10",
  "revault_vault_api 0.0.50",
  "revault_vault_v1_reader",
@@ -2786,11 +2831,27 @@ dependencies = [
 [[package]]
 name = "revault_migration_format"
 version = "0.0.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44d1bea92ee82f3aa8cad6081870cdcca34c2499d96891af2f5fb88ac1440b4e"
 dependencies = [
  "argon2 0.6.0",
  "chacha20poly1305",
  "getrandom 0.4.3",
- "revault_secure_memory",
+ "revault_secure_memory 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "zeroize",
+]
+
+[[package]]
+name = "revault_migration_format"
+version = "0.0.44"
+dependencies = [
+ "argon2 0.6.0",
+ "chacha20poly1305",
+ "getrandom 0.4.3",
+ "revault_secure_memory 0.1.0",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -2857,6 +2918,18 @@ dependencies = [
 [[package]]
 name = "revault_secure_memory"
 version = "0.1.0"
+dependencies = [
+ "getrandom 0.4.3",
+ "libc",
+ "windows-sys 0.61.2",
+ "zeroize",
+]
+
+[[package]]
+name = "revault_secure_memory"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "898fed24b45203acc68f7dc54a4ed8439025792c00a2e0903083c8f3d23741c0"
 dependencies = [
  "getrandom 0.4.3",
  "libc",
@@ -3011,7 +3084,7 @@ version = "0.0.32"
 dependencies = [
  "js-sys",
  "revault_lockbox_api 0.0.49",
- "revault_secure_memory",
+ "revault_secure_memory 0.1.0",
  "revault_vault_api 0.0.50",
  "wasm-bindgen",
 ]

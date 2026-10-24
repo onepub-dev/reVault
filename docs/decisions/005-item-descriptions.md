@@ -11,7 +11,9 @@ the particular instance. Neither replaces the other.
 
 Definition and field guidance are revisioned. A changed description creates a
 new definition revision; identical updates and clearing absent field guidance
-are no-ops. Structural revisions retain guidance for retained field IDs.
+are no-ops. Callers revising native definitions supply the complete fields, including guidance.
+CLI structural revisions preserve guidance for retained field IDs because field
+specifications do not carry descriptions.
 Copying a definition copies its exact revision's field guidance. Reimporting an
 existing revision with conflicting guidance is rejected.
 
@@ -22,31 +24,38 @@ descriptions continue to use an empty string for no guidance.
 
 ## Persistence and compatibility
 
-Use encrypted hidden normal variables, following existing Lockbox description
-metadata. Keys under `/.revault/descriptions/` contain a kind and a SHA-256 digest
-of the canonical owner identity. Variable identities are canonical names;
-record identities are canonical paths; field-map identities are definition
-type ID and revision. The digest is an index, not a secrecy mechanism. The
-archive's existing encryption and authentication protect both keys and values.
+Store descriptions directly on their owners in authenticated encrypted storage.
+Variables carry an optional description beside the normal or secret value;
+field definitions and form records carry their own optional description.
+There are no synthetic variables, hashed owner indexes, or JSON field maps.
+Each optional description distinguishes absence from an explicitly empty string.
+Multiline UTF-8 text uses the existing text validation and per-description limit.
 
-Field guidance is a JSON map keyed by field ID. Validate fields, text, and the
-encoded map before changing the definition. Normal-variable limits apply,
-including a one-MiB aggregate encoded map limit per revision. Metadata remains
-excluded from ordinary variable listing and export.
+This changes the persisted archive/container format to 5 and starts the 0.6.x
+CLI and binding compatibility line. Variable and form node encodings advance to
+version 2. Format-4 readers must reject these files. Format-5 readers require
+explicit migration of format-4 archives and Vault containers; opening a file
+never silently upgrades it. Vault structure version remains 3.
 
-This preserves the format-4 wire layout and requires no new compatibility line.
-Released 0.5.0 clients can read and ordinarily update these archives and Vaults.
-They do not implement the new metadata lifecycle: old-client owner renames or
-deletions can leave orphan annotations, and old-client definition revisions do
-not inherit field guidance. Use updated clients for these operations. The
-released-baseline compatibility test verifies preservation through ordinary
-writes in both archive-creation directions, including Vault field guidance.
+The isolated `revault_migrate_v4` package owns both historical archive and Vault
+exporters. The current migration schema is 4 and carries native descriptions;
+historical exporters retain their published schema-3 dependency. Existing
+retained fixtures and historical readers remain unchanged. The initial 0.6.0
+release uses published 0.5.0 as a migration source, not a same-line baseline.
+Once 0.6.0 is published, later 0.6.x candidates must test bidirectional
+compatibility against that released baseline.
+
+The short-lived hidden-variable implementation was not released. It has no
+supported persisted compatibility contract and is not a migration source.
 
 ## API and display
 
 Rust exposes typed description methods. Foreign bindings share two additive
 ABI operations accepting a validated JSON request and returning the existing
 OptionalString FlatBuffer. Errors retain the existing error types and channel.
+FlatBuffer variable, field-definition and record models also expose description
+and presence fields. Presence distinguishes absent text from an empty string.
+Generated encoders and all language models must carry both fields.
 Lockbox reads work on read-only handles; mutations require writable handles and
 commit. Vault definition mutations commit immediately.
 

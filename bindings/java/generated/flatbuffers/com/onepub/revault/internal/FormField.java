@@ -37,25 +37,35 @@ public final class FormField extends Table {
   public ByteBuffer kindAsByteBuffer() { return __vector_as_bytebuffer(8, 1); }
   public ByteBuffer kindInByteBuffer(ByteBuffer _bb) { return __vector_in_bytebuffer(_bb, 8, 1); }
   public boolean required() { int o = __offset(10); return o != 0 ? 0!=bb.get(o + bb_pos) : false; }
+  public String description() { int o = __offset(12); return o != 0 ? __string(o + bb_pos) : null; }
+  public ByteBuffer descriptionAsByteBuffer() { return __vector_as_bytebuffer(12, 1); }
+  public ByteBuffer descriptionInByteBuffer(ByteBuffer _bb) { return __vector_in_bytebuffer(_bb, 12, 1); }
+  public boolean hasDescription() { int o = __offset(14); return o != 0 ? 0!=bb.get(o + bb_pos) : false; }
 
   public static int createFormField(FlatBufferBuilder builder,
       int idOffset,
       int labelOffset,
       int kindOffset,
-      boolean required) {
-    builder.startTable(4);
+      boolean required,
+      int descriptionOffset,
+      boolean hasDescription) {
+    builder.startTable(6);
+    FormField.addDescription(builder, descriptionOffset);
     FormField.addKind(builder, kindOffset);
     FormField.addLabel(builder, labelOffset);
     FormField.addId(builder, idOffset);
+    FormField.addHasDescription(builder, hasDescription);
     FormField.addRequired(builder, required);
     return FormField.endFormField(builder);
   }
 
-  public static void startFormField(FlatBufferBuilder builder) { builder.startTable(4); }
+  public static void startFormField(FlatBufferBuilder builder) { builder.startTable(6); }
   public static void addId(FlatBufferBuilder builder, int idOffset) { builder.addOffset(0, idOffset, 0); }
   public static void addLabel(FlatBufferBuilder builder, int labelOffset) { builder.addOffset(1, labelOffset, 0); }
   public static void addKind(FlatBufferBuilder builder, int kindOffset) { builder.addOffset(2, kindOffset, 0); }
   public static void addRequired(FlatBufferBuilder builder, boolean required) { builder.addBoolean(3, required, false); }
+  public static void addDescription(FlatBufferBuilder builder, int descriptionOffset) { builder.addOffset(4, descriptionOffset, 0); }
+  public static void addHasDescription(FlatBufferBuilder builder, boolean hasDescription) { builder.addBoolean(5, hasDescription, false); }
   public static int endFormField(FlatBufferBuilder builder) {
     int o = builder.endTable();
     return o;
@@ -81,17 +91,24 @@ public final class FormField extends Table {
     _o.setKind(_oKind);
     boolean _oRequired = required();
     _o.setRequired(_oRequired);
+    String _oDescription = description();
+    _o.setDescription(_oDescription);
+    boolean _oHasDescription = hasDescription();
+    _o.setHasDescription(_oHasDescription);
   }
   public static int pack(FlatBufferBuilder builder, FormFieldT _o) {
     if (_o == null) return 0;
     int _id = _o.getId() == null ? 0 : builder.createString(_o.getId());
     int _label = _o.getLabel() == null ? 0 : builder.createString(_o.getLabel());
     int _kind = _o.getKind() == null ? 0 : builder.createString(_o.getKind());
+    int _description = _o.getDescription() == null ? 0 : builder.createString(_o.getDescription());
     return createFormField(
       builder,
       _id,
       _label,
       _kind,
-      _o.getRequired());
+      _o.getRequired(),
+      _description,
+      _o.getHasDescription());
   }
 }

@@ -184,6 +184,13 @@ pub struct FormRecordValue {
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
 /// Represents vault record.
 pub enum VaultRecord {
+    /// Schema-4 reusable definition with native field guidance.
+    FormDefinitionWithDescriptions {
+        /// Exact definition revision.
+        definition: FormDefinitionRecord,
+        /// Descriptions keyed by stable field ID; absent fields have no guidance.
+        field_descriptions: std::collections::BTreeMap<String, String>,
+    },
     /// Represents the start case.
     Start {
         /// Represents the structure version carried by this record case.
@@ -254,6 +261,31 @@ pub enum VaultRecord {
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
 /// Represents archive record.
 pub enum ArchiveRecord {
+    /// Schema-4 variable with its own optional description.
+    VariableWithDescription {
+        /// Canonical variable name.
+        name: String,
+        /// Normal or secret sensitivity.
+        sensitivity: String,
+        /// Protected value bytes.
+        value: SecretBytes,
+        /// Description; empty text differs from absence.
+        description: Option<String>,
+    },
+    /// Schema-4 definition with native field guidance.
+    FormDefinitionWithDescriptions {
+        /// Exact definition revision.
+        definition: FormDefinitionRecord,
+        /// Descriptions keyed by stable field ID.
+        field_descriptions: std::collections::BTreeMap<String, String>,
+    },
+    /// Schema-4 record with its own context.
+    FormRecordWithDescription {
+        /// Exact record and field values.
+        record: FormRecordValue,
+        /// Description; empty text differs from absence.
+        description: Option<String>,
+    },
     /// Represents the start case.
     Start {
         /// Represents the archive id carried by this record case.

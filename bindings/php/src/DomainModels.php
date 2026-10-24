@@ -36,7 +36,7 @@ final class PathMove
 final class FormField
 {
     /** Creates a value from fields returned by the reVault API. */
-    public function __construct(public readonly string $id, public readonly string $label, public readonly string $kind, public readonly bool $required) {}
+    public function __construct(public readonly string $id, public readonly string $label, public readonly string $kind, public readonly bool $required, public readonly string $description = '', public readonly bool $has_description = false) {}
     /** Stable field identifier used when reading and writing records. */
     public function getId(): mixed { return $this->id; }
     /** Human-readable label presented to a person entering data. */
@@ -45,6 +45,10 @@ final class FormField
     public function getKind(): mixed { return $this->kind; }
     /** Whether a record must provide a value for this field. */
     public function getRequired(): mixed { return $this->required; }
+    /** Multiline guidance captured by this field definition revision. */
+    public function getDescription(): mixed { return $this->description; }
+    /** Whether guidance is present, including explicitly empty text. */
+    public function getHasDescription(): mixed { return $this->has_description; }
 }
 
 /** A versioned form schema used to validate and label structured records in a lockbox. */
@@ -87,7 +91,7 @@ final class FormValue
 final class FormRecord
 {
     /** Creates a value from fields returned by the reVault API. */
-    public function __construct(public readonly string $path, public readonly string $name, public readonly string $type_id, public readonly string $definition_alias, public readonly int $definition_revision, public readonly array $values) {}
+    public function __construct(public readonly string $path, public readonly string $name, public readonly string $type_id, public readonly string $definition_alias, public readonly int $definition_revision, public readonly array $values, public readonly string $description = '', public readonly bool $has_description = false) {}
     /** Absolute lockbox path that identifies the record. */
     public function getPath(): mixed { return $this->path; }
     /** Human-readable name assigned to this record. */
@@ -100,6 +104,10 @@ final class FormRecord
     public function getDefinitionRevision(): mixed { return $this->definition_revision; }
     /** Ordered non-secret field metadata and values. */
     public function getValues(): mixed { return $this->values; }
+    /** Multiline context specific to this record. */
+    public function getDescription(): mixed { return $this->description; }
+    /** Whether the record description is present, including empty text. */
+    public function getHasDescription(): mixed { return $this->has_description; }
 }
 
 /** The files and metadata recovered, or found damaged, while inspecting or salvaging a lockbox. */
@@ -334,11 +342,15 @@ final class RuntimeOptions
 final class Variable
 {
     /** Creates a value from fields returned by the reVault API. */
-    public function __construct(public readonly string $name, public readonly string $sensitivity) {}
+    public function __construct(public readonly string $name, public readonly string $sensitivity, public readonly string $description = '', public readonly bool $has_description = false) {}
     /** Name used to address the variable in the lockbox. */
     public function getName(): mixed { return $this->name; }
     /** Whether the value is ordinary text or a protected secret. */
     public function getSensitivity(): mixed { return $this->sensitivity; }
+    /** Multiline description stored with this variable. */
+    public function getDescription(): mixed { return $this->description; }
+    /** Whether the variable description is present, including empty text. */
+    public function getHasDescription(): mixed { return $this->has_description; }
 }
 
 /** Whether a lockbox is owner-signed and, when available, the signing-key fingerprint. */
@@ -631,7 +643,7 @@ final class DomainCodec
     }
     private static function fromFormField(\Revault\Internal\Transport\FormField $value): FormField
     {
-        return new FormField($value->getId() ?? '', $value->getLabel() ?? '', $value->getKind() ?? '', $value->getRequired());
+        return new FormField($value->getId() ?? '', $value->getLabel() ?? '', $value->getKind() ?? '', $value->getRequired(), $value->getDescription() ?? '', $value->getHasDescription());
     }
     private static function fromFormDefinition(\Revault\Internal\Transport\FormDefinition $value): FormDefinition
     {
@@ -643,7 +655,7 @@ final class DomainCodec
     }
     private static function fromFormRecord(\Revault\Internal\Transport\FormRecord $value): FormRecord
     {
-        return new FormRecord($value->getPath() ?? '', $value->getName() ?? '', $value->getTypeId() ?? '', $value->getDefinitionAlias() ?? '', $value->getDefinitionRevision(), self::tables($value, 'getValues', 'FormValue'));
+        return new FormRecord($value->getPath() ?? '', $value->getName() ?? '', $value->getTypeId() ?? '', $value->getDefinitionAlias() ?? '', $value->getDefinitionRevision(), self::tables($value, 'getValues', 'FormValue'), $value->getDescription() ?? '', $value->getHasDescription());
     }
     private static function fromRecoveryReport(\Revault\Internal\Transport\RecoveryReport $value): RecoveryReport
     {
@@ -703,7 +715,7 @@ final class DomainCodec
     }
     private static function fromVariable(\Revault\Internal\Transport\Variable $value): Variable
     {
-        return new Variable($value->getName() ?? '', $value->getSensitivity() ?? '');
+        return new Variable($value->getName() ?? '', $value->getSensitivity() ?? '', $value->getDescription() ?? '', $value->getHasDescription());
     }
     private static function fromOwnerInspection(\Revault\Internal\Transport\OwnerInspection $value): OwnerInspection
     {
@@ -1015,7 +1027,7 @@ final class DomainCodec
     public static function encodeFormFields(array $fields): string
     {
         $builder = new FlatBufferBuilder(256); $offsets = [];
-        foreach ($fields as $field) { $id = $builder->createString($field->id); $label = $builder->createString($field->label); $kind = $builder->createString($field->kind); $offsets[] = \Revault\Internal\Transport\FormField::createFormField($builder, $id, $label, $kind, $field->required); }
+        foreach ($fields as $field) { $id = $builder->createString($field->id); $label = $builder->createString($field->label); $kind = $builder->createString($field->kind); $description = $builder->createString($field->description); $offsets[] = \Revault\Internal\Transport\FormField::createFormField($builder, $id, $label, $kind, $field->required, $description, $field->has_description); }
         $values = \Revault\Internal\Transport\FormFieldList::createValuesVector($builder, $offsets); $root = \Revault\Internal\Transport\FormFieldList::createFormFieldList($builder, $values); $builder->finish($root); return $builder->sizedByteArray();
     }
 }

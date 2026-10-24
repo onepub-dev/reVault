@@ -88,6 +88,6 @@ lines += [
     "/** A source and destination pair accepted by move operations. */",
     "export interface PathMoveInput { readonly source: string; readonly destination: string; }",
     "/** A field accepted when defining a form. */",
-    "export interface FormFieldInput { readonly id: string; readonly label: string; readonly kind: string; readonly required: boolean; }",
+    "export interface FormFieldInput { readonly id: string; readonly label: string; readonly kind: string; readonly required: boolean; readonly description?: string; readonly hasDescription?: boolean; }",
 ]
 OUTPUT.write_text("\n".join(lines) + "\n")

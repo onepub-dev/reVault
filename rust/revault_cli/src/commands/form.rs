@@ -175,6 +175,25 @@ fn define_options(
     access: &Access,
 ) -> CliResult<()> {
     let mut lb = open_existing(lockbox_path, access)?;
+    // CLI field specifications omit guidance; preserve it for retained IDs.
+    let mut fields = fields;
+    let reference = type_id
+        .as_ref()
+        .map(ToString::to_string)
+        .unwrap_or_else(|| alias.clone());
+    match lb.resolve_form_definition(&reference) {
+        Ok(previous) => {
+            for field in &mut fields {
+                field.description = previous
+                    .fields
+                    .iter()
+                    .find(|old| old.id == field.id)
+                    .and_then(|old| old.description.clone());
+            }
+        }
+        Err(Error::NotFound(_)) => {}
+        Err(error) => return Err(error.into()),
+    }
     let definition = if let Some(type_id) = type_id {
         lb.define_form_with_type_id_and_description(type_id, &alias, &name, &description, fields)?
     } else {
@@ -652,6 +671,7 @@ pub(crate) fn parse_field_spec(spec: &str) -> CliResult<FormFieldDefinition> {
         .unwrap_or(&id)
         .to_string();
     Ok(FormFieldDefinition {
+        description: None,
         id,
         label,
         kind,

@@ -77,12 +77,15 @@ reference). Optional keys may be omitted or null. Unknown keys and invalid
 combinations are rejected. Results use the existing `OptionalString` FlatBuffer;
 free them with `buffer_free`. Errors use the existing error channel and a null
 result buffer. JSON requests are limited to eight mebibytes; decoded descriptions
-remain subject to the one-mebibyte normal-variable limit. Field descriptions for
-one revision share that limit as an encoded map.
+remain subject to the one-mebibyte per-description limit.
 
-No archive format or FlatBuffers schema change is required. Older format-4
-clients retain the encrypted metadata during ordinary updates, but do not
-maintain descriptions when renaming/deleting their owners or revising definitions.
+Descriptions are native fields in archive format 5 (the 0.6.x compatibility
+line). Variable, field-definition and form-record transport models include
+`description` and `hasDescription` (with language-specific naming). Set the
+presence flag to preserve an explicitly empty description; false means absent.
+When revising a definition, supply the complete fields including descriptions.
+Older archives and Vault containers require explicit migration before opening;
+format-4 clients cannot read format-5 files.
 
 ## Transaction maintenance and v4
 

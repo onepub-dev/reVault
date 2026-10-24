@@ -84,28 +84,45 @@ class FormRecord extends Table
         return $o != 0 ? $this->__vector_len($o) : 0;
     }
 
+    public function getDescription()
+    {
+        $o = $this->__offset(16);
+        return $o != 0 ? $this->__string($o + $this->bb_pos) : null;
+    }
+
+    /**
+     * @return bool
+     */
+    public function getHasDescription()
+    {
+        $o = $this->__offset(18);
+        return $o != 0 ? $this->bb->getBool($o + $this->bb_pos) : false;
+    }
+
     /**
      * @param FlatbufferBuilder $builder
      * @return void
      */
     public static function startFormRecord(FlatbufferBuilder $builder)
     {
-        $builder->StartObject(6);
+        $builder->StartObject(8);
     }
 
     /**
      * @param FlatbufferBuilder $builder
      * @return FormRecord
      */
-    public static function createFormRecord(FlatbufferBuilder $builder, $path, $name, $type_id, $definition_alias, $definition_revision, $values)
+    public static function createFormRecord(FlatbufferBuilder $builder, $path, $name, $type_id, $definition_alias, $definition_revision, $values, $description, $has_description)
     {
-        $builder->startObject(6);
+        $builder->startObject(8);
         self::addPath($builder, $path);
         self::addName($builder, $name);
         self::addTypeId($builder, $type_id);
         self::addDefinitionAlias($builder, $definition_alias);
         self::addDefinitionRevision($builder, $definition_revision);
         self::addValues($builder, $values);
+        self::addDescription($builder, $description);
+        self::addHasDescription($builder, $has_description);
         $o = $builder->endObject();
         return $o;
     }
@@ -192,6 +209,26 @@ class FormRecord extends Table
     public static function startValuesVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(4, $numElems, 4);
+    }
+
+    /**
+     * @param FlatbufferBuilder $builder
+     * @param StringOffset
+     * @return void
+     */
+    public static function addDescription(FlatbufferBuilder $builder, $description)
+    {
+        $builder->addOffsetX(6, $description, 0);
+    }
+
+    /**
+     * @param FlatbufferBuilder $builder
+     * @param bool
+     * @return void
+     */
+    public static function addHasDescription(FlatbufferBuilder $builder, $hasDescription)
+    {
+        $builder->addBoolX(7, $hasDescription, false);
     }
 
     /**

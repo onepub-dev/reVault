@@ -292,7 +292,7 @@ mod tests {
         let path = root.join("future.lbox");
         // A synthetic discriminator is necessary: no public future writer exists.
         let mut archive = vec![0; 384];
-        archive[..10].copy_from_slice(b"LBX5HDR\0\x05\0");
+        archive[..10].copy_from_slice(b"LBX6HDR\0\x06\0");
         std::fs::write(&path, &archive).unwrap();
         for mode in ["read", "write"] {
             assert!(file(&path, mode, ptr::null()).is_null());

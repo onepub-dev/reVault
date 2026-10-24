@@ -1,5 +1,6 @@
 //! Explicit append-only fixture creation. Never runs in normal CI.
 use super::*;
+use revault_migrate_v4::{archive_reader as archive_v4_reader, vault_reader as vault_v4_reader};
 
 fn write_new(path: &Path, bytes: &[u8]) {
     let mut file = fs::OpenOptions::new()
@@ -15,8 +16,8 @@ fn retain(kind: &str, version: u32, writer: &str, bytes: &[u8], coverage: &[&str
     let container = revault_lockbox_api::probe_lockbox_format_version(bytes).unwrap();
     let name = if kind == "vault" && version == 2 && container == 1 {
         "vault-v2-container-v1".to_string()
-    } else if kind == "vault" && version == 3 && container == 4 {
-        "vault-v3-container-v4".to_string()
+    } else if kind == "vault" && version == 3 && container >= 4 {
+        format!("vault-v3-container-v{container}")
     } else {
         format!("{kind}-v{version}")
     };
@@ -68,7 +69,15 @@ fn retain(kind: &str, version: u32, writer: &str, bytes: &[u8], coverage: &[&str
 
 // Public synthetic fixture material explicitly approved for durable retention.
 // Historical fixtures remain unchanged; this key must never protect real data.
-macro_rules! retain_fixture_owner {
+macro_rules! retain_fixture_owner {    (5, $signer:ident) => {
+        $signer.private_key_record().unwrap().with_bytes(|bytes| {
+            let dir = root().join("archive-v5");
+            write_new(&dir.join("PUBLIC-TEST-owner-private.bin"), bytes);
+            write_new(&dir.join("PUBLIC-TEST-owner-private.sha256"), digest(bytes).as_bytes());
+            write_new(&dir.join("PUBLIC-TEST-KEY.txt"), b"PUBLIC TEST-ONLY signing key for this synthetic format-5 fixture. Never use outside this fixture.\n");
+        }).unwrap();
+    };
+
     (4, $signer:ident) => {
         $signer.private_key_record().unwrap().with_bytes(|bytes| {
             let dir = root().join("archive-v4");
@@ -78,6 +87,54 @@ macro_rules! retain_fixture_owner {
         }).unwrap();
     };
     ($other:tt, $signer:ident) => {};
+}
+
+macro_rules! fixture_field {
+    (5, $id:ident, $kind:ident) => {
+        api::FormFieldDefinition {
+            id: $id.to_string(),
+            label: format!("Original {}", $id),
+            kind: *$kind,
+            required: true,
+            description: None,
+        }
+    };
+    ($version:tt, $id:ident, $kind:ident) => {
+        api::FormFieldDefinition {
+            id: $id.to_string(),
+            label: format!("Original {}", $id),
+            kind: *$kind,
+            required: true,
+        }
+    };
+}
+macro_rules! native_fixture_descriptions {
+    (5, $archive:ident) => {
+        let name = api::VariableName::new("/described").unwrap();
+        $archive.set_variable(&name, "annotated value").unwrap();
+        $archive
+            .set_variable_description(&name, "Purpose\nSecond line")
+            .unwrap();
+        $archive
+            .define_form(
+                "described",
+                "Described",
+                vec![api::FormFieldDefinition {
+                    id: "notes".into(),
+                    label: "Notes".into(),
+                    kind: api::FormFieldKind::Notes,
+                    required: false,
+                    description: Some("Field\nGuidance".into()),
+                }],
+            )
+            .unwrap();
+        let path = api::LockboxPath::new("/described.form").unwrap();
+        $archive
+            .create_form_record(&path, "described", "Described record")
+            .unwrap();
+        $archive.set_form_record_description(&path, "").unwrap();
+    };
+    ($version:tt, $archive:ident) => {};
 }
 
 macro_rules! archive_generator {
@@ -113,7 +170,7 @@ macro_rules! archive_generator {
                 ("notes", api::FormFieldKind::Notes, "one\ntwo"),
                 ("number", api::FormFieldKind::Number, "123.5"),
             ];
-            let definitions: Vec<_> = fields.iter().map(|(id, kind, _)| api::FormFieldDefinition { id: id.to_string(), label: format!("Original {id}"), kind: *kind, required: true }).collect();
+            let definitions: Vec<_> = fields.iter().map(|(id, kind, _)| fixture_field!($version, id, kind)).collect();
             archive.define_form_with_type_id(type_id.clone(), "complete", "All field types", definitions.clone()).unwrap();
             let form_path = api::LockboxPath::new("/original.form").unwrap();
             archive.create_form_record(&form_path, "complete", "Original form").unwrap();
@@ -146,6 +203,8 @@ macro_rules! archive_generator {
             archive.add_file(&api::LockboxPath::new("/replace.txt").unwrap(), b"new", true).unwrap();
             archive.delete(&api::LockboxPath::new("/deleted.txt").unwrap()).unwrap();
             archive.commit().unwrap();
+            native_fixture_descriptions!($version, archive);
+            archive.commit().unwrap();
             retain("archive", $version, $writer, &archive.try_to_bytes().unwrap(), &[
                 "description", "directories", "permissions", "empty-files", "unicode", "multi-frame-binary",
                 "symlinks", "normal-variables", "secret-variables", "empty-variables", "form-definitions",
@@ -172,7 +231,7 @@ archive_generator!(
 );
 archive_generator!(
     archive_v3,
-    revault_lockbox_api,
+    archive_v3,
     3,
     "revault_lockbox_api 0.0.39 (workspace)",
     true
@@ -218,7 +277,9 @@ fn current_writer() -> String {
     format!("revault_lockbox_api {api_version}; revault_vault_api {vault_version} (workspace); source-manifest SHA-256 {identity}")
 }
 
-archive_generator!(archive_v4, revault_lockbox_api, 4, &current_writer(), true);
+archive_generator!(archive_v4, archive_v4_reader, 4, &current_writer(), true);
+
+archive_generator!(archive_v5, revault_lockbox_api, 5, &current_writer(), true);
 
 macro_rules! vault_generator {
     ($function:ident, $vault:ident, $api:ident, $version:expr, $writer:expr, $email:ident $(, $password_profile:ident)?) => {
@@ -270,8 +331,8 @@ vault_generator!(
 );
 vault_generator!(
     vault_v3,
-    revault_vault_api,
-    revault_lockbox_api,
+    vault_v3,
+    archive_v3,
     3,
     "revault_vault_api 0.0.40; revault_lockbox_api 0.0.39 (workspace)",
     store_profile_email,
@@ -289,6 +350,16 @@ vault_generator!(
 
 vault_generator!(
     vault_v3_container_v4,
+    vault_v4_reader,
+    archive_v4_reader,
+    3,
+    &current_writer(),
+    store_profile_email,
+    create_password_profile
+);
+
+vault_generator!(
+    vault_v3_container_v5,
     revault_vault_api,
     revault_lockbox_api,
     3,
@@ -307,6 +378,14 @@ fn append_retained_fixture() {
         "refusing to overwrite retained fixture directory"
     );
     match name.as_str() {
+        "archive-v5" => {
+            assert_eq!(LOCKBOX_FORMAT_VERSION, 5);
+            archive_v5();
+        }
+        "vault-v3-container-v5" => {
+            assert_eq!(LOCKBOX_FORMAT_VERSION, 5);
+            vault_v3_container_v5();
+        }
         "archive-v1" => archive_v1(),
         "archive-v2" => archive_v2(),
         "archive-v3" => {

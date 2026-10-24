@@ -52,12 +52,14 @@ fn fixture(compressed: bool, signed: bool, encrypted: bool) -> (Vec<u8>, Vec<u8>
             "Note",
             vec![
                 FormFieldDefinition {
+                    description: None,
                     id: "body".into(),
                     label: "Body".into(),
                     kind: FormFieldKind::Text,
                     required: false,
                 },
                 FormFieldDefinition {
+                    description: None,
                     id: "secret".into(),
                     label: "Secret".into(),
                     kind: FormFieldKind::Secret,
