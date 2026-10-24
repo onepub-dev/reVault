@@ -777,6 +777,15 @@ final class BindingOperations {
           _take(native.lockbox_get_variable(handle, namePointer, nameLength)),
         ),
       );
+  List<ContactExchangeStatus> contactExchangeExecute(
+    ffi.Pointer<ffi.Void> handle,
+    String name,
+  ) => _withText(
+    name,
+    (namePointer, nameLength) => DomainDecoders.contactExchangeStatusList(
+      _take(native.contact_exchange_execute(handle, namePointer, nameLength)),
+    ),
+  );
   String? lockboxItemDescription(ffi.Pointer<ffi.Void> handle, String name) =>
       _withText(
         name,
@@ -1420,6 +1429,21 @@ final class BindingOperations {
           password,
           (passwordPointer, passwordLength) => _requireHandle(
             native.vault_directory_open(
+              rootPointer,
+              rootLength,
+              passwordPointer,
+              passwordLength,
+            ),
+          ),
+        ),
+      );
+  ffi.Pointer<ffi.Void> contactExchangeOpen(String root, Uint8List password) =>
+      _withText(
+        root,
+        (rootPointer, rootLength) => _withBytes(
+          password,
+          (passwordPointer, passwordLength) => _requireHandle(
+            native.contact_exchange_open(
               rootPointer,
               rootLength,
               passwordPointer,
@@ -2168,6 +2192,8 @@ final class BindingOperations {
 
   void vaultDirectoryFree(ffi.Pointer<ffi.Void> handle) =>
       native.vault_directory_free(handle);
+  void contactExchangeFree(ffi.Pointer<ffi.Void> handle) =>
+      native.contact_exchange_free(handle);
 
   ffi.Pointer<ffi.Void> vaultReadOnlyOpen(String root, Uint8List password) =>
       _withText(

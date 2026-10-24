@@ -95,6 +95,7 @@ let lockbox_stat;
 let lockbox_set_variable;
 let lockbox_set_secret_variable;
 let lockbox_get_variable;
+let contact_exchange_execute;
 let lockbox_item_description;
 let vault_directory_item_description;
 let lockbox_get_secret_variable;
@@ -168,6 +169,7 @@ let vault_key_decode_crockford;
 let vault_key_hex_encode;
 let vault_key_hex_decode;
 let vault_directory_open;
+let contact_exchange_open;
 let vault_structure_version_current;
 let vault_directory_probe_structure_version;
 let vault_directory_open_or_create_default;
@@ -227,6 +229,7 @@ let vault_directory_remembered_password;
 let vault_backup_default;
 let vault_restore_default;
 let vault_directory_free;
+let contact_exchange_free;
 let vault_read_only_open;
 let vault_read_only_open_default;
 let vault_read_only_load_private_key;
@@ -344,6 +347,7 @@ export function configureNativeLibrary(explicitPath = undefined) {
   lockbox_set_variable = library.func('bool lockbox_set_variable(void *, const char *, size_t, const char *, size_t)');
   lockbox_set_secret_variable = library.func('bool lockbox_set_secret_variable(void *, const char *, size_t, void *, size_t)');
   lockbox_get_variable = library.func('RevaultBuffer lockbox_get_variable(void *, const char *, size_t)');
+  contact_exchange_execute = library.func('RevaultBuffer contact_exchange_execute(void *, const char *, size_t)');
   lockbox_item_description = library.func('RevaultBuffer lockbox_item_description(void *, const char *, size_t)');
   vault_directory_item_description = library.func('RevaultBuffer vault_directory_item_description(void *, const char *, size_t)');
   lockbox_get_secret_variable = library.func('bool lockbox_get_secret_variable(void *, const char *, size_t, _Out_ void **)');
@@ -417,6 +421,7 @@ export function configureNativeLibrary(explicitPath = undefined) {
   vault_key_hex_encode = library.func('RevaultBuffer vault_key_hex_encode(void *, size_t)');
   vault_key_hex_decode = library.func('RevaultBuffer vault_key_hex_decode(const char *, size_t)');
   vault_directory_open = library.func('void * vault_directory_open(const char *, size_t, void *, size_t)');
+  contact_exchange_open = library.func('void * contact_exchange_open(const char *, size_t, void *, size_t)');
   vault_structure_version_current = library.func('uint32_t vault_structure_version_current(void)');
   vault_directory_probe_structure_version = library.func('uint32_t vault_directory_probe_structure_version(const char *, size_t, void *, size_t)');
   vault_directory_open_or_create_default = library.func('void * vault_directory_open_or_create_default(void *, size_t)');
@@ -476,6 +481,7 @@ export function configureNativeLibrary(explicitPath = undefined) {
   vault_backup_default = library.func('RevaultBuffer vault_backup_default(const char *, size_t, bool)');
   vault_restore_default = library.func('RevaultBuffer vault_restore_default(const char *, size_t, bool)');
   vault_directory_free = library.func('void vault_directory_free(void *)');
+  contact_exchange_free = library.func('void contact_exchange_free(void *)');
   vault_read_only_open = library.func('void * vault_read_only_open(const char *, size_t, void *, size_t)');
   vault_read_only_open_default = library.func('void * vault_read_only_open_default(void *, size_t)');
   vault_read_only_load_private_key = library.func('void * vault_read_only_load_private_key(void *, const char *, size_t)');
@@ -696,6 +702,9 @@ export class BindingOperations {
   lockboxGetVariable(handle, name) {
     return decode('OptionalString', lockbox_get_variable(handle, Buffer.from(name), Buffer.byteLength(name)));
   }
+  contactExchangeExecute(handle, name) {
+    return decode('ContactExchangeStatusList', contact_exchange_execute(handle, Buffer.from(name), Buffer.byteLength(name)));
+  }
   lockboxItemDescription(handle, name) {
     return decode('OptionalString', lockbox_item_description(handle, Buffer.from(name), Buffer.byteLength(name)));
   }
@@ -852,6 +861,7 @@ export class BindingOperations {
   vaultKeyHexDecode(text) { return take(vault_key_hex_decode(Buffer.from(text), Buffer.byteLength(text))); }
 
   vaultDirectoryOpen(root, password) { return requireHandle(vault_directory_open(Buffer.from(root), Buffer.byteLength(root), Buffer.from(password), Buffer.byteLength(password))); }
+  contactExchangeOpen(root, password) { return requireHandle(contact_exchange_open(Buffer.from(root), Buffer.byteLength(root), Buffer.from(password), Buffer.byteLength(password))); }
 
   vaultStructureVersionCurrent() { return vault_structure_version_current(); }
 
@@ -970,6 +980,7 @@ export class BindingOperations {
   vaultRestoreDefault(path, overwrite) { return decode('VaultBackupManifest', vault_restore_default(Buffer.from(path), Buffer.byteLength(path), overwrite)); }
 
   vaultDirectoryFree(handle) { return vault_directory_free(handle); }
+  contactExchangeFree(handle) { return contact_exchange_free(handle); }
 
   vaultReadOnlyOpen(root, password) { return requireHandle(vault_read_only_open(Buffer.from(root), Buffer.byteLength(root), Buffer.from(password), Buffer.byteLength(password))); }
 

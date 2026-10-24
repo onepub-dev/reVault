@@ -231,6 +231,10 @@ static class Conformance
         Check(Api.ProbeVaultStructureVersion(root, password) == Api.CurrentVaultStructureVersion, "vault probe"); Pass("vault_directory_probe_structure_version", 2);
         Api.ChangeVaultPassword(root, password, changed); Pass("vault_directory_change_password"); using (var opened = Api.OpenVault(root, changed)) Check(opened.StructureVersion > 0, "reopen"); Pass("vault_directory_open"); Console.WriteLine($"ARTIFACT\tcsharp\tvault-opened\t{root}");
         using (var opened = Api.OpenOrCreateVault(root, changed)) Check(opened.StructureVersion > 0, "open create"); Pass("vault_directory_open_or_create");
+        using (var exchange = Api.OpenContactExchange(Path.Combine(root, "local-vault.lbox"), changed)) {
+            Pass("contact_exchange_open"); Check(exchange.List(offline: true).Count == 0, "empty exchange status"); Pass("contact_exchange_execute");
+        }
+        Pass("contact_exchange_free");
     }
 
     static void DefaultVault()

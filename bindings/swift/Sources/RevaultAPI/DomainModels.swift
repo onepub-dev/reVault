@@ -4,6 +4,46 @@ import Foundation
 /// Identifies the filesystem object stored at a lockbox path.
 public enum LockboxEntryKind: Int { case unspecified, file, symlink, directory }
 
+/// Public reciprocal exchange status. Verification is a local trust decision; no management capability or private key is returned.
+public struct ContactExchangeStatus {
+    /// Random identifier of the saved exchange.
+    public let id: String
+    /// Pinned HTTPS relay origin.
+    public let relay: String
+    /// Invitation URL to share only with the intended recipient.
+    public let invitation: String
+    /// Signed claimed inviter email, not independently verified by the relay.
+    public let inviterEmail: String
+    /// Signed claimed intended recipient email.
+    public let recipientEmail: String
+    /// Full shared fingerprint to compare independently; empty until both contributions are available.
+    public let fingerprint: String
+    /// Signed invitation expiry in Unix milliseconds.
+    public let expiresMs: UInt64
+    /// Whether both signed public key bundles are locally pinned.
+    public let accepted: Bool
+    /// Whether this Vault independently verified and saved the contact.
+    public let verified: Bool
+    /// Local saved contact name, or empty before verification.
+    public let contactName: String
+    /// Whether the relay operation needs retrying; locally saved state is retained.
+    public let relayPending: Bool
+    /// Creates an application-owned ContactExchangeStatus value.
+    public init(id: String, relay: String, invitation: String, inviterEmail: String, recipientEmail: String, fingerprint: String, expiresMs: UInt64, accepted: Bool, verified: Bool, contactName: String, relayPending: Bool) {
+        self.id = id
+        self.relay = relay
+        self.invitation = invitation
+        self.inviterEmail = inviterEmail
+        self.recipientEmail = recipientEmail
+        self.fingerprint = fingerprint
+        self.expiresMs = expiresMs
+        self.accepted = accepted
+        self.verified = verified
+        self.contactName = contactName
+        self.relayPending = relayPending
+    }
+}
+
 /// Metadata for one file, directory, or symbolic link stored at a lockbox path.
 public struct LockboxEntry {
     /// Absolute lockbox path of the stored entry.
@@ -582,6 +622,12 @@ public struct ErrorDetails {
 }
 
 enum DomainCodec {
+    private static func convert(_ value: revault_internal__ContactExchangeStatusT) -> ContactExchangeStatus {
+        ContactExchangeStatus(id: value.id ?? "", relay: value.relay ?? "", invitation: value.invitation ?? "", inviterEmail: value.inviterEmail ?? "", recipientEmail: value.recipientEmail ?? "", fingerprint: value.fingerprint ?? "", expiresMs: value.expiresMs, accepted: value.accepted, verified: value.verified, contactName: value.contactName ?? "", relayPending: value.relayPending)
+    }
+    static func contactExchangeStatus(_ data: Data) -> ContactExchangeStatus {
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__ContactExchangeStatus = getRoot(byteBuffer: &buffer); return convert(root.unpack())
+    }
     private static func convert(_ value: revault_internal__LockboxEntryT) -> LockboxEntry {
         LockboxEntry(path: value.path ?? "", kind: LockboxEntryKind(rawValue: Int(value.kind.rawValue)) ?? .unspecified, length: value.length, permissions: value.permissions)
     }
@@ -773,6 +819,9 @@ enum DomainCodec {
     }
     static func contactList(_ data: Data) -> [Contact] {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__ContactList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
+    }
+    static func contactExchangeStatusList(_ data: Data) -> [ContactExchangeStatus] {
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__ContactExchangeStatusList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
     static func lockboxAliasList(_ data: Data) -> [LockboxAlias] {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__LockboxAliasList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)

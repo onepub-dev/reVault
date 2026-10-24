@@ -6,6 +6,35 @@ namespace Revault;
 use Google\FlatBuffers\ByteBuffer;
 use Google\FlatBuffers\FlatbufferBuilder;
 
+/** Public reciprocal exchange status. Verification is a local trust decision; no management capability or private key is returned. */
+final class ContactExchangeStatus
+{
+    /** Creates a value from fields returned by the reVault API. */
+    public function __construct(public readonly string $id, public readonly string $relay, public readonly string $invitation, public readonly string $inviter_email, public readonly string $recipient_email, public readonly string $fingerprint, public readonly int $expires_ms, public readonly bool $accepted, public readonly bool $verified, public readonly string $contact_name, public readonly bool $relay_pending) {}
+    /** Random identifier of the saved exchange. */
+    public function getId(): mixed { return $this->id; }
+    /** Pinned HTTPS relay origin. */
+    public function getRelay(): mixed { return $this->relay; }
+    /** Invitation URL to share only with the intended recipient. */
+    public function getInvitation(): mixed { return $this->invitation; }
+    /** Signed claimed inviter email, not independently verified by the relay. */
+    public function getInviterEmail(): mixed { return $this->inviter_email; }
+    /** Signed claimed intended recipient email. */
+    public function getRecipientEmail(): mixed { return $this->recipient_email; }
+    /** Full shared fingerprint to compare independently; empty until both contributions are available. */
+    public function getFingerprint(): mixed { return $this->fingerprint; }
+    /** Signed invitation expiry in Unix milliseconds. */
+    public function getExpiresMs(): mixed { return $this->expires_ms; }
+    /** Whether both signed public key bundles are locally pinned. */
+    public function getAccepted(): mixed { return $this->accepted; }
+    /** Whether this Vault independently verified and saved the contact. */
+    public function getVerified(): mixed { return $this->verified; }
+    /** Local saved contact name, or empty before verification. */
+    public function getContactName(): mixed { return $this->contact_name; }
+    /** Whether the relay operation needs retrying; locally saved state is retained. */
+    public function getRelayPending(): mixed { return $this->relay_pending; }
+}
+
 /** Metadata for one file, directory, or symbolic link stored at a lockbox path. */
 final class LockboxEntry
 {
@@ -564,6 +593,15 @@ final class ContactList
     public function getValues(): array { return $this->values; }
 }
 
+/** Ordered ContactExchangeStatus values returned by the corresponding list operation. */
+final class ContactExchangeStatusList
+{
+    /** @param list<ContactExchangeStatus> $values */
+    public function __construct(public readonly array $values) {}
+    /** Returns the ordered ContactExchangeStatus values. */
+    public function getValues(): array { return $this->values; }
+}
+
 /** Ordered ProfileHistory values returned by the corresponding list operation. */
 final class ProfileHistoryList
 {
@@ -633,6 +671,10 @@ final class OptionalString
 final class DomainCodec
 {
     private function __construct() {}
+    private static function fromContactExchangeStatus(\Revault\Internal\Transport\ContactExchangeStatus $value): ContactExchangeStatus
+    {
+        return new ContactExchangeStatus($value->getId() ?? '', $value->getRelay() ?? '', $value->getInvitation() ?? '', $value->getInviterEmail() ?? '', $value->getRecipientEmail() ?? '', $value->getFingerprint() ?? '', $value->getExpiresMs(), $value->getAccepted(), $value->getVerified(), $value->getContactName() ?? '', $value->getRelayPending());
+    }
     private static function fromLockboxEntry(\Revault\Internal\Transport\LockboxEntry $value): LockboxEntry
     {
         return new LockboxEntry($value->getPath() ?? '', $value->getKind(), $value->getLength(), $value->getPermissions());
@@ -744,6 +786,11 @@ final class DomainCodec
     private static function fromErrorDetails(\Revault\Internal\Transport\ErrorDetails $value): ErrorDetails
     {
         return new ErrorDetails($value->getCategory() ?? '', $value->getArtifactKind() ?? '', $value->getFoundVersion(), $value->getSupportedVersion(), $value->getMessage() ?? '', $value->getGuidance() ?? '');
+    }
+    /** @internal Decodes a native ContactExchangeStatus result. */
+    public static function decodeContactExchangeStatus(string $bytes): ContactExchangeStatus
+    {
+        return self::fromContactExchangeStatus(\Revault\Internal\Transport\ContactExchangeStatus::getRootAsContactExchangeStatus(ByteBuffer::wrap($bytes)));
     }
     /** @internal Decodes a native LockboxEntry result. */
     public static function decodeLockboxEntry(string $bytes): LockboxEntry
@@ -956,6 +1003,12 @@ final class DomainCodec
     {
         $root = \Revault\Internal\Transport\ContactList::getRootAsContactList(ByteBuffer::wrap($bytes));
         return new ContactList(self::tables($root, 'getValues', 'Contact'));
+    }
+    /** @internal Decodes a native ContactExchangeStatusList result. */
+    public static function decodeContactExchangeStatusList(string $bytes): ContactExchangeStatusList
+    {
+        $root = \Revault\Internal\Transport\ContactExchangeStatusList::getRootAsContactExchangeStatusList(ByteBuffer::wrap($bytes));
+        return new ContactExchangeStatusList(self::tables($root, 'getValues', 'ContactExchangeStatus'));
     }
     /** @internal Decodes a native ProfileHistoryList result. */
     public static function decodeProfileHistoryList(string $bytes): ProfileHistoryList

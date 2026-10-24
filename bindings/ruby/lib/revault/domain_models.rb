@@ -2,6 +2,42 @@
 
 module Revault
   module Bindings
+    # Public reciprocal exchange status. Verification is a local trust decision; no management capability or private key is returned.
+    class ContactExchangeStatus
+      # Random identifier of the saved exchange.
+      attr_reader :id
+      # Pinned HTTPS relay origin.
+      attr_reader :relay
+      # Invitation URL to share only with the intended recipient.
+      attr_reader :invitation
+      # Signed claimed inviter email, not independently verified by the relay.
+      attr_reader :inviter_email
+      # Signed claimed intended recipient email.
+      attr_reader :recipient_email
+      # Full shared fingerprint to compare independently; empty until both contributions are available.
+      attr_reader :fingerprint
+      # Signed invitation expiry in Unix milliseconds.
+      attr_reader :expires_ms
+      # Whether both signed public key bundles are locally pinned.
+      attr_reader :accepted
+      # Whether this Vault independently verified and saved the contact.
+      attr_reader :verified
+      # Local saved contact name, or empty before verification.
+      attr_reader :contact_name
+      # Whether the relay operation needs retrying; locally saved state is retained.
+      attr_reader :relay_pending
+      # Creates a domain value from named fields.
+      def initialize(id: '', relay: '', invitation: '', inviter_email: '', recipient_email: '', fingerprint: '', expires_ms: 0, accepted: false, verified: false, contact_name: '', relay_pending: false) = (@id = id; @relay = relay; @invitation = invitation; @inviter_email = inviter_email; @recipient_email = recipient_email; @fingerprint = fingerprint; @expires_ms = expires_ms; @accepted = accepted; @verified = verified; @contact_name = contact_name; @relay_pending = relay_pending)
+    end
+
+    # Ordered ContactExchangeStatus values returned by the corresponding list operation.
+    class ContactExchangeStatusList
+      # Ordered ContactExchangeStatus values returned by the corresponding list operation.
+      attr_reader :values
+      # Creates a domain value from named fields.
+      def initialize(values: []) = (@values = values)
+    end
+
     # Metadata for one file, directory, or symbolic link stored at a lockbox path.
     class LockboxEntry
       # Absolute lockbox path of the stored entry.
@@ -602,6 +638,8 @@ module Revault
       module_function
 
     SCHEMA = {
+      'ContactExchangeStatus' => [[:id, 'string'], [:relay, 'string'], [:invitation, 'string'], [:inviter_email, 'string'], [:recipient_email, 'string'], [:fingerprint, 'string'], [:expires_ms, 'ulong'], [:accepted, 'bool'], [:verified, 'bool'], [:contact_name, 'string'], [:relay_pending, 'bool']],
+      'ContactExchangeStatusList' => [[:values, '[revault.internal.ContactExchangeStatus]']],
       'LockboxEntry' => [[:path, 'string'], [:kind, 'revault.internal.LockboxEntryKind'], [:length, 'ulong'], [:permissions, 'uint']],
       'LockboxEntryList' => [[:entries, '[revault.internal.LockboxEntry]']],
       'OptionalLockboxEntry' => [[:value, 'revault.internal.LockboxEntry']],

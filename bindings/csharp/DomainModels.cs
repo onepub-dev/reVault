@@ -15,6 +15,20 @@ public enum LockboxEntryKind
     Directory
 }
 
+/// <summary>Public reciprocal exchange status. Verification is a local trust decision; no management capability or private key is returned.</summary>
+/// <param name="Id">Random identifier of the saved exchange.</param>
+/// <param name="Relay">Pinned HTTPS relay origin.</param>
+/// <param name="Invitation">Invitation URL to share only with the intended recipient.</param>
+/// <param name="InviterEmail">Signed claimed inviter email, not independently verified by the relay.</param>
+/// <param name="RecipientEmail">Signed claimed intended recipient email.</param>
+/// <param name="Fingerprint">Full shared fingerprint to compare independently; empty until both contributions are available.</param>
+/// <param name="ExpiresMs">Signed invitation expiry in Unix milliseconds.</param>
+/// <param name="Accepted">Whether both signed public key bundles are locally pinned.</param>
+/// <param name="Verified">Whether this Vault independently verified and saved the contact.</param>
+/// <param name="ContactName">Local saved contact name, or empty before verification.</param>
+/// <param name="RelayPending">Whether the relay operation needs retrying; locally saved state is retained.</param>
+public sealed record ContactExchangeStatus(string Id, string Relay, string Invitation, string InviterEmail, string RecipientEmail, string Fingerprint, ulong ExpiresMs, bool Accepted, bool Verified, string ContactName, bool RelayPending);
+
 /// <summary>Metadata for one file, directory, or symbolic link stored at a lockbox path.</summary>
 /// <param name="Path">Absolute lockbox path of the stored entry.</param>
 /// <param name="Kind">Filesystem kind: file, directory, or symbolic link.</param>
@@ -229,6 +243,9 @@ public sealed record ErrorDetails(string Category, string ArtifactKind, uint Fou
 /// <summary>Converts private native transport buffers into public domain values.</summary>
 internal static class DomainCodec
 {
+    private static ContactExchangeStatus FromInternal(global::RevaultTransport.ContactExchangeStatusT value) =>
+        new(value.Id ?? string.Empty, value.Relay ?? string.Empty, value.Invitation ?? string.Empty, value.InviterEmail ?? string.Empty, value.RecipientEmail ?? string.Empty, value.Fingerprint ?? string.Empty, value.ExpiresMs, value.Accepted, value.Verified, value.ContactName ?? string.Empty, value.RelayPending);
+    internal static ContactExchangeStatus ContactExchangeStatus(byte[] bytes) => FromInternal(global::RevaultTransport.ContactExchangeStatus.GetRootAsContactExchangeStatus(new ByteBuffer(bytes)).UnPack());
     private static LockboxEntry FromInternal(global::RevaultTransport.LockboxEntryT value) =>
         new(value.Path ?? string.Empty, (LockboxEntryKind)(int)value.Kind, value.Length, value.Permissions);
     internal static LockboxEntry LockboxEntry(byte[] bytes) => FromInternal(global::RevaultTransport.LockboxEntry.GetRootAsLockboxEntry(new ByteBuffer(bytes)).UnPack());
@@ -352,6 +369,11 @@ internal static class DomainCodec
     {
         var values = global::RevaultTransport.ContactList.GetRootAsContactList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<Contact>() : values.Select(FromInternal).ToArray();
+    }
+    internal static IReadOnlyList<ContactExchangeStatus> ContactExchangeStatusList(byte[] bytes)
+    {
+        var values = global::RevaultTransport.ContactExchangeStatusList.GetRootAsContactExchangeStatusList(new ByteBuffer(bytes)).UnPack().Values;
+        return values is null ? Array.Empty<ContactExchangeStatus>() : values.Select(FromInternal).ToArray();
     }
     internal static IReadOnlyList<LockboxAlias> LockboxAliasList(byte[] bytes)
     {

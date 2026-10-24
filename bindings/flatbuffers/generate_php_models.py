@@ -61,7 +61,7 @@ list_types = {
     "KeySlotList": "KeySlot", "PageInspectionList": "PageInspection",
     "LockboxAliasList": "LockboxAlias", "KnownLockboxList": "KnownLockbox", "AccessSlotLabelList": "AccessSlotLabel",
     "StreamChunkList": "StreamChunk", "VariableList": "Variable",
-    "ContactList": "Contact", "ProfileHistoryList": "ProfileHistory",
+    "ContactList": "Contact", "ContactExchangeStatusList": "ContactExchangeStatus", "ProfileHistoryList": "ProfileHistory",
     "AgentEntryList": "AgentEntry",
 }
 for name, item in list_types.items():

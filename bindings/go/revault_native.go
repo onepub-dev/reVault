@@ -170,6 +170,9 @@ func (native) LockboxSetSecretVariable(handle unsafe.Pointer, name unsafe.Pointe
 func (native) LockboxGetVariable(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t) C.RevaultBuffer {
 	return C.lockbox_get_variable(handle, (*C.char)(name), name_len)
 }
+func (native) ContactExchangeExecute(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t) C.RevaultBuffer {
+	return C.contact_exchange_execute(handle, (*C.char)(name), name_len)
+}
 func (native) LockboxItemDescription(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t) C.RevaultBuffer {
 	return C.lockbox_item_description(handle, (*C.char)(name), name_len)
 }
@@ -389,6 +392,9 @@ func (native) VaultKeyHexDecode(text unsafe.Pointer, len C.size_t) C.RevaultBuff
 func (native) VaultDirectoryOpen(root unsafe.Pointer, root_len C.size_t, password unsafe.Pointer, password_len C.size_t) unsafe.Pointer {
 	return C.vault_directory_open((*C.char)(root), root_len, (*C.uint8_t)(password), password_len)
 }
+func (native) ContactExchangeOpen(root unsafe.Pointer, root_len C.size_t, password unsafe.Pointer, password_len C.size_t) unsafe.Pointer {
+	return C.contact_exchange_open((*C.char)(root), root_len, (*C.uint8_t)(password), password_len)
+}
 func (native) VaultStructureVersionCurrent() C.uint32_t {
 	return C.vault_structure_version_current()
 }
@@ -571,6 +577,9 @@ func (native) VaultRestoreDefault(path unsafe.Pointer, path_len C.size_t, overwr
 }
 func (native) VaultDirectoryFree(handle unsafe.Pointer) {
 	C.vault_directory_free(handle)
+}
+func (native) ContactExchangeFree(handle unsafe.Pointer) {
+	C.contact_exchange_free(handle)
 }
 func (native) VaultReadOnlyOpen(root unsafe.Pointer, root_len C.size_t, password unsafe.Pointer, password_len C.size_t) unsafe.Pointer {
 	return C.vault_read_only_open((*C.char)(root), root_len, (*C.uint8_t)(password), password_len)

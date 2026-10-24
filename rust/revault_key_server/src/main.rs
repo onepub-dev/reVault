@@ -61,6 +61,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     match matches.subcommand() {
         Some(("run", _)) => {
             let config = config_from_args(args[1..].to_vec())?;
+            if config
+                .promoted_owner_ids
+                .contains(&config.exchange_owner_id)
+            {
+                print_fencing_help();
+            }
             let bind = config.bind_addr.clone();
             println!("reVault key server starting");
             println!("  bind address: {bind}");
@@ -84,6 +90,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some(("start", _)) => start_systemd()?,
         Some(("stop", _)) => stop_systemd()?,
         Some(("doctor", _)) => print_doctor()?,
+        Some(("fencing-help", _)) => print_fencing_help(),
         Some(("resync-peer", _)) => {
             let (mut config_args, peer_url) = split_peer_url_args(args[1..].to_vec())?;
             let config = config_from_args(std::mem::take(&mut config_args))?;
@@ -159,6 +166,10 @@ fn key_server_command(show_developer_help: bool) -> Command {
         .subcommand(Command::new("start").about("Start the system service"))
         .subcommand(Command::new("stop").about("Stop the system service"))
         .subcommand(Command::new("doctor").about("Check the installed service and configuration"))
+        .subcommand(
+            Command::new("fencing-help")
+                .about("Show the required steps to fence an old relay before promotion"),
+        )
         .subcommand(add_config_args(
             Command::new("resync-peer")
                 .about("Resync live publishes to a peer")
@@ -234,6 +245,10 @@ fn print_doctor() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Topology servers: {}", config.topology_servers.len());
     println!("  Topology routes: {}", config.topology_routes.len());
     println!("  SMTP complete: {}", doctor_yes_no(smtp_configured));
+    println!("  Exchange owner: {}", config.exchange_owner_id);
+    if !config.promoted_owner_ids.is_empty() {
+        print_fencing_help();
+    }
 
     if config.public_url.is_none() {
         println!(
@@ -259,6 +274,37 @@ fn doctor_yes_no(value: bool) -> &'static str {
     } else {
         "NO"
     }
+}
+
+fn print_fencing_help() {
+    println!(
+        r#"
+Relay promotion requires fencing the OLD active host first.
+Changing promoted_owner on this host does not stop or fence the old relay.
+
+1. Remove the old host from the load balancer and block inbound traffic to ALL
+   its relay listeners at the firewall or cloud security group. Include direct
+   client access and replication traffic; changing DNS alone is insufficient.
+2. On the OLD host, stop and disable the installed service:
+     sudo systemctl disable --now revault_key_server.service
+     systemctl is-active revault_key_server.service
+   Confirm it is inactive. Disable any container/orchestrator/watchdog restart
+   policy too. If the host is unreachable, fence it from the hypervisor/cloud
+   control plane: power it off and disable automatic recovery/replacement.
+3. Verify the OLD host cannot serve requests through either the public route or
+   its direct address, and that the control plane confirms the fence. A timeout
+   alone does not prove fencing: it may only indicate a network partition.
+4. Verify the standby has the acknowledged exchange state. Configure
+   promoted_owner for the failed exchange_owner_id, start the standby and move
+   the existing HTTPS origin to it. Keep the old host fenced.
+5. Before returning the old host, keep public access blocked, resynchronize it
+   from the active relay and verify the result. Stop/fence the replacement before
+   restoring the original owner and removing promotion.
+
+This command only prints guidance. It has not changed or verified any remote
+firewall, service or power state. Do not promote without a confirmed fence.
+"#
+    );
 }
 
 fn config_command(dev_help: bool) -> Command {
@@ -1189,6 +1235,10 @@ fn apply_config_value(
         "shard_count" => config.shard_count = value.parse()?,
         "max_receives_per_publish" => config.max_receives_per_publish = value.parse()?,
         "index_cache_entries" => config.index_cache_entries = value.parse()?,
+        "exchange_owner_id" => config.exchange_owner_id = parse_server_id(&value)?,
+        "exchange_max_invitations" => config.exchange_max_invitations = value.parse()?,
+        "exchange_max_bytes" => config.exchange_max_bytes = value.parse()?,
+        "exchange_per_identity" => config.exchange_per_identity = value.parse()?,
         "developer_mode" => config.developer_mode = value.parse()?,
         other => return Err(format!("unknown config key `{other}`").into()),
     }

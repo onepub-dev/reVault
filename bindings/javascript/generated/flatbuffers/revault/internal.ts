@@ -8,6 +8,8 @@ export { AgentEntry, AgentEntryT } from './internal/agent-entry.js';
 export { AgentEntryList, AgentEntryListT } from './internal/agent-entry-list.js';
 export { CacheStats, CacheStatsT } from './internal/cache-stats.js';
 export { Contact, ContactT } from './internal/contact.js';
+export { ContactExchangeStatus, ContactExchangeStatusT } from './internal/contact-exchange-status.js';
+export { ContactExchangeStatusList, ContactExchangeStatusListT } from './internal/contact-exchange-status-list.js';
 export { ContactList, ContactListT } from './internal/contact-list.js';
 export { ErrorDetails, ErrorDetailsT } from './internal/error-details.js';
 export { FileInspection, FileInspectionT } from './internal/file-inspection.js';

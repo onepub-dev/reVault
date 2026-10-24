@@ -274,6 +274,13 @@ def vault_lifecycle
   Revault::Vault.open(root, changed).free; pass('vault_directory_open'); puts("ARTIFACT\truby\tvault-opened\t#{root}")
   Revault::Vault.open_or_create(root, changed).free; pass('vault_directory_open_or_create')
   owner_public.free; owner.free; contact_public.public_free; contact.free; profile.free
+  exchange = API.contact_exchange(File.join(root, 'local-vault.lbox'), changed); pass('contact_exchange_open')
+  begin
+    check(exchange.list(true).empty?, 'empty exchange status'); pass('contact_exchange_execute')
+  ensure
+    exchange.close
+  end
+  pass('contact_exchange_free')
 end
 
 def default_vault

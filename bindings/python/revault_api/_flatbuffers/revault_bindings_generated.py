@@ -13,6 +13,343 @@ class LockboxEntryKind(object):
     DIRECTORY = 3
 
 
+class ContactExchangeStatus(object):
+    __slots__ = ['_tab']
+
+    @classmethod
+    def GetRootAs(cls, buf, offset=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
+        x = ContactExchangeStatus()
+        x.Init(buf, n + offset)
+        return x
+
+    @classmethod
+    def GetRootAsContactExchangeStatus(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    # ContactExchangeStatus
+    def Init(self, buf, pos):
+        self._tab = flatbuffers.table.Table(buf, pos)
+
+    # ContactExchangeStatus
+    def Id(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # ContactExchangeStatus
+    def Relay(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # ContactExchangeStatus
+    def Invitation(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # ContactExchangeStatus
+    def InviterEmail(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # ContactExchangeStatus
+    def RecipientEmail(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # ContactExchangeStatus
+    def Fingerprint(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # ContactExchangeStatus
+    def ExpiresMs(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+        return 0
+
+    # ContactExchangeStatus
+    def Accepted(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
+        if o != 0:
+            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+        return False
+
+    # ContactExchangeStatus
+    def Verified(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        if o != 0:
+            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+        return False
+
+    # ContactExchangeStatus
+    def ContactName(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # ContactExchangeStatus
+    def RelayPending(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        if o != 0:
+            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+        return False
+
+def ContactExchangeStatusStart(builder):
+    builder.StartObject(11)
+
+def ContactExchangeStatusAddId(builder, id):
+    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(id), 0)
+
+def ContactExchangeStatusAddRelay(builder, relay):
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(relay), 0)
+
+def ContactExchangeStatusAddInvitation(builder, invitation):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(invitation), 0)
+
+def ContactExchangeStatusAddInviterEmail(builder, inviterEmail):
+    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(inviterEmail), 0)
+
+def ContactExchangeStatusAddRecipientEmail(builder, recipientEmail):
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(recipientEmail), 0)
+
+def ContactExchangeStatusAddFingerprint(builder, fingerprint):
+    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(fingerprint), 0)
+
+def ContactExchangeStatusAddExpiresMs(builder, expiresMs):
+    builder.PrependUint64Slot(6, expiresMs, 0)
+
+def ContactExchangeStatusAddAccepted(builder, accepted):
+    builder.PrependBoolSlot(7, accepted, 0)
+
+def ContactExchangeStatusAddVerified(builder, verified):
+    builder.PrependBoolSlot(8, verified, 0)
+
+def ContactExchangeStatusAddContactName(builder, contactName):
+    builder.PrependUOffsetTRelativeSlot(9, flatbuffers.number_types.UOffsetTFlags.py_type(contactName), 0)
+
+def ContactExchangeStatusAddRelayPending(builder, relayPending):
+    builder.PrependBoolSlot(10, relayPending, 0)
+
+def ContactExchangeStatusEnd(builder):
+    return builder.EndObject()
+
+
+
+class ContactExchangeStatusT(object):
+
+    # ContactExchangeStatusT
+    def __init__(self):
+        self.id = None  # type: str
+        self.relay = None  # type: str
+        self.invitation = None  # type: str
+        self.inviterEmail = None  # type: str
+        self.recipientEmail = None  # type: str
+        self.fingerprint = None  # type: str
+        self.expiresMs = 0  # type: int
+        self.accepted = False  # type: bool
+        self.verified = False  # type: bool
+        self.contactName = None  # type: str
+        self.relayPending = False  # type: bool
+
+    @classmethod
+    def InitFromBuf(cls, buf, pos):
+        contactExchangeStatus = ContactExchangeStatus()
+        contactExchangeStatus.Init(buf, pos)
+        return cls.InitFromObj(contactExchangeStatus)
+
+    @classmethod
+    def InitFromPackedBuf(cls, buf, pos=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, pos)
+        return cls.InitFromBuf(buf, pos+n)
+
+    @classmethod
+    def InitFromObj(cls, contactExchangeStatus):
+        x = ContactExchangeStatusT()
+        x._UnPack(contactExchangeStatus)
+        return x
+
+    # ContactExchangeStatusT
+    def _UnPack(self, contactExchangeStatus):
+        if contactExchangeStatus is None:
+            return
+        self.id = contactExchangeStatus.Id()
+        self.relay = contactExchangeStatus.Relay()
+        self.invitation = contactExchangeStatus.Invitation()
+        self.inviterEmail = contactExchangeStatus.InviterEmail()
+        self.recipientEmail = contactExchangeStatus.RecipientEmail()
+        self.fingerprint = contactExchangeStatus.Fingerprint()
+        self.expiresMs = contactExchangeStatus.ExpiresMs()
+        self.accepted = contactExchangeStatus.Accepted()
+        self.verified = contactExchangeStatus.Verified()
+        self.contactName = contactExchangeStatus.ContactName()
+        self.relayPending = contactExchangeStatus.RelayPending()
+
+    # ContactExchangeStatusT
+    def Pack(self, builder):
+        if self.id is not None:
+            id = builder.CreateString(self.id)
+        if self.relay is not None:
+            relay = builder.CreateString(self.relay)
+        if self.invitation is not None:
+            invitation = builder.CreateString(self.invitation)
+        if self.inviterEmail is not None:
+            inviterEmail = builder.CreateString(self.inviterEmail)
+        if self.recipientEmail is not None:
+            recipientEmail = builder.CreateString(self.recipientEmail)
+        if self.fingerprint is not None:
+            fingerprint = builder.CreateString(self.fingerprint)
+        if self.contactName is not None:
+            contactName = builder.CreateString(self.contactName)
+        ContactExchangeStatusStart(builder)
+        if self.id is not None:
+            ContactExchangeStatusAddId(builder, id)
+        if self.relay is not None:
+            ContactExchangeStatusAddRelay(builder, relay)
+        if self.invitation is not None:
+            ContactExchangeStatusAddInvitation(builder, invitation)
+        if self.inviterEmail is not None:
+            ContactExchangeStatusAddInviterEmail(builder, inviterEmail)
+        if self.recipientEmail is not None:
+            ContactExchangeStatusAddRecipientEmail(builder, recipientEmail)
+        if self.fingerprint is not None:
+            ContactExchangeStatusAddFingerprint(builder, fingerprint)
+        ContactExchangeStatusAddExpiresMs(builder, self.expiresMs)
+        ContactExchangeStatusAddAccepted(builder, self.accepted)
+        ContactExchangeStatusAddVerified(builder, self.verified)
+        if self.contactName is not None:
+            ContactExchangeStatusAddContactName(builder, contactName)
+        ContactExchangeStatusAddRelayPending(builder, self.relayPending)
+        contactExchangeStatus = ContactExchangeStatusEnd(builder)
+        return contactExchangeStatus
+
+
+class ContactExchangeStatusList(object):
+    __slots__ = ['_tab']
+
+    @classmethod
+    def GetRootAs(cls, buf, offset=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
+        x = ContactExchangeStatusList()
+        x.Init(buf, n + offset)
+        return x
+
+    @classmethod
+    def GetRootAsContactExchangeStatusList(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    # ContactExchangeStatusList
+    def Init(self, buf, pos):
+        self._tab = flatbuffers.table.Table(buf, pos)
+
+    # ContactExchangeStatusList
+    def Values(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
+        if o != 0:
+            x = self._tab.Vector(o)
+            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
+            x = self._tab.Indirect(x)
+            obj = ContactExchangeStatus()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
+    # ContactExchangeStatusList
+    def ValuesLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # ContactExchangeStatusList
+    def ValuesIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
+        return o == 0
+
+def ContactExchangeStatusListStart(builder):
+    builder.StartObject(1)
+
+def ContactExchangeStatusListAddValues(builder, values):
+    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(values), 0)
+
+def ContactExchangeStatusListStartValuesVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def ContactExchangeStatusListEnd(builder):
+    return builder.EndObject()
+
+
+try:
+    from typing import List
+except:
+    pass
+
+class ContactExchangeStatusListT(object):
+
+    # ContactExchangeStatusListT
+    def __init__(self):
+        self.values = None  # type: List[ContactExchangeStatusT]
+
+    @classmethod
+    def InitFromBuf(cls, buf, pos):
+        contactExchangeStatusList = ContactExchangeStatusList()
+        contactExchangeStatusList.Init(buf, pos)
+        return cls.InitFromObj(contactExchangeStatusList)
+
+    @classmethod
+    def InitFromPackedBuf(cls, buf, pos=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, pos)
+        return cls.InitFromBuf(buf, pos+n)
+
+    @classmethod
+    def InitFromObj(cls, contactExchangeStatusList):
+        x = ContactExchangeStatusListT()
+        x._UnPack(contactExchangeStatusList)
+        return x
+
+    # ContactExchangeStatusListT
+    def _UnPack(self, contactExchangeStatusList):
+        if contactExchangeStatusList is None:
+            return
+        if not contactExchangeStatusList.ValuesIsNone():
+            self.values = []
+            for i in range(contactExchangeStatusList.ValuesLength()):
+                if contactExchangeStatusList.Values(i) is None:
+                    self.values.append(None)
+                else:
+                    contactExchangeStatus_ = ContactExchangeStatusT.InitFromObj(contactExchangeStatusList.Values(i))
+                    self.values.append(contactExchangeStatus_)
+
+    # ContactExchangeStatusListT
+    def Pack(self, builder):
+        if self.values is not None:
+            valueslist = []
+            for i in range(len(self.values)):
+                valueslist.append(self.values[i].Pack(builder))
+            ContactExchangeStatusListStartValuesVector(builder, len(self.values))
+            for i in reversed(range(len(self.values))):
+                builder.PrependUOffsetTRelative(valueslist[i])
+            values = builder.EndVector()
+        ContactExchangeStatusListStart(builder)
+        if self.values is not None:
+            ContactExchangeStatusListAddValues(builder, values)
+        contactExchangeStatusList = ContactExchangeStatusListEnd(builder)
+        return contactExchangeStatusList
+
+
 class LockboxEntry(object):
     __slots__ = ['_tab']
 

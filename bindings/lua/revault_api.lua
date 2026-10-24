@@ -76,6 +76,7 @@ RevaultBuffer lockbox_stat(const void * handle, const char * path, size_t path_l
 bool lockbox_set_variable(void * handle, const char * name, size_t name_len, const char * value, size_t value_len);
 bool lockbox_set_secret_variable(void * handle, const char * name, size_t name_len, const uint8_t * value, size_t value_len);
 RevaultBuffer lockbox_get_variable(const void * handle, const char * name, size_t name_len);
+RevaultBuffer contact_exchange_execute(const void * handle, const char * name, size_t name_len);
 RevaultBuffer lockbox_item_description(const void * handle, const char * name, size_t name_len);
 RevaultBuffer vault_directory_item_description(const void * handle, const char * name, size_t name_len);
 bool lockbox_get_secret_variable(const void * handle, const char * name, size_t name_len, void ** output);
@@ -149,6 +150,7 @@ RevaultBuffer vault_key_decode_crockford(const char * code, size_t len);
 RevaultBuffer vault_key_hex_encode(const uint8_t * bytes, size_t len);
 RevaultBuffer vault_key_hex_decode(const char * text, size_t len);
 void * vault_directory_open(const char * root, size_t root_len, const uint8_t * password, size_t password_len);
+void * contact_exchange_open(const char * root, size_t root_len, const uint8_t * password, size_t password_len);
 uint32_t vault_structure_version_current(void);
 uint32_t vault_directory_probe_structure_version(const char * root, size_t root_len, const uint8_t * password, size_t password_len);
 void * vault_directory_open_or_create_default(const uint8_t * password, size_t password_len);
@@ -208,6 +210,7 @@ RevaultBuffer vault_directory_remembered_password(const void * handle, const uin
 RevaultBuffer vault_backup_default(const char * path, size_t path_len, bool overwrite);
 RevaultBuffer vault_restore_default(const char * path, size_t path_len, bool overwrite);
 void vault_directory_free(void * handle);
+void contact_exchange_free(void * handle);
 void * vault_read_only_open(const char * root, size_t root_len, const uint8_t * password, size_t password_len);
 void * vault_read_only_open_default(const uint8_t * password, size_t password_len);
 void * vault_read_only_load_private_key(const void * handle, const char * name, size_t name_len);
@@ -782,6 +785,10 @@ function Operations:lockbox_get_variable(handle, name)
   local value = Models.OptionalString.decode(take(native.lockbox_get_variable(handle, name, #name)))
   return value.present and value.value or nil
 end
+function Operations:contact_exchange_execute(handle, name)
+  local value = Models.ContactExchangeStatusList.decode(take(native.contact_exchange_execute(handle, name, #name)))
+  return value.values
+end
 function Operations:lockbox_item_description(handle, name)
   local value = Models.OptionalString.decode(take(native.lockbox_item_description(handle, name, #name)))
   return value.present and value.value or nil
@@ -1110,6 +1117,11 @@ function Operations:vault_directory_open(root, password)
   if value == nil then error(last_error(), 2) end
   return value
 end
+function Operations:contact_exchange_open(root, password)
+  local value = native.contact_exchange_open(root, #root, password, #password)
+  if value == nil then error(last_error(), 2) end
+  return value
+end
 
 function Operations:vault_structure_version_current()
   return tonumber(native.vault_structure_version_current())
@@ -1382,6 +1394,9 @@ end
 
 function Operations:vault_directory_free(handle)
   native.vault_directory_free(handle)
+end
+function Operations:contact_exchange_free(handle)
+  native.contact_exchange_free(handle)
 end
 
 function Operations:vault_read_only_open(root, password)
@@ -3014,7 +3029,122 @@ Revault.load = function(native_library_path)
   return Revault.new()
 end
 Revault.runtime = Revault.load
+--- Full reciprocal exchange; retains protected credentials, not a Vault lock.
+local ComparisonChannel = { in_person='in-person', known_phone_call='known-phone-call', trusted_messenger='trusted-messenger' }
+local ContactExchange = owned("ContactExchange")
+local function exchange_quote(value)
+  if type(value)=='boolean' or type(value)=='number' then return tostring(value) end
+  return '"' .. value:gsub('[%z\1-\31\\"]', function(c) return string.format("\\u%04x",c:byte()) end) .. '"'
+end
+local function exchange_execute(self, request)
+  if self.handle == nil then error('Exchange session is closed') end
+  local fields={}
+  for key,value in pairs(request) do fields[#fields+1]=exchange_quote(key)..':'..exchange_quote(value) end
+  return self.operations:contact_exchange_execute(self.handle,'{'..table.concat(fields,',')..'}')
+end
+--- Open a session for an existing Vault file. No Session Agent is used.
+function Revault:contact_exchange(path,vault_passphrase)
+  return ContactExchange.new(self.operations,self.operations:contact_exchange_open(path,vault_passphrase))
+end
+--- Create an invitation sharing both public keys; retry pending delivery with list.
+--- Example:
+--- ```
+--- local session = api:contact_exchange(vault_path, vault_passphrase)
+--- local ok, err = pcall(function()
+---   local offer = session:invite(relay_origin, 'default', 'bob@example.com')
+--- Example:
+--- ```
+--- local session = api:contact_exchange(vault_path, vault_passphrase)
+--- local ok, err = pcall(function()
+---   for _, status in ipairs(session:list(true)) do print(status.id) end
+--- end)
+--- Example:
+--- ```
+--- local session = api:contact_exchange(vault_path, vault_passphrase)
+--- local ok, err = pcall(function()
+---   print(#session:list(true))
+--- end)
+--- session:close()
+--- assert(ok, err)
+--- ```
+--- session:close()
+--- assert(ok, err)
+--- ```
+---   if offer.relay_pending then session:list() end
+--- end)
+--- session:close()
+--- assert(ok, err)
+--- ```
+function ContactExchange:invite(relay,profile,recipient_email,ttl_hours)
+  return exchange_execute(self,{operation='invite',relay=relay,profile=profile,recipient_email=recipient_email,ttl_hours=ttl_hours or 24})[1]
+end
+--- Accept with one selected profile's complete public identity.
+--- Example:
+--- ```
+--- local session = api:contact_exchange(vault_path, vault_passphrase)
+--- local ok, err = pcall(function()
+---   local reply = session:accept(invitation_url, 'default')
+---   print(reply.fingerprint)
+--- end)
+--- session:close()
+--- assert(ok, err)
+--- ```
+function ContactExchange:accept(invitation,profile) return exchange_execute(self,{operation='accept',invitation=invitation,profile=profile})[1] end
+--- List public status, optionally avoiding relay requests.
+function ContactExchange:list(offline) return exchange_execute(self,{operation='list',offline=offline or false}) end
+--- Save both keys after independent full-fingerprint comparison through the named trusted channel.
+--- Example:
+--- ```
+--- local session = api:contact_exchange(vault_path, vault_passphrase)
+--- local ok, err = pcall(function()
+---   -- After independent identity and full-fingerprint comparison:
+---   session:verify(exchange_id, 'bob', compared_fingerprint, revault.ComparisonChannel.in_person)
+--- end)
+--- session:close()
+--- assert(ok, err)
+--- ```
+function ContactExchange:verify(id,contact_name,fingerprint,channel) return exchange_execute(self,{operation='verify',id=id,contact_name=contact_name,fingerprint=fingerprint,channel=channel})[1] end
+--- Authenticate an archive against the saved contact signing key.
+--- Example:
+--- ```
+--- local session = api:contact_exchange(vault_path, vault_passphrase)
+--- local ok, err = pcall(function()
+---   session:verify_author('alice', received_archive_path)
+--- end)
+--- session:close()
+--- assert(ok, err)
+--- ```
+function ContactExchange:verify_author(contact_name,lockbox_path) exchange_execute(self,{operation='verify_author',contact_name=contact_name,lockbox_path=lockbox_path}) end
+
+--- Cancel an owned invitation before acceptance.
+--- Example:
+--- ```
+--- local session = api:contact_exchange(vault_path, vault_passphrase)
+--- local ok, err = pcall(function()
+---   session:cancel(exchange_id)
+--- end)
+--- session:close()
+--- assert(ok, err)
+--- ```
+function ContactExchange:cancel(id) exchange_execute(self,{operation='cancel',id=id}) end
+--- Forget local state, preserving contacts.
+--- Example:
+--- ```
+--- local session = api:contact_exchange(vault_path, vault_passphrase)
+--- local ok, err = pcall(function()
+---   session:forget(exchange_id)
+--- end)
+--- session:close()
+--- assert(ok, err)
+--- ```
+function ContactExchange:forget(id) exchange_execute(self,{operation='forget',id=id}) end
+--- Release protected credentials without cancelling invitations.
+function ContactExchange:close() if self.handle~=nil then self.operations:contact_exchange_free(self.handle);self.handle=nil end end
+ContactExchange.free=ContactExchange.close
 local M = {
+  ContactExchange = ContactExchange,
+  ComparisonChannel = ComparisonChannel,
+
   Revault = Revault, Vault = Vault, ReadOnlyVault = ReadOnlyVault, Models = Models,
   Lockbox = Lockbox, ContactKeyPair = ContactKeyPair, ContactPublicKey = ContactPublicKey,
   WrappedContactKey = WrappedContactKey, ProfileSigningKeyPair = ProfileSigningKeyPair,

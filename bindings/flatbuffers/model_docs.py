@@ -1,6 +1,7 @@
 """User-facing descriptions shared by generated binding domain models."""
 
 DESCRIPTIONS = {
+    "ContactExchangeStatus": "Public reciprocal exchange status. Verification is a local trust decision; no management capability or private key is returned.",
     "LockboxEntry": "Metadata for one file, directory, or symbolic link stored at a lockbox path.",
     "PathMove": "A source and destination pair used to rename a variable or form record atomically.",
     "FormField": "One named input in a reusable form definition, including its display label and sensitivity kind.",
@@ -32,6 +33,7 @@ DESCRIPTIONS = {
 }
 
 EXAMPLES = {
+    "ContactExchangeStatus": "final exchanges = session.list(offline: true);\nfor (final exchange in exchanges) print(exchange.fingerprint);",
     "LockboxEntry": "final entry = lockbox.stat('/notes.txt');\nif (entry != null) print(entry.length);",
     "PathMove": "lockbox.moveVariables([\n  PathMove(source: 'old-name', destination: 'new-name'),\n]);",
     "FormField": "final field = FormField(\n  id: 'password',\n  label: 'Password',\n  kind: 'secret',\n  required: true,\n);",
@@ -73,6 +75,17 @@ def example(name: str) -> str:
 
 
 FIELD_DESCRIPTIONS = {
+    ("ContactExchangeStatus", "id"): "Random identifier of the saved exchange.",
+    ("ContactExchangeStatus", "relay"): "Pinned HTTPS relay origin.",
+    ("ContactExchangeStatus", "invitation"): "Invitation URL to share only with the intended recipient.",
+    ("ContactExchangeStatus", "inviter_email"): "Signed claimed inviter email, not independently verified by the relay.",
+    ("ContactExchangeStatus", "recipient_email"): "Signed claimed intended recipient email.",
+    ("ContactExchangeStatus", "fingerprint"): "Full shared fingerprint to compare independently; empty until both contributions are available.",
+    ("ContactExchangeStatus", "expires_ms"): "Signed invitation expiry in Unix milliseconds.",
+    ("ContactExchangeStatus", "accepted"): "Whether both signed public key bundles are locally pinned.",
+    ("ContactExchangeStatus", "verified"): "Whether this Vault independently verified and saved the contact.",
+    ("ContactExchangeStatus", "contact_name"): "Local saved contact name, or empty before verification.",
+    ("ContactExchangeStatus", "relay_pending"): "Whether the relay operation needs retrying; locally saved state is retained.",
     ("LockboxEntry", "path"): "Absolute lockbox path of the stored entry.",
     ("LockboxEntry", "kind"): "Filesystem kind: file, directory, or symbolic link.",
     ("LockboxEntry", "length"): "Logical file length in bytes; zero for directories.",

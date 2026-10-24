@@ -10,7 +10,7 @@ export type * from '@onepub-dev/revault-api';
 export {
   Lockbox, AgentSession, AgentActivity, ContactKeyPair, ContactPublicKey,
   WrappedContactKey, ProfileSigningKeyPair, ProfileSigningPublicKey, Platform,
-  SecretBytes, SecretString, RevaultError, LockboxCacheMode, LockboxWorkload,
+  SecretBytes, SecretString, RevaultError, ContactExchange, ComparisonChannel, LockboxCacheMode, LockboxWorkload,
   LockboxWorker, AgentActivityKind, KeyExportFormat,
 } from '@onepub-dev/revault-api';
 /** Native-backed owned handles that can cross the hosted dispatch boundary. */

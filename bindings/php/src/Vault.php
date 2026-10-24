@@ -25,6 +25,11 @@ use FFI\CData;
  */
 final class Revault
 {
+    /** Open a session for an existing Vault file; retains protected credentials, not a Vault lock. */
+    public function contactExchange(string $path, string $vaultPassphrase): ContactExchange {
+        return new ContactExchange($this->operations, $this->operations->contactExchangeOpen($path, $vaultPassphrase));
+    }
+
     private static ?BindingOperations $selectedOperations = null;
     private readonly BindingOperations $operations;
     private readonly Agent $agent;
@@ -1733,3 +1738,108 @@ final class LockboxWorkload { public const INTERACTIVE = 'interactive', BULK_IMP
 final class LockboxWorker { public const AUTO = 'auto', SINGLE = 'single', THREADS = 'threads'; }
 final class AgentActivityKind { public const OPEN = 'open', CLOSE = 'close', VARIABLES = 'variables', FORM = 'form', RECOVERY = 'recovery', VAULT = 'vault'; }
 final class KeyExportFormat { public const LOCKBOX_PEM = 'lockbox-pem', JWK = 'jwk', JWKS = 'jwks', RAW_HEX = 'raw-hex'; }
+/** Full reciprocal exchange. Compare identities and fingerprint independently between calls. */
+enum ComparisonChannel: string {
+    /** Compare with the person present. */
+    case InPerson = 'in-person';
+    /** Call an independently known number. */
+    case KnownPhoneCall = 'known-phone-call';
+    /** Use an independently authenticated messenger. */
+    case TrustedMessenger = 'trusted-messenger';
+}
+/** Reciprocal exchange session retaining protected credentials but no Vault lock. */
+final class ContactExchange extends OwnedHandle {
+    private bool $closed = false;
+    private function execute(array $request): array {
+        if ($this->closed) throw new \LogicException('Exchange session is closed');
+        return $this->operations->contactExchangeExecute($this->handle, json_encode($request, JSON_THROW_ON_ERROR))->values;
+    }
+    /** Create an invitation; retry relay-pending delivery using list().
+     * Example (Vault credentials and paths are supplied by the application):
+     * ```
+     * $session = $api->contactExchange($vaultPath, $vaultPassphrase);
+     * try {
+     *   $offer = $session->invite($relayOrigin, "default", "bob@example.com");
+     *   if ($offer->relayPending) $session->list();
+     * } finally { $session->free(); }
+     * ```
+     */
+    public function invite(string $relay, string $profile, string $recipientEmail, int $ttlHours=24): ContactExchangeStatus {
+        return $this->execute(['operation'=>'invite','relay'=>$relay,'profile'=>$profile,'recipient_email'=>$recipientEmail,'ttl_hours'=>$ttlHours])[0];
+    }
+    /** Accept with one selected profile's complete public identity.
+     * Example (Vault credentials and paths are supplied by the application):
+     * ```
+     * $session = $api->contactExchange($vaultPath, $vaultPassphrase);
+     * try {
+     *   $reply = $session->accept($invitationUrl, "default");
+     *   echo $reply->fingerprint;
+     * } finally { $session->free(); }
+     * ```
+     */
+    public function accept(string $invitation,string $profile): ContactExchangeStatus { return $this->execute(['operation'=>'accept','invitation'=>$invitation,'profile'=>$profile])[0]; }
+    /** List public status, optionally avoiding relay requests.
+     * Example (Vault credentials and paths are supplied by the application):
+     * ```
+     * $session = $api->contactExchange($vaultPath, $vaultPassphrase);
+     * try {
+     *   foreach ($session->list(true) as $status) echo $status->id;
+     * } finally { $session->free(); }
+     * ```
+     */
+    public function list(bool $offline=false): array { return $this->execute(['operation'=>'list','offline'=>$offline]); }
+    /** Save both keys after independent full-fingerprint comparison using the named trusted channel.
+     * Example (Vault credentials and paths are supplied by the application):
+     * ```
+     * $session = $api->contactExchange($vaultPath, $vaultPassphrase);
+     * try {
+     *   // After independent identity and full-fingerprint comparison:
+     *   $session->verify($exchangeId, "bob", $comparedFingerprint, ComparisonChannel::InPerson);
+     * } finally { $session->free(); }
+     * ```
+     */
+    public function verify(string $id,string $contactName,string $fingerprint,ComparisonChannel $channel): ContactExchangeStatus { return $this->execute(['operation'=>'verify','id'=>$id,'contact_name'=>$contactName,'fingerprint'=>$fingerprint,'channel'=>$channel->value])[0]; }
+    /** Authenticate an archive against the saved contact signing key.
+     * Example (Vault credentials and paths are supplied by the application):
+     * ```
+     * $session = $api->contactExchange($vaultPath, $vaultPassphrase);
+     * try {
+     *   $session->verifyAuthor("alice", $receivedArchivePath);
+     * } finally { $session->free(); }
+     * ```
+     */
+    public function verifyAuthor(string $contactName,string $lockboxPath): void { $this->execute(['operation'=>'verify_author','contact_name'=>$contactName,'lockbox_path'=>$lockboxPath]); }
+
+    /** Cancel an owned, unaccepted invitation.
+     * Example (Vault credentials and paths are supplied by the application):
+     * ```
+     * $session = $api->contactExchange($vaultPath, $vaultPassphrase);
+     * try {
+     *   $session->cancel($exchangeId);
+     * } finally { $session->free(); }
+     * ```
+     */
+    public function cancel(string $id): void { $this->execute(['operation'=>'cancel','id'=>$id]); }
+    /** Forget local state while preserving contacts.
+     * Example (Vault credentials and paths are supplied by the application):
+     * ```
+     * $session = $api->contactExchange($vaultPath, $vaultPassphrase);
+     * try {
+     *   $session->forget($exchangeId);
+     * } finally { $session->free(); }
+     * ```
+     */
+    public function forget(string $id): void { $this->execute(['operation'=>'forget','id'=>$id]); }
+    /** Release credentials without cancelling invitations.
+     * Example (Vault credentials and paths are supplied by the application):
+     * ```
+     * $session = $api->contactExchange($vaultPath, $vaultPassphrase);
+     * try {
+     *   echo count($session->list(true));
+     * } finally { $session->free(); }
+     * ```
+     */
+    public function free(): void { if (!$this->closed) { $this->operations->contactExchangeFree($this->handle); $this->closed=true; } }
+    /** Release protected credentials when the session leaves scope. */
+    public function __destruct() { $this->free(); }
+}

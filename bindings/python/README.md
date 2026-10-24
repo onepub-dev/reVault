@@ -150,3 +150,16 @@ A commit error may occur after publication, so reopen and inspect persisted
 state before retrying. With library handles closed, use the CLI's
 `lockbox <path> doctor compact` for explicit compaction; it discards old commit
 history. See the repository's [v4 binding contract and release checks](https://github.com/onepub-dev/reVault/blob/master/bindings/README.md#v4-storage-and-transaction-maintenance).
+## Reciprocal contact exchange
+
+Use the shared Rust-backed `ContactExchange` workflow to exchange one Profile's
+encryption and signing public keys in both directions. Sessions retain protected
+Vault credentials but release every Vault lock before network calls or user
+interaction. Compare both identities and the entire fingerprint through an
+independently authenticated channel before saving a Contact.
+
+The [exchange guide](https://github.com/onepub-dev/reVault/blob/main/bindings/EXCHANGE.md)
+documents each language's entry point, credential ownership, retries, verification,
+archive author checks, cancellation, and cleanup. The language's executable
+conformance runner covers session creation, offline status decoding and cleanup;
+the shared native/CLI tests cover reciprocal exchange and persisted archives.

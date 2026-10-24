@@ -59,6 +59,13 @@ fn start_background_maintenance(store: &Arc<PublishStore>) {
     thread::spawn(move || loop {
         thread::sleep(Duration::from_secs(1));
         purge_store.purge_expired();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        if let Err(error) = purge_store.exchanges.purge_expired(now) {
+            log_server_event(format!("invitation expiry cleanup failed: {error}"));
+        }
     });
     let compact_store = Arc::clone(store);
     thread::spawn(move || loop {
@@ -120,8 +127,21 @@ impl AppState {
 fn make_app(store: Arc<PublishStore>) -> Router {
     let body_limit = store.max_payload_bytes() + MAX_WIRE_OVERHEAD;
     Router::new()
+        .route("/exchange", get(exchange_landing))
+        .route(
+            "/v2/exchange",
+            post(exchange_handler).layer(DefaultBodyLimit::max(
+                revault_publish_protocol::exchange::MAX_MESSAGE_BYTES,
+            )),
+        )
         .route("/v1/publish", post(publish_handler))
-        .route("/v1/replicate", post(replicate_handler))
+        .route(
+            "/v1/replicate",
+            post(replicate_handler)
+                .layer(DefaultBodyLimit::max(body_limit.max(
+                    revault_publish_protocol::exchange::MAX_MESSAGE_BYTES + MAX_WIRE_OVERHEAD,
+                ))),
+        )
         .route("/v1/topology/register", post(topology_register_handler))
         .route("/v1/topology", get(topology_handler))
         .route("/v1/status", get(status_handler))
@@ -131,6 +151,47 @@ fn make_app(store: Arc<PublishStore>) -> Router {
             store,
             public_limits: Arc::new(Mutex::new(HashMap::new())),
         })
+}
+
+async fn exchange_landing() -> Html<&'static str> {
+    Html(
+        r#"<!doctype html><html lang="en"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>reVault key exchange invitation</title>
+<main><h1>Exchange public keys with reVault</h1>
+<p>Copy the complete address, including the part after #, then select your profile:</p>
+<pre>lbx vault contacts accept '&lt;complete invitation URL&gt;' --profile &lt;your profile&gt;</pre>
+<p>This exchanges encryption and signing public keys. Private keys stay in your vault.
+Compare both identities and the complete shared fingerprint through an independently trusted channel.</p>
+<p>This page cannot verify the sender's identity.</p></main></html>"#,
+    )
+}
+
+async fn exchange_handler(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    body: Bytes,
+) -> Response {
+    use revault_publish_protocol::exchange::{decode, encode, Request};
+    if !state.allow_public_request(Some(addr.ip())) {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    }
+    let request = match decode::<Request>(&body) {
+        Ok(request) => request,
+        Err(_) => return (StatusCode::BAD_REQUEST, "invalid exchange request").into_response(),
+    };
+    let response = tokio::task::spawn_blocking(move || {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        state.store.handle_exchange(request, now)
+    })
+    .await;
+    match response.ok().and_then(|value| encode(&value).ok()) {
+        Some(bytes) => binary_response(StatusCode::OK, bytes),
+        None => (StatusCode::INTERNAL_SERVER_ERROR, "exchange unavailable").into_response(),
+    }
 }
 
 async fn publish_handler(
@@ -224,7 +285,16 @@ async fn binary_post_handler(
             "request rate limit exceeded",
         ));
     }
-    if body.len() > state.store.max_payload_bytes() + MAX_WIRE_OVERHEAD {
+    let wire_limit = if matches!(endpoint, BinaryEndpoint::Replicate) {
+        state
+            .store
+            .max_payload_bytes()
+            .max(revault_publish_protocol::exchange::MAX_MESSAGE_BYTES)
+            + MAX_WIRE_OVERHEAD
+    } else {
+        state.store.max_payload_bytes() + MAX_WIRE_OVERHEAD
+    };
+    if body.len() > wire_limit {
         return protocol_response(protocol::encode_error(
             Operation::Publish,
             Status::PayloadTooLarge,
@@ -243,7 +313,7 @@ async fn binary_post_handler(
             ),
         },
         BinaryEndpoint::Publish | BinaryEndpoint::Replicate => {
-            match protocol::decode_request(&body, store.max_payload_bytes() + MAX_WIRE_OVERHEAD) {
+            match protocol::decode_request(&body, wire_limit) {
                 Ok(request) => {
                     let _ = request.flags;
                     let replicate_endpoint = matches!(endpoint, BinaryEndpoint::Replicate);

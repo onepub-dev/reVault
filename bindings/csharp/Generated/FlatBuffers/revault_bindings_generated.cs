@@ -18,6 +18,278 @@ internal enum LockboxEntryKind : int
   DIRECTORY = 3,
 };
 
+internal struct ContactExchangeStatus : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_2_10(); }
+  public static ContactExchangeStatus GetRootAsContactExchangeStatus(ByteBuffer _bb) { return GetRootAsContactExchangeStatus(_bb, new ContactExchangeStatus()); }
+  public static ContactExchangeStatus GetRootAsContactExchangeStatus(ByteBuffer _bb, ContactExchangeStatus obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public ContactExchangeStatus __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public string Id { get { int o = __p.__offset(4); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetIdBytes() { return __p.__vector_as_span<byte>(4, 1); }
+#else
+  public ArraySegment<byte>? GetIdBytes() { return __p.__vector_as_arraysegment(4); }
+#endif
+  public byte[] GetIdArray() { return __p.__vector_as_array<byte>(4); }
+  public string Relay { get { int o = __p.__offset(6); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetRelayBytes() { return __p.__vector_as_span<byte>(6, 1); }
+#else
+  public ArraySegment<byte>? GetRelayBytes() { return __p.__vector_as_arraysegment(6); }
+#endif
+  public byte[] GetRelayArray() { return __p.__vector_as_array<byte>(6); }
+  public string Invitation { get { int o = __p.__offset(8); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetInvitationBytes() { return __p.__vector_as_span<byte>(8, 1); }
+#else
+  public ArraySegment<byte>? GetInvitationBytes() { return __p.__vector_as_arraysegment(8); }
+#endif
+  public byte[] GetInvitationArray() { return __p.__vector_as_array<byte>(8); }
+  public string InviterEmail { get { int o = __p.__offset(10); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetInviterEmailBytes() { return __p.__vector_as_span<byte>(10, 1); }
+#else
+  public ArraySegment<byte>? GetInviterEmailBytes() { return __p.__vector_as_arraysegment(10); }
+#endif
+  public byte[] GetInviterEmailArray() { return __p.__vector_as_array<byte>(10); }
+  public string RecipientEmail { get { int o = __p.__offset(12); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetRecipientEmailBytes() { return __p.__vector_as_span<byte>(12, 1); }
+#else
+  public ArraySegment<byte>? GetRecipientEmailBytes() { return __p.__vector_as_arraysegment(12); }
+#endif
+  public byte[] GetRecipientEmailArray() { return __p.__vector_as_array<byte>(12); }
+  public string Fingerprint { get { int o = __p.__offset(14); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetFingerprintBytes() { return __p.__vector_as_span<byte>(14, 1); }
+#else
+  public ArraySegment<byte>? GetFingerprintBytes() { return __p.__vector_as_arraysegment(14); }
+#endif
+  public byte[] GetFingerprintArray() { return __p.__vector_as_array<byte>(14); }
+  public ulong ExpiresMs { get { int o = __p.__offset(16); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
+  public bool Accepted { get { int o = __p.__offset(18); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+  public bool Verified { get { int o = __p.__offset(20); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+  public string ContactName { get { int o = __p.__offset(22); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetContactNameBytes() { return __p.__vector_as_span<byte>(22, 1); }
+#else
+  public ArraySegment<byte>? GetContactNameBytes() { return __p.__vector_as_arraysegment(22); }
+#endif
+  public byte[] GetContactNameArray() { return __p.__vector_as_array<byte>(22); }
+  public bool RelayPending { get { int o = __p.__offset(24); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+
+  public static Offset<global::RevaultTransport.ContactExchangeStatus> CreateContactExchangeStatus(FlatBufferBuilder builder,
+      StringOffset idOffset = default(StringOffset),
+      StringOffset relayOffset = default(StringOffset),
+      StringOffset invitationOffset = default(StringOffset),
+      StringOffset inviter_emailOffset = default(StringOffset),
+      StringOffset recipient_emailOffset = default(StringOffset),
+      StringOffset fingerprintOffset = default(StringOffset),
+      ulong expires_ms = 0,
+      bool accepted = false,
+      bool verified = false,
+      StringOffset contact_nameOffset = default(StringOffset),
+      bool relay_pending = false) {
+    builder.StartTable(11);
+    ContactExchangeStatus.AddExpiresMs(builder, expires_ms);
+    ContactExchangeStatus.AddContactName(builder, contact_nameOffset);
+    ContactExchangeStatus.AddFingerprint(builder, fingerprintOffset);
+    ContactExchangeStatus.AddRecipientEmail(builder, recipient_emailOffset);
+    ContactExchangeStatus.AddInviterEmail(builder, inviter_emailOffset);
+    ContactExchangeStatus.AddInvitation(builder, invitationOffset);
+    ContactExchangeStatus.AddRelay(builder, relayOffset);
+    ContactExchangeStatus.AddId(builder, idOffset);
+    ContactExchangeStatus.AddRelayPending(builder, relay_pending);
+    ContactExchangeStatus.AddVerified(builder, verified);
+    ContactExchangeStatus.AddAccepted(builder, accepted);
+    return ContactExchangeStatus.EndContactExchangeStatus(builder);
+  }
+
+  public static void StartContactExchangeStatus(FlatBufferBuilder builder) { builder.StartTable(11); }
+  public static void AddId(FlatBufferBuilder builder, StringOffset idOffset) { builder.AddOffset(0, idOffset.Value, 0); }
+  public static void AddRelay(FlatBufferBuilder builder, StringOffset relayOffset) { builder.AddOffset(1, relayOffset.Value, 0); }
+  public static void AddInvitation(FlatBufferBuilder builder, StringOffset invitationOffset) { builder.AddOffset(2, invitationOffset.Value, 0); }
+  public static void AddInviterEmail(FlatBufferBuilder builder, StringOffset inviterEmailOffset) { builder.AddOffset(3, inviterEmailOffset.Value, 0); }
+  public static void AddRecipientEmail(FlatBufferBuilder builder, StringOffset recipientEmailOffset) { builder.AddOffset(4, recipientEmailOffset.Value, 0); }
+  public static void AddFingerprint(FlatBufferBuilder builder, StringOffset fingerprintOffset) { builder.AddOffset(5, fingerprintOffset.Value, 0); }
+  public static void AddExpiresMs(FlatBufferBuilder builder, ulong expiresMs) { builder.AddUlong(6, expiresMs, 0); }
+  public static void AddAccepted(FlatBufferBuilder builder, bool accepted) { builder.AddBool(7, accepted, false); }
+  public static void AddVerified(FlatBufferBuilder builder, bool verified) { builder.AddBool(8, verified, false); }
+  public static void AddContactName(FlatBufferBuilder builder, StringOffset contactNameOffset) { builder.AddOffset(9, contactNameOffset.Value, 0); }
+  public static void AddRelayPending(FlatBufferBuilder builder, bool relayPending) { builder.AddBool(10, relayPending, false); }
+  public static Offset<global::RevaultTransport.ContactExchangeStatus> EndContactExchangeStatus(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    return new Offset<global::RevaultTransport.ContactExchangeStatus>(o);
+  }
+  public ContactExchangeStatusT UnPack() {
+    var _o = new ContactExchangeStatusT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(ContactExchangeStatusT _o) {
+    _o.Id = this.Id;
+    _o.Relay = this.Relay;
+    _o.Invitation = this.Invitation;
+    _o.InviterEmail = this.InviterEmail;
+    _o.RecipientEmail = this.RecipientEmail;
+    _o.Fingerprint = this.Fingerprint;
+    _o.ExpiresMs = this.ExpiresMs;
+    _o.Accepted = this.Accepted;
+    _o.Verified = this.Verified;
+    _o.ContactName = this.ContactName;
+    _o.RelayPending = this.RelayPending;
+  }
+  public static Offset<global::RevaultTransport.ContactExchangeStatus> Pack(FlatBufferBuilder builder, ContactExchangeStatusT _o) {
+    if (_o == null) return default(Offset<global::RevaultTransport.ContactExchangeStatus>);
+    var _id = _o.Id == null ? default(StringOffset) : builder.CreateString(_o.Id);
+    var _relay = _o.Relay == null ? default(StringOffset) : builder.CreateString(_o.Relay);
+    var _invitation = _o.Invitation == null ? default(StringOffset) : builder.CreateString(_o.Invitation);
+    var _inviter_email = _o.InviterEmail == null ? default(StringOffset) : builder.CreateString(_o.InviterEmail);
+    var _recipient_email = _o.RecipientEmail == null ? default(StringOffset) : builder.CreateString(_o.RecipientEmail);
+    var _fingerprint = _o.Fingerprint == null ? default(StringOffset) : builder.CreateString(_o.Fingerprint);
+    var _contact_name = _o.ContactName == null ? default(StringOffset) : builder.CreateString(_o.ContactName);
+    return CreateContactExchangeStatus(
+      builder,
+      _id,
+      _relay,
+      _invitation,
+      _inviter_email,
+      _recipient_email,
+      _fingerprint,
+      _o.ExpiresMs,
+      _o.Accepted,
+      _o.Verified,
+      _contact_name,
+      _o.RelayPending);
+  }
+}
+
+internal class ContactExchangeStatusT
+{
+  public string Id { get; set; }
+  public string Relay { get; set; }
+  public string Invitation { get; set; }
+  public string InviterEmail { get; set; }
+  public string RecipientEmail { get; set; }
+  public string Fingerprint { get; set; }
+  public ulong ExpiresMs { get; set; }
+  public bool Accepted { get; set; }
+  public bool Verified { get; set; }
+  public string ContactName { get; set; }
+  public bool RelayPending { get; set; }
+
+  public ContactExchangeStatusT() {
+    this.Id = null;
+    this.Relay = null;
+    this.Invitation = null;
+    this.InviterEmail = null;
+    this.RecipientEmail = null;
+    this.Fingerprint = null;
+    this.ExpiresMs = 0;
+    this.Accepted = false;
+    this.Verified = false;
+    this.ContactName = null;
+    this.RelayPending = false;
+  }
+}
+
+
+internal static class ContactExchangeStatusVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyString(tablePos, 4 /*Id*/, false)
+      && verifier.VerifyString(tablePos, 6 /*Relay*/, false)
+      && verifier.VerifyString(tablePos, 8 /*Invitation*/, false)
+      && verifier.VerifyString(tablePos, 10 /*InviterEmail*/, false)
+      && verifier.VerifyString(tablePos, 12 /*RecipientEmail*/, false)
+      && verifier.VerifyString(tablePos, 14 /*Fingerprint*/, false)
+      && verifier.VerifyField(tablePos, 16 /*ExpiresMs*/, 8 /*ulong*/, 8, false)
+      && verifier.VerifyField(tablePos, 18 /*Accepted*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyField(tablePos, 20 /*Verified*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyString(tablePos, 22 /*ContactName*/, false)
+      && verifier.VerifyField(tablePos, 24 /*RelayPending*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
+internal struct ContactExchangeStatusList : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_2_10(); }
+  public static ContactExchangeStatusList GetRootAsContactExchangeStatusList(ByteBuffer _bb) { return GetRootAsContactExchangeStatusList(_bb, new ContactExchangeStatusList()); }
+  public static ContactExchangeStatusList GetRootAsContactExchangeStatusList(ByteBuffer _bb, ContactExchangeStatusList obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public ContactExchangeStatusList __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public global::RevaultTransport.ContactExchangeStatus? Values(int j) { int o = __p.__offset(4); return o != 0 ? (global::RevaultTransport.ContactExchangeStatus?)(new global::RevaultTransport.ContactExchangeStatus()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int ValuesLength { get { int o = __p.__offset(4); return o != 0 ? __p.__vector_len(o) : 0; } }
+
+  public static Offset<global::RevaultTransport.ContactExchangeStatusList> CreateContactExchangeStatusList(FlatBufferBuilder builder,
+      VectorOffset valuesOffset = default(VectorOffset)) {
+    builder.StartTable(1);
+    ContactExchangeStatusList.AddValues(builder, valuesOffset);
+    return ContactExchangeStatusList.EndContactExchangeStatusList(builder);
+  }
+
+  public static void StartContactExchangeStatusList(FlatBufferBuilder builder) { builder.StartTable(1); }
+  public static void AddValues(FlatBufferBuilder builder, VectorOffset valuesOffset) { builder.AddOffset(0, valuesOffset.Value, 0); }
+  public static VectorOffset CreateValuesVector(FlatBufferBuilder builder, Offset<global::RevaultTransport.ContactExchangeStatus>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateValuesVectorBlock(FlatBufferBuilder builder, Offset<global::RevaultTransport.ContactExchangeStatus>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateValuesVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<global::RevaultTransport.ContactExchangeStatus>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateValuesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<global::RevaultTransport.ContactExchangeStatus>>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartValuesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
+  public static Offset<global::RevaultTransport.ContactExchangeStatusList> EndContactExchangeStatusList(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    return new Offset<global::RevaultTransport.ContactExchangeStatusList>(o);
+  }
+  public ContactExchangeStatusListT UnPack() {
+    var _o = new ContactExchangeStatusListT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(ContactExchangeStatusListT _o) {
+    _o.Values = new List<global::RevaultTransport.ContactExchangeStatusT>();
+    for (var _j = 0; _j < this.ValuesLength; ++_j) {_o.Values.Add(this.Values(_j).HasValue ? this.Values(_j).Value.UnPack() : null);}
+  }
+  public static Offset<global::RevaultTransport.ContactExchangeStatusList> Pack(FlatBufferBuilder builder, ContactExchangeStatusListT _o) {
+    if (_o == null) return default(Offset<global::RevaultTransport.ContactExchangeStatusList>);
+    var _values = default(VectorOffset);
+    if (_o.Values != null) {
+      var __values = new Offset<global::RevaultTransport.ContactExchangeStatus>[_o.Values.Count];
+      for (var _j = 0; _j < __values.Length; ++_j) { __values[_j] = global::RevaultTransport.ContactExchangeStatus.Pack(builder, _o.Values[_j]); }
+      _values = CreateValuesVector(builder, __values);
+    }
+    return CreateContactExchangeStatusList(
+      builder,
+      _values);
+  }
+}
+
+internal class ContactExchangeStatusListT
+{
+  public List<global::RevaultTransport.ContactExchangeStatusT> Values { get; set; }
+
+  public ContactExchangeStatusListT() {
+    this.Values = null;
+  }
+}
+
+
+internal static class ContactExchangeStatusListVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyVectorOfTables(tablePos, 4 /*Values*/, global::RevaultTransport.ContactExchangeStatusVerify.Verify, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 internal struct LockboxEntry : IFlatbufferObject
 {
   private Table __p;

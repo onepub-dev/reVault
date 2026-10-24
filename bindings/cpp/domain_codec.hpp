@@ -6,6 +6,7 @@
 namespace revault::detail {
 
 
+inline bindings::ContactExchangeStatus convert(const internal::ContactExchangeStatusT& value);
 inline bindings::LockboxEntry convert(const internal::LockboxEntryT& value);
 inline bindings::PathMove convert(const internal::PathMoveT& value);
 inline bindings::FormField convert(const internal::FormFieldT& value);
@@ -42,6 +43,9 @@ std::vector<T> convert_owned_vector(const std::vector<std::unique_ptr<U>>& value
   return result;
 }
 
+inline bindings::ContactExchangeStatus convert(const internal::ContactExchangeStatusT& value) {
+  return {value.id, value.relay, value.invitation, value.inviter_email, value.recipient_email, value.fingerprint, value.expires_ms, value.accepted, value.verified, value.contact_name, value.relay_pending};
+}
 inline bindings::LockboxEntry convert(const internal::LockboxEntryT& value) {
   return {value.path, static_cast<bindings::LockboxEntryKind>(value.kind), value.length, value.permissions};
 }
@@ -129,6 +133,9 @@ inline bindings::ErrorDetails convert(const internal::ErrorDetailsT& value) {
 
 template <typename T> T decode(std::span<const std::uint8_t> bytes);
 
+template <> bindings::ContactExchangeStatus decode<bindings::ContactExchangeStatus>(std::span<const std::uint8_t> bytes) {
+  return convert(*flatbuffers::GetRoot<internal::ContactExchangeStatus>(bytes.data())->UnPack());
+}
 template <> bindings::LockboxEntry decode<bindings::LockboxEntry>(std::span<const std::uint8_t> bytes) {
   return convert(*flatbuffers::GetRoot<internal::LockboxEntry>(bytes.data())->UnPack());
 }
@@ -244,6 +251,10 @@ template <> bindings::FormRecordList decode<bindings::FormRecordList>(std::span<
 template <> bindings::ContactList decode<bindings::ContactList>(std::span<const std::uint8_t> bytes) {
   auto value = flatbuffers::GetRoot<internal::ContactList>(bytes.data())->UnPack();
   return convert_owned_vector<bindings::Contact>(value->values);
+}
+template <> bindings::ContactExchangeStatusList decode<bindings::ContactExchangeStatusList>(std::span<const std::uint8_t> bytes) {
+  auto value = flatbuffers::GetRoot<internal::ContactExchangeStatusList>(bytes.data())->UnPack();
+  return convert_owned_vector<bindings::ContactExchangeStatus>(value->values);
 }
 template <> bindings::LockboxAliasList decode<bindings::LockboxAliasList>(std::span<const std::uint8_t> bytes) {
   auto value = flatbuffers::GetRoot<internal::LockboxAliasList>(bytes.data())->UnPack();

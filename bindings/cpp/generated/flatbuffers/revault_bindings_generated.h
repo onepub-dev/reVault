@@ -16,6 +16,14 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 25 &&
 namespace revault {
 namespace internal {
 
+struct ContactExchangeStatus;
+struct ContactExchangeStatusBuilder;
+struct ContactExchangeStatusT;
+
+struct ContactExchangeStatusList;
+struct ContactExchangeStatusListBuilder;
+struct ContactExchangeStatusListT;
+
 struct LockboxEntry;
 struct LockboxEntryBuilder;
 struct LockboxEntryT;
@@ -247,6 +255,277 @@ inline const char *EnumNameLockboxEntryKind(LockboxEntryKind e) {
   const size_t index = static_cast<size_t>(e);
   return EnumNamesLockboxEntryKind()[index];
 }
+
+struct ContactExchangeStatusT : public ::flatbuffers::NativeTable {
+  typedef ContactExchangeStatus TableType;
+  std::string id{};
+  std::string relay{};
+  std::string invitation{};
+  std::string inviter_email{};
+  std::string recipient_email{};
+  std::string fingerprint{};
+  uint64_t expires_ms = 0;
+  bool accepted = false;
+  bool verified = false;
+  std::string contact_name{};
+  bool relay_pending = false;
+};
+
+struct ContactExchangeStatus FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef ContactExchangeStatusT NativeTableType;
+  typedef ContactExchangeStatusBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_RELAY = 6,
+    VT_INVITATION = 8,
+    VT_INVITER_EMAIL = 10,
+    VT_RECIPIENT_EMAIL = 12,
+    VT_FINGERPRINT = 14,
+    VT_EXPIRES_MS = 16,
+    VT_ACCEPTED = 18,
+    VT_VERIFIED = 20,
+    VT_CONTACT_NAME = 22,
+    VT_RELAY_PENDING = 24
+  };
+  const ::flatbuffers::String *id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ID);
+  }
+  const ::flatbuffers::String *relay() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_RELAY);
+  }
+  const ::flatbuffers::String *invitation() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_INVITATION);
+  }
+  const ::flatbuffers::String *inviter_email() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_INVITER_EMAIL);
+  }
+  const ::flatbuffers::String *recipient_email() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_RECIPIENT_EMAIL);
+  }
+  const ::flatbuffers::String *fingerprint() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_FINGERPRINT);
+  }
+  uint64_t expires_ms() const {
+    return GetField<uint64_t>(VT_EXPIRES_MS, 0);
+  }
+  bool accepted() const {
+    return GetField<uint8_t>(VT_ACCEPTED, 0) != 0;
+  }
+  bool verified() const {
+    return GetField<uint8_t>(VT_VERIFIED, 0) != 0;
+  }
+  const ::flatbuffers::String *contact_name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CONTACT_NAME);
+  }
+  bool relay_pending() const {
+    return GetField<uint8_t>(VT_RELAY_PENDING, 0) != 0;
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ID) &&
+           verifier.VerifyString(id()) &&
+           VerifyOffset(verifier, VT_RELAY) &&
+           verifier.VerifyString(relay()) &&
+           VerifyOffset(verifier, VT_INVITATION) &&
+           verifier.VerifyString(invitation()) &&
+           VerifyOffset(verifier, VT_INVITER_EMAIL) &&
+           verifier.VerifyString(inviter_email()) &&
+           VerifyOffset(verifier, VT_RECIPIENT_EMAIL) &&
+           verifier.VerifyString(recipient_email()) &&
+           VerifyOffset(verifier, VT_FINGERPRINT) &&
+           verifier.VerifyString(fingerprint()) &&
+           VerifyField<uint64_t>(verifier, VT_EXPIRES_MS, 8) &&
+           VerifyField<uint8_t>(verifier, VT_ACCEPTED, 1) &&
+           VerifyField<uint8_t>(verifier, VT_VERIFIED, 1) &&
+           VerifyOffset(verifier, VT_CONTACT_NAME) &&
+           verifier.VerifyString(contact_name()) &&
+           VerifyField<uint8_t>(verifier, VT_RELAY_PENDING, 1) &&
+           verifier.EndTable();
+  }
+  ContactExchangeStatusT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(ContactExchangeStatusT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<ContactExchangeStatus> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const ContactExchangeStatusT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct ContactExchangeStatusBuilder {
+  typedef ContactExchangeStatus Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(::flatbuffers::Offset<::flatbuffers::String> id) {
+    fbb_.AddOffset(ContactExchangeStatus::VT_ID, id);
+  }
+  void add_relay(::flatbuffers::Offset<::flatbuffers::String> relay) {
+    fbb_.AddOffset(ContactExchangeStatus::VT_RELAY, relay);
+  }
+  void add_invitation(::flatbuffers::Offset<::flatbuffers::String> invitation) {
+    fbb_.AddOffset(ContactExchangeStatus::VT_INVITATION, invitation);
+  }
+  void add_inviter_email(::flatbuffers::Offset<::flatbuffers::String> inviter_email) {
+    fbb_.AddOffset(ContactExchangeStatus::VT_INVITER_EMAIL, inviter_email);
+  }
+  void add_recipient_email(::flatbuffers::Offset<::flatbuffers::String> recipient_email) {
+    fbb_.AddOffset(ContactExchangeStatus::VT_RECIPIENT_EMAIL, recipient_email);
+  }
+  void add_fingerprint(::flatbuffers::Offset<::flatbuffers::String> fingerprint) {
+    fbb_.AddOffset(ContactExchangeStatus::VT_FINGERPRINT, fingerprint);
+  }
+  void add_expires_ms(uint64_t expires_ms) {
+    fbb_.AddElement<uint64_t>(ContactExchangeStatus::VT_EXPIRES_MS, expires_ms, 0);
+  }
+  void add_accepted(bool accepted) {
+    fbb_.AddElement<uint8_t>(ContactExchangeStatus::VT_ACCEPTED, static_cast<uint8_t>(accepted), 0);
+  }
+  void add_verified(bool verified) {
+    fbb_.AddElement<uint8_t>(ContactExchangeStatus::VT_VERIFIED, static_cast<uint8_t>(verified), 0);
+  }
+  void add_contact_name(::flatbuffers::Offset<::flatbuffers::String> contact_name) {
+    fbb_.AddOffset(ContactExchangeStatus::VT_CONTACT_NAME, contact_name);
+  }
+  void add_relay_pending(bool relay_pending) {
+    fbb_.AddElement<uint8_t>(ContactExchangeStatus::VT_RELAY_PENDING, static_cast<uint8_t>(relay_pending), 0);
+  }
+  explicit ContactExchangeStatusBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<ContactExchangeStatus> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<ContactExchangeStatus>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<ContactExchangeStatus> CreateContactExchangeStatus(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> relay = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> invitation = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> inviter_email = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> recipient_email = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> fingerprint = 0,
+    uint64_t expires_ms = 0,
+    bool accepted = false,
+    bool verified = false,
+    ::flatbuffers::Offset<::flatbuffers::String> contact_name = 0,
+    bool relay_pending = false) {
+  ContactExchangeStatusBuilder builder_(_fbb);
+  builder_.add_expires_ms(expires_ms);
+  builder_.add_contact_name(contact_name);
+  builder_.add_fingerprint(fingerprint);
+  builder_.add_recipient_email(recipient_email);
+  builder_.add_inviter_email(inviter_email);
+  builder_.add_invitation(invitation);
+  builder_.add_relay(relay);
+  builder_.add_id(id);
+  builder_.add_relay_pending(relay_pending);
+  builder_.add_verified(verified);
+  builder_.add_accepted(accepted);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<ContactExchangeStatus> CreateContactExchangeStatusDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *id = nullptr,
+    const char *relay = nullptr,
+    const char *invitation = nullptr,
+    const char *inviter_email = nullptr,
+    const char *recipient_email = nullptr,
+    const char *fingerprint = nullptr,
+    uint64_t expires_ms = 0,
+    bool accepted = false,
+    bool verified = false,
+    const char *contact_name = nullptr,
+    bool relay_pending = false) {
+  auto id__ = id ? _fbb.CreateString(id) : 0;
+  auto relay__ = relay ? _fbb.CreateString(relay) : 0;
+  auto invitation__ = invitation ? _fbb.CreateString(invitation) : 0;
+  auto inviter_email__ = inviter_email ? _fbb.CreateString(inviter_email) : 0;
+  auto recipient_email__ = recipient_email ? _fbb.CreateString(recipient_email) : 0;
+  auto fingerprint__ = fingerprint ? _fbb.CreateString(fingerprint) : 0;
+  auto contact_name__ = contact_name ? _fbb.CreateString(contact_name) : 0;
+  return revault::internal::CreateContactExchangeStatus(
+      _fbb,
+      id__,
+      relay__,
+      invitation__,
+      inviter_email__,
+      recipient_email__,
+      fingerprint__,
+      expires_ms,
+      accepted,
+      verified,
+      contact_name__,
+      relay_pending);
+}
+
+::flatbuffers::Offset<ContactExchangeStatus> CreateContactExchangeStatus(::flatbuffers::FlatBufferBuilder &_fbb, const ContactExchangeStatusT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct ContactExchangeStatusListT : public ::flatbuffers::NativeTable {
+  typedef ContactExchangeStatusList TableType;
+  std::vector<std::unique_ptr<revault::internal::ContactExchangeStatusT>> values{};
+  ContactExchangeStatusListT() = default;
+  ContactExchangeStatusListT(const ContactExchangeStatusListT &o);
+  ContactExchangeStatusListT(ContactExchangeStatusListT&&) FLATBUFFERS_NOEXCEPT = default;
+  ContactExchangeStatusListT &operator=(ContactExchangeStatusListT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct ContactExchangeStatusList FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef ContactExchangeStatusListT NativeTableType;
+  typedef ContactExchangeStatusListBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_VALUES = 4
+  };
+  const ::flatbuffers::Vector<::flatbuffers::Offset<revault::internal::ContactExchangeStatus>> *values() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<revault::internal::ContactExchangeStatus>> *>(VT_VALUES);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_VALUES) &&
+           verifier.VerifyVector(values()) &&
+           verifier.VerifyVectorOfTables(values()) &&
+           verifier.EndTable();
+  }
+  ContactExchangeStatusListT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(ContactExchangeStatusListT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<ContactExchangeStatusList> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const ContactExchangeStatusListT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct ContactExchangeStatusListBuilder {
+  typedef ContactExchangeStatusList Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_values(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<revault::internal::ContactExchangeStatus>>> values) {
+    fbb_.AddOffset(ContactExchangeStatusList::VT_VALUES, values);
+  }
+  explicit ContactExchangeStatusListBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<ContactExchangeStatusList> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<ContactExchangeStatusList>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<ContactExchangeStatusList> CreateContactExchangeStatusList(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<revault::internal::ContactExchangeStatus>>> values = 0) {
+  ContactExchangeStatusListBuilder builder_(_fbb);
+  builder_.add_values(values);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<ContactExchangeStatusList> CreateContactExchangeStatusListDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<::flatbuffers::Offset<revault::internal::ContactExchangeStatus>> *values = nullptr) {
+  auto values__ = values ? _fbb.CreateVector<::flatbuffers::Offset<revault::internal::ContactExchangeStatus>>(*values) : 0;
+  return revault::internal::CreateContactExchangeStatusList(
+      _fbb,
+      values__);
+}
+
+::flatbuffers::Offset<ContactExchangeStatusList> CreateContactExchangeStatusList(::flatbuffers::FlatBufferBuilder &_fbb, const ContactExchangeStatusListT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
 struct LockboxEntryT : public ::flatbuffers::NativeTable {
   typedef LockboxEntry TableType;
@@ -4718,6 +4997,98 @@ inline ::flatbuffers::Offset<ErrorDetails> CreateErrorDetailsDirect(
 }
 
 ::flatbuffers::Offset<ErrorDetails> CreateErrorDetails(::flatbuffers::FlatBufferBuilder &_fbb, const ErrorDetailsT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+inline ContactExchangeStatusT *ContactExchangeStatus::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::unique_ptr<ContactExchangeStatusT>(new ContactExchangeStatusT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void ContactExchangeStatus::UnPackTo(ContactExchangeStatusT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = id(); if (_e) _o->id = _e->str(); }
+  { auto _e = relay(); if (_e) _o->relay = _e->str(); }
+  { auto _e = invitation(); if (_e) _o->invitation = _e->str(); }
+  { auto _e = inviter_email(); if (_e) _o->inviter_email = _e->str(); }
+  { auto _e = recipient_email(); if (_e) _o->recipient_email = _e->str(); }
+  { auto _e = fingerprint(); if (_e) _o->fingerprint = _e->str(); }
+  { auto _e = expires_ms(); _o->expires_ms = _e; }
+  { auto _e = accepted(); _o->accepted = _e; }
+  { auto _e = verified(); _o->verified = _e; }
+  { auto _e = contact_name(); if (_e) _o->contact_name = _e->str(); }
+  { auto _e = relay_pending(); _o->relay_pending = _e; }
+}
+
+inline ::flatbuffers::Offset<ContactExchangeStatus> ContactExchangeStatus::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const ContactExchangeStatusT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateContactExchangeStatus(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<ContactExchangeStatus> CreateContactExchangeStatus(::flatbuffers::FlatBufferBuilder &_fbb, const ContactExchangeStatusT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const ContactExchangeStatusT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _id = _o->id.empty() ? 0 : _fbb.CreateString(_o->id);
+  auto _relay = _o->relay.empty() ? 0 : _fbb.CreateString(_o->relay);
+  auto _invitation = _o->invitation.empty() ? 0 : _fbb.CreateString(_o->invitation);
+  auto _inviter_email = _o->inviter_email.empty() ? 0 : _fbb.CreateString(_o->inviter_email);
+  auto _recipient_email = _o->recipient_email.empty() ? 0 : _fbb.CreateString(_o->recipient_email);
+  auto _fingerprint = _o->fingerprint.empty() ? 0 : _fbb.CreateString(_o->fingerprint);
+  auto _expires_ms = _o->expires_ms;
+  auto _accepted = _o->accepted;
+  auto _verified = _o->verified;
+  auto _contact_name = _o->contact_name.empty() ? 0 : _fbb.CreateString(_o->contact_name);
+  auto _relay_pending = _o->relay_pending;
+  return revault::internal::CreateContactExchangeStatus(
+      _fbb,
+      _id,
+      _relay,
+      _invitation,
+      _inviter_email,
+      _recipient_email,
+      _fingerprint,
+      _expires_ms,
+      _accepted,
+      _verified,
+      _contact_name,
+      _relay_pending);
+}
+
+inline ContactExchangeStatusListT::ContactExchangeStatusListT(const ContactExchangeStatusListT &o) {
+  values.reserve(o.values.size());
+  for (const auto &values_ : o.values) { values.emplace_back((values_) ? new revault::internal::ContactExchangeStatusT(*values_) : nullptr); }
+}
+
+inline ContactExchangeStatusListT &ContactExchangeStatusListT::operator=(ContactExchangeStatusListT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(values, o.values);
+  return *this;
+}
+
+inline ContactExchangeStatusListT *ContactExchangeStatusList::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::unique_ptr<ContactExchangeStatusListT>(new ContactExchangeStatusListT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void ContactExchangeStatusList::UnPackTo(ContactExchangeStatusListT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = values(); if (_e) { _o->values.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->values[_i]) { _e->Get(_i)->UnPackTo(_o->values[_i].get(), _resolver); } else { _o->values[_i] = std::unique_ptr<revault::internal::ContactExchangeStatusT>(_e->Get(_i)->UnPack(_resolver)); } } } else { _o->values.resize(0); } }
+}
+
+inline ::flatbuffers::Offset<ContactExchangeStatusList> ContactExchangeStatusList::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const ContactExchangeStatusListT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateContactExchangeStatusList(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<ContactExchangeStatusList> CreateContactExchangeStatusList(::flatbuffers::FlatBufferBuilder &_fbb, const ContactExchangeStatusListT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const ContactExchangeStatusListT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _values = _o->values.size() ? _fbb.CreateVector<::flatbuffers::Offset<revault::internal::ContactExchangeStatus>> (_o->values.size(), [](size_t i, _VectorArgs *__va) { return CreateContactExchangeStatus(*__va->__fbb, __va->__o->values[i].get(), __va->__rehasher); }, &_va ) : 0;
+  return revault::internal::CreateContactExchangeStatusList(
+      _fbb,
+      _values);
+}
 
 inline LockboxEntryT *LockboxEntry::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
   auto _o = std::unique_ptr<LockboxEntryT>(new LockboxEntryT());

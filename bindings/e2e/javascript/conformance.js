@@ -281,6 +281,11 @@ function vaultLifecycle() {
   Vault.open(root, changed).free(); pass('vault_directory_open'); console.log(`ARTIFACT\t${language}\tvault-opened\t${root}`);
   Vault.openOrCreate(root, changed).free(); pass('vault_directory_open_or_create');
   ownerPublic.dispose(); owner.dispose(); contactPublic.publicFree(); contact.free(); profile.free();
+  const exchange = api.contactExchange(path.join(root, 'local-vault.lbox'), changed);
+  pass('contact_exchange_open');
+  try { check(exchange.list(true).length === 0, 'empty exchange status'); pass('contact_exchange_execute'); }
+  finally { exchange.close(); }
+  pass('contact_exchange_free');
 }
 
 function defaultVault() {

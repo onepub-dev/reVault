@@ -49,6 +49,407 @@ class _LockboxEntryKindReader extends fb.Reader<LockboxEntryKind> {
       LockboxEntryKind.fromValue(const fb.Int32Reader().read(bc, offset));
 }
 
+class ContactExchangeStatus {
+  ContactExchangeStatus._(this._bc, this._bcOffset);
+  factory ContactExchangeStatus(List<int> bytes) {
+    final rootRef = fb.BufferContext.fromBytes(bytes);
+    return reader.read(rootRef, 0);
+  }
+
+  static const fb.Reader<ContactExchangeStatus> reader =
+      _ContactExchangeStatusReader();
+
+  final fb.BufferContext _bc;
+  final int _bcOffset;
+
+  String? get id =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get relay =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get invitation =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
+  String? get inviterEmail =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 10);
+  String? get recipientEmail =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 12);
+  String? get fingerprint =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 14);
+  int get expiresMs => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 16, 0);
+  bool get accepted =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 18, false);
+  bool get verified =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 20, false);
+  String? get contactName =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 22);
+  bool get relayPending =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 24, false);
+
+  @override
+  String toString() {
+    return 'ContactExchangeStatus{id: ${id}, relay: ${relay}, invitation: ${invitation}, inviterEmail: ${inviterEmail}, recipientEmail: ${recipientEmail}, fingerprint: ${fingerprint}, expiresMs: ${expiresMs}, accepted: ${accepted}, verified: ${verified}, contactName: ${contactName}, relayPending: ${relayPending}}';
+  }
+
+  ContactExchangeStatusT unpack() => ContactExchangeStatusT(
+    id: id,
+    relay: relay,
+    invitation: invitation,
+    inviterEmail: inviterEmail,
+    recipientEmail: recipientEmail,
+    fingerprint: fingerprint,
+    expiresMs: expiresMs,
+    accepted: accepted,
+    verified: verified,
+    contactName: contactName,
+    relayPending: relayPending,
+  );
+
+  static int pack(fb.Builder fbBuilder, ContactExchangeStatusT? object) {
+    if (object == null) return 0;
+    return object.pack(fbBuilder);
+  }
+}
+
+class ContactExchangeStatusT implements fb.Packable {
+  String? id;
+  String? relay;
+  String? invitation;
+  String? inviterEmail;
+  String? recipientEmail;
+  String? fingerprint;
+  int expiresMs;
+  bool accepted;
+  bool verified;
+  String? contactName;
+  bool relayPending;
+
+  ContactExchangeStatusT({
+    this.id,
+    this.relay,
+    this.invitation,
+    this.inviterEmail,
+    this.recipientEmail,
+    this.fingerprint,
+    this.expiresMs = 0,
+    this.accepted = false,
+    this.verified = false,
+    this.contactName,
+    this.relayPending = false,
+  });
+
+  @override
+  int pack(fb.Builder fbBuilder) {
+    final int? idOffset = id == null ? null : fbBuilder.writeString(id!);
+    final int? relayOffset = relay == null
+        ? null
+        : fbBuilder.writeString(relay!);
+    final int? invitationOffset = invitation == null
+        ? null
+        : fbBuilder.writeString(invitation!);
+    final int? inviterEmailOffset = inviterEmail == null
+        ? null
+        : fbBuilder.writeString(inviterEmail!);
+    final int? recipientEmailOffset = recipientEmail == null
+        ? null
+        : fbBuilder.writeString(recipientEmail!);
+    final int? fingerprintOffset = fingerprint == null
+        ? null
+        : fbBuilder.writeString(fingerprint!);
+    final int? contactNameOffset = contactName == null
+        ? null
+        : fbBuilder.writeString(contactName!);
+    fbBuilder.startTable(11);
+    fbBuilder.addOffset(0, idOffset);
+    fbBuilder.addOffset(1, relayOffset);
+    fbBuilder.addOffset(2, invitationOffset);
+    fbBuilder.addOffset(3, inviterEmailOffset);
+    fbBuilder.addOffset(4, recipientEmailOffset);
+    fbBuilder.addOffset(5, fingerprintOffset);
+    fbBuilder.addUint64(6, expiresMs);
+    fbBuilder.addBool(7, accepted);
+    fbBuilder.addBool(8, verified);
+    fbBuilder.addOffset(9, contactNameOffset);
+    fbBuilder.addBool(10, relayPending);
+    return fbBuilder.endTable();
+  }
+
+  @override
+  String toString() {
+    return 'ContactExchangeStatusT{id: ${id}, relay: ${relay}, invitation: ${invitation}, inviterEmail: ${inviterEmail}, recipientEmail: ${recipientEmail}, fingerprint: ${fingerprint}, expiresMs: ${expiresMs}, accepted: ${accepted}, verified: ${verified}, contactName: ${contactName}, relayPending: ${relayPending}}';
+  }
+}
+
+class _ContactExchangeStatusReader
+    extends fb.TableReader<ContactExchangeStatus> {
+  const _ContactExchangeStatusReader();
+
+  @override
+  ContactExchangeStatus createObject(fb.BufferContext bc, int offset) =>
+      ContactExchangeStatus._(bc, offset);
+}
+
+class ContactExchangeStatusBuilder {
+  ContactExchangeStatusBuilder(this.fbBuilder);
+
+  final fb.Builder fbBuilder;
+
+  void begin() {
+    fbBuilder.startTable(11);
+  }
+
+  int addIdOffset(int? offset) {
+    fbBuilder.addOffset(0, offset);
+    return fbBuilder.offset;
+  }
+
+  int addRelayOffset(int? offset) {
+    fbBuilder.addOffset(1, offset);
+    return fbBuilder.offset;
+  }
+
+  int addInvitationOffset(int? offset) {
+    fbBuilder.addOffset(2, offset);
+    return fbBuilder.offset;
+  }
+
+  int addInviterEmailOffset(int? offset) {
+    fbBuilder.addOffset(3, offset);
+    return fbBuilder.offset;
+  }
+
+  int addRecipientEmailOffset(int? offset) {
+    fbBuilder.addOffset(4, offset);
+    return fbBuilder.offset;
+  }
+
+  int addFingerprintOffset(int? offset) {
+    fbBuilder.addOffset(5, offset);
+    return fbBuilder.offset;
+  }
+
+  int addExpiresMs(int? expiresMs) {
+    fbBuilder.addUint64(6, expiresMs);
+    return fbBuilder.offset;
+  }
+
+  int addAccepted(bool? accepted) {
+    fbBuilder.addBool(7, accepted);
+    return fbBuilder.offset;
+  }
+
+  int addVerified(bool? verified) {
+    fbBuilder.addBool(8, verified);
+    return fbBuilder.offset;
+  }
+
+  int addContactNameOffset(int? offset) {
+    fbBuilder.addOffset(9, offset);
+    return fbBuilder.offset;
+  }
+
+  int addRelayPending(bool? relayPending) {
+    fbBuilder.addBool(10, relayPending);
+    return fbBuilder.offset;
+  }
+
+  int finish() {
+    return fbBuilder.endTable();
+  }
+}
+
+class ContactExchangeStatusObjectBuilder extends fb.ObjectBuilder {
+  final String? _id;
+  final String? _relay;
+  final String? _invitation;
+  final String? _inviterEmail;
+  final String? _recipientEmail;
+  final String? _fingerprint;
+  final int? _expiresMs;
+  final bool? _accepted;
+  final bool? _verified;
+  final String? _contactName;
+  final bool? _relayPending;
+
+  ContactExchangeStatusObjectBuilder({
+    String? id,
+    String? relay,
+    String? invitation,
+    String? inviterEmail,
+    String? recipientEmail,
+    String? fingerprint,
+    int? expiresMs,
+    bool? accepted,
+    bool? verified,
+    String? contactName,
+    bool? relayPending,
+  }) : _id = id,
+       _relay = relay,
+       _invitation = invitation,
+       _inviterEmail = inviterEmail,
+       _recipientEmail = recipientEmail,
+       _fingerprint = fingerprint,
+       _expiresMs = expiresMs,
+       _accepted = accepted,
+       _verified = verified,
+       _contactName = contactName,
+       _relayPending = relayPending;
+
+  /// Finish building, and store into the [fbBuilder].
+  @override
+  int finish(fb.Builder fbBuilder) {
+    final int? idOffset = _id == null ? null : fbBuilder.writeString(_id!);
+    final int? relayOffset = _relay == null
+        ? null
+        : fbBuilder.writeString(_relay!);
+    final int? invitationOffset = _invitation == null
+        ? null
+        : fbBuilder.writeString(_invitation!);
+    final int? inviterEmailOffset = _inviterEmail == null
+        ? null
+        : fbBuilder.writeString(_inviterEmail!);
+    final int? recipientEmailOffset = _recipientEmail == null
+        ? null
+        : fbBuilder.writeString(_recipientEmail!);
+    final int? fingerprintOffset = _fingerprint == null
+        ? null
+        : fbBuilder.writeString(_fingerprint!);
+    final int? contactNameOffset = _contactName == null
+        ? null
+        : fbBuilder.writeString(_contactName!);
+    fbBuilder.startTable(11);
+    fbBuilder.addOffset(0, idOffset);
+    fbBuilder.addOffset(1, relayOffset);
+    fbBuilder.addOffset(2, invitationOffset);
+    fbBuilder.addOffset(3, inviterEmailOffset);
+    fbBuilder.addOffset(4, recipientEmailOffset);
+    fbBuilder.addOffset(5, fingerprintOffset);
+    fbBuilder.addUint64(6, _expiresMs);
+    fbBuilder.addBool(7, _accepted);
+    fbBuilder.addBool(8, _verified);
+    fbBuilder.addOffset(9, contactNameOffset);
+    fbBuilder.addBool(10, _relayPending);
+    return fbBuilder.endTable();
+  }
+
+  /// Convenience method to serialize to byte list.
+  @override
+  Uint8List toBytes([String? fileIdentifier]) {
+    final fbBuilder = fb.Builder(deduplicateTables: false);
+    fbBuilder.finish(finish(fbBuilder), fileIdentifier);
+    return fbBuilder.buffer;
+  }
+}
+
+class ContactExchangeStatusList {
+  ContactExchangeStatusList._(this._bc, this._bcOffset);
+  factory ContactExchangeStatusList(List<int> bytes) {
+    final rootRef = fb.BufferContext.fromBytes(bytes);
+    return reader.read(rootRef, 0);
+  }
+
+  static const fb.Reader<ContactExchangeStatusList> reader =
+      _ContactExchangeStatusListReader();
+
+  final fb.BufferContext _bc;
+  final int _bcOffset;
+
+  List<ContactExchangeStatus>? get values =>
+      const fb.ListReader<ContactExchangeStatus>(
+        ContactExchangeStatus.reader,
+      ).vTableGetNullable(_bc, _bcOffset, 4);
+
+  @override
+  String toString() {
+    return 'ContactExchangeStatusList{values: ${values}}';
+  }
+
+  ContactExchangeStatusListT unpack() => ContactExchangeStatusListT(
+    values: values?.map((e) => e.unpack()).toList(),
+  );
+
+  static int pack(fb.Builder fbBuilder, ContactExchangeStatusListT? object) {
+    if (object == null) return 0;
+    return object.pack(fbBuilder);
+  }
+}
+
+class ContactExchangeStatusListT implements fb.Packable {
+  List<ContactExchangeStatusT>? values;
+
+  ContactExchangeStatusListT({this.values});
+
+  @override
+  int pack(fb.Builder fbBuilder) {
+    final int? valuesOffset = values == null
+        ? null
+        : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
+    fbBuilder.startTable(1);
+    fbBuilder.addOffset(0, valuesOffset);
+    return fbBuilder.endTable();
+  }
+
+  @override
+  String toString() {
+    return 'ContactExchangeStatusListT{values: ${values}}';
+  }
+}
+
+class _ContactExchangeStatusListReader
+    extends fb.TableReader<ContactExchangeStatusList> {
+  const _ContactExchangeStatusListReader();
+
+  @override
+  ContactExchangeStatusList createObject(fb.BufferContext bc, int offset) =>
+      ContactExchangeStatusList._(bc, offset);
+}
+
+class ContactExchangeStatusListBuilder {
+  ContactExchangeStatusListBuilder(this.fbBuilder);
+
+  final fb.Builder fbBuilder;
+
+  void begin() {
+    fbBuilder.startTable(1);
+  }
+
+  int addValuesOffset(int? offset) {
+    fbBuilder.addOffset(0, offset);
+    return fbBuilder.offset;
+  }
+
+  int finish() {
+    return fbBuilder.endTable();
+  }
+}
+
+class ContactExchangeStatusListObjectBuilder extends fb.ObjectBuilder {
+  final List<ContactExchangeStatusObjectBuilder>? _values;
+
+  ContactExchangeStatusListObjectBuilder({
+    List<ContactExchangeStatusObjectBuilder>? values,
+  }) : _values = values;
+
+  /// Finish building, and store into the [fbBuilder].
+  @override
+  int finish(fb.Builder fbBuilder) {
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
+    fbBuilder.startTable(1);
+    fbBuilder.addOffset(0, valuesOffset);
+    return fbBuilder.endTable();
+  }
+
+  /// Convenience method to serialize to byte list.
+  @override
+  Uint8List toBytes([String? fileIdentifier]) {
+    final fbBuilder = fb.Builder(deduplicateTables: false);
+    fbBuilder.finish(finish(fbBuilder), fileIdentifier);
+    return fbBuilder.buffer;
+  }
+}
+
 class LockboxEntry {
   LockboxEntry._(this._bc, this._bcOffset);
   factory LockboxEntry(List<int> bytes) {

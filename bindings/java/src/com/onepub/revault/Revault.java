@@ -17,6 +17,129 @@ import java.nio.file.Path;
  * for installation and examples.
  */
 public final class Revault {
+  /** Open a full reciprocal exchange session for an existing Vault file. No Vault lock is retained. */
+  public ContactExchange contactExchange(String path, byte[] vaultPassphrase) {
+    return new ContactExchange(operations.contactExchangeOpen(path, vaultPassphrase));
+  }
+  /** Retains protected native credentials; close promptly. No Session Agent is used. */
+  public final class ContactExchange implements AutoCloseable {
+    private MemorySegment handle;
+    private ContactExchange(MemorySegment handle) { this.handle = handle; }
+    private java.util.List<ContactExchangeStatus> execute(Object... pairs) {
+      if (handle.equals(MemorySegment.NULL)) throw new IllegalStateException("Exchange session is closed");
+      var json = new StringBuilder("{");
+      for (int i=0; i<pairs.length; i+=2) {
+        if (i>0) json.append(',');
+        json.append(quote((String)pairs[i])).append(':');
+        Object value=pairs[i+1];
+        json.append(value instanceof String ? quote((String)value) : value.toString());
+      }
+      return operations.contactExchangeExecute(handle, json.append('}').toString());
+    }
+    private String quote(String value) {
+      var out=new StringBuilder("\"");
+      for (int i=0;i<value.length();i++) {
+        char c=value.charAt(i);
+        if(c=='"'||c=='\\') out.append('\\').append(c);
+        else if(c<32) out.append(String.format("\\u%04x",(int)c));
+        else out.append(c);
+      }
+      return out.append('"').toString();
+    }
+    /** Create an invitation. Retry relayPending results using list(false).
+     * Example (Vault credentials and paths are supplied by the application):
+     * <pre>{@code
+     * try (var session = api.contactExchange(vaultPath, vaultPassphrase)) {
+     *   var offer = session.invite(relayOrigin, "default", "bob@example.com", 24);
+     *   if (offer.relayPending()) session.list(false);
+     * }
+     * }</pre>
+     */
+    public ContactExchangeStatus invite(String relay,String profile,String recipientEmail,int ttlHours) {
+      return execute("operation","invite","relay",relay,"profile",profile,"recipient_email",recipientEmail,"ttl_hours",ttlHours).get(0);
+    }
+    /** Return both public keys of the selected profile.
+     * Example (Vault credentials and paths are supplied by the application):
+     * <pre>{@code
+     * try (var session = api.contactExchange(vaultPath, vaultPassphrase)) {
+     *   var reply = session.accept(invitationUrl, "default");
+     *   System.out.println(reply.fingerprint());
+     * }
+     * }</pre>
+     */
+    public ContactExchangeStatus accept(String invitation,String profile) { return execute("operation","accept","invitation",invitation,"profile",profile).get(0); }
+    /** List status, optionally avoiding relay requests.
+     * Example (Vault credentials and paths are supplied by the application):
+     * <pre>{@code
+     * try (var session = api.contactExchange(vaultPath, vaultPassphrase)) {
+     *   for (var status : session.list(true)) System.out.println(status.id());
+     * }
+     * }</pre>
+     */
+    public java.util.List<ContactExchangeStatus> list(boolean offline) { return execute("operation","list","offline",offline); }
+    /** Call only after independent full-fingerprint comparison. Channel is in-person, known-phone-call or trusted-messenger.
+     * Example (Vault credentials and paths are supplied by the application):
+     * <pre>{@code
+     * try (var session = api.contactExchange(vaultPath, vaultPassphrase)) {
+     *   // After independent identity and full-fingerprint comparison:
+     *   session.verify(exchangeId, "bob", comparedFingerprint, Revault.ComparisonChannel.IN_PERSON);
+     * }
+     * }</pre>
+     */
+    public ContactExchangeStatus verify(String id,String contactName,String fingerprint,ComparisonChannel channel) {
+      return execute("operation","verify","id",id,"contact_name",contactName,"fingerprint",fingerprint,"channel",channel.wireName).get(0);
+    }
+    /** Authenticate an archive against the saved contact signing key.
+     * Example (Vault credentials and paths are supplied by the application):
+     * <pre>{@code
+     * try (var session = api.contactExchange(vaultPath, vaultPassphrase)) {
+     *   session.verifyAuthor("alice", receivedArchivePath);
+     * }
+     * }</pre>
+     */
+    public void verifyAuthor(String contactName,String lockboxPath) { execute("operation","verify_author","contact_name",contactName,"lockbox_path",lockboxPath); }
+
+    /** Cancel an unaccepted invitation owned by this Vault.
+     * Example (Vault credentials and paths are supplied by the application):
+     * <pre>{@code
+     * try (var session = api.contactExchange(vaultPath, vaultPassphrase)) {
+     *   session.cancel(exchangeId);
+     * }
+     * }</pre>
+     */
+    public void cancel(String id) { execute("operation","cancel","id",id); }
+    /** Forget local exchange state, preserving contacts.
+     * Example (Vault credentials and paths are supplied by the application):
+     * <pre>{@code
+     * try (var session = api.contactExchange(vaultPath, vaultPassphrase)) {
+     *   session.forget(exchangeId);
+     * }
+     * }</pre>
+     */
+    public void forget(String id) { execute("operation","forget","id",id); }
+    /** Release protected credentials without cancelling any invitation.
+     * Example (Vault credentials and paths are supplied by the application):
+     * <pre>{@code
+     * try (var session = api.contactExchange(vaultPath, vaultPassphrase)) {
+     *   System.out.println(session.list(true).size());
+     * }
+     * }</pre>
+     */
+    @Override public void close() { if (!handle.equals(MemorySegment.NULL)) { operations.contactExchangeFree(handle); handle=MemorySegment.NULL; } }
+  }
+
+  /** Independent authenticated channel used for comparing identities and the full fingerprint. */
+  public enum ComparisonChannel {
+    /** Compare with the person present. */
+    IN_PERSON("in-person"),
+    /** Call an independently known phone number. */
+    KNOWN_PHONE_CALL("known-phone-call"),
+    /** Use an independently authenticated messenger. */
+    TRUSTED_MESSENGER("trusted-messenger");
+    private final String wireName;
+    ComparisonChannel(String wireName) { this.wireName=wireName; }
+  }
+
   /**
    * Consumes temporary secret bytes before their transfer copy is wiped.
    *

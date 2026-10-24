@@ -832,6 +832,12 @@ def vault_lifecycle(runtime: Runtime) -> None:
     check(opened_or_created, runtime.error())
     passed("vault_directory_open_or_create", 1)
     lib.vault_directory_free(opened_or_created)
+    with binding.ContactExchange.open(root / 'local-vault.lbox', new_password_bytes) as exchange:
+        passed('contact_exchange_open', 1)
+        check(len(exchange.list(offline=True)) == 0, 'empty exchange status')
+        passed('contact_exchange_execute', 1)
+    passed('contact_exchange_free', 1)
+
 
 
 def default_vault_lifecycle(runtime: Runtime) -> None:

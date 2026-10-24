@@ -402,6 +402,11 @@ final class BindingOperations {
             return DomainCodec.optionalString(try take(lockbox_get_variable(handle, namePointer, name.utf8.count)))
         }
     }
+    func contactExchangeExecute(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> [ContactExchangeStatus] {
+        return try name.withCString { namePointer in
+            return DomainCodec.contactExchangeStatusList(try take(contact_exchange_execute(handle, namePointer, name.utf8.count)))
+        }
+    }
     func lockboxItemDescription(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> String? {
         return try name.withCString { namePointer in
             return DomainCodec.optionalString(try take(lockbox_item_description(handle, namePointer, name.utf8.count)))
@@ -836,6 +841,14 @@ final class BindingOperations {
             }
         }
     }
+    func contactExchangeOpen(_ root: String, _ password: Data) throws -> UnsafeMutableRawPointer {
+        return try root.withCString { rootPointer in
+            return try password.withUnsafeBytes { passwordBytes in
+                guard let value = contact_exchange_open(rootPointer, root.utf8.count, passwordBytes.bindMemory(to: UInt8.self).baseAddress, password.count) else { throw RevaultError.native(lastError()) }
+                return value
+            }
+        }
+    }
 
     func vaultStructureVersionCurrent() throws -> UInt32 {
         return vault_structure_version_current()
@@ -1206,6 +1219,9 @@ final class BindingOperations {
 
     func vaultDirectoryFree(_ handle: UnsafeMutableRawPointer) throws -> Void {
         vault_directory_free(handle)
+    }
+    func contactExchangeFree(_ handle: UnsafeMutableRawPointer) throws -> Void {
+        contact_exchange_free(handle)
     }
 
     func vaultReadOnlyOpen(_ root: String, _ password: Data) throws -> UnsafeMutableRawPointer {
@@ -1579,6 +1595,11 @@ public final class Platform: OwnedHandle {}
 /// Runtime API used to create/open lockboxes, reach Vault metadata, use the
 /// explicit Session Agent, and access the platform credential store.
 public final class Revault {
+    /// Open a session for an existing Vault file. Retains credentials, not a Vault lock.
+    public func contactExchange(_ path: String, _ vaultPassphrase: Data) throws -> ContactExchange {
+        ContactExchange(operations, try operations.contactExchangeOpen(path, vaultPassphrase))
+    }
+
     fileprivate let operations = BindingOperations()
     /// Returns the agent.
     public lazy var agentSession = AgentSession(operations, try? operations.vaultLocal())
@@ -2965,3 +2986,99 @@ extension Platform {
 }
 
 /// Returns the member.
+/// Full reciprocal exchange. Compare identities and fingerprint independently between calls.
+public enum ComparisonChannel: String {
+    /// Compare with the person present.
+    case inPerson = "in-person"
+    /// Call an independently known number.
+    case knownPhoneCall = "known-phone-call"
+    /// Use an independently authenticated messenger.
+    case trustedMessenger = "trusted-messenger"
+}
+/// Reciprocal exchange session retaining protected credentials but no Vault lock.
+public final class ContactExchange: OwnedHandle {
+    private func execute(_ request: [String: Any]) throws -> [ContactExchangeStatus] {
+        guard let handle else { throw RevaultError.native("Exchange session is closed") }
+        let data = try JSONSerialization.data(withJSONObject: request)
+        return try operations.contactExchangeExecute(handle, String(decoding: data, as: UTF8.self))
+    }
+    /// Create an invitation; retry relay-pending results using list.
+    /// Example:
+    /// ```
+    /// let session = try api.contactExchange(vaultPath, vaultPassphrase)
+    /// defer { session.close() }
+    ///   let offer = try session.invite(relayOrigin, "default", "bob@example.com")
+    ///   if offer.relayPending { _ = try session.list() }
+    ///
+    /// ```
+    public func invite(_ relay: String, _ profile: String, _ recipientEmail: String, ttlHours: Int=24) throws -> ContactExchangeStatus {
+        try execute(["operation":"invite","relay":relay,"profile":profile,"recipient_email":recipientEmail,"ttl_hours":ttlHours])[0]
+    }
+    /// Accept with one selected profile's complete public identity.
+    /// Example:
+    /// ```
+    /// let session = try api.contactExchange(vaultPath, vaultPassphrase)
+    /// defer { session.close() }
+    ///   let reply = try session.accept(invitationUrl, "default")
+    ///   print(reply.fingerprint)
+    ///
+    /// ```
+    public func accept(_ invitation: String, _ profile: String) throws -> ContactExchangeStatus { try execute(["operation":"accept","invitation":invitation,"profile":profile])[0] }
+    /// List public status, optionally avoiding relay requests.
+    /// Example:
+    /// ```
+    /// let session = try api.contactExchange(vaultPath, vaultPassphrase)
+    /// defer { session.close() }
+    ///   for status in try session.list(offline: true) { print(status.id) }
+    ///
+    /// ```
+    public func list(offline: Bool=false) throws -> [ContactExchangeStatus] { try execute(["operation":"list","offline":offline]) }
+    /// Save both keys after independent full-fingerprint comparison through the named trusted channel.
+    /// Example:
+    /// ```
+    /// let session = try api.contactExchange(vaultPath, vaultPassphrase)
+    /// defer { session.close() }
+    ///   // After independent identity and full-fingerprint comparison:
+    ///   _ = try session.verify(exchangeId, "bob", comparedFingerprint, .inPerson)
+    ///
+    /// ```
+    public func verify(_ id: String, _ contactName: String, _ fingerprint: String, _ channel: ComparisonChannel) throws -> ContactExchangeStatus { try execute(["operation":"verify","id":id,"contact_name":contactName,"fingerprint":fingerprint,"channel":channel.rawValue])[0] }
+    /// Authenticate an archive against the saved contact signing key.
+    /// Example:
+    /// ```
+    /// let session = try api.contactExchange(vaultPath, vaultPassphrase)
+    /// defer { session.close() }
+    ///   try session.verifyAuthor("alice", receivedArchivePath)
+    ///
+    /// ```
+    public func verifyAuthor(_ contactName: String, _ lockboxPath: String) throws { _ = try execute(["operation":"verify_author","contact_name":contactName,"lockbox_path":lockboxPath]) }
+
+    /// Cancel an owned, unaccepted invitation.
+    /// Example:
+    /// ```
+    /// let session = try api.contactExchange(vaultPath, vaultPassphrase)
+    /// defer { session.close() }
+    ///   try session.cancel(exchangeId)
+    ///
+    /// ```
+    public func cancel(_ id: String) throws { _ = try execute(["operation":"cancel","id":id]) }
+    /// Forget local state, preserving contacts.
+    /// Example:
+    /// ```
+    /// let session = try api.contactExchange(vaultPath, vaultPassphrase)
+    /// defer { session.close() }
+    ///   try session.forget(exchangeId)
+    ///
+    /// ```
+    public func forget(_ id: String) throws { _ = try execute(["operation":"forget","id":id]) }
+    /// Release credentials without cancelling any invitation.
+    /// Example:
+    /// ```
+    /// let session = try api.contactExchange(vaultPath, vaultPassphrase)
+    /// defer { session.close() }
+    ///   print(try session.list(offline: true).count)
+    ///
+    /// ```
+    public func close() { if let handle { try? operations.contactExchangeFree(handle); self.handle=nil } }
+    deinit { close() }
+}

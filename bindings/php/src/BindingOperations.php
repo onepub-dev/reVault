@@ -341,6 +341,10 @@ final class BindingOperations
     {
         return $this->decode(\Revault\OptionalString::class, $this->ffi->lockbox_get_variable($handle, $name, strlen($name)));
     }
+    public function contactExchangeExecute(CData $handle, string $name): \Revault\ContactExchangeStatusList
+    {
+        return $this->decode(\Revault\ContactExchangeStatusList::class, $this->ffi->contact_exchange_execute($handle, $name, strlen($name)));
+    }
     public function lockboxItemDescription(CData $handle, string $name): \Revault\OptionalString
     {
         return $this->decode(\Revault\OptionalString::class, $this->ffi->lockbox_item_description($handle, $name, strlen($name)));
@@ -704,6 +708,10 @@ final class BindingOperations
     {
         return $this->withBytes($password, fn(CData $passwordPointer, int $passwordLength) => $this->requireHandle($this->ffi->vault_directory_open($root, strlen($root), $passwordPointer, $passwordLength)));
     }
+    public function contactExchangeOpen(string $root, string $password): CData
+    {
+        return $this->withBytes($password, fn(CData $passwordPointer, int $passwordLength) => $this->requireHandle($this->ffi->contact_exchange_open($root, strlen($root), $passwordPointer, $passwordLength)));
+    }
 
     public function vaultStructureVersionCurrent(): int
     {
@@ -998,6 +1006,10 @@ final class BindingOperations
     public function vaultDirectoryFree(CData $handle): void
     {
         $this->ffi->vault_directory_free($handle);
+    }
+    public function contactExchangeFree(CData $handle): void
+    {
+        $this->ffi->contact_exchange_free($handle);
     }
 
     public function vaultReadOnlyOpen(string $root, string $password): CData

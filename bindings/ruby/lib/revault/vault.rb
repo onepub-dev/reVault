@@ -42,6 +42,10 @@ module Revault
   # Primary API used to open lockboxes, manage keys and metadata, use the
   # Session Agent, and access to the platform credential store.
   class Runtime
+    # Open a session for an existing Vault file; retains credentials but no Vault lock.
+    def contact_exchange(path, vault_passphrase)
+      ContactExchange.new(@operations, @operations.contact_exchange_open(path, vault_passphrase))
+    end
     attr_reader :agent, :platform
     # Returns the initialize.
     def initialize(native_library_path = nil)
@@ -1480,3 +1484,117 @@ end
 # Native handles and operation routing are implementation details of the
 # application-facing facade above.
 Revault.private_constant(:OwnedHandle, :Runtime, :VaultStore, :LocalSession)
+require 'json'
+module Revault
+  # Full reciprocal exchange. Compare identities and fingerprint independently between calls.
+  module ComparisonChannel
+    IN_PERSON = 'in-person'.freeze
+    KNOWN_PHONE_CALL = 'known-phone-call'.freeze
+    TRUSTED_MESSENGER = 'trusted-messenger'.freeze
+  end
+  # Reciprocal exchange session retaining protected credentials but no Vault lock.
+  class ContactExchange < OwnedHandle
+    # Marshal an internal request to the shared Rust workflow.
+    def execute(request)
+      raise 'Exchange session is closed' unless @native_handle
+      @operations.contact_exchange_execute(@native_handle, JSON.generate(request))
+    end
+    private :execute
+    # Create an invitation; retry pending delivery using list.
+    # Example:
+    # ```
+    # session = api.contact_exchange(vault_path, vault_passphrase)
+    # begin
+    #   offer = session.invite(relay_origin, 'default', 'bob@example.com')
+    #   session.list if offer.relay_pending
+    # ensure
+    #   session.close
+    # end
+    # ```
+    def invite(relay, profile, recipient_email, ttl_hours=24) = execute(operation: 'invite', relay: relay, profile: profile, recipient_email: recipient_email, ttl_hours: ttl_hours).first
+    # Accept with one selected profile's complete public identity.
+    # Example:
+    # ```
+    # session = api.contact_exchange(vault_path, vault_passphrase)
+    # begin
+    #   reply = session.accept(invitation_url, 'default')
+    #   puts reply.fingerprint
+    # ensure
+    #   session.close
+    # end
+    # ```
+    def accept(invitation, profile) = execute(operation: 'accept', invitation: invitation, profile: profile).first
+    # List public status, optionally without relay requests.
+    # Example:
+    # ```
+    # session = api.contact_exchange(vault_path, vault_passphrase)
+    # begin
+    #   session.list(true).each { |status| puts status.id }
+    # ensure
+    #   session.close
+    # end
+    # ```
+    def list(offline=false) = execute(operation: 'list', offline: offline)
+    # Save both keys after independent full-fingerprint comparison.
+    # Example:
+    # ```
+    # session = api.contact_exchange(vault_path, vault_passphrase)
+    # begin
+    #   # After independent identity and full-fingerprint comparison:
+    #   session.verify(exchange_id, 'bob', compared_fingerprint, Revault::ComparisonChannel::IN_PERSON)
+    # ensure
+    #   session.close
+    # end
+    # ```
+    def verify(id, contact_name, fingerprint, channel) = execute(operation: 'verify', id: id, contact_name: contact_name, fingerprint: fingerprint, channel: channel).first
+    # Authenticate an archive against the saved contact signing key.
+    # Example:
+    # ```
+    # session = api.contact_exchange(vault_path, vault_passphrase)
+    # begin
+    #   session.verify_author('alice', received_archive_path)
+    # ensure
+    #   session.close
+    # end
+    # ```
+    def verify_author(contact_name, lockbox_path) = execute(operation: 'verify_author', contact_name: contact_name, lockbox_path: lockbox_path)
+
+    # Cancel an owned, unaccepted invitation.
+    # Example:
+    # ```
+    # session = api.contact_exchange(vault_path, vault_passphrase)
+    # begin
+    #   session.cancel(exchange_id)
+    # ensure
+    #   session.close
+    # end
+    # ```
+    def cancel(id) = execute(operation: 'cancel', id: id)
+    # Forget local state, preserving contacts.
+    # Example:
+    # ```
+    # session = api.contact_exchange(vault_path, vault_passphrase)
+    # begin
+    #   session.forget(exchange_id)
+    # ensure
+    #   session.close
+    # end
+    # ```
+    def forget(id) = execute(operation: 'forget', id: id)
+    # Release protected credentials without cancelling invitations.
+    # Example:
+    # ```
+    # session = api.contact_exchange(vault_path, vault_passphrase)
+    # begin
+    #   puts session.list(true).length
+    # ensure
+    #   session.close
+    # end
+    # ```
+    def free
+      @operations.contact_exchange_free(@native_handle) if @native_handle
+      @native_handle=nil
+    end
+    alias close free
+  end
+end

@@ -42,21 +42,22 @@ pub mod vault {
     use revault_lockbox_api::{ContactKeyPair, ContactPublicKey};
 
     pub use revault_vault_api::{
-        backup_default_vault, decode_fingerprint_crockford_96, decode_fingerprint_hex,
-        default_vault_dir, default_vault_path, disable_platform_secret_store,
-        enable_platform_secret_store, encode_hex, export_private_key, export_public_key, forget,
-        forget_all, forget_platform_vault_password, forget_vault_unlock_key,
-        format_fingerprint_crockford_96, format_fingerprint_crockford_96_reading,
-        format_fingerprint_hex_pairs, get, get_platform_vault_password, get_vault_unlock_key,
-        import_private_key, import_private_key_file, import_public_key, is_running, list,
+        backup_default_vault, contact_exchange, decode_fingerprint_crockford_96,
+        decode_fingerprint_hex, default_vault_dir, default_vault_path,
+        disable_platform_secret_store, enable_platform_secret_store, encode_hex,
+        export_private_key, export_public_key, forget, forget_all, forget_platform_vault_password,
+        forget_vault_unlock_key, format_fingerprint_crockford_96,
+        format_fingerprint_crockford_96_reading, format_fingerprint_hex_pairs, get,
+        get_platform_vault_password, get_vault_unlock_key, import_private_key,
+        import_private_key_file, import_public_key, is_running, list,
         platform_secret_store_disabled, platform_secret_store_status, public_key_fingerprint, put,
         put_platform_vault_password, put_vault_unlock_key, restore_default_vault, serve_agent,
         set_auto_open_scope, start, stop, verify_agent_transport_security, AccessSlotLabel,
-        AgentSleepSupport, AutoOpenScope, CachedLockbox, ContentKeyStore, KeyFormat, KnownLockbox,
-        NoopStore, PlatformSecretStoreStatus, ProfileGeneration, ProfileGenerationStatus,
-        ProfileHistory, SecretActivityGuard, SecretActivityKind, SecretString, SecretVec,
-        StoredContact, VaultBackupManifest, CURRENT_VAULT_STRUCTURE_VERSION,
-        FINGERPRINT_CODE_96_LEN,
+        AgentSleepSupport, AutoOpenScope, CachedLockbox, ComparisonChannel, ContactExchangeCommand,
+        ContactExchangeStatus, ContentKeyStore, KeyFormat, KnownLockbox, NoopStore,
+        PlatformSecretStoreStatus, ProfileGeneration, ProfileGenerationStatus, ProfileHistory,
+        SecretActivityGuard, SecretActivityKind, SecretString, SecretVec, StoredContact,
+        VaultBackupManifest, CURRENT_VAULT_STRUCTURE_VERSION, FINGERPRINT_CODE_96_LEN,
     };
 
     /// Persistent encrypted local store for profiles, keys, contacts, and

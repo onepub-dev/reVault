@@ -106,7 +106,8 @@ def _load(native_library_path: str | os.PathLike[str] | None = None) -> ctypes.C
 
 
 # Imported after the loader helpers because the generated facade uses them.
-from .facade import (  # noqa: E402
+from .facade import (
+    ComparisonChannel, ContactExchange,  # noqa: E402
     AgentActivityKind,
     AgentSession,
     AgentActivity,
@@ -129,6 +130,8 @@ from .facade import (  # noqa: E402
 )
 
 __all__ = [
+    "ContactExchange",
+    "ComparisonChannel",
     "AgentSession",
     "AgentActivityKind",
     "AgentActivity",

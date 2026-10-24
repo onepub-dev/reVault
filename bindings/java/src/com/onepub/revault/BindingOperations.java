@@ -354,6 +354,11 @@ final class BindingOperations {
       return frame((MemorySegment) call(api.lockbox_get_variable, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::optionalString);
     }
   }
+  public java.util.List<ContactExchangeStatus> contactExchangeExecute(MemorySegment handle, String name) {
+    try (var arena = Arena.ofConfined()) {
+      return frame((MemorySegment) call(api.contact_exchange_execute, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::contactExchangeStatusList);
+    }
+  }
   public String lockboxItemDescription(MemorySegment handle, String name) {
     try (var arena = Arena.ofConfined()) {
       return frame((MemorySegment) call(api.lockbox_item_description, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::optionalString);
@@ -769,6 +774,11 @@ final class BindingOperations {
       return require((MemorySegment) call(api.vault_directory_open, text(arena, root), (long) root.getBytes(StandardCharsets.UTF_8).length, bytes(arena, password), (long) password.length));
     }
   }
+  public MemorySegment contactExchangeOpen(String root, byte[] password) {
+    try (var arena = Arena.ofConfined()) {
+      return require((MemorySegment) call(api.contact_exchange_open, text(arena, root), (long) root.getBytes(StandardCharsets.UTF_8).length, bytes(arena, password), (long) password.length));
+    }
+  }
 
   public int vaultStructureVersionCurrent() {
     return (int) call(api.vault_structure_version_current);
@@ -1100,6 +1110,9 @@ final class BindingOperations {
 
   public void vaultDirectoryFree(MemorySegment handle) {
     call(api.vault_directory_free, handle);
+  }
+  public void contactExchangeFree(MemorySegment handle) {
+    call(api.contact_exchange_free, handle);
   }
 
   public MemorySegment vaultReadOnlyOpen(String root, byte[] password) {

@@ -181,7 +181,7 @@ def generate() -> str:
         "KeySlotList": "KeySlot",
         "FormDefinitionList": "FormDefinition",
         "FormRecordList": "FormRecord",
-        "ContactList": "Contact",
+        "ContactList": "Contact", "ContactExchangeStatusList": "ContactExchangeStatus",
         "LockboxAliasList": "LockboxAlias", "KnownLockboxList": "KnownLockbox",
         "AccessSlotLabelList": "AccessSlotLabel",
         "AgentEntryList": "AgentEntry",

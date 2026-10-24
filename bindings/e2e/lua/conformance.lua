@@ -293,6 +293,9 @@ local function vault_lifecycle()
   revault.Vault.open(root, changed):free(); pass('vault_directory_open'); print('ARTIFACT\tlua\tvault-opened\t' .. root)
   revault.Vault.open_or_create(root, changed):free(); pass('vault_directory_open_or_create')
   owner_public:free(); owner:free(); contact_public:public_free(); contact:free(); profile:free()
+  local exchange = api:contact_exchange(root .. '/local-vault.lbox', changed); pass('contact_exchange_open')
+  check(#exchange:list(true) == 0, 'empty exchange status'); pass('contact_exchange_execute')
+  exchange:close(); pass('contact_exchange_free')
 end
 
 local function default_vault()

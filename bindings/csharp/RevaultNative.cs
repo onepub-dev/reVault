@@ -138,6 +138,8 @@ internal static partial class RevaultNative
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern RevaultBuffer lockbox_get_variable(IntPtr handle, IntPtr name, nuint name_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern RevaultBuffer contact_exchange_execute(IntPtr handle, IntPtr name, nuint name_len);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern RevaultBuffer lockbox_item_description(IntPtr handle, IntPtr name, nuint name_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern RevaultBuffer vault_directory_item_description(IntPtr handle, IntPtr name, nuint name_len);
@@ -300,6 +302,8 @@ internal static partial class RevaultNative
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern IntPtr vault_directory_open(IntPtr root, nuint root_len, IntPtr password, nuint password_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr contact_exchange_open(IntPtr root, nuint root_len, IntPtr password, nuint password_len);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern uint vault_structure_version_current();
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern uint vault_directory_probe_structure_version(IntPtr root, nuint root_len, IntPtr password, nuint password_len);
@@ -436,6 +440,8 @@ internal static partial class RevaultNative
     public static extern RevaultBuffer vault_restore_default(IntPtr path, nuint path_len, [MarshalAs(UnmanagedType.I1)] bool overwrite);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern void vault_directory_free(IntPtr handle);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern void contact_exchange_free(IntPtr handle);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern IntPtr vault_read_only_open(IntPtr root, nuint root_len, IntPtr password, nuint password_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]

@@ -36,6 +36,9 @@ export type NativeHandle = ContactKeyPair | ContactPublicKey | WrappedContactKey
  * Session Agent, and access the platform credential store. Create one
  * when the application starts. */
 export class Revault {
+  /** Open an exchange session; path identifies an existing Vault file. */
+  contactExchange(path: string, vaultPassphrase: BinaryInput): ContactExchange;
+
   /** Creates a new facade over the bundled native library. */
   constructor(nativeLibraryPath?: string);
   /** Load the installed native carrier and create the runtime facade. */
@@ -668,5 +671,31 @@ declare class LocalVault {
   /** Releases the native resources held by all. */
   closeAll(): boolean;
   /** Releases the native resources held by this object. */
+  free(): void;
+}
+/** Full reciprocal exchange using protected native credentials and no retained Vault lock. */
+export const ComparisonChannel: Readonly<{ inPerson: 'in-person'; knownPhoneCall: 'known-phone-call'; trustedMessenger: 'trusted-messenger' }>;
+/** Independent authenticated channel used to compare identities and the full fingerprint. */
+export type ComparisonChannel = typeof ComparisonChannel[keyof typeof ComparisonChannel];
+/** Reciprocal exchange session retaining protected credentials but no Vault lock. */
+export class ContactExchange {
+  /** Create an invitation sharing one complete profile identity. */
+  invite(relay: string, profile: string, recipientEmail: string, ttlHours?: number): import('./domain.js').ContactExchangeStatus;
+  /** Accept an invitation with one selected local profile. */
+  accept(invitation: string, profile: string): import('./domain.js').ContactExchangeStatus;
+  /** List public status and optionally synchronize. */
+  list(offline?: boolean): import('./domain.js').ContactExchangeStatus[];
+  /** Independently compare the full fingerprint before calling. */
+  verify(id: string, contactName: string, fingerprint: string, channel: ComparisonChannel): import('./domain.js').ContactExchangeStatus;
+  /** Authenticate an archive against the saved contact signing key. */
+  verifyAuthor(contactName: string, lockboxPath: string): void;
+
+  /** Cancel an unaccepted invitation. */
+  cancel(id: string): void;
+  /** Forget local state, preserving contacts. */
+  forget(id: string): void;
+  /** Release protected credentials. */
+  close(): void;
+  /** Alias for close. */
   free(): void;
 }

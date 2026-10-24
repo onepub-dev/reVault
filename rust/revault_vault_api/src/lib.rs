@@ -1,6 +1,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![deny(clippy::undocumented_unsafe_blocks)]
 #![deny(missing_docs)]
+
 //! Native Vault and Session Agent support for reVault.
 //!
 //! This crate includes the **Session Agent**, a local service
@@ -42,6 +43,12 @@
 
 /// Secure string type re-exported from `revault_lockbox_api`.
 pub use revault_lockbox_api::{SecretString, SecretVec};
+#[cfg(feature = "exchange-http")]
+mod contact_exchange;
+#[cfg(feature = "exchange-http")]
+pub use contact_exchange::{
+    contact_exchange, ComparisonChannel, ContactExchangeCommand, ContactExchangeStatus,
+};
 
 mod active_secret;
 mod agent_client;

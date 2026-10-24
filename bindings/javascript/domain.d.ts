@@ -1,6 +1,32 @@
 /** Public reVault domain values. Serialization is deliberately private. */
 export type LockboxEntryKind = 0 | 1 | 2 | 3;
 
+/** Public reciprocal exchange status. Verification is a local trust decision; no management capability or private key is returned. */
+export interface ContactExchangeStatus {
+  /** Random identifier of the saved exchange. */
+  readonly id: string;
+  /** Pinned HTTPS relay origin. */
+  readonly relay: string;
+  /** Invitation URL to share only with the intended recipient. */
+  readonly invitation: string;
+  /** Signed claimed inviter email, not independently verified by the relay. */
+  readonly inviterEmail: string;
+  /** Signed claimed intended recipient email. */
+  readonly recipientEmail: string;
+  /** Full shared fingerprint to compare independently; empty until both contributions are available. */
+  readonly fingerprint: string;
+  /** Signed invitation expiry in Unix milliseconds. */
+  readonly expiresMs: bigint;
+  /** Whether both signed public key bundles are locally pinned. */
+  readonly accepted: boolean;
+  /** Whether this Vault independently verified and saved the contact. */
+  readonly verified: boolean;
+  /** Local saved contact name, or empty before verification. */
+  readonly contactName: string;
+  /** Whether the relay operation needs retrying; locally saved state is retained. */
+  readonly relayPending: boolean;
+}
+
 /** Metadata for one file, directory, or symbolic link stored at a lockbox path. */
 export interface LockboxEntry {
   /** Absolute lockbox path of the stored entry. */

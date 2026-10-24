@@ -19,6 +19,117 @@ enum LockboxEntryKind {
   directory,
 }
 
+/// Public reciprocal exchange status. Verification is a local trust decision; no management capability or private key is returned.
+///
+/// Example:
+/// ```dart
+/// final exchanges = session.list(offline: true);
+/// for (final exchange in exchanges) print(exchange.fingerprint);
+/// ```
+final class ContactExchangeStatus {
+  final fb.ContactExchangeStatus? _view;
+  final String? _id;
+
+  /// Random identifier of the saved exchange.
+  late final String id = _view == null ? _id! : _view.id ?? '';
+  final String? _relay;
+
+  /// Pinned HTTPS relay origin.
+  late final String relay = _view == null ? _relay! : _view.relay ?? '';
+  final String? _invitation;
+
+  /// Invitation URL to share only with the intended recipient.
+  late final String invitation = _view == null
+      ? _invitation!
+      : _view.invitation ?? '';
+  final String? _inviterEmail;
+
+  /// Signed claimed inviter email, not independently verified by the relay.
+  late final String inviterEmail = _view == null
+      ? _inviterEmail!
+      : _view.inviterEmail ?? '';
+  final String? _recipientEmail;
+
+  /// Signed claimed intended recipient email.
+  late final String recipientEmail = _view == null
+      ? _recipientEmail!
+      : _view.recipientEmail ?? '';
+  final String? _fingerprint;
+
+  /// Full shared fingerprint to compare independently; empty until both contributions are available.
+  late final String fingerprint = _view == null
+      ? _fingerprint!
+      : _view.fingerprint ?? '';
+  final int? _expiresMs;
+
+  /// Signed invitation expiry in Unix milliseconds.
+  late final int expiresMs = _view == null ? _expiresMs! : _view.expiresMs;
+  final bool? _accepted;
+
+  /// Whether both signed public key bundles are locally pinned.
+  late final bool accepted = _view == null ? _accepted! : _view.accepted;
+  final bool? _verified;
+
+  /// Whether this Vault independently verified and saved the contact.
+  late final bool verified = _view == null ? _verified! : _view.verified;
+  final String? _contactName;
+
+  /// Local saved contact name, or empty before verification.
+  late final String contactName = _view == null
+      ? _contactName!
+      : _view.contactName ?? '';
+  final bool? _relayPending;
+
+  /// Whether the relay operation needs retrying; locally saved state is retained.
+  late final bool relayPending = _view == null
+      ? _relayPending!
+      : _view.relayPending;
+
+  /// Creates a ContactExchangeStatus value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final exchanges = session.list(offline: true);
+  /// for (final exchange in exchanges) print(exchange.fingerprint);
+  /// ```
+  ContactExchangeStatus({
+    String id = '',
+    String relay = '',
+    String invitation = '',
+    String inviterEmail = '',
+    String recipientEmail = '',
+    String fingerprint = '',
+    int expiresMs = 0,
+    bool accepted = false,
+    bool verified = false,
+    String contactName = '',
+    bool relayPending = false,
+  }) : _view = null,
+       _id = id,
+       _relay = relay,
+       _invitation = invitation,
+       _inviterEmail = inviterEmail,
+       _recipientEmail = recipientEmail,
+       _fingerprint = fingerprint,
+       _expiresMs = expiresMs,
+       _accepted = accepted,
+       _verified = verified,
+       _contactName = contactName,
+       _relayPending = relayPending;
+  ContactExchangeStatus._from(this._view)
+    : _id = null,
+      _relay = null,
+      _invitation = null,
+      _inviterEmail = null,
+      _recipientEmail = null,
+      _fingerprint = null,
+      _expiresMs = null,
+      _accepted = null,
+      _verified = null,
+      _contactName = null,
+      _relayPending = null;
+}
+
 /// Metadata for one file, directory, or symbolic link stored at a lockbox path.
 ///
 /// Example:
@@ -1684,6 +1795,10 @@ final class ErrorDetails {
 
 /// Private decoders used by the native operation layer.
 abstract final class DomainDecoders {
+  /// Decodes a native ContactExchangeStatus result without copying its fields.
+  static ContactExchangeStatus contactExchangeStatus(Uint8List bytes) =>
+      ContactExchangeStatus._from(fb.ContactExchangeStatus(bytes));
+
   /// Decodes a native LockboxEntry result without copying its fields.
   static LockboxEntry lockboxEntry(Uint8List bytes) =>
       LockboxEntry._from(fb.LockboxEntry(bytes));
@@ -1839,6 +1954,15 @@ abstract final class DomainDecoders {
       List<Contact>.unmodifiable(
         (fb.ContactList(bytes).values ?? const []).map(Contact._from),
       );
+
+  /// Decodes a native list of ContactExchangeStatus values.
+  static List<ContactExchangeStatus> contactExchangeStatusList(
+    Uint8List bytes,
+  ) => List<ContactExchangeStatus>.unmodifiable(
+    (fb.ContactExchangeStatusList(bytes).values ?? const []).map(
+      ContactExchangeStatus._from,
+    ),
+  );
 
   /// Decodes a native list of LockboxAlias values.
   static List<LockboxAlias> lockboxAliasList(Uint8List bytes) =>

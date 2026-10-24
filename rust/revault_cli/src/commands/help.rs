@@ -1853,6 +1853,7 @@ fn vault_command(verbose: bool) -> Command {
         )
         .subcommand(
             Command::new("contacts")
+                .subcommands(super::exchange::commands())
                 .alias("contact")
                 .about("Manage contacts that can be given access to a lockbox.")
                 .disable_help_subcommand(true)

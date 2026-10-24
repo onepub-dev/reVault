@@ -622,6 +622,12 @@ static void vault_lifecycle() {
     check(opened.structure_version() > 0, "open or create vault");
     pass("vault_directory_open_or_create");
   }
+  {
+    revault::ContactExchange exchange((root / "local-vault.lbox").string(), std::vector<std::uint8_t>(new_password.begin(), new_password.end()));
+    pass("contact_exchange_open");
+    check(exchange.list(true).empty(), "empty exchange status"); pass("contact_exchange_execute");
+  }
+  pass("contact_exchange_free");
 }
 
 static void default_vault_lifecycle() {

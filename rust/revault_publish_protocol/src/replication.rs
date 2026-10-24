@@ -8,6 +8,7 @@ const EVENT_PUT_PUBLISH: u16 = 1;
 const EVENT_RECEIVE_COUNT: u16 = 2;
 const EVENT_TOMBSTONE: u16 = 3;
 const EVENT_RATE_LIMIT_BLOCK: u16 = 4;
+const EVENT_EXCHANGE_SNAPSHOT: u16 = 5;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 /// Represents replication request.
@@ -34,6 +35,11 @@ pub struct ReplicationEvent {
 #[derive(Clone, Debug, Eq, PartialEq)]
 /// Represents replication event kind.
 pub enum ReplicationEventKind {
+    /// Durable reciprocal exchange state, including terminal retry receipts.
+    ExchangeSnapshot {
+        /// Bounded serialized state; never contains plaintext capabilities.
+        snapshot: Vec<u8>,
+    },
     /// Represents the put publish case.
     PutPublish {
         /// Represents the publish code carried by this record case.
@@ -102,6 +108,10 @@ fn encode_event_body(out: &mut Vec<u8>, event: &ReplicationEvent) {
     protocol::put_u64(out, event.origin_epoch);
     protocol::put_u64(out, event.origin_sequence);
     match &event.kind {
+        ReplicationEventKind::ExchangeSnapshot { snapshot } => {
+            protocol::put_u16(out, EVENT_EXCHANGE_SNAPSHOT);
+            protocol::put_bytes(out, snapshot);
+        }
         ReplicationEventKind::PutPublish {
             publish_code,
             delete_token_hash,
@@ -172,6 +182,9 @@ pub fn decode_replication_request(bytes: &[u8]) -> Result<ReplicationRequest, Cl
     let origin_sequence = reader.u64().map_err(replication_protocol_error)?;
     let event_type = reader.u16().map_err(replication_protocol_error)?;
     let kind = match event_type {
+        EVENT_EXCHANGE_SNAPSHOT => ReplicationEventKind::ExchangeSnapshot {
+            snapshot: reader.bytes().map_err(replication_protocol_error)?,
+        },
         EVENT_PUT_PUBLISH => ReplicationEventKind::PutPublish {
             publish_code: reader.string().map_err(replication_protocol_error)?,
             delete_token_hash: reader.bytes().map_err(replication_protocol_error)?,

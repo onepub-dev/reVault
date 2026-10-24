@@ -1569,3 +1569,145 @@ class PlatformSecretStore {
 };
 
 }  // namespace revault
+
+namespace revault {
+/** Full reciprocal exchange. Retains protected credentials but no Vault lock.
+ * Compare identities and the full fingerprint independently between calls. */
+enum class ComparisonChannel {
+  /** Compare with the person present. */
+  in_person,
+  /** Call an independently known number. */
+  known_phone_call,
+  /** Use an independently authenticated messenger. */
+  trusted_messenger
+};
+/** Reciprocal exchange session retaining protected credentials but no Vault lock. */
+class ContactExchange {
+ public:
+  /** Open a session for an existing Vault file; no Session Agent is used. */
+  ContactExchange(const std::string& path, const std::vector<std::uint8_t>& vault_passphrase) {
+    detail::require_compatible_abi();
+    handle_=contact_exchange_open(path.data(),path.size(),vault_passphrase.data(),vault_passphrase.size());
+    if(!handle_) throw std::runtime_error(buffer_last_error());
+  }
+  /** Sessions have unique ownership; use a reference or move them. */
+  ContactExchange(const ContactExchange&)=delete;
+  /** Sessions cannot copy their credential-owning native handle. */
+  ContactExchange& operator=(const ContactExchange&)=delete;
+  /** Transfer session ownership, leaving the source closed. */
+  ContactExchange(ContactExchange&& other) noexcept : handle_(other.handle_) { other.handle_=nullptr; }
+  /** Release this session and take ownership of the source session. */
+  ContactExchange& operator=(ContactExchange&& other) noexcept {
+    if(this!=&other) { close();handle_=other.handle_;other.handle_=nullptr; } return *this;
+  }
+  /** Release protected credentials when leaving scope. */
+  ~ContactExchange() { close(); }
+  /** Release protected credentials without cancelling invitations.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * {
+   *   revault::ContactExchange session(vault_path, vault_passphrase);
+   *   std::cout << session.list(true).size();
+   * } // RAII releases protected credentials, including on exceptions.
+   * ```
+   */
+  void close() { if(handle_) { contact_exchange_free(handle_);handle_=nullptr; } }
+  /** Create an invitation sharing both public keys; retry pending delivery using list.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * {
+   *   revault::ContactExchange session(vault_path, vault_passphrase);
+   *   auto offer = session.invite(relay_origin, "default", "bob@example.com");
+   *   if (offer.relay_pending) session.list();
+   * } // RAII releases protected credentials, including on exceptions.
+   * ```
+   */
+  bindings::ContactExchangeStatus invite(const std::string& relay,const std::string& profile,const std::string& email,std::uint32_t ttl_hours=24) {
+    return execute("{\"operation\":\"invite\",\"relay\":"+q(relay)+",\"profile\":"+q(profile)+",\"recipient_email\":"+q(email)+",\"ttl_hours\":"+std::to_string(ttl_hours)+"}").at(0);
+  }
+  /** Accept with one selected profile's complete public identity.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * {
+   *   revault::ContactExchange session(vault_path, vault_passphrase);
+   *   auto reply = session.accept(invitation_url, "default");
+   *   std::cout << reply.fingerprint;
+   * } // RAII releases protected credentials, including on exceptions.
+   * ```
+   */
+  bindings::ContactExchangeStatus accept(const std::string& invitation,const std::string& profile) {
+    return execute("{\"operation\":\"accept\",\"invitation\":"+q(invitation)+",\"profile\":"+q(profile)+"}").at(0);
+  }
+  /** List public status, optionally avoiding relay requests.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * {
+   *   revault::ContactExchange session(vault_path, vault_passphrase);
+   *   for (const auto& status : session.list(true)) std::cout << status.id;
+   * } // RAII releases protected credentials, including on exceptions.
+   * ```
+   */
+  bindings::ContactExchangeStatusList list(bool offline=false) { return execute(std::string("{\"operation\":\"list\",\"offline\":")+(offline?"true":"false")+"}"); }
+  /** Save both keys after independent full-fingerprint comparison through the named trusted channel.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * {
+   *   revault::ContactExchange session(vault_path, vault_passphrase);
+   *   // After independent identity and full-fingerprint comparison:
+   *   session.verify(exchange_id, "bob", compared_fingerprint, revault::ComparisonChannel::in_person);
+   * } // RAII releases protected credentials, including on exceptions.
+   * ```
+   */
+  bindings::ContactExchangeStatus verify(const std::string& id,const std::string& contact_name,const std::string& fingerprint,ComparisonChannel channel) {
+    return execute("{\"operation\":\"verify\",\"id\":"+q(id)+",\"contact_name\":"+q(contact_name)+",\"fingerprint\":"+q(fingerprint)+",\"channel\":"+q(channel_name(channel))+"}").at(0);
+  }
+  /** Authenticate an archive against the saved contact signing key.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * {
+   *   revault::ContactExchange session(vault_path, vault_passphrase);
+   *   session.verify_author("alice", received_archive_path);
+   * } // RAII releases protected credentials, including on exceptions.
+   * ```
+   */
+  void verify_author(const std::string& contact_name,const std::string& lockbox_path) {
+    execute("{\"operation\":\"verify_author\",\"contact_name\":"+q(contact_name)+",\"lockbox_path\":"+q(lockbox_path)+"}");
+  }
+
+  /** Cancel an owned invitation before acceptance.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * {
+   *   revault::ContactExchange session(vault_path, vault_passphrase);
+   *   session.cancel(exchange_id);
+   * } // RAII releases protected credentials, including on exceptions.
+   * ```
+   */
+  void cancel(const std::string& id) { execute("{\"operation\":\"cancel\",\"id\":"+q(id)+"}"); }
+  /** Forget local state, preserving contacts.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * {
+   *   revault::ContactExchange session(vault_path, vault_passphrase);
+   *   session.forget(exchange_id);
+   * } // RAII releases protected credentials, including on exceptions.
+   * ```
+   */
+  void forget(const std::string& id) { execute("{\"operation\":\"forget\",\"id\":"+q(id)+"}"); }
+ private:
+  static std::string channel_name(ComparisonChannel channel) {
+    switch(channel) {
+      case ComparisonChannel::in_person: return "in-person";
+      case ComparisonChannel::known_phone_call: return "known-phone-call";
+      case ComparisonChannel::trusted_messenger: return "trusted-messenger";
+    }
+    throw std::invalid_argument("invalid comparison channel");
+  }
+  static std::string q(const std::string& value) { return detail::description_json_string(value); }
+  bindings::ContactExchangeStatusList execute(const std::string& request) {
+    if(!handle_) throw std::runtime_error("Exchange session is closed");
+    return detail::take_message<bindings::ContactExchangeStatusList>(contact_exchange_execute(handle_,request.data(),request.size()));
+  }
+  void* handle_{};
+};
+}

@@ -1,4 +1,13 @@
 rust_api	abi_symbols	coverage
+contact_exchange	contact_exchange_open,contact_exchange_execute,contact_exchange_free	shared Rust workflow; session retains protected credentials but no Vault lock
+save_exchange	contact_exchange_execute	performed by shared invite/accept/synchronize workflow
+load_exchange	contact_exchange_execute	performed by shared verification/cancellation workflow; capabilities stay native
+list_exchanges	contact_exchange_execute	public status only; capabilities stay native
+verify_exchange	contact_exchange_execute	atomic dual-key contact save after independent full-fingerprint comparison
+forget_exchange	contact_exchange_execute	direct forget operation
+sign_detached	contact_exchange_execute	protocol-domain signing internal to exchange; no unrestricted signing oracle
+verify_detached	contact_exchange_execute	protocol signature checks internal to exchange
+owner_signing_public_key_matches	contact_exchange_execute	verify_author operation compares archive signer with the saved contact
 probe_lockbox_format_version	lockbox_probe_format_version	direct
 create	lockbox_create	direct; overloads are selected by facade constructors
 create_with_options	lockbox_create_with_options	direct

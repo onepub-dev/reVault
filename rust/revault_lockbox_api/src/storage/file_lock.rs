@@ -2,6 +2,8 @@ use crate::{Error, Result};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
+#[cfg(not(unix))]
+use std::fs::OpenOptions;
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};

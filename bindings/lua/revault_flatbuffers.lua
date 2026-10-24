@@ -1,5 +1,7 @@
 -- Generated private FlatBuffer codec. Do not edit.
 local schema = {
+  ContactExchangeStatus = {{'id','string'}, {'relay','string'}, {'invitation','string'}, {'inviter_email','string'}, {'recipient_email','string'}, {'fingerprint','string'}, {'expires_ms','ulong'}, {'accepted','bool'}, {'verified','bool'}, {'contact_name','string'}, {'relay_pending','bool'}},
+  ContactExchangeStatusList = {{'values','[revault.internal.ContactExchangeStatus]'}},
   LockboxEntry = {{'path','string'}, {'kind','revault.internal.LockboxEntryKind'}, {'length','ulong'}, {'permissions','uint'}},
   LockboxEntryList = {{'entries','[revault.internal.LockboxEntry]'}},
   OptionalLockboxEntry = {{'value','revault.internal.LockboxEntry'}},

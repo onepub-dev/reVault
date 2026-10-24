@@ -41,6 +41,16 @@ pub struct OwnerSigningPublicKey {
 }
 
 impl OwnerSigningKeyPair {
+    /// Signs an application message using both algorithms. Callers must include
+    /// their protocol domain, version and context in the message.
+    #[must_use]
+    pub fn sign_detached(&self, message: &[u8]) -> Vec<u8> {
+        let mut out = Vec::new();
+        for signature in self.sign(message) {
+            put_bytes(&mut out, &signature.signature);
+        }
+        out
+    }
     /// Stable public fingerprint used to identify the established archive owner.
     pub fn fingerprint(&self) -> Result<String> {
         crate::lockbox::owner_signature_fingerprint(&self.empty_signatures())
@@ -140,6 +150,46 @@ impl fmt::Debug for OwnerSigningKeyPair {
 }
 
 impl OwnerSigningPublicKey {
+    pub(crate) fn matches_signatures(&self, signatures: &[CommitSignature]) -> bool {
+        signatures.len() == 2
+            && signatures.iter().any(|s| {
+                s.algorithm == SIGNATURE_ALGORITHM_ED25519
+                    && s.public_key == self.ed25519_public_key
+            })
+            && signatures.iter().any(|s| {
+                s.algorithm == SIGNATURE_ALGORITHM_ML_DSA_65
+                    && s.public_key == self.ml_dsa65_public_key
+            })
+    }
+
+    /// Verifies both signatures against this exact key, rejecting trailing bytes.
+    ///
+    /// # Errors
+    /// Returns an error for malformed signatures or failure of either algorithm.
+    pub fn verify_detached(&self, message: &[u8], signature: &[u8]) -> Result<()> {
+        if signature.len() > 8192 {
+            return Err(Error::CorruptRecord);
+        }
+        let mut reader = Reader::new(signature);
+        let ed25519 = reader.bytes()?;
+        let ml_dsa65 = reader.bytes()?;
+        reader.done()?;
+        verify_commit_signatures(
+            message,
+            &[
+                CommitSignature {
+                    algorithm: SIGNATURE_ALGORITHM_ED25519,
+                    public_key: self.ed25519_public_key.to_vec(),
+                    signature: ed25519,
+                },
+                CommitSignature {
+                    algorithm: SIGNATURE_ALGORITHM_ML_DSA_65,
+                    public_key: self.ml_dsa65_public_key.clone(),
+                    signature: ml_dsa65,
+                },
+            ],
+        )
+    }
     #[cfg(test)]
     pub(crate) fn verify_publication_signatures(
         &self,

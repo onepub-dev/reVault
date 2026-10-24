@@ -1764,3 +1764,177 @@ func (vault *LockboxSession) CloseLockbox(path string) error {
 
 // CloseAll releases the native resources held by all.
 func (vault *LockboxSession) CloseAll() error { return require(bool(C.vault_close_all(vault.handle))) }
+
+// ContactExchange retains protected native credentials without retaining a Vault lock.
+// Close the session promptly; the Session Agent is never used.
+type ComparisonChannel string
+
+const (
+	// InPerson compares with the person present.
+	InPerson ComparisonChannel = "in-person"
+	// KnownPhoneCall calls an independently known number.
+	KnownPhoneCall ComparisonChannel = "known-phone-call"
+	// TrustedMessenger uses an independently authenticated messenger.
+	TrustedMessenger ComparisonChannel = "trusted-messenger"
+)
+
+// ContactExchange retains protected credentials but no Vault lock.
+type ContactExchange struct{ handle unsafe.Pointer }
+
+// OpenContactExchange opens a session for an existing Vault file.
+func OpenContactExchange(path string, vaultPassphrase []byte) (*ContactExchange, error) {
+	handle := C.contact_exchange_open(charPointer(path), C.size_t(len(path)), bytePointer(vaultPassphrase), C.size_t(len(vaultPassphrase)))
+	if handle == nil {
+		return nil, &NativeError{Message: C.GoString(C.buffer_last_error())}
+	}
+	return &ContactExchange{handle: handle}, nil
+}
+func (session *ContactExchange) execute(request map[string]any) ([]ContactExchangeStatus, error) {
+	if session.handle == nil {
+		return nil, fmt.Errorf("exchange session is closed")
+	}
+	bytes, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+	text := string(bytes)
+	return decodeResult(C.contact_exchange_execute(session.handle, charPointer(text), C.size_t(len(text))), decodeContactExchangeStatusList)
+}
+func exchangeOne(values []ContactExchangeStatus, err error) (ContactExchangeStatus, error) {
+	if err != nil {
+		return ContactExchangeStatus{}, err
+	}
+	if len(values) != 1 {
+		return ContactExchangeStatus{}, fmt.Errorf("invalid exchange response")
+	}
+	return values[0], nil
+}
+
+// Invite creates an invitation sharing both public keys; retry pending delivery with List.
+// Example:
+// ```
+// session, err := revault.OpenContactExchange(vaultPath, vaultPassphrase)
+// if err != nil { return err }
+// defer session.Close()
+//
+//	offer, err := session.Invite(relayOrigin, "default", "bob@example.com", 24)
+//	if err != nil { return err }
+//	if offer.RelayPending { _, err = session.List(false) }
+//	if err != nil { return err }
+//
+// ```
+func (session *ContactExchange) Invite(relay, profile, recipientEmail string, ttlHours uint32) (ContactExchangeStatus, error) {
+	return exchangeOne(session.execute(map[string]any{"operation": "invite", "relay": relay, "profile": profile, "recipient_email": recipientEmail, "ttl_hours": ttlHours}))
+}
+
+// Accept returns the selected profile's complete public identity.
+// Example:
+// ```
+// session, err := revault.OpenContactExchange(vaultPath, vaultPassphrase)
+// if err != nil { return err }
+// defer session.Close()
+//
+//	reply, err := session.Accept(invitationURL, "default")
+//	if err != nil { return err }
+//	fmt.Println(reply.Fingerprint)
+//
+// ```
+func (session *ContactExchange) Accept(invitation, profile string) (ContactExchangeStatus, error) {
+	return exchangeOne(session.execute(map[string]any{"operation": "accept", "invitation": invitation, "profile": profile}))
+}
+
+// List returns public status, optionally avoiding relay requests.
+// Example:
+// ```
+// session, err := revault.OpenContactExchange(vaultPath, vaultPassphrase)
+// if err != nil { return err }
+// defer session.Close()
+//
+//	statuses, err := session.List(true)
+//	if err != nil { return err }
+//	for _, status := range statuses { fmt.Println(status.Id) }
+//
+// ```
+func (session *ContactExchange) List(offline bool) ([]ContactExchangeStatus, error) {
+	return session.execute(map[string]any{"operation": "list", "offline": offline})
+}
+
+// Verify saves both keys after independent full-fingerprint comparison through in-person, known-phone-call or trusted-messenger.
+// Example:
+// ```
+// session, err := revault.OpenContactExchange(vaultPath, vaultPassphrase)
+// if err != nil { return err }
+// defer session.Close()
+//
+//	// After independent identity and full-fingerprint comparison:
+//	_, err = session.Verify(exchangeID, "bob", comparedFingerprint, revault.InPerson)
+//	if err != nil { return err }
+//
+// ```
+func (session *ContactExchange) Verify(id, contactName, fingerprint string, channel ComparisonChannel) (ContactExchangeStatus, error) {
+	return exchangeOne(session.execute(map[string]any{"operation": "verify", "id": id, "contact_name": contactName, "fingerprint": fingerprint, "channel": channel}))
+}
+
+// VerifyAuthor authenticates an archive against the saved contact signing key.
+// Example:
+// ```
+// session, err := revault.OpenContactExchange(vaultPath, vaultPassphrase)
+// if err != nil { return err }
+// defer session.Close()
+//
+//	if err := session.VerifyAuthor("alice", receivedArchivePath); err != nil { return err }
+//
+// ```
+func (session *ContactExchange) VerifyAuthor(contactName, lockboxPath string) error {
+	_, err := session.execute(map[string]any{"operation": "verify_author", "contact_name": contactName, "lockbox_path": lockboxPath})
+	return err
+}
+
+// Cancel cancels an owned invitation before acceptance.
+// Example:
+// ```
+// session, err := revault.OpenContactExchange(vaultPath, vaultPassphrase)
+// if err != nil { return err }
+// defer session.Close()
+//
+//	if err := session.Cancel(exchangeID); err != nil { return err }
+//
+// ```
+func (session *ContactExchange) Cancel(id string) error {
+	_, err := session.execute(map[string]any{"operation": "cancel", "id": id})
+	return err
+}
+
+// Forget removes local exchange state while preserving contacts.
+// Example:
+// ```
+// session, err := revault.OpenContactExchange(vaultPath, vaultPassphrase)
+// if err != nil { return err }
+// defer session.Close()
+//
+//	if err := session.Forget(exchangeID); err != nil { return err }
+//
+// ```
+func (session *ContactExchange) Forget(id string) error {
+	_, err := session.execute(map[string]any{"operation": "forget", "id": id})
+	return err
+}
+
+// Close releases credentials without cancelling any exchange.
+// Example:
+// ```
+// session, err := revault.OpenContactExchange(vaultPath, vaultPassphrase)
+// if err != nil { return err }
+// defer session.Close()
+//
+//	statuses, err := session.List(true)
+//	if err != nil { return err }
+//	fmt.Println(len(statuses))
+//
+// ```
+func (session *ContactExchange) Close() {
+	if session.handle != nil {
+		C.contact_exchange_free(session.handle)
+		session.handle = nil
+	}
+}

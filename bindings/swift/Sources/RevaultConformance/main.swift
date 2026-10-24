@@ -227,6 +227,9 @@ func vaultLifecycle() throws {
     try api.openVault(root, changed).free(); pass("vault_directory_open"); print("ARTIFACT\tswift\tvault-opened\t\(root)")
     try api.openOrCreateVault(root, changed).free(); pass("vault_directory_open_or_create")
     try ownerPublic.dispose(); try owner.dispose(); try contactPublic.publicFree(); try contact.free(); try profile.free()
+    let exchange = try api.contactExchange(root + "/local-vault.lbox", changed); pass("contact_exchange_open")
+    try check(try exchange.list(offline: true).isEmpty, "empty exchange status"); pass("contact_exchange_execute")
+    exchange.close(); pass("contact_exchange_free")
 }
 
 func defaultVault() throws {

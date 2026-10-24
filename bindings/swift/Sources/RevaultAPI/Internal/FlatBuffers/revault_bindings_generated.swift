@@ -17,6 +17,299 @@ internal enum revault_internal__LockboxEntryKind: Int32, Enum, Verifiable {
 }
 
 
+internal struct revault_internal__ContactExchangeStatus: FlatBufferObject, Verifiable, ObjectAPIPacker {
+
+  static func validateVersion() { FlatBuffersVersion_25_2_10() }
+  internal var __buffer: ByteBuffer! { return _accessor.bb }
+  private var _accessor: Table
+
+  private init(_ t: Table) { _accessor = t }
+  internal init(_ bb: ByteBuffer, o: Int32) { _accessor = Table(bb: bb, position: o) }
+
+  private enum VTOFFSET: VOffset {
+    case id = 4
+    case relay = 6
+    case invitation = 8
+    case inviterEmail = 10
+    case recipientEmail = 12
+    case fingerprint = 14
+    case expiresMs = 16
+    case accepted = 18
+    case verified = 20
+    case contactName = 22
+    case relayPending = 24
+    var v: Int32 { Int32(self.rawValue) }
+    var p: VOffset { self.rawValue }
+  }
+
+  internal var id: String? { let o = _accessor.offset(VTOFFSET.id.v); return o == 0 ? nil : _accessor.string(at: o) }
+  internal var idSegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.id.v) }
+  internal var relay: String? { let o = _accessor.offset(VTOFFSET.relay.v); return o == 0 ? nil : _accessor.string(at: o) }
+  internal var relaySegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.relay.v) }
+  internal var invitation: String? { let o = _accessor.offset(VTOFFSET.invitation.v); return o == 0 ? nil : _accessor.string(at: o) }
+  internal var invitationSegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.invitation.v) }
+  internal var inviterEmail: String? { let o = _accessor.offset(VTOFFSET.inviterEmail.v); return o == 0 ? nil : _accessor.string(at: o) }
+  internal var inviterEmailSegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.inviterEmail.v) }
+  internal var recipientEmail: String? { let o = _accessor.offset(VTOFFSET.recipientEmail.v); return o == 0 ? nil : _accessor.string(at: o) }
+  internal var recipientEmailSegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.recipientEmail.v) }
+  internal var fingerprint: String? { let o = _accessor.offset(VTOFFSET.fingerprint.v); return o == 0 ? nil : _accessor.string(at: o) }
+  internal var fingerprintSegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.fingerprint.v) }
+  internal var expiresMs: UInt64 { let o = _accessor.offset(VTOFFSET.expiresMs.v); return o == 0 ? 0 : _accessor.readBuffer(of: UInt64.self, at: o) }
+  internal var accepted: Bool { let o = _accessor.offset(VTOFFSET.accepted.v); return o == 0 ? false : _accessor.readBuffer(of: Bool.self, at: o) }
+  internal var verified: Bool { let o = _accessor.offset(VTOFFSET.verified.v); return o == 0 ? false : _accessor.readBuffer(of: Bool.self, at: o) }
+  internal var contactName: String? { let o = _accessor.offset(VTOFFSET.contactName.v); return o == 0 ? nil : _accessor.string(at: o) }
+  internal var contactNameSegmentArray: [UInt8]? { return _accessor.getVector(at: VTOFFSET.contactName.v) }
+  internal var relayPending: Bool { let o = _accessor.offset(VTOFFSET.relayPending.v); return o == 0 ? false : _accessor.readBuffer(of: Bool.self, at: o) }
+  internal static func startContactExchangeStatus(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 11) }
+  internal static func add(id: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: id, at: VTOFFSET.id.p) }
+  internal static func add(relay: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: relay, at: VTOFFSET.relay.p) }
+  internal static func add(invitation: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: invitation, at: VTOFFSET.invitation.p) }
+  internal static func add(inviterEmail: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: inviterEmail, at: VTOFFSET.inviterEmail.p) }
+  internal static func add(recipientEmail: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: recipientEmail, at: VTOFFSET.recipientEmail.p) }
+  internal static func add(fingerprint: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: fingerprint, at: VTOFFSET.fingerprint.p) }
+  internal static func add(expiresMs: UInt64, _ fbb: inout FlatBufferBuilder) { fbb.add(element: expiresMs, def: 0, at: VTOFFSET.expiresMs.p) }
+  internal static func add(accepted: Bool, _ fbb: inout FlatBufferBuilder) { fbb.add(element: accepted, def: false,
+   at: VTOFFSET.accepted.p) }
+  internal static func add(verified: Bool, _ fbb: inout FlatBufferBuilder) { fbb.add(element: verified, def: false,
+   at: VTOFFSET.verified.p) }
+  internal static func add(contactName: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: contactName, at: VTOFFSET.contactName.p) }
+  internal static func add(relayPending: Bool, _ fbb: inout FlatBufferBuilder) { fbb.add(element: relayPending, def: false,
+   at: VTOFFSET.relayPending.p) }
+  internal static func endContactExchangeStatus(_ fbb: inout FlatBufferBuilder, start: UOffset) -> Offset { let end = Offset(offset: fbb.endTable(at: start)); return end }
+  internal static func createContactExchangeStatus(
+    _ fbb: inout FlatBufferBuilder,
+    idOffset id: Offset = Offset(),
+    relayOffset relay: Offset = Offset(),
+    invitationOffset invitation: Offset = Offset(),
+    inviterEmailOffset inviterEmail: Offset = Offset(),
+    recipientEmailOffset recipientEmail: Offset = Offset(),
+    fingerprintOffset fingerprint: Offset = Offset(),
+    expiresMs: UInt64 = 0,
+    accepted: Bool = false,
+    verified: Bool = false,
+    contactNameOffset contactName: Offset = Offset(),
+    relayPending: Bool = false
+  ) -> Offset {
+    let __start = revault_internal__ContactExchangeStatus.startContactExchangeStatus(&fbb)
+    revault_internal__ContactExchangeStatus.add(id: id, &fbb)
+    revault_internal__ContactExchangeStatus.add(relay: relay, &fbb)
+    revault_internal__ContactExchangeStatus.add(invitation: invitation, &fbb)
+    revault_internal__ContactExchangeStatus.add(inviterEmail: inviterEmail, &fbb)
+    revault_internal__ContactExchangeStatus.add(recipientEmail: recipientEmail, &fbb)
+    revault_internal__ContactExchangeStatus.add(fingerprint: fingerprint, &fbb)
+    revault_internal__ContactExchangeStatus.add(expiresMs: expiresMs, &fbb)
+    revault_internal__ContactExchangeStatus.add(accepted: accepted, &fbb)
+    revault_internal__ContactExchangeStatus.add(verified: verified, &fbb)
+    revault_internal__ContactExchangeStatus.add(contactName: contactName, &fbb)
+    revault_internal__ContactExchangeStatus.add(relayPending: relayPending, &fbb)
+    return revault_internal__ContactExchangeStatus.endContactExchangeStatus(&fbb, start: __start)
+  }
+
+
+  internal mutating func unpack() -> revault_internal__ContactExchangeStatusT {
+    return revault_internal__ContactExchangeStatusT(&self)
+  }
+  internal static func pack(_ builder: inout FlatBufferBuilder, obj: inout revault_internal__ContactExchangeStatusT?) -> Offset {
+    guard var obj = obj else { return Offset() }
+    return pack(&builder, obj: &obj)
+  }
+
+  internal static func pack(_ builder: inout FlatBufferBuilder, obj: inout revault_internal__ContactExchangeStatusT) -> Offset {
+    let __id: Offset
+    if let s = obj.id {
+      __id = builder.create(string: s)
+    } else {
+      __id = Offset()
+    }
+
+    let __relay: Offset
+    if let s = obj.relay {
+      __relay = builder.create(string: s)
+    } else {
+      __relay = Offset()
+    }
+
+    let __invitation: Offset
+    if let s = obj.invitation {
+      __invitation = builder.create(string: s)
+    } else {
+      __invitation = Offset()
+    }
+
+    let __inviterEmail: Offset
+    if let s = obj.inviterEmail {
+      __inviterEmail = builder.create(string: s)
+    } else {
+      __inviterEmail = Offset()
+    }
+
+    let __recipientEmail: Offset
+    if let s = obj.recipientEmail {
+      __recipientEmail = builder.create(string: s)
+    } else {
+      __recipientEmail = Offset()
+    }
+
+    let __fingerprint: Offset
+    if let s = obj.fingerprint {
+      __fingerprint = builder.create(string: s)
+    } else {
+      __fingerprint = Offset()
+    }
+
+    let __contactName: Offset
+    if let s = obj.contactName {
+      __contactName = builder.create(string: s)
+    } else {
+      __contactName = Offset()
+    }
+
+    let __root = revault_internal__ContactExchangeStatus.startContactExchangeStatus(&builder)
+    revault_internal__ContactExchangeStatus.add(id: __id, &builder)
+    revault_internal__ContactExchangeStatus.add(relay: __relay, &builder)
+    revault_internal__ContactExchangeStatus.add(invitation: __invitation, &builder)
+    revault_internal__ContactExchangeStatus.add(inviterEmail: __inviterEmail, &builder)
+    revault_internal__ContactExchangeStatus.add(recipientEmail: __recipientEmail, &builder)
+    revault_internal__ContactExchangeStatus.add(fingerprint: __fingerprint, &builder)
+    revault_internal__ContactExchangeStatus.add(expiresMs: obj.expiresMs, &builder)
+    revault_internal__ContactExchangeStatus.add(accepted: obj.accepted, &builder)
+    revault_internal__ContactExchangeStatus.add(verified: obj.verified, &builder)
+    revault_internal__ContactExchangeStatus.add(contactName: __contactName, &builder)
+    revault_internal__ContactExchangeStatus.add(relayPending: obj.relayPending, &builder)
+    return revault_internal__ContactExchangeStatus.endContactExchangeStatus(&builder, start: __root)
+  }
+
+  internal static func verify<T>(_ verifier: inout Verifier, at position: Int, of type: T.Type) throws where T: Verifiable {
+    var _v = try verifier.visitTable(at: position)
+    try _v.visit(field: VTOFFSET.id.p, fieldName: "id", required: false, type: ForwardOffset<String>.self)
+    try _v.visit(field: VTOFFSET.relay.p, fieldName: "relay", required: false, type: ForwardOffset<String>.self)
+    try _v.visit(field: VTOFFSET.invitation.p, fieldName: "invitation", required: false, type: ForwardOffset<String>.self)
+    try _v.visit(field: VTOFFSET.inviterEmail.p, fieldName: "inviterEmail", required: false, type: ForwardOffset<String>.self)
+    try _v.visit(field: VTOFFSET.recipientEmail.p, fieldName: "recipientEmail", required: false, type: ForwardOffset<String>.self)
+    try _v.visit(field: VTOFFSET.fingerprint.p, fieldName: "fingerprint", required: false, type: ForwardOffset<String>.self)
+    try _v.visit(field: VTOFFSET.expiresMs.p, fieldName: "expiresMs", required: false, type: UInt64.self)
+    try _v.visit(field: VTOFFSET.accepted.p, fieldName: "accepted", required: false, type: Bool.self)
+    try _v.visit(field: VTOFFSET.verified.p, fieldName: "verified", required: false, type: Bool.self)
+    try _v.visit(field: VTOFFSET.contactName.p, fieldName: "contactName", required: false, type: ForwardOffset<String>.self)
+    try _v.visit(field: VTOFFSET.relayPending.p, fieldName: "relayPending", required: false, type: Bool.self)
+    _v.finish()
+  }
+}
+
+internal class revault_internal__ContactExchangeStatusT: NativeObject {
+
+  internal var id: String?
+  internal var relay: String?
+  internal var invitation: String?
+  internal var inviterEmail: String?
+  internal var recipientEmail: String?
+  internal var fingerprint: String?
+  internal var expiresMs: UInt64
+  internal var accepted: Bool
+  internal var verified: Bool
+  internal var contactName: String?
+  internal var relayPending: Bool
+
+  internal init(_ _t: inout revault_internal__ContactExchangeStatus) {
+    id = _t.id
+    relay = _t.relay
+    invitation = _t.invitation
+    inviterEmail = _t.inviterEmail
+    recipientEmail = _t.recipientEmail
+    fingerprint = _t.fingerprint
+    expiresMs = _t.expiresMs
+    accepted = _t.accepted
+    verified = _t.verified
+    contactName = _t.contactName
+    relayPending = _t.relayPending
+  }
+
+  internal init() {
+    expiresMs = 0
+    accepted = false
+    verified = false
+    relayPending = false
+  }
+
+  internal func serialize() -> ByteBuffer { return serialize(type: revault_internal__ContactExchangeStatus.self) }
+
+}
+internal struct revault_internal__ContactExchangeStatusList: FlatBufferObject, Verifiable, ObjectAPIPacker {
+
+  static func validateVersion() { FlatBuffersVersion_25_2_10() }
+  internal var __buffer: ByteBuffer! { return _accessor.bb }
+  private var _accessor: Table
+
+  private init(_ t: Table) { _accessor = t }
+  internal init(_ bb: ByteBuffer, o: Int32) { _accessor = Table(bb: bb, position: o) }
+
+  private enum VTOFFSET: VOffset {
+    case values = 4
+    var v: Int32 { Int32(self.rawValue) }
+    var p: VOffset { self.rawValue }
+  }
+
+  internal var hasValues: Bool { let o = _accessor.offset(VTOFFSET.values.v); return o == 0 ? false : true }
+  internal var valuesCount: Int32 { let o = _accessor.offset(VTOFFSET.values.v); return o == 0 ? 0 : _accessor.vector(count: o) }
+  internal func values(at index: Int32) -> revault_internal__ContactExchangeStatus? { let o = _accessor.offset(VTOFFSET.values.v); return o == 0 ? nil : revault_internal__ContactExchangeStatus(_accessor.bb, o: _accessor.indirect(_accessor.vector(at: o) + index * 4)) }
+  internal static func startContactExchangeStatusList(_ fbb: inout FlatBufferBuilder) -> UOffset { fbb.startTable(with: 1) }
+  internal static func addVectorOf(values: Offset, _ fbb: inout FlatBufferBuilder) { fbb.add(offset: values, at: VTOFFSET.values.p) }
+  internal static func endContactExchangeStatusList(_ fbb: inout FlatBufferBuilder, start: UOffset) -> Offset { let end = Offset(offset: fbb.endTable(at: start)); return end }
+  internal static func createContactExchangeStatusList(
+    _ fbb: inout FlatBufferBuilder,
+    valuesVectorOffset values: Offset = Offset()
+  ) -> Offset {
+    let __start = revault_internal__ContactExchangeStatusList.startContactExchangeStatusList(&fbb)
+    revault_internal__ContactExchangeStatusList.addVectorOf(values: values, &fbb)
+    return revault_internal__ContactExchangeStatusList.endContactExchangeStatusList(&fbb, start: __start)
+  }
+
+
+  internal mutating func unpack() -> revault_internal__ContactExchangeStatusListT {
+    return revault_internal__ContactExchangeStatusListT(&self)
+  }
+  internal static func pack(_ builder: inout FlatBufferBuilder, obj: inout revault_internal__ContactExchangeStatusListT?) -> Offset {
+    guard var obj = obj else { return Offset() }
+    return pack(&builder, obj: &obj)
+  }
+
+  internal static func pack(_ builder: inout FlatBufferBuilder, obj: inout revault_internal__ContactExchangeStatusListT) -> Offset {
+    var __values__: [Offset] = []
+    for var i in obj.values {
+      __values__.append(revault_internal__ContactExchangeStatus.pack(&builder, obj: &i))
+    }
+    let __values = builder.createVector(ofOffsets: __values__)
+    let __root = revault_internal__ContactExchangeStatusList.startContactExchangeStatusList(&builder)
+    revault_internal__ContactExchangeStatusList.addVectorOf(values: __values, &builder)
+    return revault_internal__ContactExchangeStatusList.endContactExchangeStatusList(&builder, start: __root)
+  }
+
+  internal static func verify<T>(_ verifier: inout Verifier, at position: Int, of type: T.Type) throws where T: Verifiable {
+    var _v = try verifier.visitTable(at: position)
+    try _v.visit(field: VTOFFSET.values.p, fieldName: "values", required: false, type: ForwardOffset<Vector<ForwardOffset<revault_internal__ContactExchangeStatus>, revault_internal__ContactExchangeStatus>>.self)
+    _v.finish()
+  }
+}
+
+internal class revault_internal__ContactExchangeStatusListT: NativeObject {
+
+  internal var values: [revault_internal__ContactExchangeStatusT?]
+
+  internal init(_ _t: inout revault_internal__ContactExchangeStatusList) {
+    values = []
+    for index in 0..<_t.valuesCount {
+        var __v_ = _t.values(at: index)
+        values.append(__v_?.unpack())
+    }
+  }
+
+  internal init() {
+    values = []
+  }
+
+  internal func serialize() -> ByteBuffer { return serialize(type: revault_internal__ContactExchangeStatusList.self) }
+
+}
 internal struct revault_internal__LockboxEntry: FlatBufferObject, Verifiable, ObjectAPIPacker {
 
   static func validateVersion() { FlatBuffersVersion_25_2_10() }

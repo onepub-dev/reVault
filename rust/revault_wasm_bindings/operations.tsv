@@ -1,4 +1,7 @@
 symbol	domain	return_type	arguments
+contact_exchange_open	vault.exchange	void *	const char *path, size_t path_len, const uint8_t *password, size_t password_len
+contact_exchange_execute	vault.exchange	RevaultBuffer	const void *handle, const char *request, size_t request_len
+contact_exchange_free	vault.exchange	void	void *handle
 buffer_last_error	support.memory	const char *	void
 buffer_last_error_details	support.memory	RevaultBuffer	void
 buffer_free	support.memory	void	RevaultBuffer value
@@ -177,6 +180,12 @@ vault_restore_default	vault.local	RevaultBuffer	const char *path, size_t path_le
 vault_directory_free	vault.directory	void	void *handle
 vault_read_only_open	vault.local	void *	const char *root, size_t root_len, const uint8_t *password, size_t password_len
 vault_read_only_open_default	vault.local	void *	const uint8_t *password, size_t password_len
+vault_read_only_load_private_key	vault.local	void *	const void *handle, const char *name, size_t name_len
+vault_read_only_load_private_key_generation	vault.local	void *	const void *handle, const char *name, size_t name_len, uint16_t index
+vault_read_only_load_owner_signing_key	vault.local	void *	const void *handle, const char *name, size_t name_len
+vault_read_only_load_owner_signing_key_generation	vault.local	void *	const void *handle, const char *name, size_t name_len, uint16_t index
+vault_read_only_load_profile_password	vault.local	void *	const void *handle, const char *name, size_t name_len
+vault_read_only_remembered_password	vault.local	bool	const void *handle, const uint8_t *id, size_t id_len, void **output
 vault_read_only_list_profile_names	vault.local	RevaultBuffer	const void *handle
 vault_read_only_list_contact_names	vault.local	RevaultBuffer	const void *handle
 vault_read_only_list_form_aliases	vault.local	RevaultBuffer	const void *handle

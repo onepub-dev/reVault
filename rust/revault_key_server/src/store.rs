@@ -73,6 +73,14 @@ struct ReplicationOriginState {
 #[derive(Clone, Debug)]
 /// Represents server config.
 pub struct ServerConfig {
+    /// Single active owner of reciprocal exchanges; failover requires explicit promotion.
+    pub exchange_owner_id: u8,
+    /// Maximum admitted reciprocal invitations; active invitations are never evicted.
+    pub exchange_max_invitations: usize,
+    /// Reserved reciprocal exchange payload capacity in bytes.
+    pub exchange_max_bytes: usize,
+    /// Maximum pending reciprocal invitations per signing identity.
+    pub exchange_per_identity: usize,
     /// Represents the bind addr carried by this record case.
     pub bind_addr: String,
     /// Represents the state dir carried by this record case.
@@ -171,6 +179,10 @@ pub enum SmtpTlsMode {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
+            exchange_owner_id: 0,
+            exchange_max_invitations: 1_000_000,
+            exchange_max_bytes: 1024 * 1024 * 1024,
+            exchange_per_identity: 100,
             bind_addr: "127.0.0.1:8089".to_string(),
             state_dir: PathBuf::from("/var/lib/revault-key-server"),
             server_id: 0,
@@ -346,6 +358,7 @@ struct Shard {
 
 /// Represents publish store.
 pub struct PublishStore {
+    pub(crate) exchanges: crate::exchange_store::ExchangeStore,
     config: ServerConfig,
     auto_routes: bool,
     secret: [u8; 32],
@@ -578,7 +591,17 @@ impl PublishStore {
         }
         let email_tx = spawn_verification_email_worker(&config);
         let topology = Self::build_initial_topology(&config);
+        let exchanges = crate::exchange_store::ExchangeStore::open(
+            &config.state_dir.join("exchanges"),
+            crate::exchange_store::ExchangeLimits {
+                invitations: config.exchange_max_invitations,
+                bytes: config.exchange_max_bytes,
+                per_identity: config.exchange_per_identity,
+            },
+            unix_ms(SystemTime::now()),
+        )?;
         Ok(Self {
+            exchanges,
             config,
             auto_routes,
             secret,
@@ -1666,6 +1689,14 @@ impl PublishStore {
 
     /// Returns the apply replication event.
     pub fn apply_replication_event(&self, event: ReplicationEvent) -> Result<bool, StoreError> {
+        // Exchange snapshots merge monotonically and are retried until durable.
+        // Do not reserve a sequence before a potentially failing disk write.
+        if let ReplicationEventKind::ExchangeSnapshot { snapshot } = &event.kind {
+            self.exchanges
+                .apply_snapshot(snapshot, unix_ms(SystemTime::now()))
+                .map_err(StoreError::PayloadInvalid)?;
+            return Ok(true);
+        }
         if !self.reserve_replication_event(
             event.origin_server_id,
             event.origin_epoch,
@@ -1674,6 +1705,7 @@ impl PublishStore {
             return Ok(false);
         }
         match event.kind {
+            ReplicationEventKind::ExchangeSnapshot { .. } => unreachable!(),
             ReplicationEventKind::PutPublish {
                 publish_code,
                 delete_token_hash,
@@ -1892,6 +1924,74 @@ impl PublishStore {
         }
     }
 
+    /// Processes an exchange and acknowledges only after all configured replicas
+    /// have durably accepted its state. Failed acknowledgements are retryable.
+    pub fn handle_exchange(
+        &self,
+        request: revault_publish_protocol::exchange::Request,
+        now: u64,
+    ) -> revault_publish_protocol::exchange::Response {
+        use revault_publish_protocol::exchange::{Request, Response};
+        let failure = |message: &str| Response {
+            offer: None,
+            acceptance: None,
+            complete: false,
+            error: Some(message.to_owned()),
+        };
+        if self.config.server_id != self.config.exchange_owner_id
+            && !self
+                .config
+                .promoted_owner_ids
+                .contains(&self.config.exchange_owner_id)
+        {
+            return failure("exchange relay is a standby; use the active relay");
+        }
+        let id = match &request {
+            Request::Create { offer, .. } => offer.id.clone(),
+            Request::Inspect { id }
+            | Request::Accept { id, .. }
+            | Request::Poll { id, .. }
+            | Request::Complete { id, .. }
+            | Request::Cancel { id, .. } => id.clone(),
+        };
+        let response = self.exchanges.handle(request, now);
+        if response.error.is_some() || self.config.replication_peer_urls.is_empty() {
+            return response;
+        }
+        let snapshot = match self.exchanges.snapshot(&id) {
+            Ok(value) => value,
+            Err(_) => return failure("exchange replication pending; retry the request"),
+        };
+        for peer in &self.config.replication_peer_urls {
+            if self.send_exchange_snapshot(peer, snapshot.clone()).is_err() {
+                return failure("exchange replication pending; retry the request");
+            }
+        }
+        response
+    }
+
+    fn send_exchange_snapshot(&self, peer: &str, snapshot: Vec<u8>) -> Result<(), StoreError> {
+        let token = self.config.replication_token.as_ref().ok_or_else(|| {
+            StoreError::Config("replication_token is required for exchange replication".to_owned())
+        })?;
+        let event = ReplicationEvent {
+            origin_server_id: self.config.server_id,
+            origin_epoch: self.config.origin_epoch,
+            origin_sequence: 0,
+            kind: ReplicationEventKind::ExchangeSnapshot { snapshot },
+        };
+        let request = encode_replication_request(&ReplicationRequest {
+            authentication: sign_replication_event(token.as_bytes(), &event),
+            event,
+        });
+        send_replication_request(
+            &[peer.to_owned()],
+            &request,
+            self.config.topology_token.as_deref(),
+        )
+        .map_err(|error| StoreError::Io(std::io::Error::other(error.to_string())))
+    }
+
     /// Returns the purge expired.
     pub fn purge_expired(&self) -> usize {
         let now_ms = unix_ms(SystemTime::now());
@@ -2054,6 +2154,18 @@ impl PublishStore {
                     sent += 1;
                 }
             }
+        }
+        for id in self
+            .exchanges
+            .snapshot_ids()
+            .map_err(StoreError::PayloadInvalid)?
+        {
+            let snapshot = self
+                .exchanges
+                .snapshot(&id)
+                .map_err(StoreError::PayloadInvalid)?;
+            self.send_exchange_snapshot(peer_url, snapshot)?;
+            sent += 1;
         }
         Ok(sent)
     }

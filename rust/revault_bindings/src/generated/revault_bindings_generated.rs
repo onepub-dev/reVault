@@ -128,6 +128,664 @@ pub mod revault {
         }
 
         impl flatbuffers::SimpleToVerifyInSlice for LockboxEntryKind {}
+        pub enum ContactExchangeStatusOffset {}
+        #[derive(Copy, Clone, PartialEq)]
+
+        pub struct ContactExchangeStatus<'a> {
+            pub _tab: flatbuffers::Table<'a>,
+        }
+
+        impl<'a> flatbuffers::Follow<'a> for ContactExchangeStatus<'a> {
+            type Inner = ContactExchangeStatus<'a>;
+            #[inline]
+            unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+                Self {
+                    _tab: flatbuffers::Table::new(buf, loc),
+                }
+            }
+        }
+
+        impl<'a> ContactExchangeStatus<'a> {
+            pub const VT_ID: flatbuffers::VOffsetT = 4;
+            pub const VT_RELAY: flatbuffers::VOffsetT = 6;
+            pub const VT_INVITATION: flatbuffers::VOffsetT = 8;
+            pub const VT_INVITER_EMAIL: flatbuffers::VOffsetT = 10;
+            pub const VT_RECIPIENT_EMAIL: flatbuffers::VOffsetT = 12;
+            pub const VT_FINGERPRINT: flatbuffers::VOffsetT = 14;
+            pub const VT_EXPIRES_MS: flatbuffers::VOffsetT = 16;
+            pub const VT_ACCEPTED: flatbuffers::VOffsetT = 18;
+            pub const VT_VERIFIED: flatbuffers::VOffsetT = 20;
+            pub const VT_CONTACT_NAME: flatbuffers::VOffsetT = 22;
+            pub const VT_RELAY_PENDING: flatbuffers::VOffsetT = 24;
+
+            #[inline]
+            pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+                ContactExchangeStatus { _tab: table }
+            }
+            #[allow(unused_mut)]
+            pub fn create<
+                'bldr: 'args,
+                'args: 'mut_bldr,
+                'mut_bldr,
+                A: flatbuffers::Allocator + 'bldr,
+            >(
+                _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+                args: &'args ContactExchangeStatusArgs<'args>,
+            ) -> flatbuffers::WIPOffset<ContactExchangeStatus<'bldr>> {
+                let mut builder = ContactExchangeStatusBuilder::new(_fbb);
+                builder.add_expires_ms(args.expires_ms);
+                if let Some(x) = args.contact_name {
+                    builder.add_contact_name(x);
+                }
+                if let Some(x) = args.fingerprint {
+                    builder.add_fingerprint(x);
+                }
+                if let Some(x) = args.recipient_email {
+                    builder.add_recipient_email(x);
+                }
+                if let Some(x) = args.inviter_email {
+                    builder.add_inviter_email(x);
+                }
+                if let Some(x) = args.invitation {
+                    builder.add_invitation(x);
+                }
+                if let Some(x) = args.relay {
+                    builder.add_relay(x);
+                }
+                if let Some(x) = args.id {
+                    builder.add_id(x);
+                }
+                builder.add_relay_pending(args.relay_pending);
+                builder.add_verified(args.verified);
+                builder.add_accepted(args.accepted);
+                builder.finish()
+            }
+
+            pub fn unpack(&self) -> ContactExchangeStatusT {
+                let id = self.id().map(|x| x.to_string());
+                let relay = self.relay().map(|x| x.to_string());
+                let invitation = self.invitation().map(|x| x.to_string());
+                let inviter_email = self.inviter_email().map(|x| x.to_string());
+                let recipient_email = self.recipient_email().map(|x| x.to_string());
+                let fingerprint = self.fingerprint().map(|x| x.to_string());
+                let expires_ms = self.expires_ms();
+                let accepted = self.accepted();
+                let verified = self.verified();
+                let contact_name = self.contact_name().map(|x| x.to_string());
+                let relay_pending = self.relay_pending();
+                ContactExchangeStatusT {
+                    id,
+                    relay,
+                    invitation,
+                    inviter_email,
+                    recipient_email,
+                    fingerprint,
+                    expires_ms,
+                    accepted,
+                    verified,
+                    contact_name,
+                    relay_pending,
+                }
+            }
+
+            #[inline]
+            pub fn id(&self) -> Option<&'a str> {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(
+                        ContactExchangeStatus::VT_ID,
+                        None,
+                    )
+                }
+            }
+            #[inline]
+            pub fn relay(&self) -> Option<&'a str> {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(
+                        ContactExchangeStatus::VT_RELAY,
+                        None,
+                    )
+                }
+            }
+            #[inline]
+            pub fn invitation(&self) -> Option<&'a str> {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(
+                        ContactExchangeStatus::VT_INVITATION,
+                        None,
+                    )
+                }
+            }
+            #[inline]
+            pub fn inviter_email(&self) -> Option<&'a str> {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(
+                        ContactExchangeStatus::VT_INVITER_EMAIL,
+                        None,
+                    )
+                }
+            }
+            #[inline]
+            pub fn recipient_email(&self) -> Option<&'a str> {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(
+                        ContactExchangeStatus::VT_RECIPIENT_EMAIL,
+                        None,
+                    )
+                }
+            }
+            #[inline]
+            pub fn fingerprint(&self) -> Option<&'a str> {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(
+                        ContactExchangeStatus::VT_FINGERPRINT,
+                        None,
+                    )
+                }
+            }
+            #[inline]
+            pub fn expires_ms(&self) -> u64 {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab
+                        .get::<u64>(ContactExchangeStatus::VT_EXPIRES_MS, Some(0))
+                        .unwrap()
+                }
+            }
+            #[inline]
+            pub fn accepted(&self) -> bool {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab
+                        .get::<bool>(ContactExchangeStatus::VT_ACCEPTED, Some(false))
+                        .unwrap()
+                }
+            }
+            #[inline]
+            pub fn verified(&self) -> bool {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab
+                        .get::<bool>(ContactExchangeStatus::VT_VERIFIED, Some(false))
+                        .unwrap()
+                }
+            }
+            #[inline]
+            pub fn contact_name(&self) -> Option<&'a str> {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(
+                        ContactExchangeStatus::VT_CONTACT_NAME,
+                        None,
+                    )
+                }
+            }
+            #[inline]
+            pub fn relay_pending(&self) -> bool {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab
+                        .get::<bool>(ContactExchangeStatus::VT_RELAY_PENDING, Some(false))
+                        .unwrap()
+                }
+            }
+        }
+
+        impl flatbuffers::Verifiable for ContactExchangeStatus<'_> {
+            #[inline]
+            fn run_verifier(
+                v: &mut flatbuffers::Verifier,
+                pos: usize,
+            ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+                use self::flatbuffers::Verifiable;
+                v.visit_table(pos)?
+                    .visit_field::<flatbuffers::ForwardsUOffset<&str>>("id", Self::VT_ID, false)?
+                    .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                        "relay",
+                        Self::VT_RELAY,
+                        false,
+                    )?
+                    .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                        "invitation",
+                        Self::VT_INVITATION,
+                        false,
+                    )?
+                    .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                        "inviter_email",
+                        Self::VT_INVITER_EMAIL,
+                        false,
+                    )?
+                    .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                        "recipient_email",
+                        Self::VT_RECIPIENT_EMAIL,
+                        false,
+                    )?
+                    .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                        "fingerprint",
+                        Self::VT_FINGERPRINT,
+                        false,
+                    )?
+                    .visit_field::<u64>("expires_ms", Self::VT_EXPIRES_MS, false)?
+                    .visit_field::<bool>("accepted", Self::VT_ACCEPTED, false)?
+                    .visit_field::<bool>("verified", Self::VT_VERIFIED, false)?
+                    .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                        "contact_name",
+                        Self::VT_CONTACT_NAME,
+                        false,
+                    )?
+                    .visit_field::<bool>("relay_pending", Self::VT_RELAY_PENDING, false)?
+                    .finish();
+                Ok(())
+            }
+        }
+        pub struct ContactExchangeStatusArgs<'a> {
+            pub id: Option<flatbuffers::WIPOffset<&'a str>>,
+            pub relay: Option<flatbuffers::WIPOffset<&'a str>>,
+            pub invitation: Option<flatbuffers::WIPOffset<&'a str>>,
+            pub inviter_email: Option<flatbuffers::WIPOffset<&'a str>>,
+            pub recipient_email: Option<flatbuffers::WIPOffset<&'a str>>,
+            pub fingerprint: Option<flatbuffers::WIPOffset<&'a str>>,
+            pub expires_ms: u64,
+            pub accepted: bool,
+            pub verified: bool,
+            pub contact_name: Option<flatbuffers::WIPOffset<&'a str>>,
+            pub relay_pending: bool,
+        }
+        impl<'a> Default for ContactExchangeStatusArgs<'a> {
+            #[inline]
+            fn default() -> Self {
+                ContactExchangeStatusArgs {
+                    id: None,
+                    relay: None,
+                    invitation: None,
+                    inviter_email: None,
+                    recipient_email: None,
+                    fingerprint: None,
+                    expires_ms: 0,
+                    accepted: false,
+                    verified: false,
+                    contact_name: None,
+                    relay_pending: false,
+                }
+            }
+        }
+
+        pub struct ContactExchangeStatusBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+            fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+            start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+        }
+        impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ContactExchangeStatusBuilder<'a, 'b, A> {
+            #[inline]
+            pub fn add_id(&mut self, id: flatbuffers::WIPOffset<&'b str>) {
+                self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                    ContactExchangeStatus::VT_ID,
+                    id,
+                );
+            }
+            #[inline]
+            pub fn add_relay(&mut self, relay: flatbuffers::WIPOffset<&'b str>) {
+                self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                    ContactExchangeStatus::VT_RELAY,
+                    relay,
+                );
+            }
+            #[inline]
+            pub fn add_invitation(&mut self, invitation: flatbuffers::WIPOffset<&'b str>) {
+                self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                    ContactExchangeStatus::VT_INVITATION,
+                    invitation,
+                );
+            }
+            #[inline]
+            pub fn add_inviter_email(&mut self, inviter_email: flatbuffers::WIPOffset<&'b str>) {
+                self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                    ContactExchangeStatus::VT_INVITER_EMAIL,
+                    inviter_email,
+                );
+            }
+            #[inline]
+            pub fn add_recipient_email(
+                &mut self,
+                recipient_email: flatbuffers::WIPOffset<&'b str>,
+            ) {
+                self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                    ContactExchangeStatus::VT_RECIPIENT_EMAIL,
+                    recipient_email,
+                );
+            }
+            #[inline]
+            pub fn add_fingerprint(&mut self, fingerprint: flatbuffers::WIPOffset<&'b str>) {
+                self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                    ContactExchangeStatus::VT_FINGERPRINT,
+                    fingerprint,
+                );
+            }
+            #[inline]
+            pub fn add_expires_ms(&mut self, expires_ms: u64) {
+                self.fbb_
+                    .push_slot::<u64>(ContactExchangeStatus::VT_EXPIRES_MS, expires_ms, 0);
+            }
+            #[inline]
+            pub fn add_accepted(&mut self, accepted: bool) {
+                self.fbb_
+                    .push_slot::<bool>(ContactExchangeStatus::VT_ACCEPTED, accepted, false);
+            }
+            #[inline]
+            pub fn add_verified(&mut self, verified: bool) {
+                self.fbb_
+                    .push_slot::<bool>(ContactExchangeStatus::VT_VERIFIED, verified, false);
+            }
+            #[inline]
+            pub fn add_contact_name(&mut self, contact_name: flatbuffers::WIPOffset<&'b str>) {
+                self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                    ContactExchangeStatus::VT_CONTACT_NAME,
+                    contact_name,
+                );
+            }
+            #[inline]
+            pub fn add_relay_pending(&mut self, relay_pending: bool) {
+                self.fbb_.push_slot::<bool>(
+                    ContactExchangeStatus::VT_RELAY_PENDING,
+                    relay_pending,
+                    false,
+                );
+            }
+            #[inline]
+            pub fn new(
+                _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+            ) -> ContactExchangeStatusBuilder<'a, 'b, A> {
+                let start = _fbb.start_table();
+                ContactExchangeStatusBuilder {
+                    fbb_: _fbb,
+                    start_: start,
+                }
+            }
+            #[inline]
+            pub fn finish(self) -> flatbuffers::WIPOffset<ContactExchangeStatus<'a>> {
+                let o = self.fbb_.end_table(self.start_);
+                flatbuffers::WIPOffset::new(o.value())
+            }
+        }
+
+        impl core::fmt::Debug for ContactExchangeStatus<'_> {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                let mut ds = f.debug_struct("ContactExchangeStatus");
+                ds.field("id", &self.id());
+                ds.field("relay", &self.relay());
+                ds.field("invitation", &self.invitation());
+                ds.field("inviter_email", &self.inviter_email());
+                ds.field("recipient_email", &self.recipient_email());
+                ds.field("fingerprint", &self.fingerprint());
+                ds.field("expires_ms", &self.expires_ms());
+                ds.field("accepted", &self.accepted());
+                ds.field("verified", &self.verified());
+                ds.field("contact_name", &self.contact_name());
+                ds.field("relay_pending", &self.relay_pending());
+                ds.finish()
+            }
+        }
+        #[non_exhaustive]
+        #[derive(Debug, Clone, PartialEq)]
+        pub struct ContactExchangeStatusT {
+            pub id: Option<String>,
+            pub relay: Option<String>,
+            pub invitation: Option<String>,
+            pub inviter_email: Option<String>,
+            pub recipient_email: Option<String>,
+            pub fingerprint: Option<String>,
+            pub expires_ms: u64,
+            pub accepted: bool,
+            pub verified: bool,
+            pub contact_name: Option<String>,
+            pub relay_pending: bool,
+        }
+        impl Default for ContactExchangeStatusT {
+            fn default() -> Self {
+                Self {
+                    id: None,
+                    relay: None,
+                    invitation: None,
+                    inviter_email: None,
+                    recipient_email: None,
+                    fingerprint: None,
+                    expires_ms: 0,
+                    accepted: false,
+                    verified: false,
+                    contact_name: None,
+                    relay_pending: false,
+                }
+            }
+        }
+        impl ContactExchangeStatusT {
+            pub fn pack<'b, A: flatbuffers::Allocator + 'b>(
+                &self,
+                _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
+            ) -> flatbuffers::WIPOffset<ContactExchangeStatus<'b>> {
+                let id = self.id.as_ref().map(|x| _fbb.create_string(x));
+                let relay = self.relay.as_ref().map(|x| _fbb.create_string(x));
+                let invitation = self.invitation.as_ref().map(|x| _fbb.create_string(x));
+                let inviter_email = self.inviter_email.as_ref().map(|x| _fbb.create_string(x));
+                let recipient_email = self.recipient_email.as_ref().map(|x| _fbb.create_string(x));
+                let fingerprint = self.fingerprint.as_ref().map(|x| _fbb.create_string(x));
+                let expires_ms = self.expires_ms;
+                let accepted = self.accepted;
+                let verified = self.verified;
+                let contact_name = self.contact_name.as_ref().map(|x| _fbb.create_string(x));
+                let relay_pending = self.relay_pending;
+                ContactExchangeStatus::create(
+                    _fbb,
+                    &ContactExchangeStatusArgs {
+                        id,
+                        relay,
+                        invitation,
+                        inviter_email,
+                        recipient_email,
+                        fingerprint,
+                        expires_ms,
+                        accepted,
+                        verified,
+                        contact_name,
+                        relay_pending,
+                    },
+                )
+            }
+        }
+        pub enum ContactExchangeStatusListOffset {}
+        #[derive(Copy, Clone, PartialEq)]
+
+        pub struct ContactExchangeStatusList<'a> {
+            pub _tab: flatbuffers::Table<'a>,
+        }
+
+        impl<'a> flatbuffers::Follow<'a> for ContactExchangeStatusList<'a> {
+            type Inner = ContactExchangeStatusList<'a>;
+            #[inline]
+            unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+                Self {
+                    _tab: flatbuffers::Table::new(buf, loc),
+                }
+            }
+        }
+
+        impl<'a> ContactExchangeStatusList<'a> {
+            pub const VT_VALUES: flatbuffers::VOffsetT = 4;
+
+            #[inline]
+            pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+                ContactExchangeStatusList { _tab: table }
+            }
+            #[allow(unused_mut)]
+            pub fn create<
+                'bldr: 'args,
+                'args: 'mut_bldr,
+                'mut_bldr,
+                A: flatbuffers::Allocator + 'bldr,
+            >(
+                _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+                args: &'args ContactExchangeStatusListArgs<'args>,
+            ) -> flatbuffers::WIPOffset<ContactExchangeStatusList<'bldr>> {
+                let mut builder = ContactExchangeStatusListBuilder::new(_fbb);
+                if let Some(x) = args.values {
+                    builder.add_values(x);
+                }
+                builder.finish()
+            }
+
+            pub fn unpack(&self) -> ContactExchangeStatusListT {
+                let values = self
+                    .values()
+                    .map(|x| x.iter().map(|t| t.unpack()).collect());
+                ContactExchangeStatusListT { values }
+            }
+
+            #[inline]
+            pub fn values(
+                &self,
+            ) -> Option<
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ContactExchangeStatus<'a>>>,
+            > {
+                // Safety:
+                // Created from valid Table for this object
+                // which contains a valid value in this slot
+                unsafe {
+                    self._tab.get::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<
+                            'a,
+                            flatbuffers::ForwardsUOffset<ContactExchangeStatus>,
+                        >,
+                    >>(ContactExchangeStatusList::VT_VALUES, None)
+                }
+            }
+        }
+
+        impl flatbuffers::Verifiable for ContactExchangeStatusList<'_> {
+            #[inline]
+            fn run_verifier(
+                v: &mut flatbuffers::Verifier,
+                pos: usize,
+            ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+                use self::flatbuffers::Verifiable;
+                v.visit_table(pos)?
+                    .visit_field::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<
+                            '_,
+                            flatbuffers::ForwardsUOffset<ContactExchangeStatus>,
+                        >,
+                    >>("values", Self::VT_VALUES, false)?
+                    .finish();
+                Ok(())
+            }
+        }
+        pub struct ContactExchangeStatusListArgs<'a> {
+            pub values: Option<
+                flatbuffers::WIPOffset<
+                    flatbuffers::Vector<
+                        'a,
+                        flatbuffers::ForwardsUOffset<ContactExchangeStatus<'a>>,
+                    >,
+                >,
+            >,
+        }
+        impl<'a> Default for ContactExchangeStatusListArgs<'a> {
+            #[inline]
+            fn default() -> Self {
+                ContactExchangeStatusListArgs { values: None }
+            }
+        }
+
+        pub struct ContactExchangeStatusListBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+            fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+            start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+        }
+        impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ContactExchangeStatusListBuilder<'a, 'b, A> {
+            #[inline]
+            pub fn add_values(
+                &mut self,
+                values: flatbuffers::WIPOffset<
+                    flatbuffers::Vector<
+                        'b,
+                        flatbuffers::ForwardsUOffset<ContactExchangeStatus<'b>>,
+                    >,
+                >,
+            ) {
+                self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                    ContactExchangeStatusList::VT_VALUES,
+                    values,
+                );
+            }
+            #[inline]
+            pub fn new(
+                _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+            ) -> ContactExchangeStatusListBuilder<'a, 'b, A> {
+                let start = _fbb.start_table();
+                ContactExchangeStatusListBuilder {
+                    fbb_: _fbb,
+                    start_: start,
+                }
+            }
+            #[inline]
+            pub fn finish(self) -> flatbuffers::WIPOffset<ContactExchangeStatusList<'a>> {
+                let o = self.fbb_.end_table(self.start_);
+                flatbuffers::WIPOffset::new(o.value())
+            }
+        }
+
+        impl core::fmt::Debug for ContactExchangeStatusList<'_> {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                let mut ds = f.debug_struct("ContactExchangeStatusList");
+                ds.field("values", &self.values());
+                ds.finish()
+            }
+        }
+        #[non_exhaustive]
+        #[derive(Debug, Clone, PartialEq)]
+        pub struct ContactExchangeStatusListT {
+            pub values: Option<Vec<ContactExchangeStatusT>>,
+        }
+        impl Default for ContactExchangeStatusListT {
+            fn default() -> Self {
+                Self { values: None }
+            }
+        }
+        impl ContactExchangeStatusListT {
+            pub fn pack<'b, A: flatbuffers::Allocator + 'b>(
+                &self,
+                _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
+            ) -> flatbuffers::WIPOffset<ContactExchangeStatusList<'b>> {
+                let values = self.values.as_ref().map(|x| {
+                    let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
+                    _fbb.create_vector(&w)
+                });
+                ContactExchangeStatusList::create(_fbb, &ContactExchangeStatusListArgs { values })
+            }
+        }
         pub enum LockboxEntryOffset {}
         #[derive(Copy, Clone, PartialEq)]
 

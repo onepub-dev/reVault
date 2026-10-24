@@ -85,6 +85,7 @@ module Revault
     extern 'void * vault_key_import_private(void *, size_t)'
     extern 'void * vault_key_import_public(void *, size_t)'
     extern 'void * vault_directory_open(void *, size_t, void *, size_t)'
+    extern 'void * contact_exchange_open(void *, size_t, void *, size_t)'
     extern 'uint32_t vault_structure_version_current(void)'
     extern 'uint32_t vault_directory_probe_structure_version(void *, size_t, void *, size_t)'
     extern 'void * vault_directory_open_or_create_default(void *, size_t)'
@@ -118,6 +119,7 @@ module Revault
     extern 'size_t vault_directory_seed_forms(void *)'
     extern 'bool vault_directory_remember_password(void *, void *, size_t, void *, size_t)'
     extern 'void vault_directory_free(void *)'
+    extern 'void contact_exchange_free(void *)'
     extern 'void * vault_read_only_open(void *, size_t, void *, size_t)'
     extern 'void * vault_read_only_open_default(void *, size_t)'
     extern 'void * vault_read_only_load_private_key(void *, void *, size_t)'
@@ -179,6 +181,7 @@ module Revault
     extern 'void ruby_lockbox_list_with_options(void *, void *, size_t, void *, size_t, bool, bool, bool, bool, size_t, void *)'
     extern 'void ruby_lockbox_stat(void *, void *, size_t, void *)'
     extern 'void ruby_lockbox_get_variable(void *, void *, size_t, void *)'
+    extern 'void ruby_contact_exchange_execute(void *, void *, size_t, void *)'
     extern 'void ruby_lockbox_item_description(void *, void *, size_t, void *)'
     extern 'void ruby_vault_directory_item_description(void *, void *, size_t, void *)'
     extern 'void ruby_lockbox_list_variables(void *, void *)'
@@ -497,6 +500,9 @@ module Revault
       value = Revault::Internal::DomainCodec.decode('OptionalString', take(buffer_call(:lockbox_get_variable, handle, Fiddle::Pointer[name], name.bytesize)))
       value.present ? value.value : nil
     end
+    def contact_exchange_execute(handle, name)
+      Revault::Internal::DomainCodec.decode('ContactExchangeStatusList', take(buffer_call(:contact_exchange_execute, handle, Fiddle::Pointer[name], name.bytesize))).values
+    end
     def lockbox_item_description(handle, name)
       value = Revault::Internal::DomainCodec.decode('OptionalString', take(buffer_call(:lockbox_item_description, handle, Fiddle::Pointer[name], name.bytesize)))
       value.present ? value.value : nil
@@ -792,6 +798,9 @@ module Revault
     def vault_directory_open(root, password)
       require_handle(Native.vault_directory_open(Fiddle::Pointer[root], root.bytesize, Fiddle::Pointer[password], password.bytesize))
     end
+    def contact_exchange_open(root, password)
+      require_handle(Native.contact_exchange_open(Fiddle::Pointer[root], root.bytesize, Fiddle::Pointer[password], password.bytesize))
+    end
 
     def vault_structure_version_current()
       Native.vault_structure_version_current()
@@ -1027,6 +1036,9 @@ module Revault
 
     def vault_directory_free(handle)
       Native.vault_directory_free(handle)
+    end
+    def contact_exchange_free(handle)
+      Native.contact_exchange_free(handle)
     end
 
     def vault_read_only_open(root, password)

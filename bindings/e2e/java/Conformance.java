@@ -430,6 +430,11 @@ public final class Conformance {
       check(opened.structureVersion() > 0, "open create");
     }
     pass("vault_directory_open_or_create");
+    try (var exchange = API.contactExchange(root.resolve("local-vault.lbox").toString(), newPassword)) {
+      pass("contact_exchange_open");
+      check(exchange.list(true).isEmpty(), "empty exchange status"); pass("contact_exchange_execute");
+    }
+    pass("contact_exchange_free");
   }
 
   private static void defaultVaultLifecycle() throws Exception {

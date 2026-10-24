@@ -55,6 +55,11 @@ class OwnedHandle {
  * Session Agent, and access the platform credential store. */
 /** Native runtime loader and archive/key factory. */
 export class Revault {
+  /** Open an exchange session for an existing Vault file. Holds protected credentials, not a Vault lock. */
+  contactExchange(path, vaultPassphrase) {
+    return new ContactExchange(this.operations, this.operations.contactExchangeOpen(path, vaultPassphrase));
+  }
+
   /** Load an explicit, inherited, or installed native carrier asynchronously. */
   static async load(nativeLibraryPath = undefined) { return new Revault(nativeLibraryPath); }
   /** Return a synchronous runtime facade for factory operations. */
@@ -1411,4 +1416,101 @@ class LocalVault extends OwnedHandle {
     this.nativeHandle = null;
   }
 
+}
+/** Full reciprocal exchange session. Close it to release the native protected
+ * passphrase. Compare identities/fingerprint independently between calls. */
+export const ComparisonChannel = Object.freeze({
+  inPerson: 'in-person', knownPhoneCall: 'known-phone-call', trustedMessenger: 'trusted-messenger',
+});
+/** Reciprocal exchange session retaining protected credentials but no Vault lock. */
+export class ContactExchange extends OwnedHandle {
+  /** Marshals a private request to the shared native workflow. */
+  #execute(request) {
+    if (this.nativeHandle == null) throw new Error('Exchange session is closed');
+    return this.operations.contactExchangeExecute(this.nativeHandle, JSON.stringify(request));
+  }
+  /** Create a signed invitation; relayPending means retry using list().
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * const session = api.contactExchange(vaultPath, vaultPassphrase);
+   * try {
+   *   const offer = session.invite(relayOrigin, 'default', 'bob@example.com');
+   *   if (offer.relayPending) session.list();
+   * } finally { session.close(); }
+   * ```
+   */
+  invite(relay, profile, recipientEmail, ttlHours = 24) { return this.#execute({operation:'invite',relay,profile,recipient_email:recipientEmail,ttl_hours:ttlHours})[0]; }
+  /** Return the selected profile's complete public identity.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * const session = api.contactExchange(vaultPath, vaultPassphrase);
+   * try {
+   *   const reply = session.accept(invitationUrl, 'default');
+   *   console.log(reply.fingerprint);
+   * } finally { session.close(); }
+   * ```
+   */
+  accept(invitation, profile) { return this.#execute({operation:'accept',invitation,profile})[0]; }
+  /** List public status, optionally without contacting any relay.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * const session = api.contactExchange(vaultPath, vaultPassphrase);
+   * try {
+   *   for (const status of session.list(true)) console.log(status.id);
+   * } finally { session.close(); }
+   * ```
+   */
+  list(offline = false) { return this.#execute({operation:'list',offline}); }
+  /** Save both keys after comparing the full fingerprint through the named trusted channel.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * const session = api.contactExchange(vaultPath, vaultPassphrase);
+   * try {
+   *   // After independent identity and full-fingerprint comparison:
+   *   session.verify(exchangeId, 'bob', comparedFingerprint, ComparisonChannel.inPerson);
+   * } finally { session.close(); }
+   * ```
+   */
+  verify(id, contactName, fingerprint, channel) { return this.#execute({operation:'verify',id,contact_name:contactName,fingerprint,channel})[0]; }
+  /** Authenticate an archive against this contact's saved signing key.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * const session = api.contactExchange(vaultPath, vaultPassphrase);
+   * try {
+   *   session.verifyAuthor('alice', receivedArchivePath);
+   * } finally { session.close(); }
+   * ```
+   */
+  verifyAuthor(contactName, lockboxPath) { this.#execute({operation:'verify_author',contact_name:contactName,lockbox_path:lockboxPath}); }
+
+  /** Cancel an invitation owned by this Vault before acceptance.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * const session = api.contactExchange(vaultPath, vaultPassphrase);
+   * try {
+   *   session.cancel(exchangeId);
+   * } finally { session.close(); }
+   * ```
+   */
+  cancel(id) { this.#execute({operation:'cancel',id}); }
+  /** Remove local exchange state while retaining a verified contact.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * const session = api.contactExchange(vaultPath, vaultPassphrase);
+   * try {
+   *   session.forget(exchangeId);
+   * } finally { session.close(); }
+   * ```
+   */
+  forget(id) { this.#execute({operation:'forget',id}); }
+  /** Release protected credentials. Does not cancel or delete any exchange.
+   * Example (Vault credentials and paths are supplied by the application):
+   * ```
+   * const session = api.contactExchange(vaultPath, vaultPassphrase);
+   * try {
+   *   console.log(session.list(true).length);
+   * } finally { session.close(); }
+   * ```
+   */
+  free() { if (this.nativeHandle != null) { this.operations.contactExchangeFree(this.nativeHandle); this.nativeHandle = null; } }
 }

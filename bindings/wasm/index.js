@@ -25,12 +25,17 @@ export const SecretBytes = host.SecretBytes;
 export const SecretString = host.SecretString;
 /** Typed native failure carrying stable structured details. */
 export const RevaultError = host.RevaultError;
+/** Independent authenticated channel for full-fingerprint comparison. */
+export const ComparisonChannel = host.ComparisonChannel;
+/** Reciprocal exchange session supplied by the host. */
+export const ContactExchange = host.ContactExchange;
 
 const require = createRequire(import.meta.url);
 const { Runtime } = require('./generated/revault_wasm_bindings.cjs');
 const runtime = new Runtime();
 
 const handles = new Set([
+  'ContactExchange',
   'Revault',
   'Vault',
   'Lockbox', 'ContactKeyPair', 'ContactPublicKey', 'WrappedContactKey',
@@ -40,7 +45,16 @@ const handles = new Set([
 ]);
 const snake = value => value.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
 function operation(className, method) {
+  // Language-owned close aliases release the same native handle. They are not
+  // separate ABI operations in the manifest.
+  if (method === 'close' && className === 'ContactKeyPair') return 'key_contact_free';
+  if (method === 'close' && className === 'ContactPublicKey') return 'key_contact_public_free';
+  if (method === 'close' && className === 'WrappedContactKey') return 'key_contact_wrapped_free';
   const name = snake(method);
+  if (className === 'ContactExchange') {
+    return method === 'close' || method === 'free' ? 'contact_exchange_free' : 'contact_exchange_execute';
+  }
+  if (className === 'Revault' && method === 'contactExchange') return 'contact_exchange_open';
   if (className === 'Revault' || className === 'Vault') {
     // The hosted package uses the reviewed Vault name for both the root
     // dispatcher and the persistent store. Instance methods on the latter

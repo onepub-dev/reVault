@@ -89,3 +89,4 @@ vault_read_only_resolve_lockbox_alias	flatbuffer	KnownLockbox
 vault_agent_get_vault_unlock_key	raw	bytes
 lockbox_item_description	flatbuffer	OptionalString
 vault_directory_item_description	flatbuffer	OptionalString
+contact_exchange_execute	flatbuffer	ContactExchangeStatusList

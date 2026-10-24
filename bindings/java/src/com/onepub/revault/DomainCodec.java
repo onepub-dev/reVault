@@ -7,6 +7,9 @@ import java.nio.ByteOrder;
 /** Internal conversion between native result bytes and public domain values. */
 final class DomainCodec {
   private DomainCodec() {}
+  static ContactExchangeStatus contactExchangeStatus(byte[] bytes) {
+    return new ContactExchangeStatus(com.onepub.revault.internal.ContactExchangeStatus.getRootAsContactExchangeStatus(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)));
+  }
   static LockboxEntry lockboxEntry(byte[] bytes) {
     return new LockboxEntry(com.onepub.revault.internal.LockboxEntry.getRootAsLockboxEntry(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)));
   }
@@ -137,6 +140,12 @@ final class DomainCodec {
     var view = com.onepub.revault.internal.ContactList.getRootAsContactList(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN));
     var result = new java.util.ArrayList<Contact>(view.valuesLength());
     for (int index = 0; index < view.valuesLength(); index++) result.add(new Contact(view.values(index)));
+    return java.util.List.copyOf(result);
+  }
+  static java.util.List<ContactExchangeStatus> contactExchangeStatusList(byte[] bytes) {
+    var view = com.onepub.revault.internal.ContactExchangeStatusList.getRootAsContactExchangeStatusList(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN));
+    var result = new java.util.ArrayList<ContactExchangeStatus>(view.valuesLength());
+    for (int index = 0; index < view.valuesLength(); index++) result.add(new ContactExchangeStatus(view.values(index)));
     return java.util.List.copyOf(result);
   }
   static java.util.List<LockboxAlias> lockboxAliasList(byte[] bytes) {

@@ -394,6 +394,12 @@ internal sealed class BindingOperations
         fixed (byte* nameBytesPointer = nameBytes)
         { return Frame(RevaultNative.lockbox_get_variable(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), DomainCodec.OptionalString); }
     }
+    public unsafe IReadOnlyList<ContactExchangeStatus> ContactExchangeExecute(IntPtr handle, string name)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* nameBytesPointer = nameBytes)
+        { return Frame(RevaultNative.contact_exchange_execute(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), DomainCodec.ContactExchangeStatusList); }
+    }
     public unsafe string? LockboxItemDescription(IntPtr handle, string name)
     {
         var nameBytes = Encoding.UTF8.GetBytes(name);
@@ -861,6 +867,13 @@ internal sealed class BindingOperations
         fixed (byte* passwordPointer = password)
         { return Require(RevaultNative.vault_directory_open((IntPtr)rootBytesPointer, (nuint)rootBytes.Length, (IntPtr)passwordPointer, (nuint)password.Length)); }
     }
+    public unsafe IntPtr ContactExchangeOpen(string root, byte[] password)
+    {
+        var rootBytes = Encoding.UTF8.GetBytes(root);
+        fixed (byte* rootBytesPointer = rootBytes)
+        fixed (byte* passwordPointer = password)
+        { return Require(RevaultNative.contact_exchange_open((IntPtr)rootBytesPointer, (nuint)rootBytes.Length, (IntPtr)passwordPointer, (nuint)password.Length)); }
+    }
 
     public unsafe uint VaultStructureVersionCurrent()
     {
@@ -1253,6 +1266,10 @@ internal sealed class BindingOperations
     public unsafe void VaultDirectoryFree(IntPtr handle)
     {
         RevaultNative.vault_directory_free(handle);
+    }
+    public unsafe void ContactExchangeFree(IntPtr handle)
+    {
+        RevaultNative.contact_exchange_free(handle);
     }
 
     public unsafe IntPtr VaultReadOnlyOpen(string root, byte[] password)

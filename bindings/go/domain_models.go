@@ -20,6 +20,32 @@ const (
 	LockboxEntryKindDirectory
 )
 
+// ContactExchangeStatus represents public reciprocal exchange status. Verification is a local trust decision; no management capability or private key is returned.
+type ContactExchangeStatus struct {
+	// Id: Random identifier of the saved exchange.
+	Id string
+	// Relay: Pinned HTTPS relay origin.
+	Relay string
+	// Invitation: Invitation URL to share only with the intended recipient.
+	Invitation string
+	// InviterEmail: Signed claimed inviter email, not independently verified by the relay.
+	InviterEmail string
+	// RecipientEmail: Signed claimed intended recipient email.
+	RecipientEmail string
+	// Fingerprint: Full shared fingerprint to compare independently; empty until both contributions are available.
+	Fingerprint string
+	// ExpiresMs: Signed invitation expiry in Unix milliseconds.
+	ExpiresMs uint64
+	// Accepted: Whether both signed public key bundles are locally pinned.
+	Accepted bool
+	// Verified: Whether this Vault independently verified and saved the contact.
+	Verified bool
+	// ContactName: Local saved contact name, or empty before verification.
+	ContactName string
+	// RelayPending: Whether the relay operation needs retrying; locally saved state is retained.
+	RelayPending bool
+}
+
 // LockboxEntry represents metadata for one file, directory, or symbolic link stored at a lockbox path.
 type LockboxEntry struct {
 	// Path: Absolute lockbox path of the stored entry.
@@ -384,6 +410,28 @@ type ErrorDetails struct {
 	Message string
 	// Guidance: Suggested corrective action for the caller or user.
 	Guidance string
+}
+
+func domainContactExchangeStatus(value *transport.ContactExchangeStatusT) *ContactExchangeStatus {
+	if value == nil {
+		return nil
+	}
+	result := &ContactExchangeStatus{}
+	result.Id = value.Id
+	result.Relay = value.Relay
+	result.Invitation = value.Invitation
+	result.InviterEmail = value.InviterEmail
+	result.RecipientEmail = value.RecipientEmail
+	result.Fingerprint = value.Fingerprint
+	result.ExpiresMs = value.ExpiresMs
+	result.Accepted = value.Accepted
+	result.Verified = value.Verified
+	result.ContactName = value.ContactName
+	result.RelayPending = value.RelayPending
+	return result
+}
+func decodeContactExchangeStatus(bytes []byte) *ContactExchangeStatus {
+	return domainContactExchangeStatus(transport.GetRootAsContactExchangeStatus(bytes, 0).UnPack())
 }
 
 func domainLockboxEntry(value *transport.LockboxEntryT) *LockboxEntry {
@@ -907,6 +955,15 @@ func decodeContactList(bytes []byte) []Contact {
 	result := make([]Contact, 0, len(source))
 	for _, value := range source {
 		result = append(result, *domainContact(value))
+	}
+	return result
+}
+
+func decodeContactExchangeStatusList(bytes []byte) []ContactExchangeStatus {
+	source := transport.GetRootAsContactExchangeStatusList(bytes, 0).UnPack().Values
+	result := make([]ContactExchangeStatus, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainContactExchangeStatus(value))
 	}
 	return result
 }

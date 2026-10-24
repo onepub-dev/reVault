@@ -12,6 +12,32 @@ namespace revault::bindings {
 /** Identifies the filesystem object stored at a lockbox path. */
 enum class LockboxEntryKind { unspecified, file, symlink, directory };
 
+/** Public reciprocal exchange status. Verification is a local trust decision; no management capability or private key is returned. */
+struct ContactExchangeStatus {
+  /** Random identifier of the saved exchange. */
+  std::string id{};
+  /** Pinned HTTPS relay origin. */
+  std::string relay{};
+  /** Invitation URL to share only with the intended recipient. */
+  std::string invitation{};
+  /** Signed claimed inviter email, not independently verified by the relay. */
+  std::string inviter_email{};
+  /** Signed claimed intended recipient email. */
+  std::string recipient_email{};
+  /** Full shared fingerprint to compare independently; empty until both contributions are available. */
+  std::string fingerprint{};
+  /** Signed invitation expiry in Unix milliseconds. */
+  std::uint64_t expires_ms{};
+  /** Whether both signed public key bundles are locally pinned. */
+  bool accepted{};
+  /** Whether this Vault independently verified and saved the contact. */
+  bool verified{};
+  /** Local saved contact name, or empty before verification. */
+  std::string contact_name{};
+  /** Whether the relay operation needs retrying; locally saved state is retained. */
+  bool relay_pending{};
+};
+
 /** Metadata for one file, directory, or symbolic link stored at a lockbox path. */
 struct LockboxEntry {
   /** Absolute lockbox path of the stored entry. */
@@ -386,6 +412,7 @@ using KeySlotList = std::vector<KeySlot>;
 using FormDefinitionList = std::vector<FormDefinition>;
 using FormRecordList = std::vector<FormRecord>;
 using ContactList = std::vector<Contact>;
+using ContactExchangeStatusList = std::vector<ContactExchangeStatus>;
 using LockboxAliasList = std::vector<LockboxAlias>;
 using KnownLockboxList = std::vector<KnownLockbox>;
 using AccessSlotLabelList = std::vector<AccessSlotLabel>;
@@ -405,6 +432,7 @@ namespace revault::detail {
 
 template <typename T> T decode(std::span<const std::uint8_t> bytes);
 
+template <> bindings::ContactExchangeStatus decode<bindings::ContactExchangeStatus>(std::span<const std::uint8_t> bytes);
 template <> bindings::LockboxEntry decode<bindings::LockboxEntry>(std::span<const std::uint8_t> bytes);
 template <> bindings::PathMove decode<bindings::PathMove>(std::span<const std::uint8_t> bytes);
 template <> bindings::FormField decode<bindings::FormField>(std::span<const std::uint8_t> bytes);
@@ -441,6 +469,7 @@ template <> bindings::KeySlotList decode<bindings::KeySlotList>(std::span<const 
 template <> bindings::FormDefinitionList decode<bindings::FormDefinitionList>(std::span<const std::uint8_t> bytes);
 template <> bindings::FormRecordList decode<bindings::FormRecordList>(std::span<const std::uint8_t> bytes);
 template <> bindings::ContactList decode<bindings::ContactList>(std::span<const std::uint8_t> bytes);
+template <> bindings::ContactExchangeStatusList decode<bindings::ContactExchangeStatusList>(std::span<const std::uint8_t> bytes);
 template <> bindings::LockboxAliasList decode<bindings::LockboxAliasList>(std::span<const std::uint8_t> bytes);
 template <> bindings::KnownLockboxList decode<bindings::KnownLockboxList>(std::span<const std::uint8_t> bytes);
 template <> bindings::AccessSlotLabelList decode<bindings::AccessSlotLabelList>(std::span<const std::uint8_t> bytes);

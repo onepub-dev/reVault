@@ -1036,6 +1036,7 @@ fn temp_config(name: &str) -> (TempGuard, ServerConfig) {
     ));
     fs::create_dir_all(&path).unwrap();
     let config = ServerConfig {
+        exchange_owner_id: 0,
         bind_addr: "127.0.0.1:0".to_string(),
         state_dir: path.clone(),
         server_id: 0,
@@ -1077,6 +1078,9 @@ fn temp_config(name: &str) -> (TempGuard, ServerConfig) {
         verification_email_template: "Verify {email}: {verification_url}".to_string(),
         verification_email_rate_limit_per_hour: 5,
         verification_email_ip_rate_limit_per_hour: 30,
+        exchange_max_invitations: 1_000_000,
+        exchange_max_bytes: 1024 * 1024 * 1024,
+        exchange_per_identity: 100,
     };
     (TempGuard(path), config)
 }

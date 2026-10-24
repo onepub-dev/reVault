@@ -45,3 +45,10 @@ typealias WorkerPolicy = com.onepub.revault.WorkerPolicy
 typealias ProfileGeneration = com.onepub.revault.ProfileGeneration
 /** Versioned key-generation history for one named vault profile. */
 typealias ProfileHistory = com.onepub.revault.ProfileHistory
+/** Full reciprocal exchange session; close it to release protected credentials. */
+typealias ContactExchange = com.onepub.revault.Revault.ContactExchange
+/** Public exchange status without private management capabilities. */
+typealias ContactExchangeStatus = com.onepub.revault.ContactExchangeStatus
+
+/** Independent authenticated channel for full-fingerprint comparison. */
+typealias ComparisonChannel = com.onepub.revault.Revault.ComparisonChannel

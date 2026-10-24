@@ -24,7 +24,7 @@ for line in SCHEMA.read_text().splitlines():
     elif current and (m:=re.match(r"\s*(\w+):([^ ]+) \(id:",line)): tables[current].append(m.groups())
 wrappers={n for n in tables if n.endswith("List") or n.startswith("Optional")}|{"StringValue"}
 base=[n for n in tables if n not in wrappers]
-lists={"StreamChunkList":"StreamChunk","PageInspectionList":"PageInspection","LockboxEntryList":"LockboxEntry","VariableList":"Variable","KeySlotList":"KeySlot","FormDefinitionList":"FormDefinition","FormRecordList":"FormRecord","ContactList":"Contact","LockboxAliasList":"LockboxAlias","KnownLockboxList":"KnownLockbox","AccessSlotLabelList":"AccessSlotLabel","AgentEntryList":"AgentEntry","ProfileHistoryList":"ProfileHistory"}
+lists={"StreamChunkList":"StreamChunk","PageInspectionList":"PageInspection","LockboxEntryList":"LockboxEntry","VariableList":"Variable","KeySlotList":"KeySlot","FormDefinitionList":"FormDefinition","FormRecordList":"FormRecord","ContactList":"Contact", "ContactExchangeStatusList": "ContactExchangeStatus","LockboxAliasList":"LockboxAlias","KnownLockboxList":"KnownLockbox","AccessSlotLabelList":"AccessSlotLabel","AgentEntryList":"AgentEntry","ProfileHistoryList":"ProfileHistory"}
 
 out=["import FlatBuffers","import Foundation","","/// Identifies the filesystem object stored at a lockbox path.","public enum LockboxEntryKind: Int { case unspecified, file, symlink, directory }",""]
 for name in base:

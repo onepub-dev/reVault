@@ -156,6 +156,8 @@ bool lockbox_set_variable(void *handle, const char *name, size_t name_len, const
 bool lockbox_set_secret_variable(void *handle, const char *name, size_t name_len, const uint8_t *value, size_t value_len);
 /** Returns variable. */
 RevaultBuffer lockbox_get_variable(const void *handle, const char *name, size_t name_len);
+/** Executes a bounded ContactExchangeCommand JSON request through Rust and returns a ContactExchangeStatusList FlatBuffer. Free the buffer with buffer_free. No private capabilities are returned. */
+RevaultBuffer contact_exchange_execute(const void *handle, const char *name, size_t name_len);
 /** Get/set/clear item guidance via UTF-8 JSON {target, reference, operation, field?, text?}; returns OptionalString. Commit Lockbox writes. */
 RevaultBuffer lockbox_item_description(const void *handle, const char *request, size_t request_len);
 /** Same request/result contract for reusable vault definitions and fields; writes commit immediately. */
@@ -302,6 +304,8 @@ RevaultBuffer vault_key_hex_encode(const uint8_t *bytes, size_t len);
 RevaultBuffer vault_key_hex_decode(const char *text, size_t len);
 /** Returns the directory open. */
 void *vault_directory_open(const char *root, size_t root_len, const uint8_t *password, size_t password_len);
+/** Opens an exchange session for an existing Vault file. Retains a protected passphrase but no Vault lock; never uses the Session Agent. Release with contact_exchange_free. */
+void *contact_exchange_open(const char *root, size_t root_len, const uint8_t *password, size_t password_len);
 /** Returns the structure version current. */
 uint32_t vault_structure_version_current(void);
 /** Returns the directory probe structure version. */
@@ -408,6 +412,8 @@ RevaultBuffer vault_backup_default(const char *path, size_t path_len, bool overw
 RevaultBuffer vault_restore_default(const char *path, size_t path_len, bool overwrite);
 /** Returns the directory free. */
 void vault_directory_free(void *handle);
+/** Releases the exchange session and protected credentials without cancelling invitations or deleting contacts. */
+void contact_exchange_free(void *handle);
 /** Returns only open. */
 void *vault_read_only_open(const char *root, size_t root_len, const uint8_t *password, size_t password_len);
 /** Returns only open default. */

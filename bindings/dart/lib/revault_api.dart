@@ -36,3 +36,5 @@ export 'src/secret_bytes.dart' show SecretBytes;
 export 'src/secret_string.dart' show SecretString;
 export 'src/vault.dart' show Vault;
 export 'src/wrapped_contact_key.dart' show WrappedContactKey;
+
+export 'src/contact_exchange.dart' show ContactExchange, ComparisonChannel;

@@ -64,6 +64,7 @@ final class RevaultNativeApi {
   public final MethodHandle lockbox_set_variable;
   public final MethodHandle lockbox_set_secret_variable;
   public final MethodHandle lockbox_get_variable;
+  public final MethodHandle contact_exchange_execute;
   public final MethodHandle lockbox_item_description;
   public final MethodHandle vault_directory_item_description;
   public final MethodHandle lockbox_get_secret_variable;
@@ -137,6 +138,7 @@ final class RevaultNativeApi {
   public final MethodHandle vault_key_hex_encode;
   public final MethodHandle vault_key_hex_decode;
   public final MethodHandle vault_directory_open;
+  public final MethodHandle contact_exchange_open;
   public final MethodHandle vault_structure_version_current;
   public final MethodHandle vault_directory_probe_structure_version;
   public final MethodHandle vault_directory_open_or_create_default;
@@ -196,6 +198,7 @@ final class RevaultNativeApi {
   public final MethodHandle vault_backup_default;
   public final MethodHandle vault_restore_default;
   public final MethodHandle vault_directory_free;
+  public final MethodHandle contact_exchange_free;
   public final MethodHandle vault_read_only_open;
   public final MethodHandle vault_read_only_open_default;
   public final MethodHandle vault_read_only_load_private_key;
@@ -308,6 +311,7 @@ final class RevaultNativeApi {
     lockbox_set_variable = linker.downcallHandle(symbols.find("lockbox_set_variable").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_set_secret_variable = linker.downcallHandle(symbols.find("lockbox_set_secret_variable").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_get_variable = linker.downcallHandle(symbols.find("lockbox_get_variable").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    contact_exchange_execute = linker.downcallHandle(symbols.find("contact_exchange_execute").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_item_description = linker.downcallHandle(symbols.find("lockbox_item_description").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     vault_directory_item_description = linker.downcallHandle(symbols.find("vault_directory_item_description").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_get_secret_variable = linker.downcallHandle(symbols.find("lockbox_get_secret_variable").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
@@ -381,6 +385,7 @@ final class RevaultNativeApi {
     vault_key_hex_encode = linker.downcallHandle(symbols.find("vault_key_hex_encode").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     vault_key_hex_decode = linker.downcallHandle(symbols.find("vault_key_hex_decode").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     vault_directory_open = linker.downcallHandle(symbols.find("vault_directory_open").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    contact_exchange_open = linker.downcallHandle(symbols.find("contact_exchange_open").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     vault_structure_version_current = linker.downcallHandle(symbols.find("vault_structure_version_current").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
     vault_directory_probe_structure_version = linker.downcallHandle(symbols.find("vault_directory_probe_structure_version").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     vault_directory_open_or_create_default = linker.downcallHandle(symbols.find("vault_directory_open_or_create_default").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
@@ -440,6 +445,7 @@ final class RevaultNativeApi {
     vault_backup_default = linker.downcallHandle(symbols.find("vault_backup_default").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_BOOLEAN));
     vault_restore_default = linker.downcallHandle(symbols.find("vault_restore_default").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_BOOLEAN));
     vault_directory_free = linker.downcallHandle(symbols.find("vault_directory_free").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+    contact_exchange_free = linker.downcallHandle(symbols.find("contact_exchange_free").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
     vault_read_only_open = linker.downcallHandle(symbols.find("vault_read_only_open").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     vault_read_only_open_default = linker.downcallHandle(symbols.find("vault_read_only_open_default").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     vault_read_only_load_private_key = linker.downcallHandle(symbols.find("vault_read_only_load_private_key").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));

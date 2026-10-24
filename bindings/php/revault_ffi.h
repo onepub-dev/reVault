@@ -66,6 +66,7 @@ RevaultBuffer lockbox_stat(const void *handle, const char *path, size_t path_len
 bool lockbox_set_variable(void *handle, const char *name, size_t name_len, const char *value, size_t value_len);
 bool lockbox_set_secret_variable(void *handle, const char *name, size_t name_len, const uint8_t *value, size_t value_len);
 RevaultBuffer lockbox_get_variable(const void *handle, const char *name, size_t name_len);
+RevaultBuffer contact_exchange_execute(const void *handle, const char *name, size_t name_len);
 RevaultBuffer lockbox_item_description(const void *handle, const char *name, size_t name_len);
 RevaultBuffer vault_directory_item_description(const void *handle, const char *name, size_t name_len);
 bool lockbox_get_secret_variable(const void *handle, const char *name, size_t name_len, void **output);
@@ -139,6 +140,7 @@ RevaultBuffer vault_key_decode_crockford(const char *code, size_t len);
 RevaultBuffer vault_key_hex_encode(const uint8_t *bytes, size_t len);
 RevaultBuffer vault_key_hex_decode(const char *text, size_t len);
 void *vault_directory_open(const char *root, size_t root_len, const uint8_t *password, size_t password_len);
+void *contact_exchange_open(const char *root, size_t root_len, const uint8_t *password, size_t password_len);
 uint32_t vault_structure_version_current(void);
 uint32_t vault_directory_probe_structure_version(const char *root, size_t root_len, const uint8_t *password, size_t password_len);
 void *vault_directory_open_or_create_default(const uint8_t *password, size_t password_len);
@@ -192,6 +194,7 @@ RevaultBuffer vault_directory_remembered_password(const void *handle, const uint
 RevaultBuffer vault_backup_default(const char *path, size_t path_len, bool overwrite);
 RevaultBuffer vault_restore_default(const char *path, size_t path_len, bool overwrite);
 void vault_directory_free(void *handle);
+void contact_exchange_free(void *handle);
 void *vault_read_only_open(const char *root, size_t root_len, const uint8_t *password, size_t password_len);
 void *vault_read_only_open_default(const uint8_t *password, size_t password_len);
 void *vault_read_only_load_private_key(const void *handle, const char *name, size_t name_len);

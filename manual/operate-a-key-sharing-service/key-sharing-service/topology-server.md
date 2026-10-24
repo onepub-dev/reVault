@@ -47,18 +47,39 @@ Heartbeat filtering changes which servers are considered healthy; it does not si
 
 `replication_peer_url` copies live publish state to a peer's `/v1/replicate` endpoint. Replication is authenticated separately with `replication_token`.
 
-If owner `0` fails, an operator may authorise server `1` to serve that owner's replicated state:
+Before promoting a standby, run `revault_key_server fencing-help`. A promotion
+setting does not stop the old server. Fence the old host first:
+
+1. Remove it from the load balancer and block all relay ingress at the firewall
+   or cloud security group, including direct client and replication access.
+   DNS changes alone are insufficient.
+2. On the old host, run `sudo systemctl disable --now revault_key_server.service`
+   and confirm `systemctl is-active revault_key_server.service` reports inactive.
+   Disable any container, watchdog or orchestration restart policy. If the host
+   cannot be reached, power it off through the hypervisor or cloud control plane
+   and disable automatic recovery or replacement.
+3. Verify the control-plane fence and confirm that neither the public route nor
+   the old direct address can serve requests. A timeout alone is not proof: a
+   partitioned host can still be serving other clients.
+4. Verify the standby has the acknowledged state, then promote it and route the
+   existing HTTPS origin to it. Keep the old host fenced.
+
+The command prints guidance; it does not operate or verify a remote firewall,
+service or hypervisor. Promotion startup and `doctor` repeat this guidance.
+
+After fencing owner `0`, an operator may authorise server `1` to serve that owner's replicated state:
 
 ```toml
 server_id = 1
+exchange_owner_id = 0
 promoted_owner = 0
 ```
 
 Restart with the reviewed configuration and update the advertised status/routes as required. When the original owner returns:
 
-1. resynchronise it from the healthy member;
+1. keep public access to it blocked and resynchronise it from the healthy member;
 2. verify that it has caught up;
-3. restore the intended routes; and
+3. stop and fence the replacement before restoring the original owner's routes; and
 4. remove the temporary promotion.
 
 Do not allow two unsynchronised servers to serve the same owner id.

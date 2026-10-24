@@ -286,6 +286,10 @@ function vaultLifecycle(ApiRuntime $api): void {
     Vault::open($root, $changed)->free(); pass('vault_directory_open'); echo "ARTIFACT\tphp\tvault-opened\t$root\n";
     Vault::openOrCreate($root, $changed)->free(); pass('vault_directory_open_or_create');
     $ownerPublic->free(); $owner->free(); $contactPublic->publicFree(); $contact->free(); $profile->free();
+    $exchange = $api->contactExchange($root . '/local-vault.lbox', $changed); pass('contact_exchange_open');
+    try { check(count($exchange->list(true)) === 0, 'empty exchange status'); pass('contact_exchange_execute'); }
+    finally { $exchange->free(); }
+    pass('contact_exchange_free');
 }
 
 function defaultVault(ApiRuntime $api): void {

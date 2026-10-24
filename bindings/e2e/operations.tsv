@@ -1,4 +1,7 @@
 symbol	domain	return_type	arguments
+contact_exchange_open	vault.exchange	void *	const char *path, size_t path_len, const uint8_t *password, size_t password_len
+contact_exchange_execute	vault.exchange	RevaultBuffer	const void *handle, const char *request, size_t request_len
+contact_exchange_free	vault.exchange	void	void *handle
 buffer_last_error	support.memory	const char *	void
 buffer_last_error_details	support.memory	RevaultBuffer	void
 buffer_free	support.memory	void	RevaultBuffer value

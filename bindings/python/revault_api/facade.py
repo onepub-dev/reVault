@@ -1665,6 +1665,7 @@ _ROUTES = {
     'lockbox_set_variable': (('handle', 'text', 'text'), 'bool', False),
     'lockbox_set_secret_variable': (('handle', 'text', 'bytes'), 'bool', False),
     'lockbox_get_variable': (('handle', 'text'), 'message:OptionalString', False),
+    'contact_exchange_execute': (('handle', 'text'), 'message:ContactExchangeStatusList', False),
     'lockbox_item_description': (('handle', 'text'), 'message:OptionalString', False),
     'vault_directory_item_description': (('handle', 'text'), 'message:OptionalString', False),
     'lockbox_get_secret_variable': (('handle', 'text'), 'secret', False),
@@ -1741,6 +1742,7 @@ _ROUTES = {
     'vault_key_hex_encode': (('bytes',), 'utf8', False),
     'vault_key_hex_decode': (('text',), 'bytes', False),
     'vault_directory_open': (('text', 'bytes'), 'handle:Vault', False),
+    'contact_exchange_open': (('text', 'bytes'), 'handle:ContactExchange', False),
     'vault_structure_version_current': ((), 'value', False),
     'vault_directory_probe_structure_version': (('text', 'bytes'), 'value', False),
     'vault_directory_open_or_create_default': (('bytes',), 'handle:Vault', False),
@@ -1800,6 +1802,7 @@ _ROUTES = {
     'vault_backup_default': (('text', 'value'), 'message:VaultBackupManifest', False),
     'vault_restore_default': (('text', 'value'), 'message:VaultBackupManifest', False),
     'vault_directory_free': (('handle',), 'void', True),
+    'contact_exchange_free': (('handle',), 'void', True),
     'vault_read_only_open': (('text', 'bytes'), 'handle:ReadOnlyVault', False),
     'vault_read_only_open_default': (('bytes',), 'handle:ReadOnlyVault', False),
     'vault_read_only_load_private_key': (('handle', 'text'), 'handle:ContactKeyPair', False),
@@ -1896,3 +1899,112 @@ def _ReadOnlyVaultDirectory_resolve_lockbox_alias(self, name):
     """Resolve metadata; verify target identity when opening its path."""
     return _call(self, 'vault_read_only_resolve_lockbox_alias', (name,))
 ReadOnlyVaultDirectory.resolve_lockbox_alias = _ReadOnlyVaultDirectory_resolve_lockbox_alias
+
+from enum import Enum
+
+class ComparisonChannel(str, Enum):
+    """Independent authenticated channel used for full-fingerprint comparison."""
+    IN_PERSON = 'in-person'
+    KNOWN_PHONE_CALL = 'known-phone-call'
+    TRUSTED_MESSENGER = 'trusted-messenger'
+
+class ContactExchange(_OwnedHandle):
+    """Reciprocal exchange for an existing Vault file, without a retained lock.
+
+    Supply the Vault passphrase, not a Lockbox password. The caller owns and
+    should wipe its input; closing this session wipes the native protected copy.
+    Close does not cancel invitations or remove contacts. Example::
+
+        with ContactExchange.open(vault_path, vault_passphrase) as session:
+            for status in session.list(offline=True):
+                print(status.id, status.verified)
+    """
+    @staticmethod
+    def open(path, vault_passphrase):
+        """Open an existing Vault file; no Session Agent or creation.
+
+        Example::
+
+            with ContactExchange.open(vault_path, vault_passphrase) as session:
+                pending = session.list(offline=True)
+        """
+        return _call(Revault.load(), 'contact_exchange_open', (str(path), vault_passphrase))
+    def _execute(self, request):
+        import json
+        if not self._handle: raise ValueError('Exchange session is closed')
+        return _call(self, 'contact_exchange_execute', (json.dumps(request),))
+    def invite(self, relay, profile, recipient_email, ttl_hours=24):
+        """Share both public keys of one profile with a configured email.
+
+        ``relay`` is an HTTPS origin; lifetime is 1–168 hours. Example::
+
+            with ContactExchange.open(vault_path, vault_passphrase) as session:
+                offer = session.invite(relay_origin, 'default', 'bob@example.com')
+                if offer.relay_pending:
+                    session.list()  # Retry durable local preparation.
+        """
+        return self._execute(dict(operation='invite', relay=relay, profile=profile, recipient_email=recipient_email, ttl_hours=ttl_hours))[0]
+    def accept(self, invitation, profile):
+        """Accept the complete URL received from the inviter. Example::
+
+            with ContactExchange.open(vault_path, vault_passphrase) as session:
+                reply = session.accept(invitation_url, 'default')
+                print(reply.fingerprint)  # Compare through a trusted channel.
+        """
+        return self._execute(dict(operation='accept', invitation=invitation, profile=profile))[0]
+    def list(self, offline=False):
+        """List public status; offline mode avoids relay requests. Example::
+
+            with ContactExchange.open(vault_path, vault_passphrase) as session:
+                for status in session.list(offline=True):
+                    print(status.id, status.verified)
+        """
+        return self._execute(dict(operation='list', offline=offline))
+    def verify(self, id, contact_name, fingerprint, channel: ComparisonChannel):
+        """Save both keys only after independent identity/fingerprint comparison.
+
+        ``id`` comes from list; ``fingerprint`` must contain all 16 groups from
+        the independently authenticated peer. Different existing keys are
+        refused. Example, after the user has completed that comparison::
+
+            with ContactExchange.open(vault_path, vault_passphrase) as session:
+                session.verify(exchange_id, 'bob', compared_fingerprint,
+                               ComparisonChannel.IN_PERSON)
+        """
+        return self._execute(dict(operation='verify', id=id, contact_name=contact_name, fingerprint=fingerprint, channel=channel.value))[0]
+    def verify_author(self, contact_name, lockbox_path):
+        """Authenticate an archive using the saved contact signing key.
+
+        The Vault must contain a profile capable of opening it. Example::
+
+            with ContactExchange.open(vault_path, vault_passphrase) as session:
+                session.verify_author('alice', received_archive_path)
+        """
+        self._execute(dict(operation='verify_author', contact_name=contact_name, lockbox_path=str(lockbox_path)))
+
+    def cancel(self, id):
+        """Cancel an unaccepted invitation owned by this Vault. Example::
+
+            with ContactExchange.open(vault_path, vault_passphrase) as session:
+                session.cancel(exchange_id)  # ID from a previous invite/list.
+        """
+        self._execute(dict(operation='cancel', id=id))
+    def forget(self, id):
+        """Forget local state and management capability; preserve contacts.
+
+        Cancel a still-active invitation first if it should be unavailable.
+        Example after both participants completed verification::
+
+            with ContactExchange.open(vault_path, vault_passphrase) as session:
+                session.forget(exchange_id)
+        """
+        self._execute(dict(operation='forget', id=id))
+    def free(self):
+        """Release protected credentials without cancelling invitations.
+
+        Prefer the context manager, which closes even on failure::
+
+            with ContactExchange.open(vault_path, vault_passphrase) as session:
+                print(len(session.list(offline=True)))
+        """
+        if self._handle: _call(self, 'contact_exchange_free', ())

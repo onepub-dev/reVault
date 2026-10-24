@@ -3,6 +3,7 @@ mod completion;
 mod context;
 mod doctor;
 mod error_output;
+mod exchange;
 mod files;
 mod filters;
 mod form;

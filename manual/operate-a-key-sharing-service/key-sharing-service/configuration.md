@@ -136,6 +136,40 @@ Use `revault_key_server resync-peer --peer-url https://keyshare1.example.com/v1/
 
 ## Storage settings
 
+### Reciprocal exchanges
+
+`POST /v2/exchange` exchanges both encryption and signing public keys within an
+unguessable invitation. It provides no email search or public directory.
+
+```toml
+exchange_owner_id = 0
+exchange_max_invitations = 1000000
+exchange_max_bytes = 1073741824
+exchange_per_identity = 100
+```
+
+Use the same `exchange_owner_id` throughout the deployment. Only that server,
+or an explicitly promoted replacement, accepts public exchange requests. Read
+the [fencing procedure](topology-server.md#replication-and-promotion) before
+promotion; `revault_key_server fencing-help` prints the operational steps.
+
+With configured replication peers, a successful exchange response requires
+durable acceptance by every peer. A peer outage produces a retryable response;
+the local operation may already have committed. Retrying is safe. Exchange
+snapshots and receipts are included in `resync-peer`.
+
+Admission reserves 128 KiB per invitation. The default 1 GiB budget therefore
+admits at most 8192 invitations despite the larger count ceiling. Active
+invitations are never evicted to admit new ones. Once both participants
+acknowledge, public bundles are replaced by hashed retry receipts until signed
+expiry, at most seven days. Cancelled invitations also retain retry receipts.
+
+The endpoint applies the per-peer HTTP request limiter before signature checks.
+Use HTTPS and appropriate reverse-proxy connection and concurrency limits.
+Identity quotas cannot stop an attacker creating new identities. Do not log
+request bodies or management capabilities; backups need their own retention
+policy. The relay cannot mark a local contact verified.
+
 | Key                   | Default    | Purpose                                         |
 | --------------------- | ---------- | ----------------------------------------------- |
 | `shard_count`         | `16`       | Number of local store shards.                   |

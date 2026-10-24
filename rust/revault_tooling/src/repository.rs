@@ -141,6 +141,16 @@ pub fn check(repository: &Path) -> Result {
         .cloned()
         .collect();
     let inventory = operation_inventory(&repository)?;
+    // Hosted WASM dispatches the same public ABI through its native host. Keep
+    // signatures as well as names aligned; checking only the dispatcher source
+    // allowed credential-reading routes to disappear unnoticed.
+    if fs::read(repository.join("bindings/e2e/operations.tsv"))?
+        != fs::read(repository.join("rust/revault_wasm_bindings/operations.tsv"))?
+    {
+        return Err(
+            "WebAssembly operation manifest differs from bindings/e2e/operations.tsv".into(),
+        );
+    }
     if operations != inventory {
         let missing: Vec<_> = operations.difference(&inventory).cloned().collect();
         let extra: Vec<_> = inventory.difference(&operations).cloned().collect();

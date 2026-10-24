@@ -28,6 +28,204 @@ class LockboxEntryKind private constructor() {
     }
 }
 @Suppress("unused")
+class ContactExchangeStatus : Table() {
+
+    fun __init(_i: Int, _bb: ByteBuffer)  {
+        __reset(_i, _bb)
+    }
+    fun __assign(_i: Int, _bb: ByteBuffer) : ContactExchangeStatus {
+        __init(_i, _bb)
+        return this
+    }
+    val id : String?
+        get() {
+            val o = __offset(4)
+            return if (o != 0) {
+                __string(o + bb_pos)
+            } else {
+                null
+            }
+        }
+    val idAsByteBuffer : ByteBuffer get() = __vector_as_bytebuffer(4, 1)
+    fun idInByteBuffer(_bb: ByteBuffer) : ByteBuffer = __vector_in_bytebuffer(_bb, 4, 1)
+    val relay : String?
+        get() {
+            val o = __offset(6)
+            return if (o != 0) {
+                __string(o + bb_pos)
+            } else {
+                null
+            }
+        }
+    val relayAsByteBuffer : ByteBuffer get() = __vector_as_bytebuffer(6, 1)
+    fun relayInByteBuffer(_bb: ByteBuffer) : ByteBuffer = __vector_in_bytebuffer(_bb, 6, 1)
+    val invitation : String?
+        get() {
+            val o = __offset(8)
+            return if (o != 0) {
+                __string(o + bb_pos)
+            } else {
+                null
+            }
+        }
+    val invitationAsByteBuffer : ByteBuffer get() = __vector_as_bytebuffer(8, 1)
+    fun invitationInByteBuffer(_bb: ByteBuffer) : ByteBuffer = __vector_in_bytebuffer(_bb, 8, 1)
+    val inviterEmail : String?
+        get() {
+            val o = __offset(10)
+            return if (o != 0) {
+                __string(o + bb_pos)
+            } else {
+                null
+            }
+        }
+    val inviterEmailAsByteBuffer : ByteBuffer get() = __vector_as_bytebuffer(10, 1)
+    fun inviterEmailInByteBuffer(_bb: ByteBuffer) : ByteBuffer = __vector_in_bytebuffer(_bb, 10, 1)
+    val recipientEmail : String?
+        get() {
+            val o = __offset(12)
+            return if (o != 0) {
+                __string(o + bb_pos)
+            } else {
+                null
+            }
+        }
+    val recipientEmailAsByteBuffer : ByteBuffer get() = __vector_as_bytebuffer(12, 1)
+    fun recipientEmailInByteBuffer(_bb: ByteBuffer) : ByteBuffer = __vector_in_bytebuffer(_bb, 12, 1)
+    val fingerprint : String?
+        get() {
+            val o = __offset(14)
+            return if (o != 0) {
+                __string(o + bb_pos)
+            } else {
+                null
+            }
+        }
+    val fingerprintAsByteBuffer : ByteBuffer get() = __vector_as_bytebuffer(14, 1)
+    fun fingerprintInByteBuffer(_bb: ByteBuffer) : ByteBuffer = __vector_in_bytebuffer(_bb, 14, 1)
+    val expiresMs : ULong
+        get() {
+            val o = __offset(16)
+            return if(o != 0) bb.getLong(o + bb_pos).toULong() else 0UL
+        }
+    val accepted : Boolean
+        get() {
+            val o = __offset(18)
+            return if(o != 0) 0.toByte() != bb.get(o + bb_pos) else false
+        }
+    val verified : Boolean
+        get() {
+            val o = __offset(20)
+            return if(o != 0) 0.toByte() != bb.get(o + bb_pos) else false
+        }
+    val contactName : String?
+        get() {
+            val o = __offset(22)
+            return if (o != 0) {
+                __string(o + bb_pos)
+            } else {
+                null
+            }
+        }
+    val contactNameAsByteBuffer : ByteBuffer get() = __vector_as_bytebuffer(22, 1)
+    fun contactNameInByteBuffer(_bb: ByteBuffer) : ByteBuffer = __vector_in_bytebuffer(_bb, 22, 1)
+    val relayPending : Boolean
+        get() {
+            val o = __offset(24)
+            return if(o != 0) 0.toByte() != bb.get(o + bb_pos) else false
+        }
+    companion object {
+        fun validateVersion() = Constants.FLATBUFFERS_25_2_10()
+        fun getRootAsContactExchangeStatus(_bb: ByteBuffer): ContactExchangeStatus = getRootAsContactExchangeStatus(_bb, ContactExchangeStatus())
+        fun getRootAsContactExchangeStatus(_bb: ByteBuffer, obj: ContactExchangeStatus): ContactExchangeStatus {
+            _bb.order(ByteOrder.LITTLE_ENDIAN)
+            return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb))
+        }
+        fun createContactExchangeStatus(builder: FlatBufferBuilder, idOffset: Int, relayOffset: Int, invitationOffset: Int, inviterEmailOffset: Int, recipientEmailOffset: Int, fingerprintOffset: Int, expiresMs: ULong, accepted: Boolean, verified: Boolean, contactNameOffset: Int, relayPending: Boolean) : Int {
+            builder.startTable(11)
+            addExpiresMs(builder, expiresMs)
+            addContactName(builder, contactNameOffset)
+            addFingerprint(builder, fingerprintOffset)
+            addRecipientEmail(builder, recipientEmailOffset)
+            addInviterEmail(builder, inviterEmailOffset)
+            addInvitation(builder, invitationOffset)
+            addRelay(builder, relayOffset)
+            addId(builder, idOffset)
+            addRelayPending(builder, relayPending)
+            addVerified(builder, verified)
+            addAccepted(builder, accepted)
+            return endContactExchangeStatus(builder)
+        }
+        fun startContactExchangeStatus(builder: FlatBufferBuilder) = builder.startTable(11)
+        fun addId(builder: FlatBufferBuilder, id: Int) = builder.addOffset(0, id, 0)
+        fun addRelay(builder: FlatBufferBuilder, relay: Int) = builder.addOffset(1, relay, 0)
+        fun addInvitation(builder: FlatBufferBuilder, invitation: Int) = builder.addOffset(2, invitation, 0)
+        fun addInviterEmail(builder: FlatBufferBuilder, inviterEmail: Int) = builder.addOffset(3, inviterEmail, 0)
+        fun addRecipientEmail(builder: FlatBufferBuilder, recipientEmail: Int) = builder.addOffset(4, recipientEmail, 0)
+        fun addFingerprint(builder: FlatBufferBuilder, fingerprint: Int) = builder.addOffset(5, fingerprint, 0)
+        fun addExpiresMs(builder: FlatBufferBuilder, expiresMs: ULong) = builder.addLong(6, expiresMs.toLong(), 0)
+        fun addAccepted(builder: FlatBufferBuilder, accepted: Boolean) = builder.addBoolean(7, accepted, false)
+        fun addVerified(builder: FlatBufferBuilder, verified: Boolean) = builder.addBoolean(8, verified, false)
+        fun addContactName(builder: FlatBufferBuilder, contactName: Int) = builder.addOffset(9, contactName, 0)
+        fun addRelayPending(builder: FlatBufferBuilder, relayPending: Boolean) = builder.addBoolean(10, relayPending, false)
+        fun endContactExchangeStatus(builder: FlatBufferBuilder) : Int {
+            val o = builder.endTable()
+            return o
+        }
+    }
+}
+@Suppress("unused")
+class ContactExchangeStatusList : Table() {
+
+    fun __init(_i: Int, _bb: ByteBuffer)  {
+        __reset(_i, _bb)
+    }
+    fun __assign(_i: Int, _bb: ByteBuffer) : ContactExchangeStatusList {
+        __init(_i, _bb)
+        return this
+    }
+    fun values(j: Int) : revault.internal.ContactExchangeStatus? = values(revault.internal.ContactExchangeStatus(), j)
+    fun values(obj: revault.internal.ContactExchangeStatus, j: Int) : revault.internal.ContactExchangeStatus? {
+        val o = __offset(4)
+        return if (o != 0) {
+            obj.__assign(__indirect(__vector(o) + j * 4), bb)
+        } else {
+            null
+        }
+    }
+    val valuesLength : Int
+        get() {
+            val o = __offset(4); return if (o != 0) __vector_len(o) else 0
+        }
+    companion object {
+        fun validateVersion() = Constants.FLATBUFFERS_25_2_10()
+        fun getRootAsContactExchangeStatusList(_bb: ByteBuffer): ContactExchangeStatusList = getRootAsContactExchangeStatusList(_bb, ContactExchangeStatusList())
+        fun getRootAsContactExchangeStatusList(_bb: ByteBuffer, obj: ContactExchangeStatusList): ContactExchangeStatusList {
+            _bb.order(ByteOrder.LITTLE_ENDIAN)
+            return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb))
+        }
+        fun createContactExchangeStatusList(builder: FlatBufferBuilder, valuesOffset: Int) : Int {
+            builder.startTable(1)
+            addValues(builder, valuesOffset)
+            return endContactExchangeStatusList(builder)
+        }
+        fun startContactExchangeStatusList(builder: FlatBufferBuilder) = builder.startTable(1)
+        fun addValues(builder: FlatBufferBuilder, values: Int) = builder.addOffset(0, values, 0)
+        fun createValuesVector(builder: FlatBufferBuilder, data: IntArray) : Int {
+            builder.startVector(4, data.size, 4)
+            for (i in data.size - 1 downTo 0) {
+                builder.addOffset(data[i])
+            }
+            return builder.endVector()
+        }
+        fun startValuesVector(builder: FlatBufferBuilder, numElems: Int) = builder.startVector(4, numElems, 4)
+        fun endContactExchangeStatusList(builder: FlatBufferBuilder) : Int {
+            val o = builder.endTable()
+            return o
+        }
+    }
+}
+@Suppress("unused")
 class LockboxEntry : Table() {
 
     fun __init(_i: Int, _bb: ByteBuffer)  {

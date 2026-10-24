@@ -106,9 +106,11 @@ def configure_native(library, buffer_type):
     library.lockbox_set_secret_variable.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t]
     library.lockbox_set_secret_variable.restype = ctypes.c_bool
     library.lockbox_get_variable.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
+    library.contact_exchange_execute.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
     library.lockbox_item_description.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
     library.vault_directory_item_description.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
     library.lockbox_get_variable.restype = buffer_type
+    library.contact_exchange_execute.restype = buffer_type
     library.lockbox_item_description.restype = buffer_type
     library.vault_directory_item_description.restype = buffer_type
     library.lockbox_get_secret_variable.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.POINTER(ctypes.c_void_p)]
@@ -252,7 +254,9 @@ def configure_native(library, buffer_type):
     library.vault_key_hex_decode.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
     library.vault_key_hex_decode.restype = buffer_type
     library.vault_directory_open.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t]
+    library.contact_exchange_open.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t]
     library.vault_directory_open.restype = ctypes.c_void_p
+    library.contact_exchange_open.restype = ctypes.c_void_p
     library.vault_structure_version_current.argtypes = []
     library.vault_structure_version_current.restype = ctypes.c_uint32
     library.vault_directory_probe_structure_version.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t]
@@ -358,7 +362,9 @@ def configure_native(library, buffer_type):
     library.vault_restore_default.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_bool]
     library.vault_restore_default.restype = buffer_type
     library.vault_directory_free.argtypes = [ctypes.c_void_p]
+    library.contact_exchange_free.argtypes = [ctypes.c_void_p]
     library.vault_directory_free.restype = None
+    library.contact_exchange_free.restype = None
     library.vault_read_only_open.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t]
     library.vault_read_only_open.restype = ctypes.c_void_p
     library.vault_read_only_open_default.argtypes = [ctypes.c_void_p, ctypes.c_size_t]

@@ -1143,6 +1143,16 @@ static void vault_lifecycle(void) {
   CHECK(opened_or_created != NULL, "open or create existing vault");
   PASS(vault_directory_open_or_create, 1);
   vault_directory_free(opened_or_created);
+  char exchange_path[1024];
+  snprintf(exchange_path, sizeof(exchange_path), "%s/local-vault.lbox", root);
+  void *exchange = contact_exchange_open(exchange_path, strlen(exchange_path), new_password, sizeof(new_password)-1);
+  CHECK(exchange != NULL, "open exchange session"); PASS(contact_exchange_open, 1);
+  const char request[] = "{\"operation\":\"list\",\"offline\":true}";
+  RevaultBuffer status = contact_exchange_execute(exchange, request, sizeof(request)-1);
+  CHECK(status.ptr != NULL, "exchange status");
+  CHECK(flatbuffer_bytes((Bytes){status.ptr, status.len}, 1).len == 0, "empty exchange status");
+  buffer_free(status); PASS(contact_exchange_execute, 2);
+  contact_exchange_free(exchange); PASS(contact_exchange_free, 1);
 }
 
 static void default_vault_lifecycle(void) {

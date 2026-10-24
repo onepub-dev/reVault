@@ -37,6 +37,382 @@ func (v LockboxEntryKind) String() string {
 	return "LockboxEntryKind(" + strconv.FormatInt(int64(v), 10) + ")"
 }
 
+type ContactExchangeStatusT struct {
+	Id             string `json:"id"`
+	Relay          string `json:"relay"`
+	Invitation     string `json:"invitation"`
+	InviterEmail   string `json:"inviter_email"`
+	RecipientEmail string `json:"recipient_email"`
+	Fingerprint    string `json:"fingerprint"`
+	ExpiresMs      uint64 `json:"expires_ms"`
+	Accepted       bool   `json:"accepted"`
+	Verified       bool   `json:"verified"`
+	ContactName    string `json:"contact_name"`
+	RelayPending   bool   `json:"relay_pending"`
+}
+
+func (t *ContactExchangeStatusT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+	if t == nil {
+		return 0
+	}
+	idOffset := flatbuffers.UOffsetT(0)
+	if t.Id != "" {
+		idOffset = builder.CreateString(t.Id)
+	}
+	relayOffset := flatbuffers.UOffsetT(0)
+	if t.Relay != "" {
+		relayOffset = builder.CreateString(t.Relay)
+	}
+	invitationOffset := flatbuffers.UOffsetT(0)
+	if t.Invitation != "" {
+		invitationOffset = builder.CreateString(t.Invitation)
+	}
+	inviterEmailOffset := flatbuffers.UOffsetT(0)
+	if t.InviterEmail != "" {
+		inviterEmailOffset = builder.CreateString(t.InviterEmail)
+	}
+	recipientEmailOffset := flatbuffers.UOffsetT(0)
+	if t.RecipientEmail != "" {
+		recipientEmailOffset = builder.CreateString(t.RecipientEmail)
+	}
+	fingerprintOffset := flatbuffers.UOffsetT(0)
+	if t.Fingerprint != "" {
+		fingerprintOffset = builder.CreateString(t.Fingerprint)
+	}
+	contactNameOffset := flatbuffers.UOffsetT(0)
+	if t.ContactName != "" {
+		contactNameOffset = builder.CreateString(t.ContactName)
+	}
+	ContactExchangeStatusStart(builder)
+	ContactExchangeStatusAddId(builder, idOffset)
+	ContactExchangeStatusAddRelay(builder, relayOffset)
+	ContactExchangeStatusAddInvitation(builder, invitationOffset)
+	ContactExchangeStatusAddInviterEmail(builder, inviterEmailOffset)
+	ContactExchangeStatusAddRecipientEmail(builder, recipientEmailOffset)
+	ContactExchangeStatusAddFingerprint(builder, fingerprintOffset)
+	ContactExchangeStatusAddExpiresMs(builder, t.ExpiresMs)
+	ContactExchangeStatusAddAccepted(builder, t.Accepted)
+	ContactExchangeStatusAddVerified(builder, t.Verified)
+	ContactExchangeStatusAddContactName(builder, contactNameOffset)
+	ContactExchangeStatusAddRelayPending(builder, t.RelayPending)
+	return ContactExchangeStatusEnd(builder)
+}
+
+func (rcv *ContactExchangeStatus) UnPackTo(t *ContactExchangeStatusT) {
+	t.Id = string(rcv.Id())
+	t.Relay = string(rcv.Relay())
+	t.Invitation = string(rcv.Invitation())
+	t.InviterEmail = string(rcv.InviterEmail())
+	t.RecipientEmail = string(rcv.RecipientEmail())
+	t.Fingerprint = string(rcv.Fingerprint())
+	t.ExpiresMs = rcv.ExpiresMs()
+	t.Accepted = rcv.Accepted()
+	t.Verified = rcv.Verified()
+	t.ContactName = string(rcv.ContactName())
+	t.RelayPending = rcv.RelayPending()
+}
+
+func (rcv *ContactExchangeStatus) UnPack() *ContactExchangeStatusT {
+	if rcv == nil {
+		return nil
+	}
+	t := &ContactExchangeStatusT{}
+	rcv.UnPackTo(t)
+	return t
+}
+
+type ContactExchangeStatus struct {
+	_tab flatbuffers.Table
+}
+
+func GetRootAsContactExchangeStatus(buf []byte, offset flatbuffers.UOffsetT) *ContactExchangeStatus {
+	n := flatbuffers.GetUOffsetT(buf[offset:])
+	x := &ContactExchangeStatus{}
+	x.Init(buf, n+offset)
+	return x
+}
+
+func FinishContactExchangeStatusBuffer(builder *flatbuffers.Builder, offset flatbuffers.UOffsetT) {
+	builder.Finish(offset)
+}
+
+func GetSizePrefixedRootAsContactExchangeStatus(buf []byte, offset flatbuffers.UOffsetT) *ContactExchangeStatus {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &ContactExchangeStatus{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
+func FinishSizePrefixedContactExchangeStatusBuffer(builder *flatbuffers.Builder, offset flatbuffers.UOffsetT) {
+	builder.FinishSizePrefixed(offset)
+}
+
+func (rcv *ContactExchangeStatus) Init(buf []byte, i flatbuffers.UOffsetT) {
+	rcv._tab.Bytes = buf
+	rcv._tab.Pos = i
+}
+
+func (rcv *ContactExchangeStatus) Table() flatbuffers.Table {
+	return rcv._tab
+}
+
+func (rcv *ContactExchangeStatus) Id() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *ContactExchangeStatus) Relay() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *ContactExchangeStatus) Invitation() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *ContactExchangeStatus) InviterEmail() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *ContactExchangeStatus) RecipientEmail() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(12))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *ContactExchangeStatus) Fingerprint() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(14))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *ContactExchangeStatus) ExpiresMs() uint64 {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(16))
+	if o != 0 {
+		return rcv._tab.GetUint64(o + rcv._tab.Pos)
+	}
+	return 0
+}
+
+func (rcv *ContactExchangeStatus) MutateExpiresMs(n uint64) bool {
+	return rcv._tab.MutateUint64Slot(16, n)
+}
+
+func (rcv *ContactExchangeStatus) Accepted() bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(18))
+	if o != 0 {
+		return rcv._tab.GetBool(o + rcv._tab.Pos)
+	}
+	return false
+}
+
+func (rcv *ContactExchangeStatus) MutateAccepted(n bool) bool {
+	return rcv._tab.MutateBoolSlot(18, n)
+}
+
+func (rcv *ContactExchangeStatus) Verified() bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(20))
+	if o != 0 {
+		return rcv._tab.GetBool(o + rcv._tab.Pos)
+	}
+	return false
+}
+
+func (rcv *ContactExchangeStatus) MutateVerified(n bool) bool {
+	return rcv._tab.MutateBoolSlot(20, n)
+}
+
+func (rcv *ContactExchangeStatus) ContactName() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(22))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *ContactExchangeStatus) RelayPending() bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(24))
+	if o != 0 {
+		return rcv._tab.GetBool(o + rcv._tab.Pos)
+	}
+	return false
+}
+
+func (rcv *ContactExchangeStatus) MutateRelayPending(n bool) bool {
+	return rcv._tab.MutateBoolSlot(24, n)
+}
+
+func ContactExchangeStatusStart(builder *flatbuffers.Builder) {
+	builder.StartObject(11)
+}
+func ContactExchangeStatusAddId(builder *flatbuffers.Builder, id flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(id), 0)
+}
+func ContactExchangeStatusAddRelay(builder *flatbuffers.Builder, relay flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(1, flatbuffers.UOffsetT(relay), 0)
+}
+func ContactExchangeStatusAddInvitation(builder *flatbuffers.Builder, invitation flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(invitation), 0)
+}
+func ContactExchangeStatusAddInviterEmail(builder *flatbuffers.Builder, inviterEmail flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(3, flatbuffers.UOffsetT(inviterEmail), 0)
+}
+func ContactExchangeStatusAddRecipientEmail(builder *flatbuffers.Builder, recipientEmail flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(4, flatbuffers.UOffsetT(recipientEmail), 0)
+}
+func ContactExchangeStatusAddFingerprint(builder *flatbuffers.Builder, fingerprint flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(5, flatbuffers.UOffsetT(fingerprint), 0)
+}
+func ContactExchangeStatusAddExpiresMs(builder *flatbuffers.Builder, expiresMs uint64) {
+	builder.PrependUint64Slot(6, expiresMs, 0)
+}
+func ContactExchangeStatusAddAccepted(builder *flatbuffers.Builder, accepted bool) {
+	builder.PrependBoolSlot(7, accepted, false)
+}
+func ContactExchangeStatusAddVerified(builder *flatbuffers.Builder, verified bool) {
+	builder.PrependBoolSlot(8, verified, false)
+}
+func ContactExchangeStatusAddContactName(builder *flatbuffers.Builder, contactName flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(9, flatbuffers.UOffsetT(contactName), 0)
+}
+func ContactExchangeStatusAddRelayPending(builder *flatbuffers.Builder, relayPending bool) {
+	builder.PrependBoolSlot(10, relayPending, false)
+}
+func ContactExchangeStatusEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+	return builder.EndObject()
+}
+
+type ContactExchangeStatusListT struct {
+	Values []*ContactExchangeStatusT `json:"values"`
+}
+
+func (t *ContactExchangeStatusListT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+	if t == nil {
+		return 0
+	}
+	valuesOffset := flatbuffers.UOffsetT(0)
+	if t.Values != nil {
+		valuesLength := len(t.Values)
+		valuesOffsets := make([]flatbuffers.UOffsetT, valuesLength)
+		for j := 0; j < valuesLength; j++ {
+			valuesOffsets[j] = t.Values[j].Pack(builder)
+		}
+		ContactExchangeStatusListStartValuesVector(builder, valuesLength)
+		for j := valuesLength - 1; j >= 0; j-- {
+			builder.PrependUOffsetT(valuesOffsets[j])
+		}
+		valuesOffset = builder.EndVector(valuesLength)
+	}
+	ContactExchangeStatusListStart(builder)
+	ContactExchangeStatusListAddValues(builder, valuesOffset)
+	return ContactExchangeStatusListEnd(builder)
+}
+
+func (rcv *ContactExchangeStatusList) UnPackTo(t *ContactExchangeStatusListT) {
+	valuesLength := rcv.ValuesLength()
+	t.Values = make([]*ContactExchangeStatusT, valuesLength)
+	for j := 0; j < valuesLength; j++ {
+		x := ContactExchangeStatus{}
+		rcv.Values(&x, j)
+		t.Values[j] = x.UnPack()
+	}
+}
+
+func (rcv *ContactExchangeStatusList) UnPack() *ContactExchangeStatusListT {
+	if rcv == nil {
+		return nil
+	}
+	t := &ContactExchangeStatusListT{}
+	rcv.UnPackTo(t)
+	return t
+}
+
+type ContactExchangeStatusList struct {
+	_tab flatbuffers.Table
+}
+
+func GetRootAsContactExchangeStatusList(buf []byte, offset flatbuffers.UOffsetT) *ContactExchangeStatusList {
+	n := flatbuffers.GetUOffsetT(buf[offset:])
+	x := &ContactExchangeStatusList{}
+	x.Init(buf, n+offset)
+	return x
+}
+
+func FinishContactExchangeStatusListBuffer(builder *flatbuffers.Builder, offset flatbuffers.UOffsetT) {
+	builder.Finish(offset)
+}
+
+func GetSizePrefixedRootAsContactExchangeStatusList(buf []byte, offset flatbuffers.UOffsetT) *ContactExchangeStatusList {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &ContactExchangeStatusList{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
+func FinishSizePrefixedContactExchangeStatusListBuffer(builder *flatbuffers.Builder, offset flatbuffers.UOffsetT) {
+	builder.FinishSizePrefixed(offset)
+}
+
+func (rcv *ContactExchangeStatusList) Init(buf []byte, i flatbuffers.UOffsetT) {
+	rcv._tab.Bytes = buf
+	rcv._tab.Pos = i
+}
+
+func (rcv *ContactExchangeStatusList) Table() flatbuffers.Table {
+	return rcv._tab
+}
+
+func (rcv *ContactExchangeStatusList) Values(obj *ContactExchangeStatus, j int) bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
+	if o != 0 {
+		x := rcv._tab.Vector(o)
+		x += flatbuffers.UOffsetT(j) * 4
+		x = rcv._tab.Indirect(x)
+		obj.Init(rcv._tab.Bytes, x)
+		return true
+	}
+	return false
+}
+
+func (rcv *ContactExchangeStatusList) ValuesLength() int {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
+	if o != 0 {
+		return rcv._tab.VectorLen(o)
+	}
+	return 0
+}
+
+func ContactExchangeStatusListStart(builder *flatbuffers.Builder) {
+	builder.StartObject(1)
+}
+func ContactExchangeStatusListAddValues(builder *flatbuffers.Builder, values flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(values), 0)
+}
+func ContactExchangeStatusListStartValuesVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
+	return builder.StartVector(4, numElems, 4)
+}
+func ContactExchangeStatusListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+	return builder.EndObject()
+}
+
 type LockboxEntryT struct {
 	Path        string           `json:"path"`
 	Kind        LockboxEntryKind `json:"kind"`

@@ -5,6 +5,24 @@
 
 namespace revault.internal;
 
+table ContactExchangeStatus {
+  id:string (id: 0);
+  relay:string (id: 1);
+  invitation:string (id: 2);
+  inviter_email:string (id: 3);
+  recipient_email:string (id: 4);
+  fingerprint:string (id: 5);
+  expires_ms:ulong (id: 6);
+  accepted:bool (id: 7);
+  verified:bool (id: 8);
+  contact_name:string (id: 9);
+  relay_pending:bool (id: 10);
+}
+
+table ContactExchangeStatusList {
+  values:[revault.internal.ContactExchangeStatus] (id: 0);
+}
+
 enum LockboxEntryKind : int {
   KIND_UNSPECIFIED = 0,
   FILE = 1,

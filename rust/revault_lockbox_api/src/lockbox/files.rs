@@ -32,6 +32,7 @@ use crate::{Error, Result, WorkloadProfile};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroize;
 
+#[cfg(any(unix, windows))]
 fn open_host_file_nofollow(source: &Path) -> Result<std::fs::File> {
     use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt};
     use cap_std::fs::{Dir, OpenOptions};
@@ -57,6 +58,13 @@ fn open_host_file_nofollow(source: &Path) -> Result<std::fs::File> {
         return Err(Error::UnsupportedHostPath(source.display().to_string()));
     }
     Ok(file.into_std())
+}
+
+#[cfg(not(any(unix, windows)))]
+fn open_host_file_nofollow(source: &Path) -> Result<std::fs::File> {
+    // Hosted WASM delegates filesystem operations to the native host. Do not
+    // replace the native no-follow guarantee with an unchecked path open.
+    Err(Error::UnsupportedHostPath(source.display().to_string()))
 }
 
 // A verified native slice can be written directly while its zeroizing cache

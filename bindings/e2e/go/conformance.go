@@ -610,6 +610,12 @@ func vaultLifecycle() {
 	check(opened.StructureVersion() > 0, "open create")
 	opened.Close()
 	pass("vault_directory_open_or_create")
+	exchange := mustValue(revault.OpenContactExchange(filepath.Join(root, "local-vault.lbox"), newPassword))
+	pass("contact_exchange_open")
+	check(len(mustValue(exchange.List(true))) == 0, "empty exchange status")
+	pass("contact_exchange_execute")
+	exchange.Close()
+	pass("contact_exchange_free")
 }
 
 func defaultVaultLifecycle() {
