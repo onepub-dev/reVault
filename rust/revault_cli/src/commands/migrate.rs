@@ -2162,7 +2162,10 @@ mod tests {
             for kind in [ArtifactKind::Vault, ArtifactKind::Archive] {
                 let release = exporter_release(kind, version).unwrap();
                 assert_eq!(release.package, format!("revault_migrate_v{version}"));
-                assert_eq!(release.version, "0.1.0");
+                assert_eq!(
+                    release.version,
+                    if version == 2 { "0.1.1" } else { "0.1.0" }
+                );
             }
         }
         let raw = exporter_release(ArtifactKind::Vault, 3).unwrap();
@@ -2171,7 +2174,8 @@ mod tests {
             br#"{"protocol":3,"artifact":"archive","native_version":2,"migration_schema":3}"#,
             recovery
         ));
-        assert!(capabilities_match(br#"{"protocol":3,"artifact":"archive","native_version":2,"migration_schema":3,"recovery":true}"#, recovery));
+        assert!(!capabilities_match(br#"{"protocol":3,"artifact":"archive","native_version":2,"migration_schema":3,"recovery":true}"#, recovery));
+        assert!(capabilities_match(br#"{"protocol":3,"artifact":"archive","native_version":2,"migration_schema":3,"recovery":true,"recovery_directory_protocol":1}"#, recovery));
         let mut capability = serde_json::json!({"protocol":4,"artifact":"vault","native_version":3,"migration_schema":3,"container_version":3,"structure_versions":[3],"migration_schemas":[3],"raw_container_export":true});
         assert!(capabilities_match(
             &serde_json::to_vec(&capability).unwrap(),

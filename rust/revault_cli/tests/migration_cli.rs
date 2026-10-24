@@ -1,5 +1,9 @@
 mod common;
 
+#[allow(dead_code)]
+#[path = "../src/commands/migration_exporters.rs"]
+mod migration_exporters;
+
 use common::{CommandTestExt, TestTempDir};
 use revault_lockbox_api::{
     ContactKeyPair, Lockbox, LockboxOpen, SecretString, SecretVec, LOCKBOX_FORMAT_VERSION,
@@ -968,10 +972,13 @@ fn prepare_exporter_cache(root: &Path) {
     // is executable setup, not archive/Vault test-state manipulation. Tests
     // still use the CLI's normal validated-cache lookup for automatic selection.
     for (name, source) in exporter_binaries() {
-        let version = name.rsplit('v').next().unwrap();
+        let release = migration_exporters::EXPORTERS
+            .iter()
+            .find(|release| release.binary == name)
+            .unwrap();
         let bin = root
             .join("home/.cache/revault/exporters")
-            .join(format!("revault_migrate_v{version}-0.1.0/bin"));
+            .join(format!("{}-{}/bin", release.package, release.version));
         std::fs::create_dir_all(&bin).unwrap();
         let destination = bin.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
         std::fs::hard_link(source, &destination)
@@ -1559,7 +1566,7 @@ fn all_migration_reports_partial_failures_and_can_be_repeated() {
     // known-path record; host removal models an unavailable remembered file.
     std::fs::remove_file(&missing).unwrap();
     use revault_lockbox_api_structure_v2 as old;
-    // Only fixture creation needs the historical API: current CLI writes v4.
+    // Only fixture creation needs the historical API: current CLI writes v5.
     let mut archive = old::Lockbox::create_in_memory(
         old::LockboxProtection::ContentKey(
             old::SecretVec::try_from_slice(b"migration-test-content-key").unwrap(),
@@ -1593,13 +1600,21 @@ fn all_migration_reports_partial_failures_and_can_be_repeated() {
     assert_failure_contains(&fixture.run(&["doctor", "migrate", "all"]), "--replace");
     let result = fixture.run(&["doctor", "migrate", "all", "--replace"]);
     assert_failure_contains(&result, "known Lockbox is missing");
-    assert!(String::from_utf8_lossy(&result.stdout).contains("2 Lockboxes complete; 1 failed"));
+    assert!(
+        String::from_utf8_lossy(&result.stdout).contains("2 Lockboxes complete; 1 failed"),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&result.stdout),
+        String::from_utf8_lossy(&result.stderr)
+    );
     assert_eq!(
         fixture.success(&[path(&source), "cat", "/payload"]).stdout,
         b"bulk historical payload"
     );
     assert_eq!(
-        std::fs::read(source.with_file_name("historical.lbox.v2-v4.pre-migration")).unwrap(),
+        std::fs::read(source.with_file_name(format!(
+            "historical.lbox.v2-v{LOCKBOX_FORMAT_VERSION}.pre-migration"
+        )))
+        .unwrap(),
         original
     );
     assert_eq!(std::fs::read(&current).unwrap(), current_bytes);
@@ -1786,7 +1801,10 @@ fn closed_format_two_archive_migrates_without_normal_open_or_auto_open() {
         assert_success(&result);
         assert_eq!(result.stdout, payload);
         assert_eq!(
-            std::fs::read(source.with_file_name("closed.lbox.v2-v4.pre-migration")).unwrap(),
+            std::fs::read(source.with_file_name(format!(
+                "closed.lbox.v2-v{LOCKBOX_FORMAT_VERSION}.pre-migration"
+            )))
+            .unwrap(),
             original
         );
         assert_success(&run(&[
@@ -2225,7 +2243,10 @@ fn vault_v3_container_upgrade_preserves_profiles_and_enables_compaction() {
         path(&archive_exporter),
     ]);
     assert_eq!(
-        std::fs::read(archive.with_file_name("legacy-owned.lbox.v3-v4.pre-migration")).unwrap(),
+        std::fs::read(archive.with_file_name(format!(
+            "legacy-owned.lbox.v3-v{LOCKBOX_FORMAT_VERSION}.pre-migration"
+        )))
+        .unwrap(),
         original_archive
     );
     fixture.success(&[path(&archive), "doctor", "compact"]);

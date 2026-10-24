@@ -148,6 +148,33 @@ The affected standalone, read-only credential/process-lock, unversioned-Vault
 and key-import tests then passed with the ambient umask left at 0002. The
 production unsafe-directory rejection was not relaxed.
 
+Candidate `40104070983` at `0a8fae7a` failed the actual registry-exporter
+migration gate before platform jobs or publication. Five migration cases passed;
+two successful migrations had stale format-4 backup-name assertions, and damaged
+format-2 recovery exposed a real dependency gap: published `revault_migrate_v2`
+0.1.0 lacks recovery-directory protocol 1. The implementation introduced in
+`224ad22b` had never received a new exporter package version. The correction
+publishes that implementation as 0.1.1 and pins both format-2 exporter binaries
+to it. Capability validation explicitly requires the recovery-directory protocol.
+Test exporter caches now derive their versions from the same release registry.
+Backup assertions derive their target archive format from the current constant;
+Vault structure-version expectations remain unchanged.
+
+Package comparison found incidental `toml_edit` dependency drift. The workspace
+lock restores its published historical version, 0.25.13+spec-1.1.0, so the v2
+exporter's frozen dependency graph is preserved. The new package must pass
+isolated package qualification before publication, followed by the mandatory
+exact-version crates.io migration gate in the replacement candidate.
+
+Isolated v2 0.1.1 qualification passed. The packaged manifest and lockfile
+differ from the published 0.1.0 package only in the exporter version. Installing
+the extracted crate with `cargo install --offline --locked` produced both
+binaries with the required capabilities. Public CLI damaged-format-2 recovery
+and closed-format-2 migration tests passed against those installed binaries,
+checking original credentials, persisted content and backups. The bulk migration
+repeat/failure lifecycle, exact capability contract and CLI/tooling Clippy also
+passed. Qualification artifacts are under `/tmp/revault-migrate-v2-*`.
+
 The integrated #226 branch was deleted locally and remotely after checking both
 tips were ancestors of remote main. Its clean worktree is retained detached.
 Only its exact ref was temporarily excluded from deletion protection, and the

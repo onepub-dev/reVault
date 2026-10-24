@@ -2122,6 +2122,7 @@ mod tests {
                 "container_version": release.native_version,
                 "raw_container_export": true,
                 "recovery": true,
+                "recovery_directory_protocol": 1,
                 "structure_versions": if release.native_version == 1 { vec![1, 2] } else if release.native_version == 4 { vec![3] } else { vec![release.native_version] },
                 "migration_schemas": if release.native_version == 1 { vec![1, 2] } else { vec![release.migration_schema] },
             }),
@@ -2145,6 +2146,18 @@ mod tests {
             .remove("recovery");
         assert!(validate_exporter_report(&report, &report.source_sha).is_err());
         report.exporters[archive_v2].capabilities["recovery"] = serde_json::json!(true);
+        report.exporters[archive_v2].capabilities["recovery_directory_protocol"] =
+            serde_json::json!(0);
+        assert!(validate_exporter_report(&report, &report.source_sha).is_err());
+        report.exporters[archive_v2]
+            .capabilities
+            .as_object_mut()
+            .unwrap()
+            .remove("recovery_directory_protocol");
+        assert!(validate_exporter_report(&report, &report.source_sha).is_err());
+        report.exporters[archive_v2].capabilities["recovery_directory_protocol"] =
+            serde_json::json!(1);
+        assert!(validate_exporter_report(&report, &report.source_sha).is_ok());
         assert!(validate_exporter_report(&report, &"b".repeat(40)).is_err());
         report.schema = 2;
         assert!(validate_exporter_report(&report, &report.source_sha).is_err());

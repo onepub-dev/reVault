@@ -48,7 +48,7 @@ pub const EXPORTERS: &[ExporterRelease] = &[
     },
     ExporterRelease {
         package: "revault_migrate_v2",
-        version: "0.1.0",
+        version: "0.1.1",
         binary: "revault-migrate-archive-v2",
         protocol: 3,
         artifact: "archive",
@@ -57,7 +57,7 @@ pub const EXPORTERS: &[ExporterRelease] = &[
     },
     ExporterRelease {
         package: "revault_migrate_v2",
-        version: "0.1.0",
+        version: "0.1.1",
         binary: "revault-migrate-vault-v2",
         protocol: 2,
         artifact: "vault",
@@ -97,7 +97,12 @@ pub fn capabilities_match(bytes: &[u8], release: ExporterRelease) -> bool {
             .and_then(|value| value.as_u64())
             == Some(u64::from(release.migration_schema));
     if release.artifact == "archive" && release.native_version == 2 {
-        return valid && value.get("recovery").and_then(|value| value.as_bool()) == Some(true);
+        return valid
+            && value.get("recovery").and_then(|value| value.as_bool()) == Some(true)
+            && value
+                .get("recovery_directory_protocol")
+                .and_then(|value| value.as_u64())
+                == Some(1);
     }
     if !valid || release.artifact != "vault" || release.protocol < 2 {
         return valid;
