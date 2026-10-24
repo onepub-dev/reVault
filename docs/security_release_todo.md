@@ -3,7 +3,8 @@
 Status on 2026-10-24: eight findings from the October security review have
 private draft GitHub security advisories. The fixes are committed on
 `security/advisory-fixes-2026-10` at `8e93aaebebf3517bdc3a5282e4bceda6dff771c1`.
-They have not been merged into `main`, released, or disclosed. The affected
+They are integrated into local `main` at `7667ab4f`, but that revision has not
+been pushed, released, or disclosed. The affected
 Rust packages passed offline locked `cargo check --all-targets` and Clippy with
 warnings denied; those checks do not establish release readiness. The private
 advisories are the source of truth for finding details. Keep them private until
@@ -20,8 +21,9 @@ authorization.
   impact, severity, affected versions, and proposed mitigation still match the
   code. Check whether each published crate, CLI, or binding actually exposes
   the affected behavior; do not mark an unaffected package as vulnerable.
-- [ ] Merge the intended fixes into `main`. Prepare and validate an exact
-  release candidate from `main`, including focused security regressions where
+- [x] Merge the intended fixes into local `main`.
+- [ ] Prepare and validate an exact release candidate from `main`, including
+  focused security regressions where
   needed, installed package checks, and the applicable cross-language and
   within-line compatibility checks. Record the candidate revision and results.
 - [ ] Assign new, never-before-published versions to every affected public
