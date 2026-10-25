@@ -1206,9 +1206,19 @@ jobs:
           dotnet pack packages/nuget/RevaultBindings.csproj -c Release -o artifacts/nuget --nologo
           for root in packages/ruby/*; do
             target=$(basename "$root")
-            gem build "$root/revault_api.gemspec" \
-              --output "artifacts/ruby/revault_api-${version}-${target}.gem"
+            (
+              cd "$root"
+              gem build revault_api.gemspec \
+                --output "$GITHUB_WORKSPACE/artifacts/ruby/revault_api-${version}-${target}.gem"
+            )
           done
+          gem install "artifacts/ruby/revault_api-${version}-linux-x86_64-gnu.gem" \
+            --local --no-document --install-dir "$RUNNER_TEMP/frozen-ruby-gems"
+          env -u REVAULT_LIBRARY -u REVAULT_E2E_LOAD_PATH -u REVAULT_E2E_LOAD_LIBRARY \
+            GEM_HOME="$RUNNER_TEMP/frozen-ruby-gems" \
+            GEM_PATH="$RUNNER_TEMP/frozen-ruby-gems" \
+            REVAULT_E2E_LOADER_SMOKE=frozen-publication-payload \
+            ruby bindings/e2e/ruby/conformance.rb
           sha256sum artifacts/npm-native/* artifacts/npm/* artifacts/nuget/* artifacts/ruby/* \
             > artifacts/SHA256SUMS
           git rev-parse HEAD > artifacts/SOURCE_SHA

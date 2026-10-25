@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Correct Ruby gem packaging so the six platform gems include the binding
+  sources and native libraries. Install and exercise the exact frozen Linux
+  gem before it becomes eligible for publication. Ruby 0.6.0 was published
+  without these files; the correction requires a new package version.
+- Require Fiddle 1.1.2 or newer for native Boolean declarations, including
+  supported Ruby versions that bundle an older Fiddle release.
+
 - Move CLI and bindings to compatibility line 0.6.x with archive format 5.
   Migrate historical archives and Vaults using the current CLI before opening
   them through the bindings. Retain migration backups.
