@@ -2,4 +2,6 @@ Release bindings
 CLI: 
 Bindings: 0.6.1
 
+- Resolve dependencies when testing frozen Ruby gem
+- [release candidate] Prepare bindings release: CLI , bindings 0.6.1
 - Fix Ruby frozen gem contents and Fiddle dependency
