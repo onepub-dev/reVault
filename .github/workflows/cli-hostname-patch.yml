@@ -1,0 +1,123 @@
+name: CLI hostname patch (build only)
+run-name: CLI 0.6.1 ${{ inputs.mode }} ${{ inputs.source_sha }}
+
+# Explicit one-release exception requested by the operator: publish only the
+# hostname-only CLI patch, reusing 0.6.0 dependencies, with no test reruns.
+# This workflow never publishes crates or bindings. Crates.io is published first.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [integrate, binaries]
+        required: true
+      source_sha:
+        description: Exact reviewed commit; must descend from main
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cli-hostname-patch-0.6.1
+  cancel-in-progress: false
+
+jobs:
+  integrate:
+    if: inputs.mode == 'integrate'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+      - uses: dart-lang/setup-dart@v1
+      - run: dart pub global activate dcli_sdk 10.3.0 --overwrite
+      - run: dart pub get --enforce-lockfile --directory .github/scripts
+      - name: Integrate reviewed source without triggering duplicate test runs
+        env:
+          PATCH_SOURCE_SHA: ${{ inputs.source_sha }}
+        run: ./.github/scripts/cli_hostname_patch.dart integrate
+
+  binaries:
+    if: inputs.mode == 'binaries'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-24.04
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+          - target: aarch64-apple-darwin
+            runner: macos-15
+          - target: x86_64-pc-windows-msvc
+            runner: windows-2025
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: dart-lang/setup-dart@v1
+      - uses: Swatinem/rust-cache@v2
+      - run: dart pub global activate dcli_sdk 10.3.0 --overwrite
+      - run: dart pub get --enforce-lockfile --directory .github/scripts
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - name: Install cargo-dist
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-dist@0.31.0
+      - name: Build binaries from the already-published CLI crate
+        shell: bash
+        env:
+          PATCH_SOURCE_SHA: ${{ inputs.source_sha }}
+          PATCH_TARGET: ${{ matrix.target }}
+        run: ./.github/scripts/cli_hostname_patch.dart binaries
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-0.6.1-${{ matrix.target }}
+          path: cli-patch-stage/target/distrib/*
+          if-no-files-found: error
+
+  publish-binaries:
+    if: inputs.mode == 'binaries'
+    needs: binaries
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: dart-lang/setup-dart@v1
+      - run: dart pub global activate dcli_sdk 10.3.0 --overwrite
+      - run: dart pub get --enforce-lockfile --directory .github/scripts
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-dist@0.31.0
+      - name: Stage published CLI package
+        env:
+          PATCH_SOURCE_SHA: ${{ inputs.source_sha }}
+        run: ./.github/scripts/cli_hostname_patch.dart stage
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cli-0.6.1-*
+          path: cli-patch-stage/target/distrib
+          merge-multiple: true
+      - name: Publish CLI archives and installers only
+        env:
+          PATCH_SOURCE_SHA: ${{ inputs.source_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: ./.github/scripts/cli_hostname_patch.dart publish-binaries
