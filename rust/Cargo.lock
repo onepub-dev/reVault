@@ -2443,13 +2443,13 @@ dependencies = [
 
 [[package]]
 name = "revault_bindings"
-version = "0.2.39"
+version = "0.2.40"
 dependencies = [
  "criterion",
  "flatbuffers",
  "revault_key_server",
- "revault_lockbox_api 0.0.57",
- "revault_vault_api 0.0.58",
+ "revault_lockbox_api 0.0.58",
+ "revault_vault_api 0.0.59",
  "serde",
  "serde_json",
  "tempfile",
@@ -2471,13 +2471,13 @@ dependencies = [
  "revault_archive_v1_reader",
  "revault_archive_v3_reader",
  "revault_key_server",
- "revault_lockbox_api 0.0.57",
+ "revault_lockbox_api 0.0.58",
  "revault_lockbox_api 0.0.9",
  "revault_migrate_v2",
  "revault_migration",
  "revault_publish_protocol",
  "revault_vault_api 0.0.10",
- "revault_vault_api 0.0.58",
+ "revault_vault_api 0.0.59",
  "revault_vault_v1_reader",
  "revault_vault_v2_container_v1_reader",
  "revault_vault_v3_reader",
@@ -2499,7 +2499,7 @@ dependencies = [
  "getrandom 0.4.3",
  "lettre",
  "libc",
- "revault_lockbox_api 0.0.57",
+ "revault_lockbox_api 0.0.58",
  "revault_publish_protocol",
  "serde",
  "serde_json",
@@ -2538,7 +2538,7 @@ dependencies = [
 
 [[package]]
 name = "revault_lockbox_api"
-version = "0.0.57"
+version = "0.0.58"
 dependencies = [
  "argon2 0.6.0",
  "cap-fs-ext",
@@ -2781,7 +2781,7 @@ dependencies = [
  "revault_archive_v1_legacy_reader",
  "revault_archive_v1_reader",
  "revault_archive_v3_reader",
- "revault_lockbox_api 0.0.57",
+ "revault_lockbox_api 0.0.58",
  "revault_lockbox_api 0.0.9",
  "revault_migrate_archive_v1",
  "revault_migrate_archive_v3",
@@ -2790,7 +2790,7 @@ dependencies = [
  "revault_migrate_vault_v2",
  "revault_migration_format 0.0.44",
  "revault_vault_api 0.0.10",
- "revault_vault_api 0.0.58",
+ "revault_vault_api 0.0.59",
  "revault_vault_v1_reader",
  "revault_vault_v2_container_v1_reader",
  "revault_vault_v3_reader",
@@ -2912,11 +2912,11 @@ dependencies = [
 
 [[package]]
 name = "revault_publish_protocol"
-version = "0.0.51"
+version = "0.0.52"
 dependencies = [
  "getrandom 0.4.3",
  "httparse",
- "revault_lockbox_api 0.0.57",
+ "revault_lockbox_api 0.0.58",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -2992,7 +2992,7 @@ dependencies = [
 
 [[package]]
 name = "revault_vault_api"
-version = "0.0.58"
+version = "0.0.59"
 dependencies = [
  "aes",
  "async-io",
@@ -3010,7 +3010,7 @@ dependencies = [
  "libc",
  "objc2-core-foundation",
  "objc2-io-kit",
- "revault_lockbox_api 0.0.57",
+ "revault_lockbox_api 0.0.58",
  "revault_publish_protocol",
  "secret-service",
  "serde",
@@ -3091,12 +3091,12 @@ dependencies = [
 
 [[package]]
 name = "revault_wasm_bindings"
-version = "0.0.40"
+version = "0.0.41"
 dependencies = [
  "js-sys",
- "revault_lockbox_api 0.0.57",
+ "revault_lockbox_api 0.0.58",
  "revault_secure_memory 0.1.0",
- "revault_vault_api 0.0.58",
+ "revault_vault_api 0.0.59",
  "wasm-bindgen",
 ]
 

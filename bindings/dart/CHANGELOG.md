@@ -1,3 +1,7 @@
+## 0.6.1
+
+- Fix Ruby frozen gem contents and Fiddle dependency
+
 ## 0.6.0
 
 - Record migration dependency publication and private advisory review
