@@ -1,0 +1,20 @@
+reVault CLI 0.6.1
+
+Updates the default primary key-sharing endpoint to
+https://revaultkeyshare0.onepub.dev/v1/topology.
+
+This is a CLI-only hostname patch in the existing 0.6.x compatibility line.
+Archive format 5 and Vault structure 3 are unchanged. No bindings, key-server
+package, migration exporter or implementation package is published with it.
+
+The crates.io package retains the published implementation dependencies used by
+CLI 0.6.0: revault_lockbox_api 0.0.57, revault_publish_protocol 0.0.51,
+revault_vault_api 0.0.58 and revault_migration 0.0.55. Their implementation source
+is unchanged relative to the CLI 0.6.0 release; main has only unpublished package
+version increments for a separate binding release. The package is staged using
+the previous normalized registry manifest and this commit's CLI source.
+
+The operator explicitly requested no test reruns. Earlier hostname-focused
+checks passed; this publication builds/packages the CLI without running tests.
+GitHub binaries are to be built from the published 0.6.1 crate after crates.io
+publication. No previous release tags or artifacts may be replaced.

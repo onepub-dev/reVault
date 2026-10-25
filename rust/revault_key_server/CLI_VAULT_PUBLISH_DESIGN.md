@@ -260,7 +260,7 @@ The current CLI resolves discovery in this order:
 3 YAML config: publish.topology_url
 4 YAML config: publish.server (direct-server override)
 5 built-in topology bootstrap URLs, tried in order:
-  https://keyshare0.revault.onepub.dev/v1/topology
+  https://revaultkeyshare0.onepub.dev/v1/topology
   https://keyshare1.revault.onepub.dev/v1/topology
 ```
 

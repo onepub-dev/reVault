@@ -38,14 +38,14 @@ topology decoding, or the publish handler.
 The default CLI first tries these topology endpoints:
 
 ```text
-keyshare0.revault.onepub.dev
+revaultkeyshare0.onepub.dev
 keyshare1.revault.onepub.dev
 ```
 
 Check both records from the affected client network:
 
 ```bash
-getent hosts keyshare0.revault.onepub.dev
+getent hosts revaultkeyshare0.onepub.dev
 getent hosts keyshare1.revault.onepub.dev
 ```
 
@@ -57,7 +57,7 @@ the defaults.
 Useful one-off isolation commands are:
 
 ```bash
-lbx vault profiles publish --topology-url https://keyshare0.revault.onepub.dev/v1/topology
+lbx vault profiles publish --topology-url https://revaultkeyshare0.onepub.dev/v1/topology
 lbx vault profiles publish --topology-url https://keyshare1.revault.onepub.dev/v1/topology
 ```
 
@@ -71,7 +71,7 @@ certificate:
 
 ```bash
 curl --fail --show-error --silent \
-  https://keyshare0.revault.onepub.dev/v1/topology --output /tmp/topology.bin
+  https://revaultkeyshare0.onepub.dev/v1/topology --output /tmp/topology.bin
 ```
 
 A certificate-name error usually means the reverse proxy is serving the wrong

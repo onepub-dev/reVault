@@ -1049,7 +1049,7 @@ fn publish_client_pool(options: &PublishCliOptions) -> CliResult<PublishClientPo
 }
 
 const DEFAULT_PUBLISH_TOPOLOGY_URLS: [&str; 2] = [
-    "https://keyshare0.revault.onepub.dev/v1/topology",
+    "https://revaultkeyshare0.onepub.dev/v1/topology",
     "https://keyshare1.revault.onepub.dev/v1/topology",
 ];
 
@@ -2174,7 +2174,7 @@ mod tests {
         assert_eq!(
             DEFAULT_PUBLISH_TOPOLOGY_URLS,
             [
-                "https://keyshare0.revault.onepub.dev/v1/topology",
+                "https://revaultkeyshare0.onepub.dev/v1/topology",
                 "https://keyshare1.revault.onepub.dev/v1/topology",
             ]
         );

@@ -25,7 +25,7 @@ The original production deployment used one server:
 
 ```text
 server_id: 0
-url: https://keyshare0.revault.onepub.dev/v1/publish
+url: https://revaultkeyshare0.onepub.dev/v1/publish
 ```
 
 The server still generates self-routing publish codes:
@@ -71,7 +71,7 @@ publish:
 ```
 
 The production reVault CLI has two ordered bootstrap URLs,
-`keyshare0.revault.onepub.dev/v1/topology` and
+`revaultkeyshare0.onepub.dev/v1/topology` and
 `keyshare1.revault.onepub.dev/v1/topology`. It tries the second if the first is
 unavailable, then learns all current member URLs from the returned document.
 
@@ -108,7 +108,7 @@ The operator configures this topology on the key servers:
 ```yaml
 key_servers:
   - id: 0
-    url: https://keyshare0.revault.onepub.dev/v1/publish
+    url: https://revaultkeyshare0.onepub.dev/v1/publish
   - id: 1
     url: https://keyshare1.revault.onepub.dev/v1/publish
   - id: 2

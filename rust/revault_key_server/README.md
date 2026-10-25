@@ -27,7 +27,7 @@ server selected for the verified email, and route receive/delete operations by
 the code's owner id. The CLI's production bootstrap endpoints are:
 
 ```text
-https://keyshare0.revault.onepub.dev/v1/topology
+https://revaultkeyshare0.onepub.dev/v1/topology
 https://keyshare1.revault.onepub.dev/v1/topology
 ```
 
@@ -99,11 +99,11 @@ member list begins as follows:
 ```toml
 server_id = 0
 cluster_id = "revault-production"
-public_url = "https://keyshare0.revault.onepub.dev/v1/publish"
+public_url = "https://revaultkeyshare0.onepub.dev/v1/publish"
 
 [[topology_server]]
 id = 0
-url = "https://keyshare0.revault.onepub.dev/v1/publish"
+url = "https://revaultkeyshare0.onepub.dev/v1/publish"
 status = "active"
 
 [[topology_server]]

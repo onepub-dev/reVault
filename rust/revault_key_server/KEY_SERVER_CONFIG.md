@@ -36,7 +36,7 @@ state_dir = "/var/lib/revault-key-server"
 
 server_id = 0
 cluster_id = "default"
-public_url = "https://keyshare0.revault.onepub.dev/v1/publish"
+public_url = "https://revaultkeyshare0.onepub.dev/v1/publish"
 
 topology_version = 1
 
@@ -65,7 +65,7 @@ verification_email_ip_rate_limit_per_hour = 0
 
 [[topology_server]]
 id = 0
-url = "https://keyshare0.revault.onepub.dev/v1/publish"
+url = "https://revaultkeyshare0.onepub.dev/v1/publish"
 status = "active"
 
 [[route]]

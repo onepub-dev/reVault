@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1
+
+- Use `revaultkeyshare0.onepub.dev` for the default primary key-sharing server.
+  This hostname is covered by Cloudflare's standard edge certificate.
+
 ## Unreleased
 
 - Target compatibility line 0.6.x and archive format 5. Upgrade the CLI and all

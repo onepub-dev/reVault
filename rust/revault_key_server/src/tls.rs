@@ -177,7 +177,7 @@ mod tests {
 
     fn settings() -> AcmeSettings {
         AcmeSettings {
-            domain: "keyshare0.revault.onepub.dev".into(),
+            domain: "revaultkeyshare0.onepub.dev".into(),
             email: "ops@example.com".into(),
             ..Default::default()
         }
