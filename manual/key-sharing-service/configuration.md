@@ -81,6 +81,12 @@ failover = []
 
 The public member URL is always the `/v1/publish` endpoint. Peers and clients derive `/v1/topology`, `/v1/topology/register` and the other endpoints from the same origin.
 
+For the exchange endpoint, `exchange_owner_id` selects the active owner,
+`exchange_max_invitations` and `exchange_max_bytes` bound stored invitations,
+and `exchange_per_identity` limits invitations per identity. See the
+[current configuration guide](../operate-a-key-sharing-service/key-sharing-service/configuration.md)
+for exchange and failover configuration.
+
 ## Native HTTPS and Let's Encrypt
 
 Set these top-level keys before any `[[topology_server]]` or `[[route]]` tables:
