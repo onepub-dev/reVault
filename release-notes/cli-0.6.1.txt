@@ -16,5 +16,5 @@ the previous normalized registry manifest and this commit's CLI source.
 
 The operator explicitly requested no test reruns. Earlier hostname-focused
 checks passed; this publication builds/packages the CLI without running tests.
-GitHub binaries are to be built from the published 0.6.1 crate after crates.io
-publication. No previous release tags or artifacts may be replaced.
+GitHub binaries are deferred to a subsequent release at the operator's request.
+No previous release tags or artifacts may be replaced.
