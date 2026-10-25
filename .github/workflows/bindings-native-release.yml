@@ -1213,7 +1213,7 @@ jobs:
             )
           done
           gem install "artifacts/ruby/revault_api-${version}-linux-x86_64-gnu.gem" \
-            --local --no-document --install-dir "$RUNNER_TEMP/frozen-ruby-gems"
+            --no-document --install-dir "$RUNNER_TEMP/frozen-ruby-gems"
           env -u REVAULT_LIBRARY -u REVAULT_E2E_LOAD_PATH -u REVAULT_E2E_LOAD_LIBRARY \
             GEM_HOME="$RUNNER_TEMP/frozen-ruby-gems" \
             GEM_PATH="$RUNNER_TEMP/frozen-ruby-gems" \
