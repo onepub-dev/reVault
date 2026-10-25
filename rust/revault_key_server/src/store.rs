@@ -83,6 +83,8 @@ pub struct ServerConfig {
     pub exchange_per_identity: usize,
     /// Represents the bind addr carried by this record case.
     pub bind_addr: String,
+    /// Optional native HTTPS settings; an empty domain keeps plain HTTP enabled.
+    pub acme: crate::tls::AcmeSettings,
     /// Represents the state dir carried by this record case.
     pub state_dir: PathBuf,
     /// Represents the server id carried by this record case.
@@ -184,6 +186,7 @@ impl Default for ServerConfig {
             exchange_max_bytes: 1024 * 1024 * 1024,
             exchange_per_identity: 100,
             bind_addr: "127.0.0.1:8089".to_string(),
+            acme: crate::tls::AcmeSettings::default(),
             state_dir: PathBuf::from("/var/lib/revault-key-server"),
             server_id: 0,
             cluster_id: "default".to_string(),

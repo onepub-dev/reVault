@@ -81,6 +81,45 @@ failover = []
 
 The public member URL is always the `/v1/publish` endpoint. Peers and clients derive `/v1/topology`, `/v1/topology/register` and the other endpoints from the same origin.
 
+## Native HTTPS and Let's Encrypt
+
+Set these top-level keys before any `[[topology_server]]` or `[[route]]` tables:
+
+```toml
+bind_addr = "[2001:db8::2]:443"
+acme_domain = "keyshare0.example.com"
+acme_email = "operator@example.com"
+acme_cache_dir = "/var/lib/revault-key-server/acme"
+acme_production = false
+acme_http_port = 80
+```
+
+Replace the documentation address with the server's allocated, persistent IPv6 address.
+A nonempty `acme_domain` enables native HTTPS on `bind_addr`; an empty domain
+retains plain HTTP for local development or an existing reverse proxy.
+The HTTPS bind must specify a single IP address, not a wildcard.
+
+The server obtains and renews certificates with HTTP-01 validation. Port 80 on the
+same IP serves only `/.well-known/acme-challenge/{token}`; key APIs remain HTTPS-only.
+Permit inbound TCP ports 80 and 443 and outbound HTTPS to the ACME CA. Point DNS at
+this address. If Cloudflare proxies the hostname, allow the HTTP validation path
+through and ensure its edge certificate covers the full hostname. Use Full (strict)
+with a production origin certificate.
+
+Start with `acme_production = false` to validate issuance against Let's Encrypt
+staging, then set it to `true` and restart for a publicly trusted certificate.
+Staging certificates are not browser-trusted. The server keeps separate staging
+and production subdirectories under `acme_cache_dir`, with mode 0700 on Unix.
+Preserve that directory across upgrades: it contains private account and certificate
+keys. Renewal retries occur in the running process, and renewed certificates are
+used for new TLS connections without restarting.
+
+The Linux systemd unit grants only `CAP_NET_BIND_SERVICE` for ports 80/443 and uses
+a private umask. Existing installations need the updated unit (rerun `install`,
+which preserves configuration), followed by a service restart. Keep a custom
+cache directory inside a service-writable path, or explicitly adjust the unit's
+`ReadWritePaths`.
+
 ## Core settings
 
 | Key              | Runtime default               | Purpose                                                               |

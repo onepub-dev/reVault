@@ -54,7 +54,7 @@ pub fn local_addr(listener: &TcpListener) -> std::io::Result<SocketAddr> {
     listener.local_addr()
 }
 
-fn start_background_maintenance(store: &Arc<PublishStore>) {
+pub(crate) fn start_background_maintenance(store: &Arc<PublishStore>) {
     let purge_store = Arc::clone(store);
     thread::spawn(move || loop {
         thread::sleep(Duration::from_secs(1));
@@ -124,7 +124,7 @@ impl AppState {
     }
 }
 
-fn make_app(store: Arc<PublishStore>) -> Router {
+pub(crate) fn make_app(store: Arc<PublishStore>) -> Router {
     let body_limit = store.max_payload_bytes() + MAX_WIRE_OVERHEAD;
     Router::new()
         .route("/exchange", get(exchange_landing))

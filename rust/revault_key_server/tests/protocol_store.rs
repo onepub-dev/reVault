@@ -1047,6 +1047,7 @@ fn temp_config(name: &str) -> (TempGuard, ServerConfig) {
     let config = ServerConfig {
         exchange_owner_id: 0,
         bind_addr: "127.0.0.1:0".to_string(),
+        acme: Default::default(),
         state_dir: path.clone(),
         server_id: 0,
         cluster_id: "default".to_string(),

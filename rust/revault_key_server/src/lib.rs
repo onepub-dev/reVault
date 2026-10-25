@@ -12,3 +12,5 @@ pub mod server;
 pub mod server_log;
 /// Represents store.
 pub mod store;
+/// Native HTTPS and automatic Let's Encrypt certificate management.
+pub mod tls;

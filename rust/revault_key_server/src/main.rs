@@ -68,6 +68,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 print_fencing_help();
             }
             let bind = config.bind_addr.clone();
+            let acme = config.acme.clone();
+            if !acme.domain.is_empty() {
+                acme.validate(&bind)?;
+            }
             println!("reVault key server starting");
             println!("  bind address: {bind}");
             println!("  state directory: {}", config.state_dir.display());
@@ -83,7 +87,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 )
             })?);
             store.start_topology_background();
-            run_server(&bind, store)?;
+            if acme.domain.is_empty() {
+                run_server(&bind, store)?;
+            } else {
+                revault_key_server::tls::run_https(&bind, acme, store)?;
+            }
         }
         Some(("install", command)) => install_systemd(command.get_flag("force-config"))?,
         Some(("uninstall", command)) => uninstall_systemd(command.get_flag("purge-data"))?,
@@ -229,6 +237,15 @@ fn print_doctor() -> Result<(), Box<dyn std::error::Error>> {
     println!("Application configuration");
     println!("  Configuration is valid: YES");
     println!("  Bind address: {}", config.bind_addr);
+    if !config.acme.domain.is_empty() {
+        config.acme.validate(&config.bind_addr)?;
+        println!("  Native HTTPS: {}", config.acme.domain);
+        println!(
+            "  Let's Encrypt production: {}",
+            doctor_yes_no(config.acme.production)
+        );
+        println!("  ACME HTTP-01 port: {}", config.acme.http_port);
+    }
     println!(
         "  Public URL: {}",
         config.public_url.as_deref().unwrap_or("not configured")
@@ -992,6 +1009,9 @@ fn config_from_args(args: Vec<String>) -> Result<ServerConfig, Box<dyn std::erro
         }
         index += 1;
     }
+    if !config.acme.domain.is_empty() {
+        config.acme.validate(&config.bind_addr)?;
+    }
     Ok(config)
 }
 
@@ -1168,6 +1188,11 @@ fn apply_config_value(
 ) -> Result<(), Box<dyn std::error::Error>> {
     match key {
         "bind_addr" => config.bind_addr = value,
+        "acme_domain" => config.acme.domain = value,
+        "acme_email" => config.acme.email = value,
+        "acme_cache_dir" => config.acme.cache_dir = PathBuf::from(value),
+        "acme_production" => config.acme.production = value.parse()?,
+        "acme_http_port" => config.acme.http_port = value.parse()?,
         "state_dir" => config.state_dir = PathBuf::from(value),
         "server_id" => config.server_id = parse_server_id(&value)?,
         "cluster_id" => config.cluster_id = value,

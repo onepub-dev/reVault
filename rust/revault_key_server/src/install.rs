@@ -564,6 +564,9 @@ Environment=REVAULT_KEY_SERVER_LOG={LOG_FILE}
 StandardOutput=append:{LOG_FILE}
 StandardError=append:{LOG_FILE}
 NoNewPrivileges=true
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+UMask=0077
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
