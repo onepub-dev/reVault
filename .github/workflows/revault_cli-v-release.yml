@@ -56,7 +56,7 @@ on:
       support_mode:
         description: Explicit support package publication; empty retains normal CLI release behavior
         type: choice
-        options: ['', bootstrap, retirement, hostname-0.6.1]
+        options: ['', bootstrap, retirement]
         default: ''
       source_sha:
         description: Exact reviewed main commit required for support publication
@@ -81,32 +81,6 @@ on:
       - 'revault_cli-v**[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
-  hostname-cli-only:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.support_mode == 'hostname-0.6.1' && inputs.publish
-    runs-on: ubuntu-24.04
-    environment: release
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@1.88.0
-      - uses: dart-lang/setup-dart@v1
-      - name: Install packaging dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
-          dart pub global activate dcli_sdk 10.3.0 --overwrite
-          dart pub get --enforce-lockfile --directory .github/scripts
-      - id: crates
-        uses: rust-lang/crates-io-auth-action@v1
-      - name: Publish only CLI 0.6.1 with its previous published dependencies
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
-          EXPECTED_SOURCE_SHA: ${{ inputs.source_sha }}
-        run: ./.github/scripts/publish_cli_hostname.dart
-
   support-crates:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.support_mode == 'bootstrap' || inputs.support_mode == 'retirement')
     name: ${{ inputs.support_mode }} support crates
