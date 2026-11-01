@@ -27,10 +27,12 @@ environment variable.
 
 ## Installation and compilation model
 
+<!-- revault-release-version:start -->
 ```toml
 [dependencies]
-revault-api = "0.6.1"
+revault-api = "0.6.0"
 ```
+<!-- revault-release-version:end -->
 
 Cargo compiles the reVault implementation into the application from the Rust
 crate dependency. There is no separate native library to install, extract, or

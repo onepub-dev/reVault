@@ -24,9 +24,11 @@ agent over the complete Java 22+ runtime.
 
 ## Installation and native runtime
 
+<!-- revault-release-version:start -->
 ```kotlin
 implementation("dev.onepub:revault-api-kotlin:0.6.1")
 ```
+<!-- revault-release-version:end -->
 
 The Kotlin artifact uses the Java runtime package. Its JAR stores target
 libraries under `META-INF/native`; `Revault.load()` selects and extracts the

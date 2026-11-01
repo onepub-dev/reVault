@@ -25,9 +25,11 @@ engine.
 
 ## Installation and native runtime
 
+<!-- revault-release-version:start -->
 ```kotlin
 implementation("dev.onepub:revault-api:0.6.1")
 ```
+<!-- revault-release-version:end -->
 
 The Maven JAR stores target libraries under `META-INF/native`. `Revault.load()`
 selects the current operating system and architecture, extracts the matching

@@ -930,12 +930,41 @@ fn replace_documented_versions(root: &Path, version: &str) -> Result {
             continue;
         }
         let source = fs::read_to_string(entry.path())?;
-        let rewritten = replace_semver_triplets(&source, version);
+        let rewritten = replace_documented_release_regions(&source, version)
+            .map_err(|error| format!("{}: {error}", entry.path().display()))?;
         if rewritten != source {
             fs::write(entry.path(), rewritten)?;
         }
     }
     Ok(())
+}
+
+fn replace_documented_release_regions(source: &str, version: &str) -> Result<String> {
+    const START: &str = "<!-- revault-release-version:start -->";
+    const END: &str = "<!-- revault-release-version:end -->";
+    let mut remaining = source;
+    let mut output = String::with_capacity(source.len());
+    while let Some(start) = remaining.find(START) {
+        if remaining[..start].contains(END) {
+            return Err("Release version end marker has no start marker".into());
+        }
+        output.push_str(&remaining[..start + START.len()]);
+        remaining = &remaining[start + START.len()..];
+        let end = remaining
+            .find(END)
+            .ok_or("Unclosed release version region")?;
+        if remaining[..end].contains(START) {
+            return Err("Nested release version regions are not supported".into());
+        }
+        output.push_str(&replace_semver_triplets(&remaining[..end], version));
+        output.push_str(END);
+        remaining = &remaining[end + END.len()..];
+    }
+    if remaining.contains(END) {
+        return Err("Release version end marker has no start marker".into());
+    }
+    output.push_str(remaining);
+    Ok(output)
 }
 
 fn replace_semver_triplets(source: &str, version: &str) -> String {
@@ -2332,6 +2361,43 @@ mod tests {
         assert_eq!(
             replace_semver_triplets(source, "9.8.7"),
             "install package@9.8.7\nrequire ^9.8.7\nLua 9.8.7-1\nUTF-8: Profile → Lockbox\n"
+        );
+    }
+
+    #[test]
+    fn readme_stamping_preserves_dependency_versions_and_release_history() {
+        let root = tempfile::tempdir().unwrap();
+        let source = "FlatBuffers 25.2.10; Ruby 0.6.1 requires glibc 2.39.\n<!-- revault-release-version:start -->\nrevault-api = \"0.6.1\"\n<!-- revault-release-version:end -->\nUTF-8: Profile → Lockbox\n";
+        fs::write(root.path().join("README.md"), source).unwrap();
+        replace_documented_versions(root.path(), "0.6.2").unwrap();
+        assert_eq!(
+            fs::read_to_string(root.path().join("README.md")).unwrap(),
+            source.replace("revault-api = \"0.6.1\"", "revault-api = \"0.6.2\"")
+        );
+        for source in ["<!-- revault-release-version:start -->", "<!-- revault-release-version:end -->", "<!-- revault-release-version:start --><!-- revault-release-version:start --><!-- revault-release-version:end -->"] {
+            assert!(replace_documented_release_regions(source, "0.6.2").is_err());
+        }
+    }
+
+    #[test]
+    fn shipped_readmes_stamp_installations_and_preserve_unmarked_content() {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../bindings");
+        for language in ["rust", "go", "swift", "java", "kotlin", "csharp", "cpp"] {
+            let readme = fs::read_to_string(source.join(language).join("README.md")).unwrap();
+            let stamped = replace_documented_release_regions(&readme, "9.8.7").unwrap();
+            assert!(
+                stamped.contains("9.8.7"),
+                "{language} installation lacks a release region"
+            );
+            if language == "cpp" {
+                assert!(stamped.contains("FlatBuffers 25.2.10"));
+                assert!(stamped.contains("revault-api-native-9.8.7-linux-x86_64-gnu"));
+            }
+        }
+        let ruby = fs::read_to_string(source.join("ruby/README.md")).unwrap();
+        assert_eq!(
+            replace_documented_release_regions(&ruby, "9.8.7").unwrap(),
+            ruby
         );
     }
 

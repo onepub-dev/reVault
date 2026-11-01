@@ -29,6 +29,7 @@ they do not include a prebuilt C++ facade. Build the facade from the matching
 release source, then link `revault_api_cpp` and `revault_api`. Do not mix a
 facade from `main` with an older installed SDK.
 
+<!-- revault-release-version:start -->
 For example, after downloading and verifying the Linux x86-64 SDK and source
 for `revault-api-v0.6.1`, extract them and run:
 
@@ -39,6 +40,7 @@ cmake -S reVault/bindings/cpp -B cpp-build \
 cmake --build cpp-build --config Release
 cmake --install cpp-build --config Release --prefix "$PWD/revault-sdk"
 ```
+<!-- revault-release-version:end -->
 
 Here `reVault` is the extracted source directory (rename the GitHub source
 archive's top-level directory accordingly). The SDK directory is the extracted

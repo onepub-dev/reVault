@@ -26,9 +26,11 @@ session agent, together with the matching reVault engine.
 
 ## Installation and native runtime
 
+<!-- revault-release-version:start -->
 ```shell
 dotnet add package Revault.Api --version 0.6.1
 ```
+<!-- revault-release-version:end -->
 
 `Revault.Load(nativeLibraryPath)` can load a native library supplied by the
 application. Otherwise, reVault checks `REVAULT_LIBRARY` and then the libraries

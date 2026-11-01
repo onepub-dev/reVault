@@ -24,9 +24,11 @@ agent classes for macOS and Linux.
 
 ## Installation and native runtime
 
+<!-- revault-release-version:start -->
 ```swift
 .package(url: "https://github.com/onepub-dev/revault-swift", exact: "0.6.1")
 ```
+<!-- revault-release-version:end -->
 
 On macOS, the published Swift package downloads the release's
 `RevaultC.xcframework` as a SwiftPM binary target. On Linux, it uses a system
