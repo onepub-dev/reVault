@@ -124,7 +124,10 @@ Version selection:
 
 With no explicit version, interactive preparation asks for patch, minor, major,
 or an exact stable version. Noninteractive preparation requires explicit values.
-Versions must exceed the current source/tag versions.
+Versions must exceed the latest published tag (or the source version when no
+release tag exists). An unpublished version can be prepared again after fixing
+a failed candidate; this creates a new immutable candidate ref and never moves
+or replaces a public release tag.
 
 Live monitoring and cancellation:
 
