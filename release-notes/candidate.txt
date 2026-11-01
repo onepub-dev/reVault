@@ -2,6 +2,12 @@ Release bindings
 CLI: 
 Bindings: 0.6.2
 
+- Merge branch 'issue-342-security-dependencies'
+- Clarify retrying an unpublished release candidate
+- Require patched zip and rustls dependencies for release tooling and clients
+- Fix #344: qualify patches against the published compatibility baseline
+- Merge remote-tracking branch 'origin/dependabot/cargo/rust/zip-9.0.5' into issue-342-security-dependencies
+- [release candidate] Prepare bindings release: CLI , bindings 0.6.2
 - Correct Unicode compatibility test for the pinned format-four reader
 - Document the corrected Ruby Linux runtime baseline
 - Merge branch 'issue-343-linux-glibc-baseline'
@@ -10,6 +16,7 @@ Bindings: 0.6.2
 - Fix #209: add per-language installation and usage guides
 - Merge branch 'issue-217-publication-closeout'
 - Fix #217: document building the C++ facade from public SDKs
+- Bump zip from 8.6.0 to 9.0.5 in /rust
 - Merge branch 'issue-341-headless-consent'
 - Fix #341: configure independent suspend protections and test headless init
 - Merge branch 'issue-338-repeat-migration'

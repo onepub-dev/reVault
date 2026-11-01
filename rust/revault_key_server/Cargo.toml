@@ -40,7 +40,7 @@ lettre = { version = "0.11", default-features = false, features = [
     "smtp-transport",
     "rustls-tls",
 ] }
-revault_publish_protocol = { version = "0.0.54", path = "../revault_publish_protocol" }
+revault_publish_protocol = { version = "0.0.55", path = "../revault_publish_protocol" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
@@ -53,7 +53,7 @@ toml = "1.1"
 rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
 tower = { version = "0.5", features = ["util"] }
-revault_lockbox_api = { version = "0.0.60", path = "../revault_lockbox_api" }
+revault_lockbox_api = { version = "0.0.61", path = "../revault_lockbox_api" }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
