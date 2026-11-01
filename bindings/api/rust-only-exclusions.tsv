@@ -65,6 +65,7 @@ restore_private_key	Migration restore primitive preserving historical metadata; 
 restore_profile_generations	Migration restore primitive preserving historical revisions; current-format foreign APIs rotate and load generations.
 secret	Language-native FormValue constructor represented by the scoped secret form-field setter.
 session_agent_dir	Platform-specific CLI state-location helper; foreign bindings use agent operations without managing the native state directory.
+agent_configuration_path	Platform-specific CLI configuration-file location; foreign bindings use the existing agent configuration and do not edit it.
 set_glob	Language-native ListOptions builder represented by lockbox_list_with_options arguments.
 store	Rust generic dependency-injection accessor; foreign bindings deliberately expose the concrete local-vault service.
 try_clone	Rust ownership helper; foreign handles have explicit ownership and do not expose clone semantics.

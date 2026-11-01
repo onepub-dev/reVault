@@ -77,6 +77,7 @@ pub use agent_client::{
     put_vault_unlock_key, serve_agent, start, stop, suspend_cache_clearing_active,
     verify_agent_transport_security, AgentClient, SecretActivityGuard,
 };
+pub use agent_config::agent_configuration_path;
 pub use agent_log::{agent_log_destination, agent_log_path};
 pub use agent_protocol::CachedLockbox;
 pub use agent_protocol::SecretActivityKind;
