@@ -862,6 +862,41 @@ fn publish_profile_options(options: PublishCliOptions) -> CliResult<()> {
             },
         )
         .map_err(clean_publish_error)?;
+    if options.format == "text" {
+        println!("Profile {profile} published for {email}.");
+        println!("\nCheck your inbox and click the verification link before sharing.");
+        println!(
+            "Verification expires: {}",
+            format_unix_ms_utc(result.expires_at_unix_ms)
+        );
+        println!(
+            "\nShare this publish code with the recipient: {}",
+            result.publish_code
+        );
+        println!("\nFingerprint: {}", format_fingerprint_code(&fingerprint));
+        println!("Give the full fingerprint only when the recipient contacts you through a trusted channel, such as a known phone number. Do not send it alongside the publish code.");
+        return Ok(());
+    }
+    if options.format == "json" {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "published": true,
+                "profile": profile,
+                "publish_code": result.publish_code,
+                "email": email,
+                "contact_fingerprint": format_fingerprint_code(&fingerprint),
+                "contact_fingerprint_reading": format_fingerprint_reading(&format_fingerprint_code(&fingerprint)),
+                "contact_fingerprint_hex": format_hex_pairs(&fingerprint),
+                "fingerprint_purpose": "do not send this fingerprint; ask the receiver to call you to obtain it",
+                "fingerprint_security": PUBLISH_FINGERPRINT_SECURITY_NOTE,
+                "verification_advice": format!("check the inbox for {email} and click the verification link"),
+                "verification_expires_at_utc": format_unix_ms_utc(result.expires_at_unix_ms),
+                "verification_expires_at_unix_ms": result.expires_at_unix_ms,
+            }))?
+        );
+        return Ok(());
+    }
     println!("published=yes");
     println!("publish_code={}", result.publish_code);
     println!("email={email}");
@@ -978,6 +1013,7 @@ fn receive_publish_options(options: PublishCliOptions) -> CliResult<()> {
 
 #[derive(Default)]
 struct PublishCliOptions {
+    format: String,
     server: Option<String>,
     topology_url: Option<String>,
     ttl_seconds: Option<u32>,
@@ -992,6 +1028,7 @@ struct PublishCliOptions {
 impl PublishCliOptions {
     fn from_publish_matches(matches: &ArgMatches) -> CliResult<Self> {
         Ok(Self {
+            format: required_value(matches, "format"),
             server: optional_value(matches, "server").map(str::to_string),
             topology_url: optional_value(matches, "topology-url").map(str::to_string),
             ttl_seconds: optional_value(matches, "ttl").map(str::parse).transpose()?,
@@ -1014,6 +1051,7 @@ impl PublishCliOptions {
             positionals.push(contact_name.to_string());
         }
         Ok(Self {
+            format: String::new(),
             server: optional_value(matches, "server").map(str::to_string),
             topology_url: optional_value(matches, "topology-url").map(str::to_string),
             ttl_seconds: None,
