@@ -52,7 +52,7 @@ upload commands still run against the retained publication trees.
 
 For scope all, the existing CLI publication workflow must complete successfully
 before the existing binding publication workflow is dispatched. This preserves
-the trusted-publisher identities configured with registries. Tags are created
+the separate build and package-registry release pipelines. Tags are created
 by CI at the validated commit; conflicting tags are refused. The coordinator
 waits for each publication workflow, and the command waits for the coordinator.
 
@@ -61,6 +61,47 @@ existing publication run and resumes failed jobs, or waits for a run still in
 progress. Completed publication is reported without republishing. Existing CLI
 release assets are compared byte-for-byte on retries instead of overwritten.
 Registry destinations retain their existing publication-driver retry behavior.
+
+Crates.io publication
+--------------------
+
+CLI and bindings dispatch revault-crates-release.yml and wait for its result.
+This is a top-level workflow_dispatch run, not a reusable workflow_call:
+crates.io matches the top-level workflow_ref claim, so a shared reusable job
+alone would still require separate caller publisher configurations.
+Only this workflow exchanges OIDC credentials for crates.io tokens. Publication
+is serialized across CLI, bindings and explicit support-package releases.
+
+Configure every crate published by these pipelines with:
+    Repository: onepub-dev/reVault
+    Workflow: revault-crates-release.yml
+    Environment: release
+Keep "Require trusted publishing for all new versions" enabled. Add the new
+publisher before the next release; remove old revault_cli-v-release.yml and
+bindings-native-release.yml publisher entries after the new path succeeds.
+This does not change publishers for npm, pub.dev, PyPI or other registries.
+
+The central workflow independently verifies the successful sealed candidate,
+its main ancestry, exact source, permitted release scope, both versions and
+artifact IDs/digests before obtaining registry credentials. It uses the retained
+candidate driver and publication trees. CLI publication also reuses the sealed
+migration-exporter evidence. Existing package versions are never overwritten.
+The CLI release waits for crate publication before hosting binaries.
+
+The dispatcher reattaches to active runs, reuses successful runs and reruns
+failed jobs. Verification-only runs have different names and cannot satisfy
+a publication request. Tag-triggered CLI publication requires a sealed candidate
+for that exact source. Candidates prepared before this consolidation retain
+their original workflows; prepare a new candidate to use the new publisher.
+
+Bootstrap and terminal retirement packages use the same publisher, but remain
+explicit operations with their existing allowlists and reviewed-main checks:
+    gh workflow run revault-crates-release.yml --ref main \
+      -f target=bootstrap -f source_sha=EXACT_MAIN_SHA -f publish=false
+Replace bootstrap with retirement for terminal metadata packages. The default
+publish=false performs dry runs; publish=true is the explicit upload operation.
+For CLI/bindings, publish=false verifies candidate provenance without uploading;
+it does not rerun the installed-package matrix or establish registry access.
 
 Recover status:
 

@@ -83,7 +83,7 @@ pub struct StatusSelection {
 }
 #[derive(Args)]
 pub struct Ci {
-    #[arg(value_parser = ["seal", "verify", "tags", "promote-cli", "promote-bindings"])]
+    #[arg(value_parser = ["seal", "verify", "tags", "promote-cli", "promote-bindings", "promote-crates-cli", "promote-crates-bindings", "verify-crates-cli", "verify-crates-bindings"])]
     action: String,
     #[arg(long)]
     candidate: Option<u64>,
@@ -1560,22 +1560,60 @@ pub fn ci(args: Ci) -> Result<()> {
         gh.require_main_source(&source_sha)?;
         fs::write(args.output, serde_json::to_vec_pretty(&c)?)?;
     } else {
-        let c = gh.load(args.candidate.ok_or("--candidate is required")?)?;
+        let crates_target = match args.action.as_str() {
+            "promote-crates-cli" | "verify-crates-cli" => Some(Scope::Cli),
+            "promote-crates-bindings" | "verify-crates-bindings" => Some(Scope::Bindings),
+            _ => None,
+        };
+        let candidate_id = match (args.candidate, crates_target) {
+            (Some(id), _) => id,
+            (None, Some(_)) if args.action.starts_with("promote-") => {
+                // Tag-triggered CLI releases must use the sealed candidate for
+                // this exact source, just like explicit promotions and retries.
+                let sha = std::env::var("GITHUB_SHA")?;
+                let runs = gh.api(&format!("actions/workflows/{WORKFLOW}/runs?event=workflow_dispatch&status=success&head_sha={sha}&per_page=100"))?;
+                runs["workflow_runs"].as_array().ok_or("missing runs")?
+                    .iter().find(|run| run["head_sha"] == sha)
+                    .and_then(|run| run["id"].as_u64())
+                    .ok_or("No successful release candidate for this source; prepare a candidate before publication")?
+            }
+            _ => return Err("--candidate is required".into()),
+        };
+        let c = gh.load(candidate_id)?;
         if c.source_sha != std::env::var("GITHUB_SHA")?
-            || c.scope != args.scope
-            || c.cli_version != args.cli_version
-            || c.bindings_version != args.bindings_version
+            || ((!args.action.starts_with("promote-crates-"))
+                && (c.scope != args.scope
+                    || c.cli_version != args.cli_version
+                    || c.bindings_version != args.bindings_version))
         {
             return Err("Publication inputs differ from the validated candidate".into());
         }
-        if matches!(args.action.as_str(), "promote-cli" | "promote-bindings") {
+        if let Some(target) = crates_target {
+            if c.scope != Scope::All && c.scope != target {
+                return Err(
+                    "Crate publication target is outside the validated candidate scope".into(),
+                );
+            }
+            if args.action.starts_with("verify-") {
+                return Ok(());
+            }
+        }
+        if crates_target.is_some()
+            || matches!(args.action.as_str(), "promote-cli" | "promote-bindings")
+        {
             let cli = args.action == "promote-cli";
-            let workflow = if cli {
+            let workflow = if crates_target.is_some() {
+                "revault-crates-release.yml"
+            } else if cli {
                 "revault_cli-v-release.yml"
             } else {
                 "bindings-native-release.yml"
             };
-            let title = format!("promote candidate {}", c.run_id);
+            let title = if let Some(target) = crates_target {
+                format!("publish {} crates candidate {}", target.name(), c.run_id)
+            } else {
+                format!("promote candidate {}", c.run_id)
+            };
             let runs = gh.api(&format!(
                 "actions/workflows/{workflow}/runs?event=workflow_dispatch&per_page=100"
             ))?;
@@ -1605,7 +1643,9 @@ pub fn ci(args: Ci) -> Result<()> {
                 }
                 id
             } else {
-                let inputs = if cli {
+                let inputs = if let Some(target) = crates_target {
+                    json!({"target":target.name(),"candidate":c.run_id.to_string(),"candidate_scope":c.scope.name(),"cli_version":c.cli_version,"bindings_version":c.bindings_version,"publish":true})
+                } else if cli {
                     json!({"candidate":true,"version":c.cli_version,"promotion_run_id":c.run_id.to_string()})
                 } else {
                     json!({"version":c.bindings_version,"publish":true,"targets":"npm,python,maven,nuget,dart,ruby,lua,rust,git,homebrew","promotion_run_id":c.run_id.to_string(),"promotion_source_sha":c.source_sha})

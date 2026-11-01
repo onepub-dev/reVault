@@ -261,7 +261,7 @@ fn new_publication_dispatches_only_the_frozen_candidate() {
 }
 
 #[test]
-fn coordinator_preserves_trusted_publication_workflow_entry_points() {
+fn coordinator_preserves_independent_cli_and_binding_release_entry_points() {
     for (action, workflow) in [
         ("promote-cli", "revault_cli-v-release.yml"),
         ("promote-bindings", "bindings-native-release.yml"),
@@ -293,6 +293,179 @@ fn coordinator_preserves_trusted_publication_workflow_entry_points() {
         assert_eq!(body["ref"], "release-candidates/test");
         assert!(f.calls().contains("actions/runs/99/jobs?"));
     }
+}
+
+#[test]
+fn both_crate_targets_dispatch_one_publisher_with_frozen_inputs() {
+    for target in ["cli", "bindings"] {
+        let f = Fixture::new();
+        write(
+            f.dir.path(),
+            "dispatch-response.json",
+            json!({"workflow_runs":[{
+                "id":99,"display_title":format!("publish {target} crates candidate 42"),
+                "head_sha":f.sha,"status":"queued","conclusion":null
+            }]}),
+        );
+        succeeds(f.run(&[
+            "candidate",
+            &format!("promote-crates-{target}"),
+            "--candidate",
+            "42",
+        ]));
+        let body: Value =
+            serde_json::from_slice(&fs::read(f.dir.path().join("dispatch.json")).unwrap()).unwrap();
+        assert_eq!(
+            body,
+            json!({"ref":"release-candidates/test","inputs":{
+                "target":target,"candidate":"42","candidate_scope":"all",
+                "cli_version":"0.6.0","bindings_version":"0.6.0","publish":true
+            }})
+        );
+        assert!(f
+            .calls()
+            .contains("actions/workflows/revault-crates-release.yml/dispatches"));
+        assert!(f.calls().contains("actions/runs/99/jobs?"));
+    }
+}
+
+#[test]
+fn crate_publication_reuses_success_and_retries_failures_without_duplicate_dispatch() {
+    for (status, conclusion, rerun, watch) in [
+        ("completed", json!("success"), false, false),
+        ("completed", json!("failure"), true, true),
+        ("in_progress", Value::Null, false, true),
+    ] {
+        let f = Fixture::new();
+        write(
+            f.dir.path(),
+            "runs.json",
+            json!({"workflow_runs":[{
+                "id":99,"display_title":"publish bindings crates candidate 42",
+                "head_sha":f.sha,"status":status,"conclusion":conclusion
+            }]}),
+        );
+        succeeds(f.run(&["candidate", "promote-crates-bindings", "--candidate", "42"]));
+        assert!(!f.calls().contains("--method POST"));
+        assert_eq!(
+            f.calls().contains("run rerun 99 --repo org/repo --failed"),
+            rerun
+        );
+        assert_eq!(f.calls().contains("actions/runs/99/jobs?"), watch);
+    }
+}
+
+#[test]
+fn crate_publication_refuses_wrong_scope_and_unsealed_or_changed_candidate() {
+    for corruption in ["scope", "failed", "artifact", "main", "source"] {
+        let f = Fixture::new();
+        match corruption {
+            "scope" => {
+                let mut c: Value =
+                    serde_json::from_slice(&fs::read(f.dir.path().join("candidate.json")).unwrap())
+                        .unwrap();
+                c["scope"] = json!("cli");
+                write(f.dir.path(), "candidate.json", c);
+            }
+            "failed" => write(f.dir.path(), "run.json", json!({"conclusion":"failure"})),
+            "artifact" => write(f.dir.path(), "artifacts.json", json!({"artifacts":[]})),
+            "main" => write(
+                f.dir.path(),
+                "main-comparison.json",
+                json!({"status":"diverged","merge_base_commit":{"sha":"b".repeat(40)}}),
+            ),
+            "source" => write(
+                f.dir.path(),
+                "run.json",
+                json!({"conclusion":"success","event":"workflow_dispatch","path":".github/workflows/release-candidate.yml","head_sha":"b".repeat(40)}),
+            ),
+            _ => unreachable!(),
+        }
+        assert!(
+            !f.run(&["candidate", "promote-crates-bindings", "--candidate", "42"])
+                .status
+                .success(),
+            "{corruption}"
+        );
+        assert!(!f.calls().contains("--method POST"));
+    }
+}
+
+#[test]
+fn central_publisher_verifies_versions_without_dispatching_or_publishing() {
+    for version in ["0.6.0", "0.6.99"] {
+        let f = Fixture::new();
+        let result = f.run(&[
+            "candidate",
+            "verify-crates-cli",
+            "--candidate",
+            "42",
+            "--scope",
+            "all",
+            "--cli-version",
+            version,
+            "--bindings-version",
+            "0.6.0",
+        ]);
+        assert_eq!(
+            result.status.success(),
+            version == "0.6.0",
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        assert!(!f.calls().contains("--method POST"));
+        assert!(!f.calls().contains("run rerun"));
+    }
+}
+
+#[test]
+fn verification_only_run_cannot_satisfy_a_crate_publication() {
+    let f = Fixture::new();
+    write(
+        f.dir.path(),
+        "runs.json",
+        json!({"workflow_runs":[{
+            "id":98,"display_title":"verify cli crates candidate 42",
+            "head_sha":f.sha,"status":"completed","conclusion":"success"
+        }]}),
+    );
+    write(
+        f.dir.path(),
+        "dispatch-response.json",
+        json!({"workflow_runs":[{
+            "id":99,"display_title":"publish cli crates candidate 42",
+            "head_sha":f.sha,"status":"queued","conclusion":null
+        }]}),
+    );
+    succeeds(f.run(&["candidate", "promote-crates-cli", "--candidate", "42"]));
+    assert!(f.calls().contains("--method POST"));
+    assert!(f.calls().contains("actions/runs/99/jobs?"));
+}
+
+#[test]
+fn tag_crate_publication_requires_a_successful_candidate_for_its_exact_source() {
+    let f = Fixture::new();
+    assert!(!f.run(&["candidate", "promote-crates-cli"]).status.success());
+    assert!(!f.calls().contains("--method POST"));
+    write(
+        f.dir.path(),
+        "runs.json",
+        json!({"workflow_runs":[{
+            "id":42,"head_sha":f.sha,"status":"completed","conclusion":"success"
+        }]}),
+    );
+    write(
+        f.dir.path(),
+        "dispatch-response.json",
+        json!({"workflow_runs":[{
+            "id":99,"display_title":"publish cli crates candidate 42",
+            "head_sha":f.sha,"status":"queued","conclusion":null
+        }]}),
+    );
+    succeeds(f.run(&["candidate", "promote-crates-cli"]));
+    let body: Value =
+        serde_json::from_slice(&fs::read(f.dir.path().join("dispatch.json")).unwrap()).unwrap();
+    assert_eq!(body["inputs"]["candidate"], "42");
 }
 
 #[test]

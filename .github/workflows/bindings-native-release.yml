@@ -1656,13 +1656,12 @@ jobs:
 
   publish-rust:
     if: always() && needs.github-release.result == 'success' && needs.preflight-artifacts.result == 'success' && (startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'rust')))
-    needs: [github-release, preflight-artifacts]
+    needs: [github-release, preflight-artifacts, preflight-run]
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    environment: release
+    timeout-minutes: 90
     permissions:
       contents: read
-      id-token: write
+      actions: write
     env:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TOOL: packages/release-tools/revault-tool
@@ -1676,39 +1675,13 @@ jobs:
         with:
           name: revault-api-publication-trees
           path: packages
-      - uses: dtolnay/rust-toolchain@1.88.0
-        if: github.event_name == 'workflow_dispatch'
-      - uses: Swatinem/rust-cache@v2
-        if: github.event_name == 'workflow_dispatch'
-        with:
-          workspaces: rust
-          shared-key: bindings-tooling-linux-x86_64
-          cache-workspace-crates: true
-      - name: Install native dependencies for Cargo's package verification
-        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
       - run: chmod +x "$RELEASE_TOOL"
-      - id: crates
-        uses: rust-lang/crates-io-auth-action@v1
-      - name: Publish page, lockbox, and vault APIs in dependency order
+      - name: Dispatch and await the central crates.io publisher
         env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+          CANDIDATE: ${{ needs.preflight-run.outputs.run-id }}
         run: >-
           "$RELEASE_TOOL"
-          internal publish-package --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
-          --packages packages --ecosystem rust-foundation --publish
-      - name: Publish binding implementation crates
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
-        run: >-
-          "$RELEASE_TOOL"
-          internal publish-crates bindings --repository . --publish
-      - name: Publish crates.io facade
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
-        run: >-
-          "$RELEASE_TOOL"
-          internal publish-package --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
-          --packages packages --ecosystem rust --publish
+          internal candidate promote-crates-bindings --candidate "$CANDIDATE" --repository .
 
   promote-language-repositories:
     if: always() && needs.github-release.result == 'success' && needs.preflight-artifacts.result == 'success' && (startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'git')))

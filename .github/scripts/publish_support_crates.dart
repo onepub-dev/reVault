@@ -1,6 +1,6 @@
 #! /usr/bin/env dcli
 
-// Explicit support-package publication through the existing trusted workflow.
+// Explicit support-package publication through revault-crates-release.yml.
 import 'dart:convert';
 import 'dart:io';
 import 'package:dcli/dcli.dart';

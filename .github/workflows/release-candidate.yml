@@ -138,7 +138,8 @@ jobs:
     secrets: inherit
     permissions:
       contents: write
-      actions: read
+      # Reusable workflow permissions are checked even for skipped publish jobs.
+      actions: write
       attestations: write
       id-token: write
       packages: write
@@ -153,7 +154,7 @@ jobs:
     secrets: inherit
     permissions:
       contents: write
-      actions: read
+      actions: write
       attestations: write
       id-token: write
 

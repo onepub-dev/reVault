@@ -1,0 +1,144 @@
+name: Publish reVault crates.io packages
+run-name: ${{ inputs.candidate != '' && format('{0} {1} crates candidate {2}', inputs.publish && 'publish' || 'verify', inputs.target, inputs.candidate) || format('{0} support crates {1}', inputs.target, inputs.source_sha) }}
+
+# Deliberately NOT workflow_call: crates.io authenticates workflow_ref (the
+# top-level caller), not job_workflow_ref. All crates use this one identity.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        options: [cli, bindings, bootstrap, retirement]
+        required: true
+      candidate:
+        description: Successful sealed release-candidate run (required for CLI/bindings)
+        type: string
+        default: ''
+      candidate_scope:
+        type: choice
+        options: [cli, bindings, all]
+        default: all
+      cli_version:
+        type: string
+        default: ''
+      bindings_version:
+        type: string
+        default: ''
+      source_sha:
+        description: Exact main revision (support publication only)
+        type: string
+        default: ''
+      publish:
+        description: Publish verified packages; false only verifies the candidate or dry-runs support packages
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Shared dependencies may be selected by both release types. Never race their
+# registry existence checks or cancel an upload that may already have succeeded.
+concurrency:
+  group: revault-crates-io-publication
+  cancel-in-progress: false
+
+jobs:
+  release-crates:
+    if: inputs.target == 'cli' || inputs.target == 'bindings'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: release
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CANDIDATE: ${{ inputs.candidate }}
+      CANDIDATE_SCOPE: ${{ inputs.candidate_scope }}
+      CLI_VERSION: ${{ inputs.cli_version }}
+      BINDINGS_VERSION: ${{ inputs.bindings_version }}
+      CRATE_TARGET: ${{ inputs.target }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: Install Cargo verification dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - name: Verify candidate source, scope, versions and sealed artifact identities
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          internal candidate "verify-crates-$CRATE_TARGET" --candidate "$CANDIDATE"
+          --scope "$CANDIDATE_SCOPE" --cli-version "$CLI_VERSION"
+          --bindings-version "$BINDINGS_VERSION"
+      - uses: actions/download-artifact@v7
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.candidate }}
+          name: candidate-driver
+          path: driver
+      - run: chmod +x driver/revault-tool
+      - uses: actions/download-artifact@v7
+        if: inputs.target == 'bindings'
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.candidate }}
+          name: revault-api-publication-trees
+          path: packages
+      - id: crates
+        if: inputs.publish
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish validated CLI dependencies and CLI
+        if: inputs.publish && inputs.target == 'cli'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        run: driver/revault-tool internal publish-crates cli --repository . --publish --candidate "$CANDIDATE"
+      - name: Publish binding foundation crates in dependency order
+        if: inputs.publish && inputs.target == 'bindings'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        run: driver/revault-tool internal publish-package --version "$BINDINGS_VERSION" --packages packages --ecosystem rust-foundation --publish
+      - name: Publish binding implementation crates
+        if: inputs.publish && inputs.target == 'bindings'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        run: driver/revault-tool internal publish-crates bindings --repository . --publish
+      - name: Publish Rust facade
+        if: inputs.publish && inputs.target == 'bindings'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        run: driver/revault-tool internal publish-package --version "$BINDINGS_VERSION" --packages packages --ecosystem rust --publish
+
+  support-crates:
+    if: github.ref == 'refs/heads/main' && (inputs.target == 'bootstrap' || inputs.target == 'retirement')
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: dart-lang/setup-dart@v1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: Install support publication dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - run: dart pub global activate dcli_sdk 10.3.0 --overwrite
+      - run: dart pub get --enforce-lockfile --directory .github/scripts
+      - id: crates
+        if: inputs.publish
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish only the explicitly selected support package allowlist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.source_sha }}
+          CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: ${{ inputs.target == 'retirement' && 'fallback' || 'allow' }}
+        run: ./.github/scripts/publish_support_crates.dart ${{ inputs.target }} ${{ inputs.publish && '--publish' || '' }}
