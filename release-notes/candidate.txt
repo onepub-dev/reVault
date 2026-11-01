@@ -2,6 +2,14 @@ Release bindings
 CLI: 
 Bindings: 0.6.2
 
+- Fix HTTPS certificate test for rcgen 0.14
+- Fix #345: stamp only explicit release installation examples
+- Merge remote-tracking branch 'origin/main' into issue-346-crates-publisher
+- Fix #346: consolidate crates.io publication under one workflow identity
+- Bump rcgen from 0.13.2 to 0.14.10 in /rust (#337)
+- Bump clap_complete from 4.6.9 to 4.6.11 in /rust (#335)
+- Record release closeout evidence and remaining publication gates
+- [release candidate] Prepare bindings release: CLI , bindings 0.6.2
 - Merge branch 'issue-342-security-dependencies'
 - Clarify retrying an unpublished release candidate
 - Require patched zip and rustls dependencies for release tooling and clients
