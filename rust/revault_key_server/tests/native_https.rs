@@ -23,7 +23,7 @@ fn native_https_validates_certificate_and_reuses_it_after_restart() {
     let cache = directory.path().join("acme/staging");
     std::fs::create_dir_all(&cache).unwrap();
     let cert = rcgen::generate_simple_self_signed(vec!["keyshare.test".into()]).unwrap();
-    let cached = format!("{}\n{}", cert.key_pair.serialize_pem(), cert.cert.pem());
+    let cached = format!("{}\n{}", cert.signing_key.serialize_pem(), cert.cert.pem());
     let runtime = tokio::runtime::Runtime::new().unwrap();
     runtime
         .block_on(DirCache::new(cache).store_cert(
