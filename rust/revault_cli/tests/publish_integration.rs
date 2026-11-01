@@ -91,6 +91,66 @@ fn cli_publish_and_receive_with_two_servers() {
         &agent_root,
     );
     assert_success(&overwritten);
+
+    let json_output = run_output_in(
+        bin,
+        &[
+            "vault",
+            "profile",
+            "publish",
+            "--server",
+            &cluster.primary_url(),
+            "--format",
+            "json",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&json_output);
+    let data: serde_json::Value = serde_json::from_slice(&json_output.stdout).unwrap();
+    assert_eq!(data["published"], true);
+    assert_eq!(data["email"], "alice@example.test");
+    assert!(data["verification_expires_at_unix_ms"].is_u64());
+    assert!(data.get("verification_url").is_none());
+    let mut json_profile = PublishedProfile {
+        publish_code: data["publish_code"].as_str().unwrap().to_owned(),
+        contact_fingerprint: data["contact_fingerprint"].as_str().unwrap().to_owned(),
+        verified_query_code: String::new(),
+        verified_query_token: String::new(),
+    };
+    fill_development_verification(&mut json_profile, &cluster.primary.store);
+    assert!(
+        cluster
+            .primary
+            .store
+            .verify_email(
+                &json_profile.verified_query_code,
+                &json_profile.verified_query_token,
+            )
+            .success
+    );
+    let received = run_output_in(
+        bin,
+        &[
+            "vault",
+            "contact",
+            "receive",
+            &json_profile.publish_code,
+            "json-contact",
+            "--server",
+            &cluster.primary_url(),
+            "--fingerprint",
+            &json_profile.contact_fingerprint,
+            "--fingerprint-channel",
+            "phone-call-to-owner",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&received);
+    let listed = run_output_in(bin, &["vault", "contact", "list"], &vault_root, &agent_root);
+    assert_success(&listed);
+    assert!(String::from_utf8_lossy(&listed.stdout).contains("json-contact"));
 }
 
 #[test]
@@ -196,7 +256,25 @@ fn publish_contact(
         agent_root,
     );
     assert_success(&publish);
-    let mut published = parse_publish_output(&String::from_utf8_lossy(&publish.stdout));
+    let text = String::from_utf8_lossy(&publish.stdout);
+    assert!(text.contains("Check your inbox and click the verification link"));
+    assert!(text.contains("Do not send it alongside the publish code"));
+    assert!(!text.contains("published=yes"));
+    assert!(!text.contains("verification_url="));
+    let mut published = PublishedProfile {
+        publish_code: text
+            .lines()
+            .find_map(|line| line.strip_prefix("Share this publish code with the recipient: "))
+            .unwrap()
+            .to_owned(),
+        contact_fingerprint: text
+            .lines()
+            .find_map(|line| line.strip_prefix("Fingerprint: "))
+            .unwrap()
+            .to_owned(),
+        verified_query_code: String::new(),
+        verified_query_token: String::new(),
+    };
     let owner = cluster.owner_store(&published.publish_code);
     fill_development_verification(&mut published, owner);
     published
@@ -215,6 +293,8 @@ fn publish_contact_to_server(
             "vault",
             "profile",
             "publish",
+            "--format",
+            "key-value",
             "--server",
             server,
             "--ttl",

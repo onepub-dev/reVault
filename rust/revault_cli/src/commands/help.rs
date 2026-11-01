@@ -2148,6 +2148,11 @@ fn vault_profile_command(verbose: bool) -> Command {
         .subcommand(
             Command::new("publish")
                 .about("Publish one profile public key by verified email.")
+                .arg(Arg::new("format")
+                    .long("format")
+                    .value_parser(["text", "json", "key-value"])
+                    .default_value("text")
+                    .help("Output format: readable text, JSON, or legacy key=value lines."))
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault profiles publish\n  lockbox vault profiles publish laptop",
