@@ -24,7 +24,7 @@ tempfile = "3"
 ureq = { version = "3.4.1", default-features = false, features = ["json", "multipart", "rustls"] }
 walkdir = "2"
 syn = { version = "2", features = ["full", "visit"] }
-zip = { version = "8", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 ctrlc = "3"
 
 [dev-dependencies]
