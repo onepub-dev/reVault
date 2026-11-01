@@ -27,7 +27,7 @@ environment variable.
 
 ```toml
 [dependencies]
-revault-api = "0.3.11"
+revault-api = "0.6.1"
 ```
 
 Cargo compiles the reVault implementation into the application from the Rust
@@ -144,10 +144,12 @@ after login if the saved Vault passphrase can be retrieved without approval.
 Missing or placeholder rustdoc on public classes or methods is a binding
 defect.
 
-## V4 storage compatibility
+## Storage compatibility and maintenance
 
-The v4 development core requires a matching rebuilt native runtime (or WASM
-carrier) and migration of older Vault/Lockbox containers. Migrate the Vault
+The 0.6.x CLI and bindings use archive format 5 and Vault structure 3.
+Use native and WASM carriers from the same package release. The 0.5.x line
+uses format 4 and cannot open format-5 archives; upgrade every consuming
+application before migration. Migrate the Vault
 first with `lockbox doctor migrate vault --replace`, then each archive with
 `lockbox doctor migrate lockbox <path> --replace`; retain the migration backups.
 These changes do not add facade methods. Writable file opens inherit native
@@ -155,7 +157,7 @@ transaction recovery; explicit read-only opens can report recovery required.
 A commit error may occur after publication, so reopen and inspect persisted
 state before retrying. With library handles closed, use the CLI's
 `lockbox <path> doctor compact` for explicit compaction; it discards old commit
-history. See the repository's [v4 binding contract and release checks](https://github.com/onepub-dev/reVault/blob/master/bindings/README.md#v4-storage-and-transaction-maintenance).
+history. See the repository's [v4 binding contract and release checks](https://github.com/onepub-dev/reVault/blob/main/bindings/README.md#v4-storage-and-transaction-maintenance).
 ## Reciprocal contact exchange
 
 Use the shared Rust-backed `ContactExchange` workflow to exchange one Profile's
