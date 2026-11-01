@@ -1,6 +1,17 @@
 # Security release TODO
 
-Status on 2026-10-25: eight findings from the October security review have
+Status on 2026-11-01: CLI 0.6.0 and 0.6.1 and most binding packages are public.
+The first fixed Rust versions in the advisory mappings are also public and
+not yanked. All eight advisories remain private drafts pending coordinated
+closeout. Ruby 0.6.0 gems were empty; public 0.6.1 gems contain the validated
+payloads, but Linux artifacts require glibc 2.39 and fail on Debian 12.
+Bindings 0.6.2 is being qualified to restore the Debian 12 baseline and update
+active zip/rustls dependencies. Rust 0.6.1 publication stopped at a missing
+crates.io trusted-publisher entry; the final corrected publication will use
+0.6.2, preserving the partial 0.6.1 record. See the
+[November 1 checkpoint](history/release-closeout-2026-11-01.md).
+
+Historical status on 2026-10-25: eight findings from the October security review had
 private draft GitHub security advisories. The fixes are committed on
 `security/advisory-fixes-2026-10` at `8e93aaebebf3517bdc3a5282e4bceda6dff771c1`.
 They are integrated into local `main`, with additional Profile backup hardening
@@ -31,11 +42,11 @@ authorization. See the [October 25 review](history/security-release-review-2026-
   code. Check whether each published crate, CLI, or binding actually exposes
   the affected behavior; do not mark an unaffected package as vulnerable.
 - [x] Merge the intended fixes into local `main`.
-- [ ] Prepare and validate an exact release candidate from `main`, including
+- [x] Prepare and validate an exact release candidate from `main`, including
   focused security regressions where
   needed, installed package checks, and the applicable cross-language and
   within-line compatibility checks. Record the candidate revision and results.
-- [ ] Assign new, never-before-published versions to every affected public
+- [x] Assign new, never-before-published versions to every affected public
   package. Keep the CLI and bindings in the correct archive/Vault compatibility
   line. Record, for each advisory, the last affected version and first patched
   version of every relevant ecosystem package.
