@@ -2,10 +2,17 @@
   "public_line": "0.6.0",
   "lockbox_format": 5,
   "vault_structure": 3,
-  "baseline_cli_version": "0.5.0",
-  "baseline_tag": "revault_cli-v0.5.0",
-  "baseline_source_sha": "b086e6ad19938fa337e4e9956b3ad9b06771cc6d",
+  "baseline_cli_version": "0.6.0",
+  "baseline_tag": "revault_cli-v0.6.0",
+  "baseline_source_sha": "fde1df438cdbf3367f70600106299165ca13e161",
   "baseline_linux_asset": "revault_cli-x86_64-unknown-linux-gnu.tar.gz",
-  "baseline_linux_sha256": "f6d53b25d3883aa3529810d08fd188bcd9043731f597f30462fa8e28b6a65997",
-  "baseline_role": "migration_source"
+  "baseline_linux_sha256": "837d88b9c86e5856c3e84465ffd2d749649a70a9b6255e45688d13187662dc9a",
+  "baseline_role": "compatibility",
+  "migration_baseline": {
+    "baseline_cli_version": "0.5.0",
+    "baseline_tag": "revault_cli-v0.5.0",
+    "baseline_source_sha": "b086e6ad19938fa337e4e9956b3ad9b06771cc6d",
+    "baseline_linux_asset": "revault_cli-x86_64-unknown-linux-gnu.tar.gz",
+    "baseline_linux_sha256": "f6d53b25d3883aa3529810d08fd188bcd9043731f597f30462fa8e28b6a65997"
+  }
 }

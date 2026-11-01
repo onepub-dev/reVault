@@ -15,10 +15,10 @@ fn published_cli_and_candidate_read_and_update_each_others_archives_and_vaults()
     let candidate = Path::new(env!("CARGO_BIN_EXE_lockbox"));
     let declaration: serde_json::Value =
         serde_json::from_str(include_str!("../../release-compatibility.json")).unwrap();
-    if declaration["baseline_role"] == "migration_source" {
-        published_previous_line_migrates(baseline, candidate, &declaration);
-        return;
-    }
+    assert_eq!(
+        declaration["baseline_role"], "compatibility",
+        "patch releases must test the published baseline in both directions"
+    );
     let expected_baseline = declaration["baseline_cli_version"].as_str().unwrap();
     let line: Vec<&str> = declaration["public_line"]
         .as_str()
@@ -294,6 +294,20 @@ fn published_cli_and_candidate_read_and_update_each_others_archives_and_vaults()
         );
         success(candidate, &["session", "stop"]);
     }
+}
+
+#[test]
+#[ignore = "requires the published previous-line baseline CLI"]
+fn published_previous_line_migrates_without_losing_persisted_content() {
+    let baseline = std::env::var_os("REVAULT_MIGRATION_BASELINE_BIN")
+        .expect("REVAULT_MIGRATION_BASELINE_BIN must identify the published previous-line CLI");
+    let declaration: serde_json::Value =
+        serde_json::from_str(include_str!("../../release-compatibility.json")).unwrap();
+    published_previous_line_migrates(
+        Path::new(&baseline),
+        Path::new(env!("CARGO_BIN_EXE_lockbox")),
+        &declaration["migration_baseline"],
+    );
 }
 
 fn published_previous_line_migrates(

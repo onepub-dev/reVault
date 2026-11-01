@@ -397,7 +397,7 @@ jobs:
 
       - uses: dart-lang/setup-dart@v1
         if: runner.os == 'Linux'
-      - name: Verify published compatibility baseline
+      - name: Verify published compatibility and migration baselines
         if: runner.os == 'Linux'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -405,7 +405,8 @@ jobs:
           dart pub global activate dcli_sdk 10.3.0 --overwrite
           dart pub get --enforce-lockfile --directory ../.github/scripts
           ../.github/scripts/compatibility_baseline.dart
-      - name: Check declared compatibility or migration with the published CLI
+          ../.github/scripts/compatibility_baseline.dart --migration
+      - name: Check bidirectional compatibility and previous-line migration with published CLIs
         if: runner.os == 'Linux'
         run: cargo test --locked -p revault_cli --test line_compatibility -- --ignored
 

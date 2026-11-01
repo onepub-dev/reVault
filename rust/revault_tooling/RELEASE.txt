@@ -99,13 +99,22 @@ prepare or publish another release. Prepare and publish watch automatically.
 CI packaging and upload building blocks live under `internal`, hidden from
 normal help. Old top-level publish commands have been removed.
 
-Generated version-preparation commits carry [skip ci] to avoid repeating the
-candidate's source checks on the main push. GitHub applies that marker only to
-push/pull_request workflows; the explicit candidate workflow_dispatch still runs
-all required checks. Ordinary main commits retain their normal CI. If dispatch
+Generated version-preparation commits use the ordinary prefix
+"[release candidate] Prepare ". Rust and bindings lint jobs skip their duplicate
+main-push runs for that prefix; the explicit candidate workflow still runs
+those checks in full. Distinct fuzz and Unicode checks remain enabled. Never
+use GitHub CI-skip directives: they also suppress the Dart tag-push publication
+workflow. Ordinary implementation commits must not use the preparation prefix. If dispatch
 fails, the revision is not qualified: retry the explicit candidate dispatch and
 obtain a successful sealed candidate before publication. Never treat skipped
 push checks as release approval.
+
+After the first release in a compatibility line, release-compatibility.json
+must pin that published release for bidirectional archive and Vault tests.
+The migration_baseline entry separately retains a published older-line CLI;
+the compatibility acquisition script verifies both artifacts and attestations,
+and CI runs both the bidirectional lifecycle and the older-line migration.
+Migration success alone does not qualify a patch release in an existing line.
 
 Version selection:
 

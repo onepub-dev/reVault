@@ -6,13 +6,17 @@ import 'package:dcli/dcli.dart';
 // Run from rust/. Metadata and the public compatibility line share one authority.
 void main(List<String> args) {
   if (args.length == 1 && args.single == '--help') {
-    print('compatibility_baseline.dart\n'
+    print('compatibility_baseline.dart [--migration]\n'
         'Run from rust/ in CI to verify and select the published CLI baseline.');
     return;
   }
-  if (args.isNotEmpty) throw ArgumentError('Unexpected arguments');
-  final policy = jsonDecode(File('release-compatibility.json').readAsStringSync())
+  final migration = args.length == 1 && args.single == '--migration';
+  if (args.isNotEmpty && !migration) throw ArgumentError('Unexpected arguments');
+  final declaration = jsonDecode(File('release-compatibility.json').readAsStringSync())
       as Map<String, dynamic>;
+  final policy = migration
+      ? declaration['migration_baseline'] as Map<String, dynamic>
+      : declaration;
   String value(String key) => policy[key] as String;
   final version = value('baseline_cli_version');
   final tag = value('baseline_tag');
@@ -47,6 +51,7 @@ void main(List<String> args) {
   }
   final environment = Platform.environment['GITHUB_ENV'];
   if (environment == null) throw StateError('This acquisition step requires GITHUB_ENV');
-  File(environment).writeAsStringSync('REVAULT_COMPAT_BASELINE_BIN=$binary\n', mode: FileMode.append);
-  print(green('Verified published compatibility baseline $tag ($checksum)'));
+  final variable = migration ? 'REVAULT_MIGRATION_BASELINE_BIN' : 'REVAULT_COMPAT_BASELINE_BIN';
+  File(environment).writeAsStringSync('$variable=$binary\n', mode: FileMode.append);
+  print(green('Verified published ${migration ? 'migration' : 'compatibility'} baseline $tag ($checksum)'));
 }
