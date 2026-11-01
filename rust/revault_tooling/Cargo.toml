@@ -39,3 +39,8 @@ installed-cli-tests = []
 name = "installed_headless"
 path = "../revault_cli/tests/headless.rs"
 required-features = ["installed-cli-tests"]
+
+[[test]]
+name = "installed_headless_init"
+path = "../revault_cli/tests/headless_init.rs"
+required-features = ["installed-cli-tests"]

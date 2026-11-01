@@ -20,6 +20,7 @@ mod recovery;
 mod recovery_directory;
 mod recovery_telemetry;
 mod session;
+mod session_protection;
 mod variables;
 mod vault;
 mod visualize;
@@ -122,7 +123,7 @@ pub(crate) fn run() -> CliResult<()> {
         || command == "session"
             && matches!(
                 command_matches.subcommand_name(),
-                None | Some("stop" | "close-all" | "default")
+                None | Some("stop" | "close-all" | "default" | "protection")
             )
         || command == "doctor"
             && command_matches.subcommand_name().is_none()
@@ -140,7 +141,12 @@ pub(crate) fn run() -> CliResult<()> {
         command_secret_activity(command)
     };
     let _secret_activity = secret_activity
-        .map(revault_vault_api::begin_secret_activity)
+        .map(|kind| {
+            session_protection::begin(
+                kind,
+                command == "vault" && command_matches.subcommand_name() == Some("init"),
+            )
+        })
         .transpose()?;
     let access = if control_only {
         Access::CacheOnly

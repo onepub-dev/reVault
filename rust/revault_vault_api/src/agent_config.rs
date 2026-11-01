@@ -21,7 +21,7 @@ impl Default for AgentConfig {
 impl AgentConfig {
     pub(crate) fn load() -> Self {
         let mut config = Self::default();
-        if let Some(path) = config_path() {
+        if let Some(path) = agent_configuration_path() {
             if let Ok(text) = fs::read_to_string(path) {
                 let _ = config.apply_text(&text);
             }
@@ -85,7 +85,8 @@ fn parse_bool(value: &str) -> io::Result<Option<bool>> {
     }
 }
 
-fn config_path() -> Option<PathBuf> {
+/// Selected Session Agent configuration file, before environment value overrides.
+pub fn agent_configuration_path() -> Option<PathBuf> {
     if let Ok(path) = env::var("LOCKBOX_AGENT_CONFIG") {
         return Some(PathBuf::from(path));
     }

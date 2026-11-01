@@ -39,6 +39,10 @@ pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
             Ok(())
         }
         Some(("auto-open", sub)) => auto_open_matches(sub, explicit_format.then_some(format)),
+        Some(("protection", sub)) => {
+            reject_session_format(explicit_format, "protection")?;
+            super::session_protection::run(sub)
+        }
         Some((command, _)) => {
             Err(Error::InvalidInput(format!("unknown session command: {command}")).into())
         }
