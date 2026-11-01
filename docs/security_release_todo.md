@@ -1,6 +1,6 @@
 # Security release TODO
 
-Status on 2026-11-01: CLI 0.6.0 and 0.6.1 and most binding packages are public.
+Status on 2026-11-02: CLI 0.6.0 and 0.6.1 and most binding packages are public.
 The first fixed Rust versions in the advisory mappings are also public and
 not yanked. All eight advisories remain private drafts pending coordinated
 closeout. Ruby 0.6.0 gems were empty; public 0.6.1 gems contain the validated
@@ -8,8 +8,10 @@ payloads, but Linux artifacts require glibc 2.39 and fail on Debian 12.
 Bindings 0.6.2 is being qualified to restore the Debian 12 baseline and update
 active zip/rustls dependencies. Rust 0.6.1 publication stopped at a missing
 crates.io trusted-publisher entry; the final corrected publication will use
-0.6.2, preserving the partial 0.6.1 record. See the
-[November 1 checkpoint](history/release-closeout-2026-11-01.md).
+0.6.2, preserving the partial 0.6.1 record. The operator has configured the
+new consolidated crates.io publisher. Candidate `41361552039` is running;
+advisory release guidance is updated but all eight advisories remain private.
+See the [November 2 checkpoint](history/release-closeout-2026-11-02.md).
 
 Historical status on 2026-10-25: eight findings from the October security review had
 private draft GitHub security advisories. The fixes are committed on

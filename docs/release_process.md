@@ -110,12 +110,20 @@ or RSS results.
 One release operator owns publication and monitoring. Wait on one blocking CI
 watcher rather than repeatedly polling or starting competing publication runs.
 
-For dependency-only publication, dispatch the existing crates.io Trusted
+CLI and binding releases dispatch `revault-crates-release.yml` for crates.io
+publication and wait for its result. This top-level workflow is the single
+crates.io trusted-publisher identity, with repository `onepub-dev/reVault` and
+environment `release`. A reusable job alone would retain the caller's identity.
+The publisher verifies the sealed candidate before obtaining registry credentials
+and serializes uploads of shared dependencies. Other registries keep their
+existing publication workflows.
+
+For dependency-only publication, dispatch the central crates.io Trusted
 Publishing workflow at the exact reviewed commit on `main`:
 
 ```bash
-gh workflow run revault_cli-v-release.yml --ref main \
-  -f support_mode=bootstrap -f source_sha=<full-main-commit-sha> -f publish=true
+gh workflow run revault-crates-release.yml --ref main \
+  -f target=bootstrap -f source_sha=<full-main-commit-sha> -f publish=true
 ```
 
 This mode publishes only `revault_secure_memory`, `revault_migration_format`,
@@ -157,8 +165,8 @@ After the new stable CLI release and all replacements are publicly available,
 publish the allowlisted terminal versions through the same trusted workflow:
 
 ```bash
-gh workflow run revault_cli-v-release.yml --ref main \
-  -f support_mode=retirement -f source_sha=<full-main-commit-sha> -f publish=true
+gh workflow run revault-crates-release.yml --ref main \
+  -f target=retirement -f source_sha=<full-main-commit-sha> -f publish=true
 ```
 
 The retirement mode checks replacement availability, stages committed source
