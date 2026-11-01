@@ -24,11 +24,39 @@ RAII ownership.
 
 ## Native library distribution
 
-Install the SDK with a GitHub release package, Homebrew, vcpkg, Conan, Debian,
-or RPM, then link `revault_api_cpp` and `revault_api`. The C++ facade is linked
-with the matching C ABI library from the same SDK. Shared builds require that
-library on the operating system's runtime search path; static builds include
-the engine in the application.
+Desktop GitHub SDK archives contain the C ABI header and native libraries;
+they do not include a prebuilt C++ facade. Build the facade from the matching
+release source, then link `revault_api_cpp` and `revault_api`. Do not mix a
+facade from `main` with an older installed SDK.
+
+For example, after downloading and verifying the Linux x86-64 SDK and source
+for `revault-api-v0.6.1`, extract them and run:
+
+```sh
+cmake -S reVault/bindings/cpp -B cpp-build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH="$PWD/revault-api-native-0.6.1-linux-x86_64-gnu"
+cmake --build cpp-build --config Release
+cmake --install cpp-build --config Release --prefix "$PWD/revault-sdk"
+```
+
+Here `reVault` is the extracted source directory (rename the GitHub source
+archive's top-level directory accordingly). The SDK directory is the extracted
+native archive root containing `include/` and `lib/`. The build requires CMake
+3.20 or newer and a C++20 compiler. It uses FlatBuffers 25.2.10, fetching that
+version if a suitable CMake package is not installed.
+
+The install step writes the facade headers and static facade library to
+`revault-sdk`; the C header and native library remain in the original SDK.
+Supply both include/library locations to the application. Shared native builds
+also require the native SDK's `lib/` on the operating system's runtime library
+search path. The installed-package CI uses this source-build procedure against
+the exact release's native SDK.
+
+Package-manager recipes are another distribution path; their presence in this
+repository does not establish that a version is available from a public
+ConanCenter or vcpkg index. Check the selected recipe's contents and version
+before using it.
 
 ### Android NDK
 
@@ -153,10 +181,12 @@ facade with cleanup and failures, and the [example index](../API_EXAMPLES.md)
 tracks operation coverage. Report missing method documentation as a binding
 defect.
 
-## V4 storage compatibility
+## Storage compatibility and maintenance
 
-The v4 development core requires a matching rebuilt native runtime (or WASM
-carrier) and migration of older Vault/Lockbox containers. Migrate the Vault
+The 0.6.x CLI and bindings use archive format 5 and Vault structure 3.
+Use native and WASM carriers from the same package release. The 0.5.x line
+uses format 4 and cannot open format-5 archives; upgrade every consuming
+application before migration. Migrate the Vault
 first with `lockbox doctor migrate vault --replace`, then each archive with
 `lockbox doctor migrate lockbox <path> --replace`; retain the migration backups.
 These changes do not add facade methods. Writable file opens inherit native
@@ -164,7 +194,7 @@ transaction recovery; explicit read-only opens can report recovery required.
 A commit error may occur after publication, so reopen and inspect persisted
 state before retrying. With library handles closed, use the CLI's
 `lockbox <path> doctor compact` for explicit compaction; it discards old commit
-history. See the repository's [v4 binding contract and release checks](https://github.com/onepub-dev/reVault/blob/master/bindings/README.md#v4-storage-and-transaction-maintenance).
+history. See the repository's [v4 binding contract and release checks](https://github.com/onepub-dev/reVault/blob/main/bindings/README.md#v4-storage-and-transaction-maintenance).
 ## Reciprocal contact exchange
 
 Use the shared Rust-backed `ContactExchange` workflow to exchange one Profile's

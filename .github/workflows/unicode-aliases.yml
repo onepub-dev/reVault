@@ -71,7 +71,7 @@ jobs:
       GOBIN: ${{ github.workspace }}/.unicode-shell-bin
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout pinned format-3 reader separately
+      - name: Checkout pinned format-4 reader separately
         uses: actions/checkout@v4
         with:
           ref: 77cfd919eddb0e9344b990283b2baf990108bca3
@@ -92,7 +92,7 @@ jobs:
       - name: Install macOS Fish
         if: runner.os == 'macOS'
         run: brew install fish
-      - name: Build pinned format-3 reader in its isolated target directory
+      - name: Build pinned format-4 reader in its isolated target directory
         working-directory: .unicode-baseline/rust
         run: cargo build --locked -p revault_cli --bin lockbox
       - uses: actions/setup-go@v5
@@ -116,8 +116,8 @@ jobs:
         run: ./tools/unicode_shell_argv.dart
       - name: Public CLI Unicode aliases, registered completion and backend vectors
         run: cargo test --locked -p revault_cli --test unicode_shell_cli -- --ignored --nocapture --test-threads=1
-      - name: Actual format-3 reader refuses the Unicode format-4 Vault unchanged
-        run: cargo test --locked -p revault_cli --test aliases format_three_reader_refuses_unicode_format_four_vault_without_mutation -- --exact --nocapture
+      - name: Actual format-4 reader refuses the Unicode format-5 Vault unchanged
+        run: cargo test --locked -p revault_cli --test aliases format_four_reader_refuses_unicode_format_five_vault_without_mutation -- --exact --nocapture
       - name: Retain shell argv evidence
         if: always() && runner.os != 'Windows'
         uses: actions/upload-artifact@v4

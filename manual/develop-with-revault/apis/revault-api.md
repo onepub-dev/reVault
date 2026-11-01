@@ -12,24 +12,24 @@ Names follow each language's normal style, so capitalisation and error handling 
 
 ## Packages and documentation
 
-| Language    | Package                                                                                     | Documentation or source                                                                                      |
-| ----------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Dart        | [`revault_api`](https://pub.dev/packages/revault_api)                                       | [Dart package documentation](https://pub.dev/documentation/revault_api/latest/)                              |
-| PHP         | [`onepub/revault-api`](https://packagist.org/packages/onepub/revault-api)                   | [revault-php](https://github.com/onepub-dev/revault-php)                                                     |
-| Go          | [`github.com/onepub-dev/revault-api`](https://pkg.go.dev/github.com/onepub-dev/revault-api) | [revault-api](https://github.com/onepub-dev/revault-api)                                                     |
-| Swift       | Swift Package Manager                                                                       | [revault-swift](https://github.com/onepub-dev/revault-swift)                                                 |
-| JavaScript  | `@onepub-dev/revault-api`                                                                   | [JavaScript binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/javascript/README.md) |
-| TypeScript  | `@onepub-dev/revault-api`                                                                   | [TypeScript binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/typescript/README.md) |
-| Python      | `revault-api`                                                                               | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/python/README.md)                |
-| Java        | `dev.onepub:revault-api`                                                                    | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/java/README.md)                  |
-| Kotlin      | `dev.onepub:revault-api-kotlin`                                                             | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/kotlin/README.md)                |
-| C#          | `Revault.Api`                                                                               | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/csharp/README.md)                |
-| C           | native SDK                                                                                  | [C binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/c/README.md)                   |
-| C++         | native SDK                                                                                  | [C++ binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/cpp/README.md)               |
-| Rust        | `revault-api`                                                                               | [crate source](https://github.com/onepub-dev/reVault/tree/master/rust/revault_bindings/README.md)            |
-| Lua         | `revault_api`                                                                               | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/lua/README.md)                   |
-| Ruby        | `revault_api`                                                                               | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/ruby/README.md)                  |
-| WebAssembly | `@onepub-dev/revault-api-wasm`                                                              | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/wasm/README.md)                  |
+| Language | Package | Installation and usage |
+| --- | --- | --- |
+| Dart | `revault_api` | [Dart guide](dart.md) |
+| PHP | `onepub/revault-api` | [PHP guide](php.md) |
+| Go | `github.com/onepub-dev/revault-api` | [Go guide](go.md) |
+| Swift | Swift Package Manager: `RevaultAPI` | [Swift guide](swift.md) |
+| JavaScript | `@onepub-dev/revault-api` | [JavaScript guide](javascript.md) |
+| TypeScript | `@onepub-dev/revault-api` | [TypeScript guide](typescript.md) |
+| Python | `revault-api` | [Python guide](python.md) |
+| Java | `dev.onepub:revault-api` | [Java guide](java.md) |
+| Kotlin | `dev.onepub:revault-api-kotlin` | [Kotlin guide](kotlin.md) |
+| C# | `Revault.Api` | [C# guide](csharp.md) |
+| C | Native SDK | [C guide](c.md) |
+| C++ | Source-built facade with matching native SDK | [C++ guide](cpp.md) |
+| Rust | `revault-api` | [Rust guide](rust.md) |
+| Lua | `revault_api` | [Lua guide](lua.md) |
+| Ruby | `revault_api` | [Ruby guide](ruby.md) |
+| WebAssembly (hosted Node) | `@onepub-dev/revault-api-wasm` | [WebAssembly (hosted Node) guide](wasm.md) |
 
 The PHP, Go and Swift bindings have their own repositories so their package landing pages, release tags and language-specific documentation can evolve independently. The monorepo retains the shared binding specification and other generated bindings.
 
@@ -39,7 +39,7 @@ Vault and Lockbox objects own native resources. Close them explicitly when the b
 
 API operations within one process do not implicitly use the Session Agent unless the binding exposes and uses `AgentSession`. Closing a Vault or Lockbox object releases that process's resources. Calling `AgentSession.closeLockbox` clears the corresponding key from the Session Agent; these are different operations.
 
-For end-to-end examples of the common operations, see the repository's [API examples](https://github.com/onepub-dev/reVault/blob/master/bindings/API_EXAMPLES.md).
+For end-to-end examples of the common operations, see the repository's [API examples](https://github.com/onepub-dev/reVault/blob/main/bindings/API_EXAMPLES.md).
 
 ## Item descriptions
 
@@ -87,9 +87,11 @@ When revising a definition, supply the complete fields including descriptions.
 Older archives and Vault containers require explicit migration before opening;
 format-4 clients cannot read format-5 files.
 
-## Transaction maintenance and v4
+## Storage compatibility and transaction maintenance
 
-The v4 core changes storage behavior without adding C ABI operations or changing the FlatBuffers schema. All language packages need a native carrier rebuilt with that core; generated facade signatures do not need regeneration solely for this change. Migrate the Vault first and then older Lockboxes with the CLI before opening them using a v4 library.
+The 0.6.x CLI and bindings use archive format 5 and Vault structure 3. The 0.5.x line uses archive format 4. Upgrade every consumer before migrating older archives, and use the native or WASM carrier shipped with each package. Migrate the Vault first and then older Lockboxes using the CLI.
+
+The format-4 storage work introduced the following Rust-only maintenance APIs. These boundaries remain applicable to format 5; item descriptions use the shared operations described above.
 
 | Rust core API change | Shared binding status |
 | --- | --- |
@@ -98,7 +100,7 @@ The v4 core changes storage behavior without adding C ABI operations or changing
 | `TransactionRecoveryPhase` gains `Rollback` and `Truncate` | Rust recovery orchestration only; Rust consumers with exhaustive matches must handle the new variants. |
 | Existing `Lockbox::abort()` gains durable physical rollback | Rust only. Not an undo of a published commit. |
 | Form record/value types gain `PartialEq` and `Eq` | Additive Rust comparison traits used by verification; serialized binding models are unchanged. |
-| `format_version()` now reports 4 | Rust inspection behavior changes with the new native format; older containers require migration. |
+| `format_version()` reports the current archive format | The 0.6.x line reports 5; older containers require migration. |
 | New owner fingerprint/lookup and migration comparison helpers | Rust migration orchestration only; not foreign key-management methods. |
 
 The shared binding exclusions explicitly record these boundaries. Foreign writable file opens inherit Rust's automatic rollback, cleanup and truncation. Explicit read-only opens remain non-mutating and may report recovery required. File-backed operations and recovery stay inside Rust; do not emulate compaction by exporting bytes and overwriting the archive from a binding.

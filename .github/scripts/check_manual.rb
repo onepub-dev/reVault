@@ -9,7 +9,20 @@ MANUAL = ROOT.join('manual')
 failures = []
 
 def markdown_links(text)
-  text.scan(/\[[^\]]*\]\(([^)]+)\)/).flatten
+  fence = nil
+  prose = text.lines.reject do |line|
+    marker = line[/^ {0,3}(`{3,}|~{3,})/, 1]
+    if marker && fence.nil?
+      fence = marker
+      true
+    elsif marker && marker[0] == fence&.[](0) && marker.length >= fence.length
+      fence = nil
+      true
+    else
+      !fence.nil?
+    end
+  end.join
+  prose.scan(/\[[^\]]*\]\(([^)]+)\)/).flatten
 end
 
 summary = MANUAL.join('SUMMARY.md').read
@@ -88,7 +101,7 @@ else
   end.flatten.uniq
   config_keys -= %w[default_ttl_seconds max_ttl_seconds]
   config_keys += %w[topology_server route]
-  config_page = MANUAL.join('key-sharing-service/configuration.md').read
+  config_page = MANUAL.join('operate-a-key-sharing-service/key-sharing-service/configuration.md').read
   config_keys.sort.each do |key|
     failures << "key-server setting #{key} is not documented" unless config_page.include?("`#{key}`") || config_page.include?(key)
   end

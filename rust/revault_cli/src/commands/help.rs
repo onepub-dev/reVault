@@ -1518,6 +1518,20 @@ fn session_command(verbose: bool) -> Command {
             "Context:\n  Session shows the default Lockbox and Lockboxes with keys cached by the Session Agent. The default Lockbox is the path used by commands that can safely omit a Lockbox argument. An open Lockbox can be read or changed without opening it again.",
         ))
         .arg(output_format_arg())
+        .subcommand(Command::new("protection")
+            .about("Configure the two independent Session Agent suspend protections.")
+            .subcommand_required(true)
+            .subcommand(Command::new("status").about("Show configured settings, environment overrides, and agent state."))
+            .subcommand(Command::new("prevent-sleep")
+                .about("Request sleep inhibition during secret operations.")
+                .arg(Arg::new("value").required(true).value_parser(["on", "off"]))
+                .arg(Arg::new("yes").long("yes").action(ArgAction::SetTrue)
+                    .help("Confirm disabling only sleep inhibition without a prompt.")))
+            .subcommand(Command::new("terminate-on-suspend")
+                .about("Terminate secret operations when a suspend notification arrives.")
+                .arg(Arg::new("value").required(true).value_parser(["on", "off"]))
+                .arg(Arg::new("yes").long("yes").action(ArgAction::SetTrue)
+                    .help("Confirm disabling only termination-on-suspend without a prompt."))))
         .subcommand(
             Command::new("default")
                 .about("Set or clear the default lockbox.")
@@ -2148,6 +2162,11 @@ fn vault_profile_command(verbose: bool) -> Command {
         .subcommand(
             Command::new("publish")
                 .about("Publish one profile public key by verified email.")
+                .arg(Arg::new("format")
+                    .long("format")
+                    .value_parser(["text", "json", "key-value"])
+                    .default_value("text")
+                    .help("Output format: readable text, JSON, or legacy key=value lines."))
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault profiles publish\n  lockbox vault profiles publish laptop",

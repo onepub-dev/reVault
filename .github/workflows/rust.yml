@@ -64,7 +64,8 @@ jobs:
       - name: Exercise headless CLI lifecycle
         env:
           REVAULT_HEADLESS_CLI: /tmp/revault-installed/bin/lockbox
-        run: cargo test --locked -p revault_tooling --features installed-cli-tests --test installed_headless -- --nocapture
+          REVAULT_HEADLESS_LBX: /tmp/revault-installed/bin/lbx
+        run: cargo test --locked -p revault_tooling --features installed-cli-tests --test installed_headless --test installed_headless_init -- --nocapture
 
   tooling-msrv:
     if: github.event_name != 'push' || github.ref != 'refs/heads/main' || !startsWith(github.event.head_commit.message, '[release candidate] Prepare ')
@@ -396,7 +397,7 @@ jobs:
 
       - uses: dart-lang/setup-dart@v1
         if: runner.os == 'Linux'
-      - name: Verify published compatibility baseline
+      - name: Verify published compatibility and migration baselines
         if: runner.os == 'Linux'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -404,7 +405,8 @@ jobs:
           dart pub global activate dcli_sdk 10.3.0 --overwrite
           dart pub get --enforce-lockfile --directory ../.github/scripts
           ../.github/scripts/compatibility_baseline.dart
-      - name: Check declared compatibility or migration with the published CLI
+          ../.github/scripts/compatibility_baseline.dart --migration
+      - name: Check bidirectional compatibility and previous-line migration with published CLIs
         if: runner.os == 'Linux'
         run: cargo test --locked -p revault_cli --test line_compatibility -- --ignored
 

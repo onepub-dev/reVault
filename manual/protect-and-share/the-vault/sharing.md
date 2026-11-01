@@ -19,6 +19,16 @@ lbx vault profiles email default alice@example.com
 lbx vault profiles publish default
 ```
 
+Publication prints readable instructions, the verification expiry, a publish
+code to share, and a fingerprint to compare separately. Check your inbox and
+follow the verification link first. Give the full fingerprint only when the
+recipient contacts you through an independently trusted channel; do not send
+it with the publish code.
+
+For scripts, use `lbx vault profiles publish default --format json`.
+Existing scripts that parse `key=value` lines can request
+`--format key-value`. Neither format includes the email verification token.
+
 The service verifies control of the email address and returns a publish code. Alice sends that code to Bob. Bob receives the Profile and chooses a local Contact name:
 
 ```bash

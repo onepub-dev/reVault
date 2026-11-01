@@ -10,7 +10,35 @@ Vault structure version 3 adds password Profiles. Upgrade an existing version 2 
 lbx doctor migrate vault --replace
 ```
 
-The migration retains the previous Vault as a versioned backup. Older clients reject version 3 Vaults for normal Vault operations, protecting password Profiles from tools that do not understand them. Vault structure version 3 is separate from its Lockbox container version. The v4 development implementation retains Vault structure version 3 but upgrades its container to v4. Standalone older Lockboxes must also be migrated before the v4 client can open them.
+The migration retains the previous Vault as a versioned backup. Older clients reject version 3 Vaults for normal Vault operations, protecting password Profiles from tools that do not understand them. Vault structure version 3 is separate from its Lockbox container version. The 0.5.x releases use container format 4; 0.6.x uses container format 5 and still uses Vault structure version 3. Older Vault containers and standalone Lockboxes require migration before a 0.6.x client can open them.
+
+## An older client reports a corrupt header after migration
+
+Some 0.5.x clients report `corrupt lockbox header` when opening a valid
+format-5 archive written by 0.6.x. Those older readers do not recognize the
+newer header. This message alone does not establish that the migration damaged
+the file.
+
+Upgrade the CLI used by the failing script to 0.6.1 or a later compatible
+0.6.x release. If installed through Cargo:
+
+```sh
+cargo install revault_cli --version 0.6.1 --locked
+lbx --version
+lockbox --version
+```
+
+Check the executable path used by the script or service as well as your
+interactive shell. Applications must also update their language binding to the
+0.6.x compatibility line; upgrading the CLI does not update a library embedded
+in an application. Reopen with the updated client and verify the expected
+contents. Retain migration backups until verification is complete. Do not
+overwrite the header or run recovery solely to make the old client accept it.
+
+Current 0.6.x readers recognize an identifiable future-format header and
+report that a newer client is required, without trying to decode the unknown
+layout. That improvement cannot change an already-installed 0.5.x executable.
+There is no automatic downgrade from format 5 to format 4.
 
 ## Migrating a reVault vault or archive
 

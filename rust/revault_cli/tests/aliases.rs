@@ -1248,7 +1248,7 @@ fn new_names_reserve_at_but_host_paths_do_not() {
 }
 
 #[test]
-fn format_three_reader_refuses_unicode_format_four_vault_without_mutation() {
+fn format_four_reader_refuses_unicode_format_five_vault_without_mutation() {
     let Ok(baseline) = std::env::var("REVAULT_ALIAS_BASELINE_BIN") else {
         return;
     };
@@ -1266,7 +1266,7 @@ fn format_three_reader_refuses_unicode_format_four_vault_without_mutation() {
     );
     assert!(
         diagnostic.contains(
-            "found lockbox container version 4; this revault build supports container version 3"
+            "found lockbox container version 5; this revault build supports container version 4"
         ),
         "{diagnostic}"
     );

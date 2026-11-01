@@ -1,6 +1,6 @@
 [package]
 name = "revault_lockbox_api"
-version = "0.0.59"
+version = "0.0.61"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
@@ -54,7 +54,7 @@ subtle = "2.6"
 rayon = "1.12"
 criterion = "0.8.2"
 oxiarc-zstd = "0.4"
-zip = { version = "8", default-features = false, features = ["deflate"] }
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

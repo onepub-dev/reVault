@@ -532,7 +532,11 @@ fn migrate_archive(
     let source_version = probe_archive_path(&source)?;
     if replace && source_version == u32::from(LOCKBOX_FORMAT_VERSION) && exporter.is_none() {
         // A format number alone does not identify the current authenticated graph.
-        let _verified = open_existing_read_only(&source.to_string_lossy(), access)?;
+        // Migration explicitly authorizes credential lookup even when the
+        // previous migration closed the Session Agent entry. Authenticate the
+        // archive without changing Auto Open or caching a new session key.
+        let _verified =
+            super::context::open_existing_for_migration(&source.to_string_lossy(), access)?;
         println!(
             "Lockbox already uses format version {LOCKBOX_FORMAT_VERSION}. No migration needed."
         );
