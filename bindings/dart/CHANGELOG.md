@@ -1,3 +1,29 @@
+## 0.6.2
+
+- Correct Unicode compatibility test for the pinned format-four reader
+- Document the corrected Ruby Linux runtime baseline
+- Merge branch 'issue-343-linux-glibc-baseline'
+- Fix #343: build Linux bindings on Debian 12 and gate frozen Ruby gems
+- Merge branch 'issue-209-language-docs'
+- Fix #209: add per-language installation and usage guides
+- Merge branch 'issue-217-publication-closeout'
+- Fix #217: document building the C++ facade from public SDKs
+- Merge branch 'issue-341-headless-consent'
+- Fix #341: configure independent suspend protections and test headless init
+- Merge branch 'issue-338-repeat-migration'
+- Fix #338: authenticate closed current archives during repeated migration
+- Merge branch 'issue-339-publish-output'
+- Fix #339: make profile publication output readable with explicit script formats
+- Fix #340: explain upgrading legacy clients after format migration
+- Remove completed CLI 0.6.1 trusted publication exception
+- Allow approved CLI 0.6.1 crate-only trusted publication
+- Remove completed CLI patch workflow and defer binary release
+- Merge commit '92302578'
+- Add explicit build-only CLI hostname patch release workflow
+- Prepare CLI 0.6.1 primary key-server hostname patch
+- Link legacy key-server settings to current exchange documentation
+- Add native HTTPS and automatic ACME renewal to key server
+
 ## 0.6.1
 
 - Fix Ruby frozen gem contents and Fiddle dependency
