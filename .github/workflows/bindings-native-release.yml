@@ -427,12 +427,14 @@ jobs:
         include:
           - target: linux-x86_64-gnu
             runner: ubuntu-24.04
+            container: rust:1.88-bookworm
             rust_target: x86_64-unknown-linux-gnu
             library: librevault_api.so
             static_library: librevault_api.a
             go_rust_target: ''
           - target: linux-aarch64-gnu
             runner: ubuntu-24.04-arm
+            container: rust:1.88-bookworm
             rust_target: aarch64-unknown-linux-gnu
             library: librevault_api.so
             static_library: librevault_api.a
@@ -462,6 +464,9 @@ jobs:
             static_library: revault_api.lib
             go_rust_target: aarch64-pc-windows-gnullvm
     runs-on: ${{ matrix.runner }}
+    # Build both Linux architectures on the oldest supported runtime, not
+    # the runner's newer glibc. Non-Linux jobs continue on their native host.
+    container: ${{ matrix.container || null }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -544,7 +549,7 @@ jobs:
       - name: Install Linux native dependencies
         if: runner.os == 'Linux'
         run: >-
-          sudo apt-get update && sudo apt-get install -y
+          apt-get update && apt-get install -y
           dbus-x11 gnome-keyring libsecret-tools libglib2.0-bin libdbus-1-dev
           pkg-config
       - name: Build release library
@@ -1229,6 +1234,34 @@ jobs:
           name: registry-publication-payloads
           path: artifacts
           if-no-files-found: error
+
+  ruby-linux-baseline:
+    name: frozen Ruby gem on Debian 12 (${{ matrix.target }})
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
+    needs: [publication-artifacts]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-x86_64-gnu, runner: ubuntu-24.04 }
+          - { target: linux-aarch64-gnu, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: registry-publication-payloads
+          path: artifacts
+      - name: Verify frozen payload integrity
+        run: sha256sum --check artifacts/SHA256SUMS
+      - name: Install the frozen platform gem on the oldest supported glibc
+        run: >-
+          docker build --file .github/containers/ruby-baseline.Dockerfile
+          --build-arg REVAULT_GEM=revault_api-${{ inputs.version }}-${{ matrix.target }}.gem
+          --tag revault-ruby-baseline .
+      - name: Reopen and verify persisted content using only the installed gem
+        run: docker run --rm --network none revault-ruby-baseline
 
   publish-npm-native:
     if: always() && needs.github-release.result == 'success' && needs.preflight-artifacts.result == 'success' && (startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'npm')))

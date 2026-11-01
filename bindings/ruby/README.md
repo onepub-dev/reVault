@@ -33,6 +33,10 @@ architecture. Each gem contains the matching reVault library and a Ruby shim;
 the package loads both through Fiddle. Install the gem matching the Ruby
 process architecture.
 
+Linux gems from 0.6.2 require glibc 2.36 or newer (Debian 12 or newer).
+The 0.6.1 Linux gems require glibc 2.39 and cannot load on Debian 12; upgrade
+to the corrected patch. macOS and Windows use their respective platform gems.
+
 `Revault.load(native_library_path)` can load a native library supplied by the
 application. Otherwise, reVault checks `REVAULT_LIBRARY` and then the library
 installed by the gem. A bare name uses the operating system search path.

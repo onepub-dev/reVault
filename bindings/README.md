@@ -109,7 +109,12 @@ All foreign-language packages use the same versioned C ABI library. Canonical
 native archives contain the dynamic and static libraries, the Windows DLL
 import library where applicable, the target-built Ruby ABI adapter on desktop, C header,
 private FlatBuffers schema, license, target
-metadata, SPDX SBOM, and SHA-256 sidecar. Linux requires
+metadata, SPDX SBOM, and SHA-256 sidecar. From bindings 0.6.2, Linux native
+artifacts target Debian 12 or newer (glibc 2.36 or newer). Bindings 0.6.1 Linux
+artifacts require glibc 2.39; use the corrected patch for Debian 12.
+Both Linux architectures are built on Debian 12, and the exact frozen Ruby
+gems must pass an installed-package persistence check on that baseline before
+promotion. Linux requires
 the system `libdbus-1` runtime; macOS and Windows use their native platform credential store
 implementations. A package must never select an artifact for another operating
 system, architecture, C runtime, or ABI. Dynamic-language loaders resolve an
