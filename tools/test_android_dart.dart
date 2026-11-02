@@ -79,6 +79,7 @@ dev_dependencies:
         'test',
         'integration_test/lifecycle_test.dart',
         '--reporter=expanded',
+        '--verbose',
         '-d',
         args[1]
       ], directory: root.path);
@@ -87,7 +88,11 @@ dev_dependencies:
   } catch (error) {
     if (args[1] != 'build') {
       try {
-        await run(['adb', '-s', args[1], 'logcat', '-d', '-t', '500'],
+        await run(['adb', '-s', args[1], 'logcat', '-d'],
+            timeout: const Duration(seconds: 30));
+        await run(['adb', '-s', args[1], 'shell', 'dumpsys', 'activity', 'activities'],
+            timeout: const Duration(seconds: 30));
+        await run(['adb', '-s', args[1], 'shell', 'dumpsys', 'window', 'windows'],
             timeout: const Duration(seconds: 30));
       } catch (diagnosticError) {
         stderr.writeln('Could not collect Android logcat: $diagnosticError');
