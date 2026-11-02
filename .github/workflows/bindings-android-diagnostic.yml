@@ -1,0 +1,63 @@
+name: bindings Android retained-package diagnostic
+run-name: Android diagnostic from ${{ inputs.source_run }} (${{ inputs.page_size }} byte pages)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Candidate run containing retained publication trees
+        required: true
+        type: string
+      page_size:
+        description: Android runtime page size
+        required: true
+        type: choice
+        default: '16384'
+        options: ['4096', '16384']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  flutter-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - uses: actions/download-artifact@v8
+        with:
+          name: revault-api-publication-trees
+          path: packages
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - name: Record retained package provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.source_run }}
+        run: gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq '{id,head_sha,html_url,status,conclusion}'
+      - name: Install NDK
+        run: sdkmanager "ndk;28.2.13676358"
+      - name: Install dcli
+        run: dart pub global activate dcli_sdk 10.3.0 --overwrite
+      - name: Resolve acceptance tooling
+        working-directory: tools
+        run: dart pub get
+      - name: Compile acceptance runner
+        working-directory: tools
+        run: dart compile exe test_android_dart.dart -o test_android_dart
+      - name: Enable emulator acceleration
+        run: sudo --preserve-env=PATH ./tools/enable_android_emulator.dart
+      - name: Run retained Flutter package on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: ${{ inputs.page_size == '16384' && 'google_apis_ps16k' || 'default' }}
+          script: ./tools/test_android_dart packages/dart emulator-5554
