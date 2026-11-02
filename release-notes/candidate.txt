@@ -2,6 +2,12 @@ Release bindings
 CLI: 
 Bindings: 0.6.2
 
+- Record Android acceptance release blocker
+- Merge Android acceptance diagnostics for #350
+- Diagnose #350: stream and bound Android Flutter acceptance
+- Complete remaining issue grouping and policy review
+- Record API review correction and active release candidate
+- [release candidate] Prepare bindings release: CLI , bindings 0.6.2
 - Classify mixed-profile rename in the CLI-only API review
 - Record corrected release candidate and prioritized backlog review
 - [release candidate] Prepare bindings release: CLI , bindings 0.6.2
