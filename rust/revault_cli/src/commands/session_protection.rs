@@ -139,7 +139,7 @@ pub(crate) fn run(matches: &ArgMatches) -> CliResult<()> {
                 .filter_map(assignment)
                 .filter(|(name, _)| selects(name, setting))
                 .filter_map(|(_, value)| bool_value(value))
-                .last()
+                .next_back()
                 .unwrap_or(true);
             let override_value = std::env::var(variable)
                 .ok()
