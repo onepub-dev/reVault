@@ -1621,7 +1621,9 @@ fn finish(errors: Vec<String>, success: String) -> Result {
 
 fn run_status(command: &mut Command) -> Result {
     let display = format!("{command:?}");
-    let status = command.status()?;
+    let status = command
+        .status()
+        .map_err(|error| format!("cannot start {display}: {error}"))?;
     if !status.success() {
         return Err(format!("command failed ({status}): {display}").into());
     }

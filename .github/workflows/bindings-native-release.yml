@@ -551,7 +551,7 @@ jobs:
         run: >-
           apt-get update && apt-get install -y
           dbus-x11 gnome-keyring libsecret-tools libglib2.0-bin libdbus-1-dev
-          pkg-config
+          pkg-config cmake
       - name: Build release library
         working-directory: rust
         run: cargo build --locked --release --target ${{ matrix.rust_target }} -p revault_bindings
