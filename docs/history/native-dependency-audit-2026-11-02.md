@@ -26,12 +26,31 @@ into reVault. `cc` contains a compiler-identification C source. Build scripts
 alone likewise do not establish a native-code dependency: many only generate
 Rust configuration or data.
 
+## Agreed scope after the audit
+
+On November 2, Brett explicitly excluded historical migration packages from
+the pure-Rust objective. Their frozen dependency graphs remain unchanged.
+The long-term goal is to replace ring's native implementation when a viable,
+qualified Rust alternative is available; retaining it now is not a claim that
+it meets the pure-Rust goal. Development-only tools and OS FFI have not been
+implicitly granted the same exception.
+
+Brian Smith stated in September 2023 that he intended to replace ring's
+remaining C code with Rust, and described a longer-term safe-Rust replacement
+for assembly. His separate collaboration proposal supports sharing RustCrypto
+implementations when performance permits. Incremental conversion work exists,
+but no committed completion date was identified during this review:
+
+- [FIPS and Rust implementation proposal](https://briansmith.org/lets-build-a-fips-rust-crypto)
+- [RustCrypto collaboration statement](https://briansmith.org/why-not-rustcrypto)
+- [C-to-Rust scalar multiplication PR](https://github.com/briansmith/ring/pull/2692)
+
 ## Follow-up decisions
 
 1. Keep #215 open: the strict pure-Rust claim cannot be verified as true.
-2. Separate a policy for shipped application/cryptographic code from OS FFI,
-   historical migration compatibility and development-only tools. Do not
-   silently declare those categories exceptions to the original objective.
+2. Historical migrations are now explicitly excluded. Define the remaining
+   policy for OS FFI and development-only tools separately from shipped
+   application/cryptographic code; do not silently add further exceptions.
 3. If strict pure-Rust networking is required, qualify a replacement TLS crypto
    provider across ureq, rustls, ACME, SMTP, native bindings and supported
    platforms. This requires compatibility/security testing; it is not a safe
