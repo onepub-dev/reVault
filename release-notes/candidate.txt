@@ -2,6 +2,14 @@ Release bindings
 CLI: 
 Bindings: 0.6.2
 
+- Record Android qualification evidence and remaining uncertainty
+- Merge corrected Android diagnostic toolchain for #350
+- Fix #350 diagnostic NDK selection and retain ELF evidence
+- Merge native Android crash diagnostics for #350
+- Diagnose #350: retain native Android crash reports
+- Merge Android launch diagnostics for #350
+- Diagnose #350: capture Android launch state after native acceptance
+- [release candidate] Prepare bindings release: CLI , bindings 0.6.2
 - Record Android acceptance release blocker
 - Merge Android acceptance diagnostics for #350
 - Diagnose #350: stream and bound Android Flutter acceptance
