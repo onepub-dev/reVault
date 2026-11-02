@@ -12,8 +12,10 @@ crates.io trusted-publisher entry; the final corrected publication will use
 new consolidated crates.io publisher. Candidate `41361552039` failed qualification; #349 repairs its identified
 prerequisite, lint and CLI coverage failures. Candidate `41392531422` was cancelled after an API-review manifest omission;
 its native Linux jobs and strict Clippy passed. The omission is corrected.
-Replacement candidate `41393746205` is running from main
-`e9414556b89c885317dbb09c58585d3b3da87e8c`.
+Candidate `41393746205` was cancelled after the Android 16 KiB Flutter
+acceptance job timed out. #350 tracks diagnosis; focused non-publishing run
+`41400976269` uses its retained packages. A fresh successful candidate is
+required before publication.
 Advisory release guidance is updated but all eight advisories remain private.
 See the [November 2 checkpoint](history/release-closeout-2026-11-02.md).
 

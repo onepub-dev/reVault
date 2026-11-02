@@ -102,3 +102,25 @@ The original candidate's secure-API job was not hung: it passed at
 took 14,224.53 seconds; 20 tests were ignored. Many recovery/interruption tests
 across archive modes accounted for the duration. No required tests were removed
 or reclassified to accelerate the replacement candidate.
+
+## Android acceptance blocker
+
+Candidate `41393746205` was cancelled after its Android 16 KiB acceptance job
+exceeded the 45-minute limit. Native C/C++ acceptance passed on that emulator;
+the following Flutter acceptance command produced no output before timeout.
+The old runner buffered child output, so these logs do not identify whether
+compilation, installation or runtime operation stalled. The 4 KiB job passed.
+The candidate's remaining secure-API job was deliberately cancelled, not failed.
+Its final result was 57 passed jobs, three cancelled and 18 skipped.
+
+#350 adds live Flutter output, bounded subprocess execution, failure logcat and
+non-secret lifecycle markers. Local analysis, compilation, subprocess success,
+failure and timeout probes, and workflow parsing passed. These checks do not
+establish Android runtime correctness.
+
+Focused diagnostic
+[41400976269](https://github.com/onepub-dev/reVault/actions/runs/41400976269)
+uses retained publication trees from `41393746205`, with diagnostic code from
+main `108d6228aad78acc3e5befe011f8aa61d5be3802`. It cannot publish or replace
+release qualification. Another candidate is required after resolving this
+blocker. No 0.6.2 package or advisory publication is claimed.
