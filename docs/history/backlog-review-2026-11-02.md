@@ -56,3 +56,25 @@ security audit or evidence that all old acceptance criteria have passed.
 
 No issues were closed by this review alone. No new vulnerability is asserted
 solely from an open issue's wording or this limited source inspection.
+
+## Remaining queue and overlaps
+
+The following completes the grouping of the remaining 56 open issues; it does
+not add implementation scope to the current release.
+
+| Issue(s) | Disposition |
+| --- | --- |
+| #30 | Keep independent cryptographic review distinct from automated tests and the completed alert triage. The latter cannot close this assurance objective. |
+| #88, #5 | Review metadata and Vault secret-memory boundaries alongside #236/#329. `LockboxPath` currently wraps a standard `String`, and the TOC retains a `BTreeMap`; protected content buffers do not imply all metadata is protected. Define the intended threat model before proposing a representation change. |
+| #299 | Loader policy decision: current Python, Dart and Ruby implementations prefer an explicit library path, then `REVAULT_LIBRARY`. Review whether an inherited environment variable should be allowed to override an application's explicit selection; do not silently change that trust boundary. |
+| #302, #280, #282, #117 | Related but distinct Vault unlock-policy, per-identity protection, hardware backing and platform-store documentation work. Agree the security model before adding identity passwords or hardware requirements. |
+| #198 | Partially superseded: the key server now uses Axum and Tower. The original issue also includes rate limiting, encoding and CLI parsing; compare each remaining clause rather than closing based on dependency names. |
+| #155 | Verify and document which core/Vault operations are agentless. Do not confuse an agent-free archive API with the higher-level CLI's current session dependency. Coordinate with #279. |
+| #225 | Persistent public-key directory design remains separate from the implemented short-lived exchange. Its transparency, anti-enumeration and recovery criteria remain a substantial future feature. |
+| #201 | Workload identity issuance is a future authorization feature; design it with #197/#286 rather than treating it as a token-generation convenience. |
+| #80 | Application roadmap overlap with #286 phone authorization and #307 browser integration; choose the intended user experience before independent implementation. |
+| #24 | External-source support exists, but remote-browser file access needs end-to-end acceptance with #188/#28. A transport abstraction alone does not establish a complete browser product. |
+
+The reviewed loader ordering and source observations describe current behavior,
+not newly demonstrated vulnerabilities. Broader policy changes require their
+own implementation and validation work.
