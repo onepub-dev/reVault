@@ -29,7 +29,11 @@ pub(crate) fn add_matches(
 }
 
 pub(crate) fn extract_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
-    extract(&extract_args_from_matches(matches)?, access)
+    extract(
+        &extract_args_from_matches(matches)?,
+        access,
+        &super::extraction_limits::policy(matches),
+    )
 }
 
 pub(crate) fn cat_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
@@ -378,31 +382,29 @@ fn source_metadata(source: &Path) -> CliResult<fs::Metadata> {
     }
 }
 
-pub(crate) fn extract(args: &[String], access: &Access) -> CliResult<()> {
+fn extract(args: &[String], access: &Access, policy: &ExtractPolicy) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
     let mut lb = open_for_reading(lockbox_path, access)?;
     if args.get(1).map(String::as_str) == Some("--to") {
         let dest = require_arg(args, 2, "destination")?;
-        let policy = extract_policy_from_args(&args[3..]);
         lb.set_workload_profile(WorkloadProfile::ExtractMany);
-        lb.extract_to_directory(Path::new(dest), &policy)?;
+        lb.extract_to_directory(Path::new(dest), policy)?;
         println!("Extracted lockbox to {dest}.");
     } else {
         let path = cli_lockbox_path(require_arg(args, 1, "lockbox path")?)?;
         let dest = require_arg(args, 2, "destination")?;
-        let policy = extract_policy_from_args(&args[3..]);
         let entry = lb
             .stat(&path)
             .ok_or_else(|| Error::NotFound(path.to_string()))?;
         match entry.kind {
             LockboxEntryKind::Directory => {
                 lb.set_workload_profile(WorkloadProfile::ExtractMany);
-                lb.extract_directory_to(&path, Path::new(dest), &policy)?;
+                lb.extract_directory_to(&path, Path::new(dest), policy)?;
             }
             LockboxEntryKind::File => {
                 // A full-file extraction is a stream, not an interactive read set.
                 lb.set_workload_profile(WorkloadProfile::ExtractMany);
-                lb.extract_file_to_with_policy(&path, Path::new(dest), &policy)?;
+                lb.extract_file_to_with_policy(&path, Path::new(dest), policy)?;
             }
             LockboxEntryKind::Symlink => {
                 return Err(cli_error(format!(
@@ -689,23 +691,6 @@ fn kind_name(kind: &revault_lockbox_api::LockboxEntryKind) -> &'static str {
 
 fn nanos_to_secs(nanos: u128) -> f64 {
     nanos as f64 / 1_000_000_000.0
-}
-
-fn extract_policy_from_args(args: &[String]) -> ExtractPolicy {
-    let mut policy = ExtractPolicy {
-        restore_permissions: true,
-        ..ExtractPolicy::default()
-    };
-    for arg in args {
-        match arg.as_str() {
-            "--overwrite" => policy.overwrite = true,
-            "--restore-symlinks" => policy.restore_symlinks = true,
-            "--restore-permissions" => policy.restore_permissions = true,
-            "--no-restore-permissions" => policy.restore_permissions = false,
-            _ => {}
-        }
-    }
-    policy
 }
 
 struct AddSourceOptions<'a> {

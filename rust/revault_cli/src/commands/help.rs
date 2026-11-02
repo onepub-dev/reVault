@@ -182,6 +182,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                 ),
             mirror_command(verbose),
             file_command("extract", "Extract a file, directory, or complete lockbox.")
+                .args(super::extraction_limits::args())
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox secrets.lbox extract /notes.txt ./notes.txt\n  lockbox secrets.lbox extract /docs ./docs\n  lockbox secrets.lbox extract /docs --to ./docs\n  lockbox secrets.lbox extract --to ./restore\n  lockbox secrets.lbox extract --to ./restore --overwrite",
@@ -816,6 +817,7 @@ fn mirror_add_command(verbose: bool) -> Command {
 
 fn mirror_extract_command() -> Command {
     Command::new("extract")
+        .args(super::extraction_limits::args())
         .about("Extract a project file, directory, or the complete project.")
         .after_help(
             "Examples:\n  lbx house.lbox mirrors home extract notes.txt ./notes.txt\n  lbx house.lbox mirrors home extract docs ./docs\n  lbx house.lbox mirrors home extract docs --to ./docs\n  lbx house.lbox mirrors home extract --to ./restore",

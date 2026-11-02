@@ -53,3 +53,14 @@ lbx project.lbox description clear
 ```
 
 Use `--interactive`, `--stdin`, `--file` or `--from-env` when the text should not appear in shell history.
+
+## Set extraction limits
+
+```bash
+lbx backup.lbox extract /reports --to ./reports --max-file-bytes 10M --max-total-bytes 100M --max-entries 2000
+```
+
+The same flags work with `mirrors NAME extract`. `10M` means 10 MiB; plain
+integers mean bytes. Defaults and zero-value behavior are documented under
+[Extraction safety limits](../../maintain-and-recover/archive-limits.md#extraction-safety-limits).
+Numeric overrides keep overwrite, symlink and path protections independent.
