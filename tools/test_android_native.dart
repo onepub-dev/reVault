@@ -83,6 +83,13 @@ void main(List<String> args) {
         '2'
       ]);
     }
+    final evidence = Directory('android-diagnostics')..createSync(recursive: true);
+    for (final language in ['c', 'cpp']) {
+      final binary = '${root.path}/$language-test/revault_${language}_conformance';
+      File(binary).copySync('${evidence.path}/revault_${language}_conformance');
+      run(['$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf', '-lW', binary]);
+    }
+    File('$prefix/lib/librevault_api.so').copySync('${evidence.path}/librevault_api.so');
     if (args[2] != 'build') {
       if (args.length == 4) {
         final pageSize = Process.runSync(

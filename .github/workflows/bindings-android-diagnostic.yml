@@ -54,7 +54,9 @@ jobs:
           SOURCE_RUN: ${{ inputs.source_run }}
         run: gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq '{id,head_sha,html_url,status,conclusion}'
       - name: Install NDK
-        run: sdkmanager "ndk;28.2.13676358"
+        run: |
+          sdkmanager "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
       - name: Install dcli
         run: dart pub global activate dcli_sdk 10.3.0 --overwrite
       - name: Resolve acceptance tooling
@@ -76,3 +78,11 @@ jobs:
           script: |
             ./tools/test_android_native native/*.tar.gz x86_64 emulator-5554 ${{ inputs.page_size }}
             ./tools/test_android_dart packages/dart emulator-5554
+      - name: Retain native diagnostic binaries
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-diagnostic-binaries
+          path: android-diagnostics/
+          if-no-files-found: warn
+          retention-days: 7
