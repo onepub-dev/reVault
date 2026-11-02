@@ -63,7 +63,31 @@ The current CLI uses these defaults when extracting to the filesystem:
 | Total file bytes in one extraction | 10 GiB. |
 | Selected entries in one extraction | 100,000, including directory and symlink records. |
 
-These are operation limits, not archive capacity limits. The current CLI does not expose options to raise these three numeric limits. Applications using the Rust API can supply an explicit `ExtractPolicy`; binding APIs that expose an extraction policy can supply their corresponding limits. Raising them requires enough memory, disk space and an appropriate destination filesystem. Proposed CLI overrides are tracked separately in [issue #331](https://github.com/onepub-dev/reVault/issues/331).
+These are operation limits, not archive capacity limits. File and mirror extraction
+accept explicit overrides:
+
+```bash
+lbx backup.lbox extract --to ./restore --max-file-bytes 2G --max-total-bytes 20G --max-entries 200000
+lbx backup.lbox mirrors project extract --to ./restore --max-file-bytes 10M
+```
+
+`--max-file-bytes` and `--max-total-bytes` accept integer bytes or binary unit
+suffixes `K`, `M`, `G`, `KiB`, `MiB`, `GiB` (case-insensitive). For example,
+`10M` and `10MiB` both mean 10,485,760 bytes. Fractions, negative values,
+unsupported units and overflow are errors. `--max-entries` accepts only a
+non-negative integer, including directory and symlink records. Duplicate
+options are rejected. Different limits apply together: the stricter applicable
+limit wins; a per-file limit larger than the total limit is valid.
+
+Zero is a literal limit, never an unlimited setting. Zero byte limits permit
+only empty files; zero entries permits no selected records. Omitted options
+retain the defaults. Raising a numeric limit does not enable overwrite or
+symlink restoration and does not bypass path or cryptographic checks.
+
+Applications using the Rust API can supply an explicit `ExtractPolicy`;
+binding APIs that expose an extraction policy can supply their corresponding
+limits. Raising limits requires enough memory, disk space and an appropriate
+destination filesystem.
 
 Stored permissions are restored by the CLI by default where supported. Symlink restoration requires `--restore-symlinks`, and replacing existing destinations requires `--overwrite`. See [File operations](../get-started/cli-tooling/file-operations.md). Ordinary CLI add and mirror import currently store file mode `0600`, so restoring that stored mode does not necessarily reproduce the source host's mode.
 

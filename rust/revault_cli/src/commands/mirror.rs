@@ -725,12 +725,7 @@ fn project_extract(
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
-    let policy = ExtractPolicy {
-        overwrite: matches.get_flag("overwrite"),
-        restore_permissions: !matches.get_flag("no-restore-permissions"),
-        restore_symlinks: matches.get_flag("restore-symlinks"),
-        ..ExtractPolicy::default()
-    };
+    let policy = super::extraction_limits::policy(matches);
     if let Some(destination) = matches.get_one::<String>("to") {
         if args.len() > 1 {
             return Err(cli_error(
