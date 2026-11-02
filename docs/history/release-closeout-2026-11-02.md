@@ -195,3 +195,19 @@ registry propagation checks and Rust publication must finish before coordinated
 advisory disclosure. The eight advisories remain private. No production server
 deployment was performed. The fully merged Android diagnostic worktree/branch
 was removed; #350 remains open for the unexplained intermittent startup stall.
+
+Follow-up registry checks completed: Maven Java/Kotlin 0.6.2 are available;
+Packagist lists v0.6.2 with the PHP tag's packaging commit; Go proxy info, mod
+and ZIP are available, the ZIP passes integrity checking, and sum.golang.org
+records its checksums. The earlier Go timeout and Kotlin propagation gap are
+resolved. No local Go consumer ran because this environment has no Go binary.
+
+The public Go and PHP tag trees match the sealed candidate's prepared trees
+byte for byte. Swift's differences are its promoted manifest and header line
+endings; its XCFramework reference/checksum matches the public release asset.
+Homebrew resolves the candidate template to 0.6.2 with four platform asset
+hashes matching the release. These companion tag commits are packaging commits,
+not the main source SHA. Evidence is retained locally under
+`/tmp/revault-062-public-check/`. Rust trusted-publisher authorization remains
+the publication blocker; advisory disclosure and the test-runtime audit remain
+pending completion of publication.
