@@ -9,8 +9,10 @@ Bindings 0.6.2 is being qualified to restore the Debian 12 baseline and update
 active zip/rustls dependencies. Rust 0.6.1 publication stopped at a missing
 crates.io trusted-publisher entry; the final corrected publication will use
 0.6.2, preserving the partial 0.6.1 record. The operator has configured the
-new consolidated crates.io publisher. Candidate `41361552039` is running;
-advisory release guidance is updated but all eight advisories remain private.
+new consolidated crates.io publisher. Candidate `41361552039` failed qualification; #349 repairs its identified
+prerequisite, lint and CLI coverage failures. Replacement candidate
+`41392531422` is running from main `c3ee581695259267f26f58205db2eeffdcbce559`.
+Advisory release guidance is updated but all eight advisories remain private.
 See the [November 2 checkpoint](history/release-closeout-2026-11-02.md).
 
 Historical status on 2026-10-25: eight findings from the October security review had

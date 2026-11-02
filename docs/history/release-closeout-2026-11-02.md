@@ -46,3 +46,39 @@ Merged issue branches 342, 344, 345 and 346 and their clean worktrees were
 removed. Exact temporary deletion exemptions were removed and repository
 branch protection restored. Candidate refs remain available for provenance.
 No production deployment was performed.
+
+## Later November 2 corrections and integration
+
+Main now includes #277 Profile rename, #312 remembered-Lockbox resolution,
+#331 numeric extraction limits (including short binary suffixes such as `10M`),
+and #348 relative symlink restoration. The integrated CLI changes passed seven
+focused CLI tests and the 56-page manual validator. The symlink correction then
+passed 17 API extraction tests and five CLI extraction tests. It rejects restored
+targets outside a selected subtree before writing output and does not change
+the archive format.
+
+The #215 dependency audit and #347 individual alert dispositions are integrated.
+Historical migration dependencies are explicitly excluded from the pure-Rust
+objective; replacing ring when a qualified alternative becomes viable remains
+an open goal. The completed branches were removed with exact temporary deletion
+exclusions, and the original repository rule was restored.
+
+Candidate `41361552039` completed unsuccessfully. Earlier watcher summaries
+missed failures already present in that run; the final API result and direct job
+logs supersede those summaries. Both Linux native jobs lacked `cmake`; Clippy
+rejected `Iterator::last` on a double-ended iterator; the CLI coverage gate lacked
+session-protection commands because `headless_init` was absent from its runner.
+
+#349 adds the missing native prerequisite, fixes the iterator, includes
+`headless_init` and `extraction_limits` in the required CLI runner, and names
+commands in spawn-failure diagnostics. Validation passed five headless tests
+with successful command coverage, two xtask E2E tests, six tooling E2E tests,
+strict Clippy and workflow YAML parsing. The cached Debian image was confirmed
+to lack cmake. Actionlint was unavailable locally.
+
+Replacement bindings 0.6.2 candidate
+[41392531422](https://github.com/onepub-dev/reVault/actions/runs/41392531422)
+uses main source `c3ee581695259267f26f58205db2eeffdcbce559` and immutable ref
+`release-candidates/c3ee58169525-1793596270708044619`. Qualification is running;
+no publication or disclosure is claimed. The eight advisories remain private
+until package availability and the coordinated closeout requirements are met.
