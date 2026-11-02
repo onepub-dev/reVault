@@ -2047,7 +2047,7 @@ fn vault_command(verbose: bool) -> Command {
                             "Examples:\n  lockbox vault lockboxes forget ./old-project.lbox",
                             "Context:\n  Forget removes a stale known-lockbox record from the vault. It does not delete the lockbox file.",
                         ))
-                        .arg(required("lockbox", "Remembered lockbox path or a@alias to forget, including missing files; defaults to the session lockbox.").required(false)),
+                        .arg(required("lockbox", "Remembered path, unique filename, lockbox ID or a@alias; missing files are allowed. Defaults to the session lockbox.").required(false)),
                 ),
         )
 }

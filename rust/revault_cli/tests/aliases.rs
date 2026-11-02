@@ -1805,3 +1805,52 @@ fn automatic_alias_preserves_standalone_creation_without_an_unlocked_vault() {
     assert_eq!(value.stdout, b"locked-vault-value");
     assert!(!f.run(VALUE, &["a@locked-vault", "TOKEN"]).status.success());
 }
+
+#[test]
+fn forget_resolves_remembered_filenames_ids_and_refuses_missing_or_ambiguous() {
+    let f = Fixture::new();
+    std::fs::create_dir(f.root.path().join("one")).unwrap();
+    std::fs::create_dir(f.root.path().join("two")).unwrap();
+    f.ok(&["./one/shared.lbox", "create", "--alias", "first"]);
+    f.ok(&["./two/shared.lbox", "create", "--alias", "second"]);
+    let list = || f.ok(&["vault", "lockboxes", "list", "--format", "json"]);
+    let before = list();
+    let rows = serde_json::Deserializer::from_slice(&before.stdout)
+        .into_iter::<serde_json::Value>()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    let first = rows
+        .iter()
+        .find(|r| {
+            r["path"]
+                .as_str()
+                .unwrap()
+                .replace('\\', "/")
+                .ends_with("/one/shared.lbox")
+        })
+        .unwrap();
+    let first_id = first["lockbox_id"].as_str().unwrap();
+    for selector in ["shared.lbox", "shared", "unknown.lbox", "./absent.lbox"] {
+        let refused = f.run(LBX, &["vault", "lockboxes", "forget", selector]);
+        assert!(!refused.status.success(), "{refused:?}");
+        assert_eq!(before.stdout, list().stdout);
+    }
+    f.ok(&["vault", "lockboxes", "forget", first_id]);
+    let after = list();
+    assert!(!String::from_utf8_lossy(&after.stdout).contains(first_id));
+    assert!(f.root.path().join("one/shared.lbox").is_file());
+    // Simulate external deletion: no public CLI removes the archive while
+    // deliberately retaining its stale Vault record.
+    std::fs::remove_file(f.root.path().join("two/shared.lbox")).unwrap();
+    f.ok(&["vault", "lockboxes", "forget", "shared.lbox"]);
+    assert!(!String::from_utf8_lossy(&list().stdout).contains("shared.lbox"));
+    assert!(!f
+        .run(LBX, &["vault", "lockboxes", "forget", "shared.lbox"])
+        .status
+        .success());
+    f.ok(&["vault", "lockboxes", "remember", "./one/shared.lbox"]);
+    f.ok(&["vault", "lockboxes", "forget", "./one/../one/shared.lbox"]);
+    assert!(!String::from_utf8_lossy(&list().stdout).contains("shared.lbox"));
+    // Verify the retained archive is independently readable through the CLI.
+    f.ok(&["./one/shared.lbox", "list"]);
+}
