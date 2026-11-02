@@ -410,3 +410,114 @@ fn extraction_entry_limit_counts_symlinks_and_keeps_restore_opt_in() {
     ]);
     assert!(!f.dir.path().join("no-links/link").exists());
 }
+
+#[cfg(unix)]
+#[test]
+fn subtree_symlinks_resolve_to_extracted_bytes_and_reject_outside_targets() {
+    let f = Fixture::with_create_options(&["--signing", "none"]);
+    f.ok(&["box.lbox", "add", "source", "--recursive", "--to", "/docs"]);
+    // Archived symlinks cannot be created through the CLI, so only those entries
+    // use API setup. All files, extraction, replacement and removal use the CLI.
+    let add_links = |links: &[(&str, &str)]| {
+        use revault_lockbox_api::{Lockbox, LockboxOpen, LockboxPath, SecretVec, Signing};
+        let key = SecretVec::try_from_slice(b"synthetic-extraction-key").unwrap();
+        let mut archive = Lockbox::open_for_write(
+            &f.dir.path().join("box.lbox"),
+            LockboxOpen::ContentKey(key),
+            Signing::None,
+        )
+        .unwrap();
+        for (link, target) in links {
+            archive
+                .add_symlink(
+                    &LockboxPath::new(link).unwrap(),
+                    &LockboxPath::new(target).unwrap(),
+                    false,
+                )
+                .unwrap();
+        }
+        archive.commit().unwrap();
+    };
+    add_links(&[
+        ("/docs/link", "/docs/a"),
+        ("/docs/sub/up", "/docs/a"),
+        ("/docs/down", "/docs/sub/b"),
+    ]);
+    for (destination, source) in [("subtree", Some("/docs")), ("whole", None)] {
+        let mut args = vec!["box.lbox", "extract"];
+        if let Some(source) = source {
+            args.push(source);
+        }
+        args.extend(["--to", destination, "--restore-symlinks"]);
+        f.ok(&args);
+        let base = f
+            .dir
+            .path()
+            .join(destination)
+            .join(if source.is_some() { "" } else { "docs" });
+        assert_eq!(fs::read(base.join("link")).unwrap(), b"12345");
+        assert_eq!(fs::read(base.join("sub/up")).unwrap(), b"12345");
+        assert_eq!(fs::read(base.join("down")).unwrap(), b"1234567");
+        f.refused(&args);
+        args.push("--overwrite");
+        f.ok(&args);
+        assert_eq!(fs::read(base.join("sub/up")).unwrap(), b"12345");
+    }
+    fs::write(f.dir.path().join("replacement"), b"replacement").unwrap();
+    f.ok(&[
+        "box.lbox",
+        "add",
+        "replacement",
+        "--to",
+        "/docs/a",
+        "--overwrite",
+    ]);
+    f.ok(&[
+        "box.lbox",
+        "extract",
+        "/docs",
+        "--to",
+        "subtree",
+        "--restore-symlinks",
+        "--overwrite",
+    ]);
+    assert_eq!(
+        fs::read(f.dir.path().join("subtree/sub/up")).unwrap(),
+        b"replacement"
+    );
+    add_links(&[("/docs/outside", "/other/a")]);
+    for destination in ["new-refused", "subtree"] {
+        let out = f.run(&[
+            "box.lbox",
+            "extract",
+            "/docs",
+            "--to",
+            destination,
+            "--restore-symlinks",
+            "--overwrite",
+        ]);
+        assert!(!out.status.success());
+        assert!(String::from_utf8_lossy(&out.stderr).contains("outside selected extraction source"));
+    }
+    assert!(!f.dir.path().join("new-refused").exists());
+    assert!(!f.dir.path().join("subtree/outside").exists());
+    assert_eq!(
+        fs::read(f.dir.path().join("subtree/sub/up")).unwrap(),
+        b"replacement"
+    );
+    f.ok(&["box.lbox", "extract", "/docs", "--to", "skip-links"]);
+    assert!(!f.dir.path().join("skip-links/link").exists());
+    f.ok(&["box.lbox", "remove", "/docs/outside", "--force"]);
+    f.ok(&[
+        "box.lbox",
+        "extract",
+        "/docs",
+        "--to",
+        "after-remove",
+        "--restore-symlinks",
+    ]);
+    assert_eq!(
+        fs::read(f.dir.path().join("after-remove/sub/up")).unwrap(),
+        b"replacement"
+    );
+}
