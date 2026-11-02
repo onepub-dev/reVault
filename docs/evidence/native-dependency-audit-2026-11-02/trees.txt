@@ -1,0 +1,121 @@
+Source: 88a55a428bc35e040a4be7840ae043c5897ce823
+
+$ cargo tree --locked --offline --manifest-path rust/Cargo.toml -i ring --edges normal,build
+ring v0.17.14
+├── rcgen v0.13.2
+│   └── rustls-acme v0.15.4
+│       └── revault_key_server v0.0.53 (<checkout>/rust/revault_key_server)
+├── rustls v0.23.46
+│   ├── axum-server v0.8.0
+│   │   ├── revault_key_server v0.0.53 (<checkout>/rust/revault_key_server)
+│   │   └── rustls-acme v0.15.4 (*)
+│   ├── futures-rustls v0.26.0
+│   │   ├── async-web-client v0.6.4
+│   │   │   └── rustls-acme v0.15.4 (*)
+│   │   └── rustls-acme v0.15.4 (*)
+│   ├── lettre v0.11.23
+│   │   └── revault_key_server v0.0.53 (<checkout>/rust/revault_key_server)
+│   ├── tokio-rustls v0.26.6
+│   │   └── axum-server v0.8.0 (*)
+│   └── ureq v3.4.2
+│       ├── revault_publish_protocol v0.0.56 (<checkout>/rust/revault_publish_protocol)
+│       │   ├── revault_cli v0.6.1 (<checkout>/rust/revault_cli)
+│       │   ├── revault_key_server v0.0.53 (<checkout>/rust/revault_key_server)
+│       │   └── revault_vault_api v0.0.63 (<checkout>/rust/revault_vault_api)
+│       │       ├── revault_bindings v0.2.44 (<checkout>/rust/revault_bindings)
+│       │       ├── revault_cli v0.6.1 (<checkout>/rust/revault_cli)
+│       │       ├── revault_migration v0.0.55 (<checkout>/rust/revault_migration)
+│       │       │   └── revault_cli v0.6.1 (<checkout>/rust/revault_cli)
+│       │       └── revault_wasm_bindings v0.0.45 (<checkout>/rust/revault_wasm_bindings)
+│       └── revault_tooling v0.1.0 (<checkout>/rust/revault_tooling)
+├── rustls-acme v0.15.4 (*)
+└── rustls-webpki v0.103.15
+    └── rustls v0.23.46 (*)
+
+$ cargo tree --locked --offline --manifest-path rust/Cargo.toml -p revault_lockbox_api --target all -i cc --edges normal,build
+warning: nothing to print.
+
+To find dependencies that require specific target platforms, try to use option `--target all` first, and then narrow your search scope accordingly.
+
+$ cargo tree --locked --offline --manifest-path rust/Cargo.toml --target all -i cc --edges normal,build
+cc v1.4.5
+[build-dependencies]
+├── iana-time-zone-haiku v0.1.2
+│   └── iana-time-zone v0.1.65
+│       └── chrono v0.4.45
+│           └── rustls-acme v0.15.4
+│               └── revault_key_server v0.0.53 (<checkout>/rust/revault_key_server)
+└── ring v0.17.14
+    ├── rcgen v0.13.2
+    │   └── rustls-acme v0.15.4 (*)
+    ├── rustls v0.23.46
+    │   ├── axum-server v0.8.0
+    │   │   ├── revault_key_server v0.0.53 (<checkout>/rust/revault_key_server)
+    │   │   └── rustls-acme v0.15.4 (*)
+    │   ├── futures-rustls v0.26.0
+    │   │   ├── async-web-client v0.6.4
+    │   │   │   └── rustls-acme v0.15.4 (*)
+    │   │   └── rustls-acme v0.15.4 (*)
+    │   ├── lettre v0.11.23
+    │   │   └── revault_key_server v0.0.53 (<checkout>/rust/revault_key_server)
+    │   ├── tokio-rustls v0.26.6
+    │   │   └── axum-server v0.8.0 (*)
+    │   └── ureq v3.4.2
+    │       ├── revault_publish_protocol v0.0.56 (<checkout>/rust/revault_publish_protocol)
+    │       │   ├── revault_cli v0.6.1 (<checkout>/rust/revault_cli)
+    │       │   ├── revault_key_server v0.0.53 (<checkout>/rust/revault_key_server)
+    │       │   └── revault_vault_api v0.0.63 (<checkout>/rust/revault_vault_api)
+    │       │       ├── revault_bindings v0.2.44 (<checkout>/rust/revault_bindings)
+    │       │       ├── revault_cli v0.6.1 (<checkout>/rust/revault_cli)
+    │       │       ├── revault_migration v0.0.55 (<checkout>/rust/revault_migration)
+    │       │       │   └── revault_cli v0.6.1 (<checkout>/rust/revault_cli)
+    │       │       └── revault_wasm_bindings v0.0.45 (<checkout>/rust/revault_wasm_bindings)
+    │       └── revault_tooling v0.1.0 (<checkout>/rust/revault_tooling)
+    ├── rustls-acme v0.15.4 (*)
+    └── rustls-webpki v0.103.15
+        └── rustls v0.23.46 (*)
+
+$ cargo tree --locked --offline --manifest-path rust/Cargo.toml --target all -i libdbus-sys --edges normal,build
+libdbus-sys v0.2.7
+└── dbus v0.9.12
+    ├── revault_migrate_v1 v0.1.0 (<checkout>/rust/revault_migrate_v1)
+    └── revault_migrate_v2 v0.1.1 (<checkout>/rust/revault_migrate_v2)
+
+$ cargo tree --locked --offline --manifest-path rust/Cargo.toml --target all -i alloca
+alloca v0.4.0
+└── criterion v0.8.2
+    [dev-dependencies]
+    ├── revault_bindings v0.2.44 (<checkout>/rust/revault_bindings)
+    └── revault_lockbox_api v0.0.62 (<checkout>/rust/revault_lockbox_api)
+        ├── revault_bindings v0.2.44 (<checkout>/rust/revault_bindings)
+        ├── revault_cli v0.6.1 (<checkout>/rust/revault_cli)
+        ├── revault_migration v0.0.55 (<checkout>/rust/revault_migration)
+        │   └── revault_cli v0.6.1 (<checkout>/rust/revault_cli)
+        ├── revault_publish_protocol v0.0.56 (<checkout>/rust/revault_publish_protocol)
+        │   ├── revault_cli v0.6.1 (<checkout>/rust/revault_cli)
+        │   ├── revault_key_server v0.0.53 (<checkout>/rust/revault_key_server)
+        │   │   [dev-dependencies]
+        │   │   ├── revault_bindings v0.2.44 (<checkout>/rust/revault_bindings)
+        │   │   └── revault_cli v0.6.1 (<checkout>/rust/revault_cli)
+        │   └── revault_vault_api v0.0.63 (<checkout>/rust/revault_vault_api)
+        │       ├── revault_bindings v0.2.44 (<checkout>/rust/revault_bindings)
+        │       ├── revault_cli v0.6.1 (<checkout>/rust/revault_cli)
+        │       ├── revault_migration v0.0.55 (<checkout>/rust/revault_migration) (*)
+        │       └── revault_wasm_bindings v0.0.45 (<checkout>/rust/revault_wasm_bindings)
+        ├── revault_vault_api v0.0.63 (<checkout>/rust/revault_vault_api) (*)
+        └── revault_wasm_bindings v0.0.45 (<checkout>/rust/revault_wasm_bindings)
+        [dev-dependencies]
+        ├── revault_cli v0.6.1 (<checkout>/rust/revault_cli)
+        └── revault_key_server v0.0.53 (<checkout>/rust/revault_key_server) (*)
+
+$ cargo tree --locked --offline --manifest-path rust/Cargo.toml -p revault_migrate_v1 --all-features -i zstd-sys --edges normal,build
+zstd-sys v2.1.0+zstd.1.5.7
+└── zstd-safe v7.2.4
+    └── zstd v0.13.3
+        └── revault_migrate_v1 v0.1.0 (<checkout>/rust/revault_migrate_v1)
+
+$ cargo tree --locked --offline --manifest-path rust/Cargo.toml -p revault_migrate_v2 --all-features -i zstd-sys --edges normal,build
+zstd-sys v2.1.0+zstd.1.5.7
+└── zstd-safe v7.2.4
+    └── zstd v0.13.3
+        └── revault_migrate_v2 v0.1.1 (<checkout>/rust/revault_migrate_v2)
