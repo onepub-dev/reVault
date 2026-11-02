@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dcli/dcli.dart';
 
 void run(List<String> command) {
+  stdout.writeln('+ ${command.join(' ')}');
   final result = Process.runSync(command.first, command.skip(1).toList());
   stdout.write(result.stdout);
   stderr.write(result.stderr);
@@ -120,6 +121,16 @@ void main(List<String> args) {
       }
     }
     print(green('Android C/C++ installed SDK acceptance passed: $abi'));
+  } catch (error) {
+    if (args[2] != 'build') {
+      try {
+        adb(['logcat', '-b', 'crash', '-d']);
+        adb(['logcat', '-d']);
+      } catch (diagnosticError) {
+        stderr.writeln('Could not collect native Android crash report: $diagnosticError');
+      }
+    }
+    rethrow;
   } finally {
     if (args[2] != 'build') adb(['shell', 'rm', '-rf', remote]);
     root.deleteSync(recursive: true);
