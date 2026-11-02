@@ -8295,3 +8295,121 @@ fn read_only_archive_supports_cli_listing_and_byte_exact_extraction() {
     assert_eq!(fs::read(&path).unwrap(), before);
     assert_eq!(fs::read_dir(&archives).unwrap().count(), 1);
 }
+
+#[test]
+fn vault_profile_rename_preserves_credentials_history_and_access() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = short_target_dir("profile-rename");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let vault = dir.join("vault");
+    let agent = dir.join("agent");
+    let command = |args: &[&str]| run_output_in(bin, args, &vault, &agent);
+    assert_success(&command(&["vault", "init"]));
+    assert_success(&command(&[
+        "vault",
+        "profiles",
+        "email",
+        "default",
+        "rename@example.test",
+    ]));
+    let archive = dir.join("data.lbox");
+    let archive = archive.to_str().unwrap();
+    assert_success(&command(&[archive, "create"]));
+    assert_success(&command(&[archive, "access", "grant", "default"]));
+    assert_success(&command(&["vault", "profiles", "rotate", "default"]));
+    let history = command(&["vault", "profiles", "history", "default", "--format", "tsv"]);
+    assert_success(&history);
+    let public_before = dir.join("before.pub");
+    assert_success(&command(&[
+        "vault",
+        "profiles",
+        "export",
+        public_before.to_str().unwrap(),
+        "--name",
+        "default",
+    ]));
+    assert_success(&command(&[
+        "vault", "profiles", "rename", "default", "work",
+    ]));
+    assert_success(&command(&["vault", "profiles", "rename", "work", "work"]));
+    let after = command(&["vault", "profiles", "history", "work", "--format", "tsv"]);
+    assert_success(&after);
+    assert_eq!(
+        String::from_utf8(history.stdout)
+            .unwrap()
+            .replace("default", "work"),
+        String::from_utf8(after.stdout).unwrap()
+    );
+    let email = command(&["vault", "profiles", "fingerprint", "work"]);
+    assert_success(&email);
+    assert!(String::from_utf8_lossy(&email.stdout).contains("rename@example.test"));
+    let public_after = dir.join("after.pub");
+    assert_success(&command(&[
+        "vault",
+        "profiles",
+        "export",
+        public_after.to_str().unwrap(),
+        "--name",
+        "work",
+    ]));
+    assert_eq!(
+        fs::read(public_before).unwrap(),
+        fs::read(public_after).unwrap()
+    );
+    assert!(!command(&["vault", "profiles", "history", "default"])
+        .status
+        .success());
+    let refresh = command(&[archive, "access", "refresh", "work", "--dry-run"]);
+    assert_success(&refresh);
+    assert!(String::from_utf8_lossy(&refresh.stdout).contains("matching access entries: 1"));
+    assert_success(&command(&[archive, "access", "refresh", "work", "--yes"]));
+    // Every assertion reopens the Vault via the public CLI, including password profiles.
+    assert_success(&command(&[
+        "vault",
+        "profiles",
+        "create",
+        "service",
+        "--password",
+    ]));
+    let password = command(&["vault", "profiles", "password", "service"]);
+    assert_success(&password);
+    assert!(
+        !command(&["vault", "profiles", "rename", "work", "service"])
+            .status
+            .success()
+    );
+    assert!(
+        !command(&["vault", "profiles", "rename", "missing", "other"])
+            .status
+            .success()
+    );
+    assert!(
+        !command(&["vault", "profiles", "rename", "work", "bad/name"])
+            .status
+            .success()
+    );
+    assert_success(&command(&[
+        "vault",
+        "profiles",
+        "rename",
+        "service",
+        "automation",
+    ]));
+    let renamed = command(&["vault", "profiles", "password", "automation"]);
+    assert_success(&renamed);
+    assert_eq!(password.stdout, renamed.stdout);
+    assert!(!command(&["vault", "profiles", "password", "service"])
+        .status
+        .success());
+    assert_success(&command(&[
+        "vault",
+        "profiles",
+        "remove",
+        "automation",
+        "--force",
+    ]));
+    assert!(!command(&["vault", "profiles", "password", "automation"])
+        .status
+        .success());
+}

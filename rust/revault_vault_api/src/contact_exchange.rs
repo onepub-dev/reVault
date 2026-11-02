@@ -121,6 +121,27 @@ fn now() -> u64 {
         .unwrap_or(u64::MAX)
 }
 
+fn profile_matches_bundle(
+    path: &Path,
+    password: &SecretString,
+    profile: &str,
+    bundle: &Bundle,
+) -> Result<bool, Error> {
+    // Signed display names cannot be rewritten after a local rename. Validate
+    // the pinned generation's keys, with no Vault lock held during relay I/O.
+    let vault = crate::ReadOnlyVaultDirectory::open_file(path, password)?;
+    Ok(vault
+        .load_private_key_generation(profile, bundle.generation)?
+        .public_key()
+        .to_bytes()
+        == bundle.encryption_key
+        && vault
+            .load_owner_signing_key_generation(profile, bundle.generation)?
+            .public_key()
+            .to_bytes()
+            == bundle.signing_key)
+}
+
 fn bundle(vault: &VaultDirectory, profile: &str) -> Result<Bundle, Error> {
     Ok(Bundle {
         profile: profile.to_owned(),
@@ -294,11 +315,15 @@ pub fn contact_exchange(
                 if let Some(local) = locals.into_iter().find(|local| local.offer.id == id) {
                     if local.inviter
                         || local.server != client.origin()
-                        || local
-                            .acceptance
-                            .as_ref()
-                            .map(|a| a.recipient.profile.as_str())
-                            != Some(profile.as_str())
+                        || match local.acceptance.as_ref() {
+                            Some(acceptance) => !profile_matches_bundle(
+                                path,
+                                password,
+                                &profile,
+                                &acceptance.recipient,
+                            )?,
+                            None => true,
+                        }
                     {
                         return Err(invalid("invitation conflicts with pinned local state"));
                     }
@@ -416,5 +441,78 @@ pub fn contact_exchange(
             }
             Err(invalid("no local profile can open this lockbox"))
         }
+    }
+}
+
+#[cfg(test)]
+mod rename_tests {
+    use super::*;
+
+    fn private_directory() -> tempfile::TempDir {
+        let directory = tempfile::tempdir().unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o700))
+                .unwrap();
+        }
+        directory
+    }
+
+    #[test]
+    fn renamed_profile_matches_pinned_exchange_generation_without_rewriting_it() {
+        let root = private_directory();
+        let path = root.path().join("vault.lbox");
+        let password = SecretString::try_from_slice(b"synthetic rename test password").unwrap();
+        let vault = VaultDirectory::create_file(&path, &password).unwrap();
+        vault
+            .store_private_key(
+                "before",
+                &revault_lockbox_api::ContactKeyPair::generate().unwrap(),
+            )
+            .unwrap();
+        vault
+            .store_profile_email("before", "rename@example.test")
+            .unwrap();
+        let pinned = bundle(&vault, "before").unwrap();
+        vault.rotate_private_key("before").unwrap();
+        vault.rename_profile("before", "after").unwrap();
+        vault
+            .store_private_key(
+                "different",
+                &revault_lockbox_api::ContactKeyPair::generate().unwrap(),
+            )
+            .unwrap();
+        drop(vault);
+        assert!(profile_matches_bundle(&path, &password, "after", &pinned).unwrap());
+        assert!(!profile_matches_bundle(&path, &password, "different", &pinned).unwrap());
+        assert_eq!(pinned.profile, "before");
+        assert!(profile_matches_bundle(&path, &password, "before", &pinned).is_err());
+    }
+
+    #[test]
+    fn rename_rejects_ambiguous_legacy_labels_before_changing_profile() {
+        let root = private_directory();
+        let path = root.path().join("vault.lbox");
+        let password = SecretString::try_from_slice(b"synthetic rename test password").unwrap();
+        let vault = VaultDirectory::create_file(&path, &password).unwrap();
+        let key = revault_lockbox_api::ContactKeyPair::generate().unwrap();
+        vault.store_private_key("shared", &key).unwrap();
+        vault
+            .store_contact(
+                "shared",
+                &revault_lockbox_api::ContactKeyPair::generate()
+                    .unwrap()
+                    .public_key(),
+            )
+            .unwrap();
+        let id = revault_lockbox_api::LockboxId::new_random().unwrap();
+        vault.remember_access_slot_label(id, 1, "shared").unwrap();
+        assert!(vault.rename_profile("shared", "new").is_err());
+        drop(vault);
+        let vault = VaultDirectory::open_file(&path, &password).unwrap();
+        assert!(vault.profile_exists("shared").unwrap());
+        assert!(!vault.profile_exists("new").unwrap());
+        assert_eq!(vault.list_access_slot_labels(id).unwrap()[0].name, "shared");
     }
 }
