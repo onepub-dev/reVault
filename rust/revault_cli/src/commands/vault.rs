@@ -146,6 +146,13 @@ fn vault_profile_matches(matches: &ArgMatches) -> CliResult<()> {
                 Ok(())
             })?
         }
+        "rename" => {
+            let old = required_value(sub, "old");
+            let new = required_value(sub, "new");
+            default_vault()?.rename_profile(&old, &new)?;
+            println!("Profile renamed: {old} -> {new}");
+            Ok(())
+        }
         "email" => profile_email_values(&string_values(sub, "args")),
         "fingerprint" => profile_fingerprint(&optional_string_arg(sub, "name")),
         "history" => profile_history_with_format(

@@ -29,6 +29,26 @@ Associate an email address before publishing a Profile through the key-sharing s
 lbx vault profiles email personal alice@example.com
 ```
 
+## Rename a Profile
+
+```bash
+lbx vault profiles rename personal work
+```
+
+Renaming preserves the Profile's password or keys, retired key generations,
+email address and local access labels. Existing Lockboxes keep the same access;
+no keys are rotated. The new name must be unused. Renaming an existing Profile
+to its current name makes no change; a missing source is an error.
+
+Signed exchange transcripts retain their original names. Exchange retries
+recognise the renamed Profile by its keys. Commands and scripts that explicitly
+name the old Profile must use the new name. Renaming `default` does not create a
+replacement default Profile.
+
+An old unqualified access label shared by a Profile and Contact is ambiguous;
+rename refuses it rather than retargeting the Contact's access. Resolve the
+label through explicit access revoke/grant operations before renaming.
+
 ## Back up a Profile
 
 Both Profile types support backup and restore.

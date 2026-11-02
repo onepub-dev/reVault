@@ -998,7 +998,9 @@ fn matching_contact_slot_ids(lockbox: &Lockbox, profile: &str) -> Vec<u64> {
         .into_iter()
         .filter(|slot| {
             slot.protection == LockboxKeySlotProtection::Contact
-                && labels.get(&slot.id).is_some_and(|name| name == profile)
+                && labels.get(&slot.id).is_some_and(|name| {
+                    !name.starts_with("contact:") && access_entry_name(name) == profile
+                })
         })
         .map(|slot| slot.id)
         .collect()

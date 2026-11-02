@@ -39,6 +39,7 @@ pub use alias_name::{
 };
 mod lockbox_aliases;
 mod password_profiles;
+mod profile_rename;
 pub use lockbox_aliases::LockboxAlias;
 
 /// Validates a profile or contact name used by the native vault.
