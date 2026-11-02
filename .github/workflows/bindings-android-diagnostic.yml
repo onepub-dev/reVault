@@ -25,6 +25,11 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          shared-key: bindings-android-acceptance
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -35,6 +40,12 @@ jobs:
         with:
           name: revault-api-publication-trees
           path: packages
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: native-android-x86_64
+          path: native
           run-id: ${{ inputs.source_run }}
           github-token: ${{ github.token }}
       - name: Record retained package provenance
@@ -51,7 +62,9 @@ jobs:
         run: dart pub get
       - name: Compile acceptance runner
         working-directory: tools
-        run: dart compile exe test_android_dart.dart -o test_android_dart
+        run: |
+          dart compile exe test_android_dart.dart -o test_android_dart
+          dart compile exe test_android_native.dart -o test_android_native
       - name: Enable emulator acceleration
         run: sudo --preserve-env=PATH ./tools/enable_android_emulator.dart
       - name: Run retained Flutter package on Android
@@ -60,4 +73,6 @@ jobs:
           api-level: 35
           arch: x86_64
           target: ${{ inputs.page_size == '16384' && 'google_apis_ps16k' || 'default' }}
-          script: ./tools/test_android_dart packages/dart emulator-5554
+          script: |
+            ./tools/test_android_native native/*.tar.gz x86_64 emulator-5554 ${{ inputs.page_size }}
+            ./tools/test_android_dart packages/dart emulator-5554
