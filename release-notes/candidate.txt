@@ -2,6 +2,23 @@ Release bindings
 CLI: 
 Bindings: 0.6.2
 
+- Merge issue-349-release-qualification
+- Fix #349: repair native and CLI release qualification gates
+- Merge issue-347-security-triage
+- Merge issue-215-native-dependency-audit
+- Merge issue-348-symlink-extraction
+- Fix #348: restore symlinks relative to extracted parents
+- Document agreed scope for native dependency audit
+- Merge issue-331-extraction-limits
+- Merge issue-312-forget-resolution
+- Merge issue-277-profile-rename
+- Fix #331: expose extraction limits with short size units
+- Fix #312: resolve remembered lockboxes and reject missing or ambiguous forget targets
+- Fix #277: rename profiles while preserving keys and local references
+- Audit #215: document native dependency exceptions and scope
+- Fix #347: record individual security alert dispositions
+- Document consolidated publication and November 2 release checkpoint
+- [release candidate] Prepare bindings release: CLI , bindings 0.6.2
 - Fix HTTPS certificate test for rcgen 0.14
 - Fix #345: stamp only explicit release installation examples
 - Merge remote-tracking branch 'origin/main' into issue-346-crates-publisher
