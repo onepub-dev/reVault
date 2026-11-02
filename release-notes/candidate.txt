@@ -2,6 +2,9 @@ Release bindings
 CLI: 
 Bindings: 0.6.2
 
+- Classify mixed-profile rename in the CLI-only API review
+- Record corrected release candidate and prioritized backlog review
+- [release candidate] Prepare bindings release: CLI , bindings 0.6.2
 - Merge issue-349-release-qualification
 - Fix #349: repair native and CLI release qualification gates
 - Merge issue-347-security-triage
