@@ -82,3 +82,23 @@ uses main source `c3ee581695259267f26f58205db2eeffdcbce559` and immutable ref
 `release-candidates/c3ee58169525-1793596270708044619`. Qualification is running;
 no publication or disclosure is claimed. The eight advisories remain private
 until package availability and the coordinated closeout requirements are met.
+
+Candidate `41392531422` was cancelled after its source and installed-API checks
+reported the new `rename_profile` method missing from the public API review
+manifest. Both native Linux conformance jobs and strict Rust formatting/Clippy
+passed. The method is now explicitly classified with the existing CLI-only
+mixed key/password-profile lifecycle operations; no foreign rename operation is
+claimed. The complete binding-surface check passed (375 public Rust names,
+241 ABI declarations and 240 operations).
+
+The active replacement is
+[41393746205](https://github.com/onepub-dev/reVault/actions/runs/41393746205),
+from main `e9414556b89c885317dbb09c58585d3b3da87e8c`, immutable ref
+`release-candidates/e9414556b89c-1793597004630157232`. It remains qualification,
+not publication.
+
+The original candidate's secure-API job was not hung: it passed at
+2026-11-02 03:23:46 UTC after approximately four hours. Its 732 core unit tests
+took 14,224.53 seconds; 20 tests were ignored. Many recovery/interruption tests
+across archive modes accounted for the duration. No required tests were removed
+or reclassified to accelerate the replacement candidate.
