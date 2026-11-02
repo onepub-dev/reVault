@@ -14,7 +14,10 @@ prerequisite, lint and CLI coverage failures. Candidate `41392531422` was cancel
 its native Linux jobs and strict Clippy passed. The omission is corrected.
 Candidate `41393746205` was cancelled after the Android 16 KiB Flutter
 acceptance job timed out. #350 tracks diagnosis; focused non-publishing run
-`41400976269` uses its retained packages. A fresh successful candidate is
+`41400976269` passed, but replacement candidate `41401952839` again stalled
+after Flutter APK installation. Corrected combined diagnostic `41409573929`
+passed twice on fresh runners. #350 remains open because the original launch
+stall is not conclusively explained. A fresh successful full candidate is
 required before publication.
 Advisory release guidance is updated but all eight advisories remain private.
 See the [November 2 checkpoint](history/release-closeout-2026-11-02.md).

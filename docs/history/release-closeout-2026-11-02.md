@@ -124,3 +124,29 @@ uses retained publication trees from `41393746205`, with diagnostic code from
 main `108d6228aad78acc3e5befe011f8aa61d5be3802`. It cannot publish or replace
 release qualification. Another candidate is required after resolving this
 blocker. No 0.6.2 package or advisory publication is claimed.
+
+## Later Android diagnosis
+
+Candidate `41401952839` (main `b15d1f92b46bab3a392bc68a41b67801cc4f89e9`)
+was cancelled after Android 16 KiB Flutter acceptance timed out. The APK built
+in 177.6 seconds and installed in 577 ms, but no test started before the
+20-minute command deadline. Native C/C++ acceptance passed. This locates the
+stall after installation; it does not establish its underlying cause.
+
+Diagnostics now include verbose Flutter output, full Android logcat, activity
+and window state on failure, native crash-buffer capture, and retained native
+executables with ELF headers. Local Dart analysis/compilation and workflow
+parsing passed. The first combined diagnostic failed during emulator readiness.
+Subsequent diagnostic-only native crashes used inherited NDK 27.3 despite
+installing NDK 28; the release workflow already explicitly selected NDK 28.2.
+The diagnostic was corrected to match that selection. Those crashes must not
+be attributed to the release toolchain.
+
+Both fresh-runner attempts of corrected diagnostic
+[41409573929](https://github.com/onepub-dev/reVault/actions/runs/41409573929)
+passed the combined C/C++ and Flutter lifecycle on 16 KiB pages, using retained
+packages from `41401952839`. Flutter completed in approximately 155 and 178
+seconds. Retained executables show 16 KiB ELF load alignment. The original
+Flutter launch stall was not reproduced or conclusively explained; #350 remains
+open. Another full candidate must pass before publication. No release gate was
+removed, and no package or advisory was published during diagnosis.
