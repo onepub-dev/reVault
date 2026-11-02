@@ -206,11 +206,13 @@ fn vault_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
             &lockbox_operand(sub, "source", super::aliases::TargetPolicy::Existing)?,
             &required_value(sub, "destination"),
         ),
-        "forget" => forget_known_lockbox_path(&lockbox_operand(
-            sub,
-            "lockbox",
-            super::aliases::TargetPolicy::Remembered,
-        )?),
+        "forget" => {
+            let target = match optional_value(sub, "lockbox") {
+                Some(target) => target.to_owned(),
+                None => super::selected_lockbox(super::aliases::TargetPolicy::Remembered)?,
+            };
+            forget_known_lockbox_path(&target)
+        }
         "aliases" => lockbox_alias_matches(sub),
         _ => Err(Error::InvalidInput(format!("unknown vault lockboxes command: {command}")).into()),
     }
@@ -1874,16 +1876,72 @@ fn column_width<'a>(header: &str, values: impl Iterator<Item = &'a str>) -> usiz
     values.fold(header.len(), |width, value| width.max(value.len()))
 }
 
-fn forget_known_lockbox_path(path: &str) -> CliResult<()> {
+fn forget_known_lockbox_path(target: &str) -> CliResult<()> {
     let vault = default_vault()?;
-    // Forget manages the remembered record, even when its file is missing.
-    let path = match path.strip_prefix("a@") {
-        Some(name) => vault.resolve_lockbox_alias(name)?.path,
-        None => path.to_owned(),
+    let known = vault.list_known_lockboxes()?;
+    let mut selected = Vec::new();
+    if let Some(name) = target.strip_prefix("a@") {
+        let alias = vault.resolve_lockbox_alias(name)?;
+        selected.extend(known.iter().filter(|item| item.path == alias.path));
+    } else if target.contains(['/', '\\']) || Path::new(target).is_absolute() {
+        let path = normalized_remembered_path(Path::new(target))?;
+        for item in &known {
+            if normalized_remembered_path(Path::new(&item.path))? == path {
+                selected.push(item);
+            }
+        }
+    } else {
+        let alias_id = vault
+            .list_lockbox_aliases()?
+            .into_iter()
+            .find(|alias| alias.name == target)
+            .map(|alias| alias.lockbox_id);
+        for item in &known {
+            let filename = Path::new(&item.path)
+                .file_name()
+                .and_then(|name| name.to_str());
+            if item.lockbox_id.to_string() == target
+                || Some(item.lockbox_id) == alias_id
+                || filename == Some(target)
+                || (!target.contains('.') && filename == Some(format!("{target}.lbox").as_str()))
+            {
+                selected.push(item);
+            }
+        }
+    }
+    selected.sort_by(|a, b| a.path.cmp(&b.path));
+    selected.dedup_by(|a, b| a.path == b.path);
+    let selected = match selected.as_slice() {
+        [] => return Err(Error::NotFound(format!("remembered lockbox {target}")).into()),
+        [selected] => *selected,
+        _ => return Err(cli_error(format!(
+            "ambiguous remembered lockbox {target}; use its full path or a unique lockbox ID. Matches:\n{}",
+            selected.iter().map(|item| format!("  {}  {}", item.lockbox_id, item.path)).collect::<Vec<_>>().join("\n")
+        ))),
     };
-    vault.forget_known_lockbox(&path)?;
-    println!("Forgot known lockbox: {path}");
+    vault.forget_known_lockbox(&selected.path)?;
+    println!("Forgot known lockbox: {}", selected.path);
     Ok(())
+}
+
+fn normalized_remembered_path(path: &Path) -> CliResult<std::path::PathBuf> {
+    if let Ok(canonical) = fs::canonicalize(path) {
+        return Ok(canonical);
+    }
+    // Missing files are valid remembered records. Resolve lexical dot segments
+    // without requiring the archive or its parent to still exist.
+    let absolute = std::path::absolute(path)?;
+    let mut normalized = std::path::PathBuf::new();
+    for component in absolute.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                normalized.pop();
+            }
+            value => normalized.push(value.as_os_str()),
+        }
+    }
+    Ok(normalized)
 }
 
 fn remember_known_lockbox_path(path: &str) -> CliResult<()> {

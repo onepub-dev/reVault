@@ -80,6 +80,23 @@ A missing target or a different Lockbox at the remembered path causes an error. 
 
 `a@dev` always selects an alias. To select an actual host file named `a@dev`, use `./a@dev` (or `.\a@dev` on Windows).
 
+## Forget a remembered Lockbox
+
+```bash
+lbx vault lockboxes forget project-secrets.lbox
+lbx vault lockboxes forget a@dev
+lbx vault lockboxes forget ./old/project-secrets.lbox
+lbx vault lockboxes forget LOCKBOX_ID
+```
+
+Forget removes the remembered path, including a stale path whose file is gone.
+It does not delete the archive. This maintenance command searches remembered
+filenames, so it can find a unique filename outside the current directory.
+Use an explicit path or a unique ID from `vault lockboxes list` when multiple
+records match. An absent record is an error, including a repeated forget.
+An explicit `a@name` selects an alias; a bare name matching different aliases
+and filenames is refused as ambiguous.
+
 ## Commands that accept aliases
 
 Use a bare name or `a@name` wherever a command selects an existing Lockbox: files, variables,
