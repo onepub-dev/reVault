@@ -214,6 +214,15 @@ impl<State: Send> Lockbox<State> {
             })
             .collect::<Vec<_>>();
         self.validate_extract_entries(&entries, policy)?;
+        // Reject out-of-subtree targets before creating or changing any output.
+        if policy.restore_symlinks {
+            for entry in &entries {
+                if entry.node_kind == NodeKind::Symlink {
+                    let target = self.get_symlink_target(&entry.path)?;
+                    extracted_symlink_target(entry.path.as_str(), target.as_str(), source)?;
+                }
+            }
+        }
 
         let (stage, root) = match fs::symlink_metadata(destination) {
             Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {
@@ -243,7 +252,7 @@ impl<State: Send> Lockbox<State> {
                     ))
                 })?
                 .trim_start_matches('/');
-            self.extract_entry_to_root(entry, &root, Path::new(relative), policy)?;
+            self.extract_entry_to_root(entry, &root, Path::new(relative), policy, source)?;
         }
         if let Some(stage) = stage {
             stage.publish(root).map_err(output_error)
@@ -265,7 +274,7 @@ impl<State: Send> Lockbox<State> {
         } else {
             for entry in current_entries {
                 let relative = extraction_relative(&entry.path)?;
-                self.extract_entry_to_root(entry, root, &relative, policy)?;
+                self.extract_entry_to_root(entry, root, &relative, policy, "")?;
             }
         }
         Ok(())
@@ -277,6 +286,7 @@ impl<State: Send> Lockbox<State> {
         root: &OutputRoot,
         relative: &Path,
         policy: &ExtractPolicy,
+        source: &str,
     ) -> Result<()> {
         match entry.node_kind {
             NodeKind::Directory => {
@@ -289,13 +299,10 @@ impl<State: Send> Lockbox<State> {
             NodeKind::File => self.extract_file_entry_to_root(entry, root, relative, policy)?,
             NodeKind::Symlink if policy.restore_symlinks => {
                 let target = self.get_symlink_target(&entry.path)?;
-                validate_symlink(entry.path.as_str(), target.as_str())?;
-                root.symlink(
-                    relative,
-                    Path::new(target.as_str().trim_start_matches('/')),
-                    policy.overwrite,
-                )
-                .map_err(output_error)?;
+                let target =
+                    extracted_symlink_target(entry.path.as_str(), target.as_str(), source)?;
+                root.symlink(relative, &target, policy.overwrite)
+                    .map_err(output_error)?;
             }
             NodeKind::Symlink => {}
         }
@@ -327,7 +334,7 @@ impl<State: Send> Lockbox<State> {
             .filter(|entry| entry.node_kind == NodeKind::Directory)
         {
             let relative = extraction_relative(&entry.path)?;
-            self.extract_entry_to_root(entry, root, &relative, policy)?;
+            self.extract_entry_to_root(entry, root, &relative, policy, "")?;
         }
 
         let file_entries: Vec<_> = current_entries
@@ -397,7 +404,7 @@ impl<State: Send> Lockbox<State> {
                 continue;
             }
             let relative = extraction_relative(&entry.path)?;
-            self.extract_entry_to_root(entry, root, &relative, policy)?;
+            self.extract_entry_to_root(entry, root, &relative, policy, "")?;
         }
         Ok(())
     }
@@ -650,9 +657,76 @@ fn reject_symlink_components(root: &Path, destination: &Path) -> Result<()> {
     Ok(())
 }
 
+// Archive targets are absolute archive paths; host targets are relative to the
+// link's parent. Compare validated archive components, never host canonical paths.
+fn extracted_symlink_target(link: &str, target: &str, source: &str) -> Result<PathBuf> {
+    validate_symlink(link, target)?;
+    let prefix = format!("{}/", source.trim_end_matches('/'));
+    let relative = |path: &str| -> Result<Vec<String>> {
+        let path = if path == source {
+            ""
+        } else {
+            path.strip_prefix(&prefix).ok_or_else(|| {
+                Error::SecurityLimitExceeded(format!(
+                    "symlink target {target:?} is outside selected extraction source {source:?}"
+                ))
+            })?
+        };
+        Ok(path
+            .split('/')
+            .filter(|part| !part.is_empty())
+            .map(str::to_owned)
+            .collect())
+    };
+    let mut parent = relative(link)?;
+    parent.pop();
+    let target = relative(target)?;
+    let shared = parent
+        .iter()
+        .zip(&target)
+        .take_while(|(a, b)| a == b)
+        .count();
+    let mut result = PathBuf::new();
+    for _ in shared..parent.len() {
+        result.push("..");
+    }
+    for part in &target[shared..] {
+        result.push(part);
+    }
+    if result.as_os_str().is_empty() {
+        result.push(".");
+    }
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn symlink_targets_are_relative_and_confined_to_selection() {
+        for (link, target, source, expected) in [
+            ("/docs/link", "/docs/a", "/docs", "a"),
+            ("/docs/link", "/docs/a", "", "a"),
+            ("/docs/sub/link", "/docs/a", "/docs", "../a"),
+            ("/docs/link", "/docs/sub/b", "/docs", "sub/b"),
+            ("/docs/sub/link", "/docs/sub", "/docs", "."),
+            ("/docs/link", "/docs", "/docs", "."),
+            ("/docs/link", "/other/a", "", "../other/a"),
+        ] {
+            assert_eq!(
+                extracted_symlink_target(link, target, source).unwrap(),
+                PathBuf::from(expected)
+            );
+        }
+        for target in ["/outside/a", "/docs-other/a"] {
+            assert!(matches!(
+                extracted_symlink_target("/docs/link", target, "/docs"),
+                Err(Error::SecurityLimitExceeded(_))
+            ));
+        }
+        assert!(extracted_symlink_target("/docs/link", "/docs/../outside", "/docs").is_err());
+    }
 
     fn unique_test_root(label: &str) -> PathBuf {
         let suffix = std::time::SystemTime::now()
