@@ -2919,7 +2919,7 @@ dependencies = [
  "ml-kem",
  "oxiarc-zstd",
  "rayon",
- "revault_secure_memory 0.1.0",
+ "revault_secure_memory 0.1.1",
  "serde_json",
  "sha2 0.11.0",
  "subtle",
@@ -3020,7 +3020,7 @@ dependencies = [
  "revault_migration_format 0.0.4",
  "revault_migration_format 0.0.43",
  "revault_page_api 0.0.4",
- "revault_secure_memory 0.1.0",
+ "revault_secure_memory 0.1.1",
  "secret-service",
  "serde",
  "serde_json",
@@ -3056,7 +3056,7 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-io-kit",
  "revault_migration_format 0.0.43",
- "revault_secure_memory 0.1.0",
+ "revault_secure_memory 0.1.1",
  "secret-service",
  "serde",
  "serde_json",
@@ -3097,7 +3097,7 @@ dependencies = [
  "objc2-io-kit",
  "rayon",
  "revault_migration_format 0.0.43",
- "revault_secure_memory 0.1.0",
+ "revault_secure_memory 0.1.1",
  "secret-service",
  "serde",
  "serde_json",
@@ -3207,7 +3207,7 @@ dependencies = [
  "argon2 0.6.0",
  "chacha20poly1305",
  "getrandom 0.4.3",
- "revault_secure_memory 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "revault_secure_memory 0.1.0",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -3221,7 +3221,7 @@ dependencies = [
  "argon2 0.6.0",
  "chacha20poly1305",
  "getrandom 0.4.3",
- "revault_secure_memory 0.1.0",
+ "revault_secure_memory 0.1.1",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -3292,6 +3292,8 @@ dependencies = [
 [[package]]
 name = "revault_secure_memory"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "898fed24b45203acc68f7dc54a4ed8439025792c00a2e0903083c8f3d23741c0"
 dependencies = [
  "getrandom 0.4.3",
  "libc",
@@ -3301,9 +3303,7 @@ dependencies = [
 
 [[package]]
 name = "revault_secure_memory"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "898fed24b45203acc68f7dc54a4ed8439025792c00a2e0903083c8f3d23741c0"
+version = "0.1.1"
 dependencies = [
  "getrandom 0.4.3",
  "libc",
@@ -3460,7 +3460,7 @@ version = "0.0.49"
 dependencies = [
  "js-sys",
  "revault_lockbox_api 0.0.66",
- "revault_secure_memory 0.1.0",
+ "revault_secure_memory 0.1.1",
  "revault_vault_api 0.0.67",
  "wasm-bindgen",
 ]
