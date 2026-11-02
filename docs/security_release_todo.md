@@ -19,6 +19,14 @@ after Flutter APK installation. Corrected combined diagnostic `41409573929`
 passed twice on fresh runners. #350 remains open because the original launch
 stall is not conclusively explained. A fresh successful full candidate is
 required before publication.
+
+Candidate `41411932831` subsequently passed all gates from main
+`a3fcdbd9559ebed61557d5ac7d6ad102785100e4`. Publication run `41443362028`
+completed with only Rust publication failing: crates.io rejected
+`revault_publish_protocol` 0.0.60 after accepting `revault_lockbox_api` 0.0.66.
+All non-Rust publication jobs succeeded. The operator is checking the
+crate-specific trusted publisher. Resume this same candidate after correction;
+preserve all already-public versions. Public-package verification is underway.
 Advisory release guidance is updated but all eight advisories remain private.
 See the [November 2 checkpoint](history/release-closeout-2026-11-02.md).
 

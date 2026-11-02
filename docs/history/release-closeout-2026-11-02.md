@@ -150,3 +150,48 @@ seconds. Retained executables show 16 KiB ELF load alignment. The original
 Flutter launch stall was not reproduced or conclusively explained; #350 remains
 open. Another full candidate must pass before publication. No release gate was
 removed, and no package or advisory was published during diagnosis.
+
+## Qualified 0.6.2 candidate and partial publication
+
+Candidate [41411932831](https://github.com/onepub-dev/reVault/actions/runs/41411932831)
+passed from main `a3fcdbd9559ebed61557d5ac7d6ad102785100e4`. Both Android
+runtime gates passed. The secure-API job passed in 3h56m; its API unit binary
+took 13,868.10 seconds, with 733 passed and 20 ignored. Across that job, 819
+tests passed and 21 were ignored. Preserve this run's timestamped log for the
+user-requested test-runtime audit after publication, covering duplicate work,
+fixture reuse and other improvements without losing important coverage.
+
+Authorized publication run
+[41443362028](https://github.com/onepub-dev/reVault/actions/runs/41443362028)
+and nested run `41443487958` completed unsuccessfully only because Rust
+publication was rejected. All other publication/promotion jobs, including
+Java and Kotlin Maven publication, succeeded. The crates workflow successfully
+uploaded `revault_lockbox_api` 0.0.66, then crates.io rejected
+`revault_publish_protocol` 0.0.60 with a crate-specific 403. Token exchange had
+succeeded less than a minute earlier. `revault_secure_memory` 0.1.0 was already
+public and was reused. The public Rust facade 0.6.2 remains unavailable.
+
+The operator has been asked to verify that crate's trusted publisher:
+repository `onepub-dev/reVault`, workflow `revault-crates-release.yml`,
+environment `release`. Browser access is unavailable to the agent, and the
+registry's configuration API requires authenticated crate-owner access.
+Once corrected, resume with:
+
+```bash
+revault-tool release publish --candidate 41411932831
+```
+
+The release driver resumes failed publication jobs and preserves already-public
+versions. No new candidate or repeated four-hour qualification is needed for
+this registry configuration correction. Never replace the public versions or
+move their tags.
+
+Initial public-package verification confirms the sealed candidate's artifact
+digests and source/version markers. All eight npm integrity values and all six
+Ruby platform gem hashes match the frozen candidate payloads. NuGet adds its
+registry signature; its signed catalog hash verifies and its remaining package
+contents match the candidate, including the recorded source commit. Remaining
+registry propagation checks and Rust publication must finish before coordinated
+advisory disclosure. The eight advisories remain private. No production server
+deployment was performed. The fully merged Android diagnostic worktree/branch
+was removed; #350 remains open for the unexplained intermittent startup stall.
