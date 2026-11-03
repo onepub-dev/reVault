@@ -996,7 +996,6 @@ mod tests {
             cache.entries.insert(
                 frame,
                 super::super::CachedCompressionFrame {
-                    native_reference: None,
                     compression: crate::compression::COMPRESSION_NONE,
                     compression_frame_len: 32,
                     compressed_len: 32,

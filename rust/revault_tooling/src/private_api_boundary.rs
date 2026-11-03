@@ -284,8 +284,8 @@ impl Guard {
         Ok(false)
     }
 
-    fn verify(&self) -> Result {
-        for boundary in BOUNDARIES {
+    fn verify(&self, required: &[&str]) -> Result {
+        for &boundary in required {
             if !self.boundaries.contains(boundary) {
                 return Err(format!(
                     "Binding inventory review required: missing private boundary {boundary}"
@@ -358,7 +358,16 @@ pub(super) fn verify(root: &Path) -> Result {
         let parsed = syn::parse_file(&std::fs::read_to_string(entry.path())?)?;
         guard.items(&parts.join("::"), &parsed.items)?;
     }
-    guard.verify()
+    // An absent experiment has nothing to exclude. If its source exists,
+    // require the private declaration before allowing the inventory exclusion.
+    let required: Vec<&str> = BOUNDARIES
+        .into_iter()
+        .filter(|name| {
+            let path = root.join(name.replace("::", "/"));
+            path.exists() || path.with_extension("rs").exists()
+        })
+        .collect();
+    guard.verify(&required)
 }
 
 #[cfg(test)]
@@ -368,7 +377,24 @@ mod tests {
         let source = format!("mod file_format {{ pub(crate) mod candidate_files {{ pub fn hidden() {{}} }} pub(crate) mod recovery_commitment {{}} pub(crate) mod current_header {{ pub fn probe() {{}} }} }} {extra}");
         let mut guard = Guard::default();
         guard.items("", &syn::parse_file(&source)?.items)?;
-        guard.verify()
+        guard.verify(&BOUNDARIES)
+    }
+    #[test]
+    fn absent_experiments_need_no_declaration_but_present_sources_do() {
+        let guard = Guard::default();
+        guard.verify(&[]).unwrap();
+        for boundary in BOUNDARIES {
+            assert!(guard.verify(&[boundary]).is_err());
+        }
+    }
+    #[test]
+    fn absent_experiments_still_cannot_be_exposed() {
+        let mut guard = Guard::default();
+        let source = "pub use crate::file_format::candidate_files::Value;";
+        guard
+            .items("", &syn::parse_file(source).unwrap().items)
+            .unwrap();
+        assert!(guard.verify(&[]).is_err());
     }
     #[test]
     fn known_private_boundaries_and_unrelated_exports_are_allowed() {

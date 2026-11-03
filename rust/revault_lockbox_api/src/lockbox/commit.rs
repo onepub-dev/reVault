@@ -856,7 +856,7 @@ mod tests {
         LockboxPath::new(path).unwrap()
     }
 
-    // Adversarial native format-4 audit: direct byte changes deliberately model attackers,
+    // Adversarial format-4 audit: direct byte changes deliberately model attackers,
     // not supported editing APIs. These tests record current limitations in both
     // signed and unsigned encrypted archives; they do not change format policy.
     #[test]
@@ -1515,32 +1515,11 @@ mod tests {
 
         let survivor = lb.toc_entries.get(contents[40].0.as_str()).unwrap();
         let segment = &survivor.chunks[0].segments[0];
-        if let Some(reference) = &survivor.chunks[0].block_frame {
-            let bytes = lb.to_bytes();
-            let relocated = lb
-                .key
-                .with_bytes(|key| {
-                    crate::file_format::indexed_frame::block_page::scan(
-                        &bytes,
-                        segment.page_offset as usize,
-                        lb.lockbox_id,
-                        lb.format_mode,
-                        key,
-                    )
-                })
-                .unwrap()
-                .unwrap();
-            assert_eq!(segment.page_len, relocated.physical_len as u64);
-            assert_eq!(segment.object_id, relocated.page_id);
-            assert_eq!(reference.descriptor, relocated.descriptor);
-            assert_eq!(reference.sequence, relocated.sequence);
-        } else {
-            let relocated = lb.read_page(segment.page_offset).unwrap();
-            assert_eq!(
-                segment.page_len,
-                crate::page::page_size_for_objects(&relocated.objects) as u64
-            );
-        }
+        let relocated = lb.read_page(segment.page_offset).unwrap();
+        assert_eq!(
+            segment.page_len,
+            crate::page::page_size_for_objects(&relocated.objects) as u64
+        );
 
         let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
         assert_eq!(reopened.get_file(&contents[40].0).unwrap(), contents[40].1);
@@ -1717,7 +1696,7 @@ mod tests {
     fn redaction_transaction_base(mode: crate::creation_options::FormatMode) -> Lockbox {
         let mut lb = Lockbox::create("secret");
         // Unit-only mode selection keeps one known raw recovery key across all
-        // modes. Public creation/persistence is covered by native_layout.rs.
+        // modes. Public creation and persistence have separate API coverage.
         lb.set_creation_format(mode);
         add_file(&mut lb, &p("/docs/remove.txt"), b"remove me", false).unwrap();
         add_file(&mut lb, &p("/docs/keep.txt"), b"keep", false).unwrap();
@@ -1765,8 +1744,8 @@ mod tests {
     fn assert_every_storage_failure(mode: crate::creation_options::FormatMode) {
         let mut successful = redaction_transaction_base(mode);
         successful.storage.reset_memory_operation_count();
-        // Native packed-page deletion can publish preparation and write the
-        // survivor before commit. Inject across the entire mutation lifecycle,
+        // Deletion may prepare and rewrite surviving data before commit.
+        // Inject across the entire mutation lifecycle,
         // not only commit. There is no public API for storage fault injection.
         stage_redaction_transaction(&mut successful).unwrap();
         successful.commit().unwrap();

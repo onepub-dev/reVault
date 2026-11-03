@@ -74,7 +74,7 @@ jobs:
       - name: Checkout pinned format-4 reader separately
         uses: actions/checkout@v4
         with:
-          ref: 77cfd919eddb0e9344b990283b2baf990108bca3
+          ref: b086e6ad19938fa337e4e9956b3ad9b06771cc6d # Published CLI 0.5.0 (format 4)
           path: .unicode-baseline
       - uses: dtolnay/rust-toolchain@1.88.0
       - uses: Swatinem/rust-cache@v2

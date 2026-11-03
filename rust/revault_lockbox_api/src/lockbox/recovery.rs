@@ -589,17 +589,7 @@ fn read_page_file_bytes(
             usize::try_from(chunk.file_offset).map_err(|_| Error::CorruptRecord)?,
             0,
         );
-        #[cfg(any(test, feature = "native-block-layout"))]
-        if chunk.block_frame.is_some() {
-            let decoded = crate::page_buffer::ZeroizingBytes::new(
-                scanner.read_native_chunk(expected_len, &chunk)?,
-            );
-            out.extend_from_slice(&decoded);
-            if out.len() as u64 > expected_len {
-                return Err(Error::CorruptRecord);
-            }
-            continue;
-        }
+
         let compressed_len =
             usize::try_from(chunk.compressed_len).map_err(|_| Error::CorruptRecord)?;
         let mut stored = Zeroizing::new(vec![0u8; compressed_len]);
@@ -766,7 +756,3 @@ mod committed_membership_tests {
         }
     }
 }
-
-#[cfg(test)]
-#[path = "recovery_commitment_tests.rs"]
-mod commitment_tests;

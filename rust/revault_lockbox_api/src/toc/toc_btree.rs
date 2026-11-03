@@ -195,14 +195,7 @@ pub(crate) fn decode_toc_node(payload: &[u8]) -> Result<TocNode> {
     if payload.len() < 2 {
         return Err(Error::CorruptRecord);
     }
-    #[cfg(any(test, feature = "native-block-layout"))]
-    if payload[0] == 2 && payload[1] == TOC_LEAF {
-        let entries = TocDecoder::new(&payload[2..])
-            .with_block_frames()
-            .decode()?;
-        validate_leaf_entries(&entries)?;
-        return Ok(TocNode::Leaf(entries));
-    }
+
     if payload[0] != TOC_NODE_VERSION {
         return Err(Error::CorruptRecord);
     }

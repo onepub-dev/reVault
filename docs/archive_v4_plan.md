@@ -1,5 +1,30 @@
 # Archive v4 design and delivery plan
 
+## Experimental storage ownership — November 2026
+
+Experiments B (indexed file-data blocks) and C (the replacement storage
+architecture) are preserved together on
+[`issue-315-experimental-storage`](https://github.com/onepub-dev/reVault/tree/issue-315-experimental-storage).
+The preservation checkpoint is `d236d32eb73ab444d4408b34ba307ed4c3b22815`.
+Continue their performance, compression and recovery qualification there.
+They are not selected for release. Earlier pause and workspace instructions
+below describe historical checkpoints and do not supersede this decision.
+
+The production branch removes the experiments and their dedicated tests and
+benchmarks. Production recovery, integrity, resource-limit and migration tests
+remain required. Frozen historical migration readers and fixtures are unchanged.
+The optional experimental Cargo feature `native-block-layout` is available only
+on the experimental branch; removing it does not change the default archive
+encoding. Consumers explicitly using that experiment must use its branch rather
+than silently falling back to the production format.
+
+Before any future activation, demonstrate preserved production read performance,
+repeatable compression and CPU benefits, equivalent protection guarantees, and
+the required compatibility/migration qualification. Benchmark builds and tests
+stay outside timed runs. Keep unsuccessful results and revert unsuccessful code
+changes. A local codec experiment must record the exact `zstd-rs` source and
+dependency override; registry builds are a separate baseline.
+
 Created: 2026-09-26. Current status: format 4 was released in CLI and bindings
 0.5.0. The development branch was integrated into `main` at `2e6e86e8`; subsequent releases use
 the [release process](release_process.md).

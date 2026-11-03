@@ -2,9 +2,10 @@
 
 Issue: [#354](https://github.com/onepub-dev/reVault/issues/354).
 Baseline source: `d249065dc3ea304af03c2742934d140bd34c9341`.
-The requested scope is duplicate-case removal, optimized test-build measurement,
-and investigation of the inner-loop costs. Splitting or sharding the suite is
-explicitly out of scope.
+The initial scope was duplicate-case removal, optimized test-build measurement,
+and investigation of inner-loop costs, without splitting or sharding the suite.
+The subsequent ownership decision below moves unreleased storage experiments
+to their dedicated branch; it does not shard production tests.
 
 ## Where the release time went
 
@@ -231,3 +232,46 @@ change. Locked offline metadata and the exact CI command,
 `cargo +1.88.0 check --locked --manifest-path rust/fuzz/Cargo.toml`, then passed
 (7.75 seconds for the latter). The separate fuzz campaign had already passed;
 its unlocked invocation did not expose the stale checked-in lockfile.
+## Subsequent decision: separate experimental storage
+
+The user requested that both experiments B and C live on one branch. Both are
+preserved at `d236d32e` on `issue-315-experimental-storage`, including the matrix
+deduplication and test-profile improvements measured above. The production
+cleanup removes their implementations, dedicated tests, and benchmark targets.
+Historical evidence and frozen migration packages remain unchanged.
+
+The first inventory check, after removing C, compiled successfully and listed
+426 tests. Relative to the saved pre-separation binary, 333 absent tests belonged
+to experimental modules; three external-source tests were newly listed. This
+is an intermediate inventory, not the final test result or a runtime claim.
+
+During B separation, the unrelated output-reservation regression was moved into
+`lockbox::output_reservation_tests`. Production file-identity, relocation and
+cache-history checks were retained. The cache-history test now exercises two
+ordinary decoded pages, preserving its bounded-history and hit-count assertions.
+The API inventory guard still rejects exposure of experimental paths and
+requires a private declaration when excluded source exists; absent source no
+longer requires a fictitious module declaration.
+
+Unicode CI exposed a separate stale baseline pin: `77cfd919` was a format-3
+reader despite the step being labelled format 4. The workflow now pins the
+published CLI 0.5.0 commit `b086e6ad19938fa337e4e9956b3ad9b06771cc6d`.
+The format-5 refusal and unchanged-vault assertions are retained.
+### Production integration checkpoint
+
+The retained library suite with `external-source` passed: **388 passed, zero
+failed, five ignored**. Test execution took **29.76 seconds** locally; the
+command including compilation took 81.25 seconds. This is not a matched-machine
+speedup claim against the earlier GitHub runner. The final binary lists 393 tests.
+All-targets Clippy passed with no new warnings; three existing dead-code warnings
+remain (`seal_prepared_content_secure`, `Storage::append_pair`, and
+`AtomicFileReplacement::existing_for_test`).
+
+The six private-boundary guard tests passed. The actual read-only binding
+inventory check also passed, including 241 ABI declarations and 240 operations
+across the generated binding surfaces. No binding API changes were required.
+
+Local Windows test compilation stopped in the `alloca` dependency because
+`x86_64-w64-mingw32-gcc` is not installed. It did not reach project code and is
+not a Windows pass; Windows CI remains required. File-identity support used by
+non-Unix tests has been retained. Frozen migration package source was not changed.

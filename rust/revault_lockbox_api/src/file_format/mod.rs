@@ -2,10 +2,7 @@ pub(crate) mod commit_auth;
 pub(crate) mod commit_root;
 pub(crate) mod current_header;
 pub(crate) mod header_v2;
-// Common native-layout implementation. The non-default experimental feature
-// enables real public-path tests and performance gates before release activation.
-#[cfg(any(test, feature = "native-block-layout"))]
-pub(crate) mod indexed_frame;
+
 pub(crate) mod key_directory;
 pub(crate) mod page;
 pub(crate) mod page_buffer;
@@ -25,45 +22,3 @@ pub(crate) use crate::toc_btree::{
 };
 #[cfg(test)]
 pub(crate) use payload::encode_compression_frame_segment_payload;
-
-// Bounded design experiment; no archive writer or reader activates this encoding.
-#[cfg(test)]
-#[allow(dead_code)]
-pub(crate) mod recovery_commitment;
-
-// Candidate publication protocol remains isolated until the full layout is qualified.
-#[cfg(test)]
-pub(crate) mod publication_anchor;
-
-// Candidate authenticated membership; connected to publication in protocol tests.
-#[cfg(test)]
-pub(crate) mod authenticated_index;
-
-#[cfg(test)]
-pub(crate) mod preparation_journal;
-
-#[cfg(test)]
-pub(crate) mod allocation_map;
-
-#[cfg(test)]
-pub(crate) mod metadata_budget;
-
-// Candidate C data codec; only the test comparison harness uses this encoding.
-#[cfg(test)]
-pub(crate) mod data_extent;
-
-// Secure value segmentation remains a selected-metadata experiment.
-#[cfg(test)]
-pub(crate) mod secure_segments;
-
-// Domain-bound form texts remain a selected-metadata experiment.
-#[cfg(test)]
-pub(crate) mod form_segments;
-
-// Candidate comparisons and typed shared-tree adapters; no public activation.
-#[cfg(test)]
-pub(crate) mod candidate_files;
-
-// Executable ordering model for the proposed shared-control placement, not a wire format.
-#[cfg(test)]
-mod shared_control_model;

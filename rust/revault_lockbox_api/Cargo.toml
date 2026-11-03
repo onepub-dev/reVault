@@ -23,9 +23,6 @@ bindings = []
 migration = []
 test-support = []
 external-source = []
-# Experimental common native layout for public-path correctness and performance
-# gates. Not a release/default format policy until migration and gates pass.
-native-block-layout = []
 # Compatibility feature name: format-v2 is unconditional in the core.
 issue303-protocol = []
 
@@ -89,15 +86,6 @@ harness = false
 test = false
 
 [[bench]]
-name = "shared_layout"
-harness = false
-test = false
-
-[[test]]
-name = "shared_layout_checks"
-path = "tests/shared_layout_checks.rs"
-
-[[bench]]
 name = "pgp_compare"
 harness = false
 test = false
@@ -118,20 +106,7 @@ harness = false
 test = false
 
 [[bench]]
-name = "block_layout"
-harness = false
-
-[[test]]
-name = "block_layout_checks"
-path = "tests/block_layout_checks.rs"
-
-[[bench]]
 name = "compression_corpus"
 path = "benches/probes/compression_corpus.rs"
-harness = false
-test = false
-
-[[bench]]
-name = "recovery_commitment"
 harness = false
 test = false

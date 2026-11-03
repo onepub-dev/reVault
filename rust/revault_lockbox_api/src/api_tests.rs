@@ -1850,58 +1850,6 @@ fn decoded_page_cache_records_hits_and_can_be_trimmed() {
     assert!(stats.hits > 0);
 }
 
-#[cfg(feature = "native-block-layout")]
-#[test]
-fn native_decoded_cache_honors_shared_budget_and_disable_for_every_profile() {
-    let mut original = Lockbox::create(KEY);
-    add_file(&mut original, &p("/a"), &[17; 4096], false).unwrap();
-    add_file(&mut original, &p("/b"), &[29; 4096], false).unwrap();
-    original.commit().unwrap();
-    for workload_profile in [
-        WorkloadProfile::Interactive,
-        WorkloadProfile::BulkImport,
-        WorkloadProfile::ReadMostly,
-        WorkloadProfile::ExtractMany,
-    ] {
-        for limit in [0, 8192] {
-            let archive = Lockbox::open_bytes_with_key_options(
-                original.to_bytes(),
-                KEY,
-                LockboxOptions {
-                    workload_profile,
-                    cache_limit: if limit == 0 {
-                        CacheLimit::Disabled
-                    } else {
-                        CacheLimit::Bytes(limit)
-                    },
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-            assert_eq!(archive.get_file(&p("/a")).unwrap(), [17; 4096]);
-            let first = archive.inspector().cache_stats();
-            assert_eq!(archive.get_file(&p("/a")).unwrap(), [17; 4096]);
-            let second = archive.inspector().cache_stats();
-            if limit == 0 {
-                assert_eq!(second.entries, 0);
-                assert_eq!(second.used_bytes, 0);
-                assert_eq!(second.hits, first.hits);
-            } else {
-                assert!(second.hits > first.hits);
-                assert_eq!(archive.get_file(&p("/b")).unwrap(), [29; 4096]);
-                assert!(archive.inspector().cache_stats().used_bytes <= limit);
-                let misses = archive.inspector().cache_stats().misses;
-                assert_eq!(archive.get_file(&p("/a")).unwrap(), [17; 4096]);
-                assert!(
-                    archive.inspector().cache_stats().misses > misses,
-                    "the second decoded frame evicts the first within the shared budget"
-                );
-            }
-            assert!(archive.inspector().cache_stats().used_bytes <= limit);
-        }
-    }
-}
-
 #[test]
 fn decoded_page_cache_can_be_disabled() {
     let mut lb = Lockbox::create_with_options(
@@ -2009,37 +1957,7 @@ fn bulk_small_file_frames_keep_non_tail_pages_dense() {
         .filter(|page| page.objects.iter().any(|object| object.kind == "file-data"))
         .collect::<Vec<_>>();
     assert!(!file_pages.is_empty());
-    #[cfg(feature = "native-block-layout")]
-    {
-        // Native pages each contain one frame. Measure logical packing and
-        // physical space rather than requiring legacy multi-object pages.
-        let logical: usize = file_pages
-            .iter()
-            .flat_map(|page| &page.objects)
-            .map(|object| object.payload_len)
-            .sum();
-        let physical: usize = file_pages.iter().map(|page| page.page_size as usize).sum();
-        assert_eq!(logical, 700 * data.len());
-        assert!(
-            logical * 4 >= file_pages.len() * (2 * 1024 * 1024) * 3,
-            "bulk frames must average at least 75% of their 2 MiB target"
-        );
-        assert!(
-            physical <= 128 * 1024,
-            "compressed bulk pages occupy {physical} bytes"
-        );
-        assert!(file_pages.iter().all(|page| page.object_count == 1));
-        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
-        for index in 0..700 {
-            assert_eq!(
-                reopened
-                    .get_file(&p(format!("/bulk/dense-{index:04}.zip")))
-                    .unwrap(),
-                data
-            );
-        }
-    }
-    #[cfg(not(feature = "native-block-layout"))]
+
     {
         assert!(
             file_pages.len() <= 3,
@@ -2414,78 +2332,6 @@ fn extract_many_caches_decoded_compression_frames() {
         reopened.decoded_compression_frame_cache_entries_for_tests(),
         1
     );
-}
-
-#[cfg(feature = "native-block-layout")]
-#[test]
-fn oversized_native_stream_does_not_churn_single_frame_cache() {
-    let mut archive = Lockbox::create_with_options(
-        KEY,
-        LockboxOptions {
-            workload_profile: WorkloadProfile::BulkImport,
-            ..LockboxOptions::default()
-        },
-    );
-    for index in 0..33u8 {
-        add_file(
-            &mut archive,
-            &p(format!("/large-{index}")),
-            &vec![index; 2 * 1024 * 1024],
-            false,
-        )
-        .unwrap();
-    }
-    add_file(&mut archive, &p("/large-99"), &[99; 5], false).unwrap();
-    add_file(&mut archive, &p("/large-100"), &[100; 5], false).unwrap();
-    archive.commit().unwrap();
-    let archive = Lockbox::open_bytes_with_key_options(
-        archive.to_bytes(),
-        KEY,
-        LockboxOptions {
-            workload_profile: WorkloadProfile::ReadMostly,
-            ..LockboxOptions::default()
-        },
-    )
-    .unwrap();
-    for order in [
-        crate::ContentStreamOrder::Logical,
-        crate::ContentStreamOrder::Physical,
-    ] {
-        let mut total = 0usize;
-        archive
-            .stream_content(crate::ContentStreamOptions { order }, |chunk, reader| {
-                let expected = chunk
-                    .path
-                    .as_str()
-                    .strip_prefix("/large-")
-                    .unwrap()
-                    .parse::<u8>()
-                    .unwrap();
-                let mut buffer = [0; 32768];
-                loop {
-                    let count = reader.read(&mut buffer).unwrap();
-                    if count == 0 {
-                        break;
-                    }
-                    assert!(buffer[..count].iter().all(|byte| *byte == expected));
-                    total += count;
-                }
-                Ok(())
-            })
-            .unwrap();
-        assert_eq!(total, 33 * 2 * 1024 * 1024 + 10);
-        assert_eq!(
-            archive.decoded_compression_frame_cache_entries_for_tests(),
-            1,
-            "retain the packed frame for neighboring slices, not single-file frames"
-        );
-    }
-    // Random full-file reads still opt into the configured cache.
-    assert_eq!(
-        archive.get_file(&p("/large-7")).unwrap(),
-        vec![7; 2 * 1024 * 1024]
-    );
-    assert!(archive.decoded_compression_frame_cache_entries_for_tests() > 1);
 }
 
 #[test]
@@ -3595,35 +3441,6 @@ fn recovery_survives_header_toc_pointer_zeroed() {
     assert!(report.toc_recovered);
 }
 
-#[cfg(feature = "native-block-layout")]
-#[test]
-fn native_pointer_recovery_retains_header_authentication() {
-    for tamper_tag in [false, true] {
-        let mut damaged = sample_lockbox();
-        let header = crate::file_format::read_header(&damaged).unwrap();
-        let start = header.slot_index * crate::file_format::header_v2::SLOT_LEN;
-        damaged[start + 24..start + 32].fill(0);
-        if tamper_tag {
-            damaged[start + 128] ^= 1;
-        }
-        update_test_header_checksum(&mut damaged, header.slot_index);
-        assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
-        let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
-        if tamper_tag {
-            assert!(!report.toc_recovered);
-            assert_eq!(report.intact_file_count, 0);
-            assert!(RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).is_err());
-            continue;
-        }
-        let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
-        let reopened = Lockbox::open_bytes_with_key(salvaged.to_bytes(), KEY).unwrap();
-        assert_eq!(report.partial_files, 0);
-        assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
-        assert_eq!(reopened.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
-        assert_eq!(reopened.get_file(&p("/photos/c.jpg")).unwrap(), b"image");
-    }
-}
-
 #[test]
 fn open_uses_previous_commit_when_latest_commit_root_is_corrupt() {
     let mut lb = Lockbox::create(KEY);
@@ -4599,85 +4416,6 @@ fn form_field(id: &str, label: &str, kind: FormFieldKind, required: bool) -> For
         label: label.to_string(),
         kind,
         required,
-    }
-}
-
-#[cfg(feature = "native-block-layout")]
-#[test]
-fn native_index_cache_obeys_budget_disable_and_eviction_for_every_profile() {
-    use crate::{Compression, Encryption, LockboxCreateOptions, Signing};
-    let key = [9; 32];
-    let mut original = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
-        compression: Compression::None,
-        ..LockboxCreateOptions::new(
-            Encryption::Encrypted(LockboxProtection::ContentKey(
-                SecretVec::try_from_slice(&key).unwrap(),
-            )),
-            Signing::None,
-        )
-    })
-    .unwrap();
-    let input = vec![73; 65536];
-    for index in 0..10 {
-        original
-            .add_file(&p(format!("/file-{index}")), &input, false)
-            .unwrap();
-    }
-    original.commit().unwrap();
-    for profile in [
-        WorkloadProfile::Interactive,
-        WorkloadProfile::BulkImport,
-        WorkloadProfile::ReadMostly,
-        WorkloadProfile::ExtractMany,
-    ] {
-        for limit in [0, 1, 1024] {
-            let archive = Lockbox::open_bytes_with_key_options(
-                original.to_bytes(),
-                key,
-                LockboxOptions {
-                    workload_profile: profile,
-                    cache_limit: if limit == 0 {
-                        CacheLimit::Disabled
-                    } else {
-                        CacheLimit::Bytes(limit)
-                    },
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-            let read = |index| {
-                let mut handle = archive.open_file(&p(format!("/file-{index}"))).unwrap();
-                let mut bytes = [0; 13];
-                handle.read_exact(&mut bytes).unwrap();
-                assert_eq!(bytes, [73; 13]);
-            };
-            read(0);
-            let first = archive.inspector().cache_stats();
-            read(0);
-            let second = archive.inspector().cache_stats();
-            if limit <= 1 {
-                assert_eq!(second.used_bytes, 0);
-                assert_eq!(second.entries, 0);
-                assert_eq!(first.hits, second.hits);
-            } else {
-                assert!(second.hits > first.hits);
-            }
-            for index in 1..10 {
-                read(index);
-                assert!(archive.inspector().cache_stats().used_bytes <= limit);
-            }
-            let misses = archive.inspector().cache_stats().misses;
-            read(0);
-            assert!(
-                archive.inspector().cache_stats().misses > misses,
-                "bounded index cache must evict earlier frames"
-            );
-            assert_eq!(
-                archive.decoded_compression_frame_cache_entries_for_tests(),
-                0,
-                "partial raw handles must not eagerly cache decoded frames"
-            );
-        }
     }
 }
 

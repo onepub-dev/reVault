@@ -337,10 +337,10 @@ policies are not stored in this field.
 
 Every 0.6 reader must support all valid persisted choices above. A later patch
 must not emit new mandatory flags, codecs, versions or records unreadable by an
-earlier 0.6 reader. Such a change requires a new compatibility line. Experimental
-native-block-layout and test-only candidate encodings are not alternate default
-0.6 wire formats. Historical formats 1–4 use explicit migration readers; the
-native format-5 reader refuses them. Earlier development v4 encodings with obsolete
+earlier 0.6 reader. Such a change requires a new compatibility line. Experiments B (indexed file-data blocks) and C (replacement storage) are retained
+on `issue-315-experimental-storage`, not as alternate default 0.6 wire formats.
+Historical formats 1–4 use explicit migration readers; the format-5 reader
+refuses them. Earlier development v4 encodings with obsolete
 root/auth versions are not silently accepted as equivalent to this specification.
 
 ## Commit Model And Update Atomicity

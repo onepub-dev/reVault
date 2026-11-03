@@ -5,8 +5,6 @@ use crate::page::{
     decode_page_with_format, decode_single_object_page_secure_with_format, page_decode_slice,
     physical_page_size_from_page_slice, PageObjectKind, PAGE_MAGIC,
 };
-#[cfg(test)]
-use crate::scan::Scan;
 use crate::secret_vec::SecureVec;
 use crate::{Error, Result};
 use zeroize::Zeroize;
@@ -28,27 +26,6 @@ impl<'a> PageScanner<'a> {
             lockbox_id,
             key,
         }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn scan_records(&self) -> Scan {
-        crate::page::scan_page_records(self.bytes, self.lockbox_id, self.key)
-    }
-
-    #[cfg(any(test, feature = "native-block-layout"))]
-    pub(crate) fn read_native_chunk(
-        &self,
-        total_len: u64,
-        chunk: &crate::file_chunk::FileChunk,
-    ) -> Result<Vec<u8>> {
-        crate::file_format::indexed_frame::block_page::read_recovery_chunk(
-            self.bytes,
-            self.lockbox_id,
-            self.format_mode,
-            total_len,
-            chunk,
-            self.key,
-        )
     }
 
     pub(crate) fn commit_root_at(&self, offset: u64) -> Result<CommitRoot> {

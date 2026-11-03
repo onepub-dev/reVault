@@ -51,8 +51,6 @@ mod keys;
 mod lockbox;
 mod model;
 mod paths;
-#[cfg(test)]
-mod scan;
 mod security;
 mod storage;
 mod toc;
@@ -71,8 +69,6 @@ pub(crate) use file_format::{
     payload,
 };
 pub(crate) use keys::{crypto, key_derivation, key_slot, key_wrap, secret_vec, signing};
-#[cfg(test)]
-pub(crate) use model::record;
 pub(crate) use model::{
     compression_frame_manifest, entry, extract_policy, file_chunk, form, list_options, lockbox_id,
     node_kind, page_object_packer, recovery_report, recovery_report_options, transaction_recovery,

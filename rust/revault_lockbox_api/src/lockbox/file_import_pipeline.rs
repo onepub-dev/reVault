@@ -41,14 +41,12 @@ pub(super) struct CompressionFrameWrite<'a> {
 
 pub(super) enum PreparedFrameIntegrity {
     LegacyChecksum([u8; 32]),
-    NativeBlocksPending,
 }
 
 impl PreparedFrameIntegrity {
     pub(super) fn legacy_checksum(&self) -> crate::Result<[u8; 32]> {
         match self {
             Self::LegacyChecksum(digest) => Ok(*digest),
-            Self::NativeBlocksPending => Err(crate::Error::CorruptRecord),
         }
     }
 }
@@ -61,31 +59,6 @@ pub(super) struct PreparedCompressionFrame {
     pub(super) slices: Vec<CompressionFrameSlice>,
     pub(super) stored: ZeroizingBytes,
     pub(super) prepare_nanos: u128,
-}
-
-#[cfg(any(test, feature = "native-block-layout"))]
-impl PreparedCompressionFrame {
-    /// Seal the pipeline's already-compressed bytes for the common page layout.
-    /// No data decompression or second compression pass is permitted here.
-    pub(super) fn encode_native_page(
-        &self,
-        identity: crate::file_format::indexed_frame::block_page::PageIdentity,
-        frame_id: u64,
-        key: &[u8],
-    ) -> crate::Result<crate::file_format::indexed_frame::block_page::EncodedBlockPage> {
-        if self.compressed_len != self.stored.len() as u64 {
-            return Err(crate::Error::CorruptRecord);
-        }
-        crate::file_format::indexed_frame::block_page::EncodedBlockPage::prepare(
-            identity,
-            frame_id,
-            self.compression,
-            self.compression_frame_len,
-            &self.stored,
-            self.slices.clone(),
-            key,
-        )
-    }
 }
 
 pub(super) struct ParallelCompressionJob {
@@ -113,7 +86,6 @@ pub(super) struct FileImportPipeline {
     zstd_level: i32,
     compression: Option<crate::Compression>,
     jobs: usize,
-    native_blocks: bool,
     sensitive: bool,
 }
 
@@ -123,7 +95,6 @@ impl FileImportPipeline {
             zstd_level,
             compression: None,
             jobs: jobs.max(1),
-            native_blocks: false,
             sensitive: false,
         }
     }
@@ -135,11 +106,6 @@ impl FileImportPipeline {
 
     pub(super) fn with_sensitive(mut self, sensitive: bool) -> Self {
         self.sensitive = sensitive;
-        self
-    }
-
-    pub(super) fn with_native_blocks(mut self, native_blocks: bool) -> Self {
-        self.native_blocks = native_blocks;
         self
     }
 
@@ -252,14 +218,6 @@ impl FileImportPipeline {
             .collect()
     }
 
-    #[cfg(test)]
-    pub(super) fn prepare_parallel_job(
-        self,
-        job: ParallelCompressionJob,
-    ) -> ParallelCompressionResult {
-        self.prepare_parallel_job_with_encoder(job, &mut |payload| self.encode(payload))
-    }
-
     pub(super) fn prepare_parallel_job_with_encoder(
         self,
         mut job: ParallelCompressionJob,
@@ -320,11 +278,7 @@ impl FileImportPipeline {
                 (crate::compression::COMPRESSION_ZSTD, stored)
             }
         };
-        let integrity = if self.native_blocks {
-            PreparedFrameIntegrity::NativeBlocksPending
-        } else {
-            PreparedFrameIntegrity::LegacyChecksum(strong_checksum(stored.as_slice()))
-        };
+        let integrity = PreparedFrameIntegrity::LegacyChecksum(strong_checksum(stored.as_slice()));
         PreparedCompressionFrame {
             compression,
             compression_frame_len,
@@ -340,11 +294,7 @@ impl FileImportPipeline {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::creation_options::FormatMode;
-    use crate::file_format::indexed_frame::block_page::{PageIdentity, Reader};
-    use crate::{
-        Compression, EncryptionMode, LockboxFormatOptions, LockboxId, SigningMode, SizePadding,
-    };
+    use crate::Compression;
 
     #[test]
     fn raw_parallel_frames_transfer_owned_allocation_including_spare_capacity() {
@@ -433,208 +383,5 @@ mod tests {
         assert_eq!(packed.slices[1].permissions, 0o600);
         assert_eq!(first, b"borrowed short frame");
         assert_eq!(second, b"packed final tail");
-    }
-
-    #[test]
-    fn prepared_native_pages_reject_inconsistent_lengths_codecs_and_identity() {
-        let path = LockboxPath::new("/file").unwrap();
-        let mode = FormatMode::new(LockboxFormatOptions {
-            encryption: EncryptionMode::ChaCha20Poly1305,
-            signing: SigningMode::Owner,
-            compression: Compression::default(),
-            size_padding: SizePadding::None,
-        });
-        let identity = PageIdentity {
-            archive: LockboxId::from_bytes([71; 16]),
-            mode,
-            page_id: 41,
-            sequence: 43,
-        };
-        let mut frame = FileImportPipeline::new(3, 1)
-            .with_compression(Some(Compression::default()))
-            .prepare(&[CompressionFrameWrite {
-                path: &path,
-                permissions: 0o640,
-                total_len: 32768,
-                file_offset: 0,
-                data: &[37; 32768],
-            }]);
-        assert!(frame.encode_native_page(identity, 31, &[53; 32]).is_ok());
-        assert!(frame.encode_native_page(identity, 31, &[53; 31]).is_ok());
-        assert!(frame.encode_native_page(identity, 0, &[53; 32]).is_err());
-        assert!(frame
-            .encode_native_page(
-                PageIdentity {
-                    page_id: 0,
-                    ..identity
-                },
-                31,
-                &[53; 32]
-            )
-            .is_err());
-        assert!(frame
-            .encode_native_page(
-                PageIdentity {
-                    mode: FormatMode(0),
-                    ..identity
-                },
-                31,
-                &[53; 32]
-            )
-            .is_err());
-        frame.compressed_len += 1;
-        assert!(frame.encode_native_page(identity, 31, &[53; 32]).is_err());
-        frame.compressed_len -= 1;
-        let codec = frame.compression;
-        frame.compression = 255;
-        assert!(frame.encode_native_page(identity, 31, &[53; 32]).is_err());
-        frame.compression = codec;
-        frame.compression_frame_len = 4 * 1024 * 1024 + 1;
-        assert!(frame.encode_native_page(identity, 31, &[53; 32]).is_err());
-    }
-
-    #[test]
-    fn prepared_native_pages_preserve_serial_and_parallel_pipeline_output_in_all_modes() {
-        let mut state = 0xabcdef0123456789u64;
-        let random = (0..65539)
-            .map(|_| {
-                state ^= state << 13;
-                state ^= state >> 7;
-                state ^= state << 17;
-                state as u8
-            })
-            .collect::<Vec<_>>();
-        let inputs = [Vec::new(), vec![37; 65539], random];
-        let paths = [
-            LockboxPath::new("/first").unwrap(),
-            LockboxPath::new("/second").unwrap(),
-        ];
-        let key = [53; 32];
-        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
-            for signing in [SigningMode::None, SigningMode::Owner] {
-                for size_padding in [SizePadding::Default, SizePadding::None] {
-                    for compression in [Compression::None, Compression::default()] {
-                        let mode = FormatMode::new(LockboxFormatOptions {
-                            encryption,
-                            signing,
-                            size_padding,
-                            compression,
-                        });
-                        let identity = PageIdentity {
-                            archive: LockboxId::from_bytes([71; 16]),
-                            mode,
-                            page_id: 41,
-                            sequence: 43,
-                        };
-                        for jobs in [1, 3] {
-                            let pipeline = FileImportPipeline::new(3, jobs)
-                                .with_compression(Some(compression))
-                                .with_native_blocks(true);
-                            let batches = inputs
-                                .iter()
-                                .map(|input| {
-                                    let split = input.len() / 2;
-                                    [&input[..split], &input[split..]]
-                                        .into_iter()
-                                        .enumerate()
-                                        .map(|(i, data)| CompressionFrameWrite {
-                                            path: &paths[i],
-                                            permissions: 0o640,
-                                            total_len: data.len() as u64,
-                                            file_offset: 0,
-                                            data,
-                                        })
-                                        .collect::<Vec<_>>()
-                                })
-                                .collect::<Vec<_>>();
-                            let prepared = pipeline.prepare_batches(&batches);
-                            let legacy =
-                                pipeline.with_native_blocks(false).prepare_batches(&batches);
-                            for (native, legacy) in prepared.iter().zip(&legacy) {
-                                assert!(matches!(
-                                    &native.integrity,
-                                    PreparedFrameIntegrity::NativeBlocksPending
-                                ));
-                                assert!(native.integrity.legacy_checksum().is_err());
-                                assert_eq!(
-                                    legacy.integrity.legacy_checksum().unwrap(),
-                                    strong_checksum(&legacy.stored)
-                                );
-                                assert_eq!(
-                                    &*native.stored, &*legacy.stored,
-                                    "layout selection must not change codec bytes"
-                                );
-                            }
-                            assert_eq!(
-                                prepared[2].compression,
-                                crate::compression::COMPRESSION_NONE,
-                                "incompressible input must retain raw fallback"
-                            );
-                            if compression != Compression::None {
-                                assert_eq!(
-                                    prepared[1].compression,
-                                    crate::compression::COMPRESSION_ZSTD
-                                );
-                            }
-                            for (frame, input) in prepared.iter().zip(&inputs) {
-                                // Independent test oracle, not a second writer pass.
-                                let (codec, encoded) =
-                                    crate::compression::encode_with_compression(input, compression);
-                                assert_eq!(frame.compression, codec);
-                                assert_eq!(&*frame.stored, &encoded);
-                                let page = frame.encode_native_page(identity, 31, &key).unwrap();
-                                let descriptor = page.descriptor();
-                                assert_eq!(descriptor.compression, codec);
-                                assert_eq!(descriptor.logical_len, input.len() as u64);
-                                assert_eq!(descriptor.stored_len, encoded.len() as u64);
-                                let page_len = page.bytes().len();
-                                let storage =
-                                    crate::storage::StorageBackend::memory(page.bytes().to_vec());
-                                let reader =
-                                    Reader::open(&storage, 0, identity, descriptor, page_len, &key)
-                                        .unwrap();
-                                assert_eq!(reader.read(0..input.len() as u64).unwrap(), *input);
-                                let retry = frame.encode_native_page(identity, 31, &key).unwrap();
-                                assert_ne!(
-                                    retry.descriptor().salt,
-                                    descriptor.salt,
-                                    "retry must derive a fresh block key"
-                                );
-                                assert_eq!(
-                                    &*frame.stored, &encoded,
-                                    "protection must not mutate prepared codec bytes"
-                                );
-                            }
-                            // Streaming worker jobs feed the same prepared-page boundary.
-                            let result = pipeline.prepare_parallel_job(ParallelCompressionJob {
-                                index: 7,
-                                path: paths[0].clone(),
-                                permissions: 0o640,
-                                total_len: inputs[1].len() as u64,
-                                file_offset: 0,
-                                data: inputs[1].clone(),
-                            });
-                            assert_eq!(result.index, 7);
-                            assert!(matches!(
-                                &result.frame.integrity,
-                                PreparedFrameIntegrity::NativeBlocksPending
-                            ));
-                            let page = result.frame.encode_native_page(identity, 31, &key).unwrap();
-                            let descriptor = page.descriptor();
-                            let page_len = page.bytes().len();
-                            let storage =
-                                crate::storage::StorageBackend::memory(page.bytes().to_vec());
-                            assert_eq!(
-                                Reader::open(&storage, 0, identity, descriptor, page_len, &key)
-                                    .unwrap()
-                                    .read(0..inputs[1].len() as u64)
-                                    .unwrap(),
-                                inputs[1]
-                            );
-                        }
-                    }
-                }
-            }
-        }
     }
 }

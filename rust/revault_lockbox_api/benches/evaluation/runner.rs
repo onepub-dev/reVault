@@ -412,11 +412,7 @@ fn sample(root: &Path, backend: &str, access: &str, passes: usize) -> Value {
 }
 
 fn layout() -> &'static str {
-    if cfg!(feature = "native-block-layout") {
-        "native"
-    } else {
-        "default"
-    }
+    "default"
 }
 fn child(executable: &Path, args: &[String]) -> Value {
     let output = Command::new(executable)
@@ -506,7 +502,7 @@ pub fn main() {
                 });
             result["backend"] = json!("lockbox");
             result["layout"] = json!(layout());
-            result["native_block_layout_feature"] = json!(cfg!(feature = "native-block-layout"));
+            result["native_block_layout_feature"] = json!(false);
             result["archive_open"] = json!("public read-only Lockbox::open; default cache/worker policy; no extra verify_all");
             result["maximum_sink_write_bytes"] = json!(BUFFER);
             println!("{result}");

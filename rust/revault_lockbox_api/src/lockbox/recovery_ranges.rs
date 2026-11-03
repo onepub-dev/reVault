@@ -272,12 +272,6 @@ fn recover_chunk(
     entry: &TocEntry,
     chunk: &crate::file_chunk::FileChunk,
 ) -> Result<Zeroizing<Vec<u8>>> {
-    #[cfg(any(test, feature = "native-block-layout"))]
-    if chunk.block_frame.is_some() {
-        return scanner
-            .read_native_chunk(entry.len, chunk)
-            .map(Zeroizing::new);
-    }
     validate_compression_frame_lengths(chunk.compression_frame_len, chunk.compressed_len)?;
     if chunk.compressed_len > crate::constants::DEFAULT_MAX_PAGE_LOGICAL_BYTES as u64 {
         return Err(Error::CorruptRecord);

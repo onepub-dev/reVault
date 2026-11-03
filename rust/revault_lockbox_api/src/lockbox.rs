@@ -43,8 +43,6 @@ use zeroize::{Zeroize, Zeroizing};
 type CommitAuthChainResult = (u64, [u8; 32], CommitAuth, crate::commit_root::CommitRoot);
 
 mod accounting;
-#[cfg(test)]
-pub(crate) mod block_frame_tests;
 mod commit;
 mod extraction;
 mod file_handles;
@@ -60,8 +58,9 @@ mod lockbox_rewrite;
 mod metric_timer;
 mod mirrors;
 mod mutation;
-#[cfg(any(test, feature = "native-block-layout"))]
-mod native_file_reader;
+#[cfg(test)]
+mod output_reservation_tests;
+
 mod preparation;
 mod recovery;
 pub(crate) mod secure_output;
@@ -1363,7 +1362,7 @@ impl<State> Lockbox<State> {
         self.read_only = self.storage.is_read_only();
     }
 
-    /// Change the page/native-frame cache retention target.
+    /// Change the page cache retention target.
     ///
     /// This is not a total-memory limit. Dirty pages and active shared owners
     /// remain valid; reducing the target does not flush or discard pending writes.
@@ -1400,7 +1399,7 @@ impl<State> Lockbox<State> {
         self.workload_profile
     }
 
-    /// Set the worker policy used for native page/frame preparation.
+    /// Set the worker policy used for page and compression-frame preparation.
     pub fn set_worker_policy(&mut self, policy: WorkerPolicy) {
         self.worker_policy = policy;
     }
@@ -2493,16 +2492,14 @@ mod tests {
         let mut archive = Lockbox::create("cache transition");
         archive.set_workload_profile(WorkloadProfile::ExtractMany);
         archive.set_cache_limit(crate::CacheLimit::Bytes(32 * 1024 * 1024));
-        // Seed the separate decoded cache directly: native-frame writers use
-        // the shared page cache, but this policy must also reconcile legacy
-        // decoded frames already owned by the same live handle.
+        // Seed the decoded-frame cache directly to verify that changing its
+        // retention policy reconciles frames already owned by this handle.
         {
             let mut cache = archive.compression_frame_cache.borrow_mut();
             for id in 0..9 {
                 cache.entries.insert(
                     id,
                     CachedCompressionFrame {
-                        native_reference: None,
                         compression: 0,
                         compression_frame_len: 1024 * 1024,
                         compressed_len: 1024 * 1024,

@@ -218,7 +218,6 @@ mod tests {
                         .unwrap();
                     assert_eq!(actual, expected, "pending {}", entry.path);
                 }
-                drop(state);
                 archive.commit().unwrap();
                 assert_digest(&archive, "second commit");
                 let reopened =

@@ -8,10 +8,6 @@ use crate::crypto::{
 use crate::lockbox_id::LockboxId;
 use crate::page_buffer::{zeroize_bytes, PageBuffer, SensitiveBytes, ZeroizingBytes};
 use crate::page_inspection::{PageInspection, PageObjectInspection};
-#[cfg(test)]
-use crate::record::{DecodedRecord, RecordHeader, RecordKind};
-#[cfg(test)]
-use crate::scan::Scan;
 use crate::secret_vec::{secure_read_access, SecureVec};
 use crate::{Error, Result};
 use std::borrow::Cow;
@@ -19,8 +15,6 @@ use zeroize::Zeroize;
 
 pub(crate) const PAGE_MAGIC: &[u8; 8] = b"LBX1PAG\0";
 pub(crate) const PAGE_HEADER_LEN: usize = 96;
-#[cfg(test)]
-pub(crate) mod secure_storage;
 pub(crate) use crate::constants::{
     DEFAULT_DATA_PAGE_BYTES, DEFAULT_METADATA_PAGE_BYTES, DEFAULT_PAGE_BYTES,
 };
@@ -1375,90 +1369,6 @@ fn decode_single_object_stream_in_place<B: PageBuffer>(
     Ok((kind, id, payload))
 }
 
-#[cfg(test)]
-pub(crate) fn scan_page_records(bytes: &[u8], lockbox_id: LockboxId, key: &[u8]) -> Scan {
-    #[cfg(any(test, feature = "native-block-layout"))]
-    let mut native_pages = Vec::new();
-    let mode = crate::file_format::current_header::read_header_for_scan(bytes)
-        .map(|header| header.format_mode)
-        .unwrap_or_default();
-    let mut records = Vec::new();
-    let mut corrupt_records = 0usize;
-    let mut content_key = derive_page_content_key(key);
-    let mut i = crate::constants::HEADER_LEN;
-    while i + PAGE_HEADER_LEN <= bytes.len() {
-        if &bytes[i..i + 8] == PAGE_MAGIC {
-            #[cfg(any(test, feature = "native-block-layout"))]
-            if crate::file_format::indexed_frame::block_page::is_native_header(&bytes[i..]) {
-                match crate::file_format::indexed_frame::block_page::scan(
-                    bytes, i, lockbox_id, mode, key,
-                ) {
-                    Ok(page) => {
-                        i += page.physical_len;
-                        native_pages.push(page);
-                    }
-                    Err(_) => {
-                        corrupt_records += 1;
-                        i += 1;
-                    }
-                }
-                continue;
-            }
-            let Some(page_bytes) = page_decode_slice(bytes, i) else {
-                corrupt_records += 1;
-                break;
-            };
-            if decode_secure_variable_page_inspection(page_bytes, lockbox_id, &content_key, mode)
-                .is_some()
-            {
-                i += physical_page_size_from_page_slice(page_bytes)
-                    .unwrap_or(DEFAULT_METADATA_PAGE_BYTES);
-                continue;
-            }
-            match decode_page_with_format(page_bytes, lockbox_id, key, mode) {
-                Ok(page) => {
-                    let page_size = physical_page_size_from_page_slice(page_bytes)
-                        .unwrap_or_else(|_| page_size_for_objects(&page.objects));
-                    for object in page.objects {
-                        if let Some(kind) = record_kind_from_object_kind(object.kind) {
-                            let Ok(()) = object.with_payload(|_| ()) else {
-                                corrupt_records += 1;
-                                continue;
-                            };
-                            records.push(DecodedRecord {
-                                header: RecordHeader {
-                                    kind,
-                                    sequence: page.sequence,
-                                    total_len: page_size as u64,
-                                },
-                                offset: i as u64,
-                                object_id: object.id,
-                            });
-                        }
-                    }
-                    i += page_size;
-                }
-                Err(_) => {
-                    corrupt_records += 1;
-                    i += 1;
-                }
-            }
-        } else {
-            i += 1;
-        }
-    }
-    content_key.zeroize();
-    records.sort_by_key(|record| record.header.sequence);
-    #[cfg(any(test, feature = "native-block-layout"))]
-    native_pages.sort_by_key(|page| page.sequence);
-    Scan {
-        #[cfg(any(test, feature = "native-block-layout"))]
-        native_pages,
-        records,
-        corrupt_records,
-    }
-}
-
 pub(crate) fn inspect_pages(
     bytes: &[u8],
     lockbox_id: LockboxId,
@@ -1472,39 +1382,6 @@ pub(crate) fn inspect_pages(
     let mut i = crate::constants::HEADER_LEN;
     while i + PAGE_HEADER_LEN <= bytes.len() {
         if &bytes[i..i + 8] == PAGE_MAGIC {
-            #[cfg(any(test, feature = "native-block-layout"))]
-            if crate::file_format::indexed_frame::block_page::is_native_header(&bytes[i..]) {
-                match crate::file_format::indexed_frame::block_page::scan(
-                    bytes, i, lockbox_id, mode, key,
-                ) {
-                    Ok(page) => {
-                        // scan validates the complete frame and its protected
-                        // metadata before these diagnostic fields are exposed.
-                        let stored_body_len = read_u32_le(&bytes[i + 44..i + 48])
-                            .expect("scanned native header has a body length");
-                        pages.push(PageInspection {
-                            offset: i as u64,
-                            page_id: page.page_id,
-                            sequence: page.sequence,
-                            page_size: page.physical_len as u32,
-                            encrypted_body_len: stored_body_len,
-                            unused_bytes: (page.physical_len
-                                - PAGE_HEADER_LEN
-                                - stored_body_len as usize)
-                                as u32,
-                            object_count: 1,
-                            objects: vec![PageObjectInspection {
-                                id: page.descriptor.frame_id,
-                                kind: "file-data",
-                                payload_len: page.descriptor.logical_len as usize,
-                            }],
-                        });
-                        i += page.physical_len;
-                    }
-                    Err(_) => i += 1,
-                }
-                continue;
-            }
             let Some(page_bytes) = page_decode_slice(bytes, i) else {
                 break;
             };
@@ -1649,29 +1526,6 @@ fn page_kinds_are_clear_text(kinds: impl Iterator<Item = PageObjectKind>) -> Res
         return Err(Error::CorruptRecord);
     }
     Ok(clear_text)
-}
-
-#[cfg(test)]
-fn record_kind_from_object_kind(kind: PageObjectKind) -> Option<RecordKind> {
-    match kind {
-        PageObjectKind::PackedFileData | PageObjectKind::FileData => Some(RecordKind::FilePage),
-        PageObjectKind::Symlink => Some(RecordKind::Symlink),
-        PageObjectKind::VariableSet => Some(RecordKind::Variable),
-        PageObjectKind::VariableDelete => Some(RecordKind::VariableDelete),
-        PageObjectKind::Delete => Some(RecordKind::Delete),
-        PageObjectKind::TocLeaf | PageObjectKind::TocInternal => Some(RecordKind::TocNode),
-        PageObjectKind::CommitRoot => Some(RecordKind::CommitRoot),
-        PageObjectKind::CommitAuth => Some(RecordKind::CommitAuth),
-        PageObjectKind::FreeIndexLeaf | PageObjectKind::FreeIndexInternal => {
-            Some(RecordKind::FreeIndex)
-        }
-        PageObjectKind::KeyDirectory
-        | PageObjectKind::VariableLeaf
-        | PageObjectKind::VariableInternal
-        | PageObjectKind::FormLeaf
-        | PageObjectKind::FormInternal
-        | PageObjectKind::RedactionManifest => None,
-    }
 }
 
 fn page_object_kind_name(kind: PageObjectKind) -> &'static str {

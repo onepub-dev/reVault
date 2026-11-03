@@ -8,8 +8,6 @@ pub(crate) mod file_lock;
 pub(crate) mod free_index;
 pub(crate) mod free_slot;
 pub(crate) mod page_cache;
-#[cfg(test)]
-pub(crate) mod shared_layout_tests;
 
 use crate::secret_vec::SecureVec;
 use crate::{Error, Result};
@@ -66,17 +64,7 @@ pub(crate) enum StorageBackend {
 }
 
 impl StorageBackend {
-    #[cfg(any(test, feature = "native-block-layout"))]
-    pub(crate) fn write_revision(&self) -> u64 {
-        match self {
-            Self::Memory(store) => store.revision,
-            Self::File(store) => store.revision.load(std::sync::atomic::Ordering::SeqCst),
-            #[cfg(feature = "external-source")]
-            Self::External(_) => 0, // Read-only session; its terminal source checks still apply.
-        }
-    }
-
-    #[cfg(any(test, feature = "native-block-layout"))]
+    #[cfg(test)]
     pub(crate) fn current_len(&self) -> Result<u64> {
         if let Self::File(store) = self {
             let _file = store.lock_file()?;
@@ -105,25 +93,6 @@ impl StorageBackend {
             store.ensure_current(&file)?;
         }
         Ok(())
-    }
-
-    /// Scope an immutable decoding snapshot so its source bytes are wiped even
-    /// when validation returns an error or unwinds.
-    #[cfg(any(test, feature = "native-block-layout"))]
-    pub(crate) fn with_read_snapshot<T>(
-        mut bytes: crate::page_buffer::ZeroizingBytes,
-        operation: impl FnOnce(&Self) -> Result<T>,
-    ) -> Result<T> {
-        struct Snapshot(StorageBackend);
-        impl Drop for Snapshot {
-            fn drop(&mut self) {
-                if let StorageBackend::Memory(store) = &mut self.0 {
-                    crate::page_buffer::zeroize_bytes(&mut store.bytes);
-                }
-            }
-        }
-        let snapshot = Snapshot(Self::memory(std::mem::take(&mut *bytes)));
-        operation(&snapshot.0)
     }
 
     pub(crate) fn memory(bytes: Vec<u8>) -> Self {

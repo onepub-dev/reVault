@@ -2,25 +2,31 @@
 
 ## Unreleased
 
+- Move indexed file-data blocks (B), the replacement storage experiment (C),
+  and their tests/benchmarks to `issue-315-experimental-storage`. Remove the
+  optional experimental `native-block-layout` feature from production builds.
+  The default archive encoding and production recovery coverage are retained.
+  Earlier experiment entries below describe work preserved on that branch.
+
 - Validate Vault lock sidecars and their parent directories before writing owner
   metadata. Refuse linked targets and unsafe parents.
 - Open imported host files without following a substituted final symlink and
   validate the held file before reading content.
 
 - Invalidate retired cached pages during authenticated cleanup, preventing
-  stale control-page entries from blocking later native file allocations.
+  stale control-page entries from blocking later indexed-block allocations.
   Overlap checks and pending-write protection remain enforced.
 
-- Recover signed native files when stale data trails an otherwise intact
+- Recover signed indexed-block files when stale data trails an otherwise intact
   publication. Recovery authenticates a private copy bounded to the published
   length; header tags, owner signatures and content verification remain required.
 
-- Skip the unused legacy whole-frame checksum during native import preparation.
-  Native block/index verification and the single codec pass remain unchanged;
+- Skip the unused legacy whole-frame checksum during indexed-block import preparation.
+  Block and index verification and the single codec pass remain unchanged;
   legacy writes still compute and require their original whole-frame checksum.
 
 - Reduce duplicate source validation and intermediate buffer copying in the
-  experimental native reader. Full padded extents, per-block integrity checks,
+  experimental indexed-block reader. Full padded extents, per-block integrity checks,
   and external failure latching remain enforced; failed direct reads wipe the
   caller's buffer. This does not change compression or archive bytes.
 

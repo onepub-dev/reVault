@@ -23,7 +23,7 @@ pub struct LockboxOptions {
     pub cache_limit: CacheLimit,
     /// Expected access pattern used to tune staging and cache behavior.
     pub workload_profile: WorkloadProfile,
-    /// Worker policy for native page/frame preparation.
+    /// Worker policy for page and compression-frame preparation.
     pub worker_policy: WorkerPolicy,
 }
 
@@ -82,7 +82,7 @@ impl WorkerPolicy {
 /// use for bulk imports, and whether decoded compression frames may be retained
 /// during repeated read/extract workloads. On native targets, with
 /// `CacheLimit::Auto`, `ExtractMany`
-/// uses a 32 MiB clean page/native-frame retention target and an 8 MiB separate
+/// uses a 32 MiB clean page retention target and an 8 MiB separate
 /// decoded-frame target. Explicit page-cache limits remain unchanged. These are
 /// retention targets, not total-memory caps; pending writes and active readers
 /// can hold additional data.

@@ -67,69 +67,6 @@ fn open_host_file_nofollow(source: &Path) -> Result<std::fs::File> {
     Err(Error::UnsupportedHostPath(source.display().to_string()))
 }
 
-// A verified native slice can be written directly while its zeroizing cache
-// allocation stays alive. Vec-returning APIs copy shared slices only when needed.
-#[cfg(any(test, feature = "native-block-layout"))]
-pub(super) enum NativeReadBytes {
-    Owned(Vec<u8>),
-    SensitiveOwned(SensitiveBytes),
-    Shared {
-        frame: Arc<super::CachedCompressionFrame>,
-        range: std::ops::Range<usize>,
-        source_guard: Option<(u64, u64)>,
-    },
-}
-
-#[cfg(any(test, feature = "native-block-layout"))]
-impl NativeReadBytes {
-    fn for_internal_write(self, sensitive: bool) -> Self {
-        match self {
-            Self::Owned(bytes) => Self::SensitiveOwned(SensitiveBytes::new(bytes, sensitive)),
-            other => other,
-        }
-    }
-    fn ensure_current(&self, storage: &crate::storage::StorageBackend) -> Result<()> {
-        if let Self::Shared {
-            source_guard: Some((required_end, revision)),
-            ..
-        } = self
-        {
-            if *required_end > storage.current_len()? {
-                return Err(Error::Truncated);
-            }
-            if *revision == u64::MAX || *revision != storage.write_revision() {
-                return Err(Error::CorruptRecord);
-            }
-        }
-        Ok(())
-    }
-
-    fn into_vec(self, storage: &crate::storage::StorageBackend) -> Result<Vec<u8>> {
-        match self {
-            Self::Owned(bytes) => Ok(bytes),
-            Self::SensitiveOwned(bytes) => Ok(bytes.into_vec()),
-            shared @ Self::Shared { .. } => {
-                let mut bytes = ZeroizingBytes::new(shared.to_vec());
-                // Owned results keep the original cache-hit check after copying.
-                shared.ensure_current(storage)?;
-                Ok(std::mem::take(&mut *bytes))
-            }
-        }
-    }
-}
-
-#[cfg(any(test, feature = "native-block-layout"))]
-impl std::ops::Deref for NativeReadBytes {
-    type Target = [u8];
-    fn deref(&self) -> &[u8] {
-        match self {
-            Self::Owned(bytes) => bytes,
-            Self::SensitiveOwned(bytes) => bytes,
-            Self::Shared { frame, range, .. } => &frame.data[range.clone()],
-        }
-    }
-}
-
 const SMALL_FILE_PACKING_LIMIT: usize = 1024 * 1024;
 const SMALL_FILE_COMPRESSION_FRAME_BYTES: usize = 4 * 1024;
 const BULK_IMPORT_SMALL_FILE_COMPRESSION_FRAME_BYTES: usize = 2 * 1024 * 1024;
@@ -187,40 +124,11 @@ mod range_integrity_tests {
     use super::*;
 
     #[test]
-    fn legacy_writer_rejects_native_preparation_before_mutating_storage() {
-        let mut archive = Lockbox::create(b"prepared layout mismatch test");
-        let path = LockboxPath::new("/native").unwrap();
-        let prepared = FileImportPipeline::new(3, 1)
-            .with_native_blocks(true)
-            .prepare(&[CompressionFrameWrite {
-                path: &path,
-                permissions: 0o600,
-                total_len: 11,
-                file_offset: 0,
-                data: b"test bytes!",
-            }]);
-        let before = archive.to_bytes();
-        let sequence = archive.sequence;
-        let mut chunks = Vec::new();
-        {
-            let mut writer = FilePageWriter::new(&mut archive);
-            writer.native_blocks = false;
-            assert!(writer
-                .write_prepared_compression_frame(prepared, &mut chunks)
-                .is_err());
-        }
-        assert!(chunks.is_empty());
-        assert_eq!(archive.sequence, sequence);
-        assert_eq!(archive.to_bytes(), before);
-    }
-
-    #[test]
     fn partial_frame_read_checks_bytes_outside_the_requested_range() {
         let lb = Lockbox::create(b"range integrity test");
         let mut stored = vec![42; 4096];
         let chunk = FileChunk {
             #[cfg(test)]
-            block_frame: None,
             stored_path: LockboxPath::new("/test").unwrap(),
             file_offset: 0,
             len: stored.len() as u64,
@@ -839,8 +747,7 @@ impl<State> Lockbox<State> {
         let level = self.compression_frame_zstd_level();
         let pipeline = FileImportPipeline::new(level, jobs)
             .with_sensitive(!self.format_mode.plaintext())
-            .with_compression(self.configured_compression())
-            .with_native_blocks(cfg!(feature = "native-block-layout") && self.format_mode.0 != 0);
+            .with_compression(self.configured_compression());
         let queue_bound = jobs.saturating_mul(2).max(1);
         let (job_tx, job_rx) = std::sync::mpsc::sync_channel::<ParallelCompressionJob>(queue_bound);
         let (result_tx, result_rx) = std::sync::mpsc::channel::<ParallelCompressionResult>();
@@ -1030,20 +937,12 @@ impl<State> Lockbox<State> {
             if chunk.file_offset.saturating_add(chunk.len) > entry.len {
                 return Err(Error::CorruptRecord);
             }
-            #[cfg(any(test, feature = "native-block-layout"))]
-            let decoded_chunk = if chunk.block_frame.is_some() {
-                self.read_native_block_chunk_view(entry.len, &chunk, 0..chunk.len, true)?
-            } else {
-                NativeReadBytes::Owned(self.read_file_chunk_compression_frame(entry.len, &chunk)?)
-            }
-            .for_internal_write(!self.format_mode.plaintext());
-            #[cfg(not(any(test, feature = "native-block-layout")))]
+
             let decoded_chunk = SensitiveBytes::new(
                 self.read_file_chunk_compression_frame(entry.len, &chunk)?,
                 !self.format_mode.plaintext(),
             );
-            #[cfg(any(test, feature = "native-block-layout"))]
-            decoded_chunk.ensure_current(&self.storage)?;
+
             writer
                 .write_all(&decoded_chunk)
                 .map_err(|err| Error::Io(err.to_string()))?;
@@ -1221,22 +1120,6 @@ impl<State> Lockbox<State> {
         Ok(out)
     }
 
-    #[cfg(any(test, feature = "native-block-layout"))]
-    pub(super) fn read_native_file_window(
-        &self,
-        expected_total_len: u64,
-        chunk: &FileChunk,
-    ) -> Result<NativeReadBytes> {
-        // Preserve the format policy checked by read_file_chunk_range.
-        if self.format_mode.0 != 0
-            && self.format_mode.options().compression == crate::Compression::None
-            && chunk.compression != COMPRESSION_NONE
-        {
-            return Err(Error::CorruptRecord);
-        }
-        self.read_native_block_chunk_view(expected_total_len, chunk, 0..chunk.len, true)
-    }
-
     pub(crate) fn read_file_chunk_compression_frame(
         &self,
         expected_total_len: u64,
@@ -1254,10 +1137,6 @@ impl<State> Lockbox<State> {
         retained_offset: u64,
         retained: &crate::page::DecodedPage,
     ) -> Result<()> {
-        #[cfg(any(test, feature = "native-block-layout"))]
-        if chunk.block_frame.is_some() {
-            return Err(Error::CorruptRecord);
-        }
         validate_compression_frame_lengths(chunk.compression_frame_len, chunk.compressed_len)?;
         if chunk.compressed_len > DEFAULT_MAX_PAGE_LOGICAL_BYTES as u64 {
             return Err(Error::SecurityLimitExceeded(
@@ -1326,11 +1205,7 @@ impl<State> Lockbox<State> {
         }) else {
             return Ok(None);
         };
-        #[cfg(any(test, feature = "native-block-layout"))]
-        if chunk.block_frame.is_some() {
-            // This shortcut authenticates a whole-frame hash, not a block index.
-            return Ok(None);
-        }
+
         if chunk.compression != COMPRESSION_NONE || chunk.segments.len() != 1 {
             return Ok(None);
         }
@@ -1401,10 +1276,7 @@ impl<State> Lockbox<State> {
         {
             return Err(Error::CorruptRecord);
         }
-        #[cfg(any(test, feature = "native-block-layout"))]
-        if chunk.block_frame.is_some() {
-            return self.read_native_block_chunk(expected_total_len, chunk, range);
-        }
+
         if let Some(cached) =
             self.read_cached_compression_frame_slice(expected_total_len, chunk, &range)?
         {
@@ -1465,237 +1337,6 @@ impl<State> Lockbox<State> {
             })?;
         }
         self.read_checked_frame_slice(chunk, &range, &stored, cache_slices.unwrap_or_default())
-    }
-
-    #[cfg(any(test, feature = "native-block-layout"))]
-    fn read_native_block_chunk(
-        &self,
-        expected_total_len: u64,
-        chunk: &FileChunk,
-        range: std::ops::Range<u64>,
-    ) -> Result<Vec<u8>> {
-        self.read_native_block_chunk_with_cache(expected_total_len, chunk, range, true)
-    }
-
-    #[cfg(any(test, feature = "native-block-layout"))]
-    fn read_native_block_chunk_with_cache(
-        &self,
-        expected_total_len: u64,
-        chunk: &FileChunk,
-        range: std::ops::Range<u64>,
-        cache_single_frames: bool,
-    ) -> Result<Vec<u8>> {
-        self.read_native_block_chunk_view(expected_total_len, chunk, range, cache_single_frames)?
-            .into_vec(&self.storage)
-    }
-
-    #[cfg(any(test, feature = "native-block-layout"))]
-    fn read_native_block_chunk_view(
-        &self,
-        expected_total_len: u64,
-        chunk: &FileChunk,
-        range: std::ops::Range<u64>,
-        cache_single_frames: bool,
-    ) -> Result<NativeReadBytes> {
-        // A decoded frame was admitted only after verifying its complete body.
-        // Reuse that proof only for the exact committed reference and allocation.
-        crate::file_format::indexed_frame::block_page::validate_chunk_reference(
-            self.lockbox_id,
-            self.format_mode,
-            expected_total_len,
-            chunk,
-        )?;
-        let [segment] = chunk.segments.as_slice() else {
-            return Err(Error::CorruptRecord);
-        };
-        let required_end = segment
-            .page_offset
-            .checked_add(segment.page_len)
-            .ok_or(Error::CorruptRecord)?;
-        let revision = self.storage.write_revision();
-        if let Some(cached) = self.native_cached_frame(chunk)? {
-            // Consumers validate before exposing cached bytes: into_vec after
-            // copying, extraction before the writer, and native file handles
-            // through their retained extent/revision before every window copy.
-            let reference = chunk.block_frame.as_ref().ok_or(Error::CorruptRecord)?;
-            if cached
-                .native_reference
-                .as_ref()
-                .is_none_or(|(verified, allocation)| {
-                    verified != reference.as_ref() || allocation != segment
-                })
-            {
-                return Err(Error::CorruptRecord);
-            }
-            let bounds = Self::cached_frame_bounds(&cached, expected_total_len, chunk, &range)?;
-            return Ok(NativeReadBytes::Shared {
-                frame: cached,
-                range: bounds,
-                source_guard: Some((required_end, revision)),
-            });
-        }
-        // Whole small frames can be captured in one bounded source read. Keep
-        // the same metadata/index/body validators and revalidate the live source
-        // before returning bytes; partial ranges never take this eager path.
-        const SMALL_FRAME_SNAPSHOT_BYTES: u64 = 16 * 1024;
-        if !matches!(&self.storage, crate::storage::StorageBackend::Memory(_))
-            && range.start == 0
-            && range.end == chunk.len
-            && chunk.compression_frame_offset == 0
-            && chunk.len == chunk.compression_frame_len
-            && chunk.compression_frame_len <= SMALL_FRAME_SNAPSHOT_BYTES
-            && segment.page_len <= SMALL_FRAME_SNAPSHOT_BYTES
-        {
-            use crate::file_format::indexed_frame::block_page::{validate_chunk_reference, Reader};
-            use crate::storage::{Storage, StorageBackend};
-            // The bounded exact read detects truncation. Validate live source
-            // identity/extent and revision after decoding, before exposing bytes.
-            let mut page = ZeroizingBytes::new(vec![0; segment.page_len as usize]);
-            self.storage.read_at_into(segment.page_offset, &mut page)?;
-            let identity = validate_chunk_reference(
-                self.lockbox_id,
-                self.format_mode,
-                expected_total_len,
-                chunk,
-            )?;
-            let reference = chunk.block_frame.as_ref().ok_or(Error::CorruptRecord)?;
-            let (mut decoded, slices) = StorageBackend::with_read_snapshot(page, |snapshot| {
-                let read = |key: &[u8]| {
-                    let reader = Reader::open(
-                        snapshot,
-                        0,
-                        identity,
-                        &reference.descriptor,
-                        segment.page_len as usize,
-                        key,
-                    )?;
-                    reader.validate_slice(chunk, expected_total_len)?;
-                    Ok((
-                        ZeroizingBytes::new(reader.read(0..chunk.len)?),
-                        reader.slices().to_vec(),
-                    ))
-                };
-                if self.format_mode.plaintext() {
-                    read(&[0; 32])
-                } else {
-                    self.key.with_bytes(read)?
-                }
-            })?;
-            if required_end > self.storage.current_len()? {
-                return Err(Error::Truncated);
-            }
-            if revision == u64::MAX || revision != self.storage.write_revision() {
-                return Err(Error::CorruptRecord);
-            }
-            if cache_single_frames && self.should_cache_native_decoded_frame(decoded.len()) {
-                let len = decoded.len();
-                let frame = self
-                    .cache_decoded_compression_frame_at_revision(
-                        chunk,
-                        slices,
-                        std::mem::take(&mut *decoded),
-                        revision,
-                    )
-                    .ok_or(Error::CorruptRecord)?;
-                return Ok(NativeReadBytes::Shared {
-                    frame,
-                    range: 0..len,
-                    source_guard: None,
-                });
-            }
-            return Ok(NativeReadBytes::Owned(std::mem::take(&mut *decoded)));
-        }
-        let reader = self.open_native_block_chunk(expected_total_len, chunk)?;
-        let start = chunk
-            .compression_frame_offset
-            .checked_add(range.start)
-            .ok_or(Error::CorruptRecord)?;
-        let end = chunk
-            .compression_frame_offset
-            .checked_add(range.end)
-            .ok_or(Error::CorruptRecord)?;
-        let frame_len =
-            usize::try_from(chunk.compression_frame_len).map_err(|_| Error::CorruptRecord)?;
-        // Cache complete file slices (including packed neighbors), but do not
-        // expand a partial raw range just to populate the cache. Compressed
-        // reads already decode the complete frame.
-        if self.should_cache_native_decoded_frame(frame_len)
-            && (cache_single_frames || reader.slices().len() > 1)
-            && (chunk.compression != COMPRESSION_NONE
-                || (range.start == 0 && range.end == chunk.len))
-        {
-            let mut decoded = ZeroizingBytes::new(reader.read(0..chunk.compression_frame_len)?);
-            let start = usize::try_from(start).map_err(|_| Error::CorruptRecord)?;
-            let end = usize::try_from(end).map_err(|_| Error::CorruptRecord)?;
-            decoded.get(start..end).ok_or(Error::CorruptRecord)?;
-            let frame = self
-                .cache_decoded_compression_frame_at_revision(
-                    chunk,
-                    reader.slices().to_vec(),
-                    std::mem::take(&mut *decoded),
-                    reader.write_revision(),
-                )
-                .ok_or(Error::CorruptRecord)?;
-            return Ok(NativeReadBytes::Shared {
-                frame,
-                range: start..end,
-                source_guard: None,
-            });
-        }
-        reader
-            .read_with_cache(start..end, &self.page_manager)
-            .map(NativeReadBytes::Owned)
-    }
-
-    #[cfg(any(test, feature = "native-block-layout"))]
-    pub(super) fn open_native_block_chunk(
-        &self,
-        expected_total_len: u64,
-        chunk: &FileChunk,
-    ) -> Result<crate::file_format::indexed_frame::block_page::Reader<'_>> {
-        use crate::file_format::indexed_frame::block_page::{validate_chunk_reference, Reader};
-        let identity =
-            validate_chunk_reference(self.lockbox_id, self.format_mode, expected_total_len, chunk)?;
-        let reference = chunk.block_frame.as_ref().ok_or(Error::CorruptRecord)?;
-        let descriptor = &reference.descriptor;
-        let [segment] = chunk.segments.as_slice() else {
-            return Err(Error::CorruptRecord);
-        };
-        let page_len = usize::try_from(segment.page_len).map_err(|_| Error::CorruptRecord)?;
-        let cached = self
-            .page_manager
-            .borrow_mut()
-            .native_index(segment.page_offset, self.storage.write_revision());
-        let open = |key: &[u8]| {
-            if let Some(cached) = &cached {
-                return cached.bind(&self.storage, chunk, expected_total_len, key);
-            }
-            let reader = Reader::open(
-                &self.storage,
-                segment.page_offset,
-                identity,
-                descriptor,
-                page_len,
-                key,
-            )?;
-            reader.validate_slice(chunk, expected_total_len)?;
-            self.page_manager.borrow_mut().insert_native_index(
-                segment.page_offset,
-                segment.page_len,
-                reader.cache_entry(chunk)?,
-                reader.write_revision(),
-            );
-            Ok(reader)
-        };
-        if self.format_mode.plaintext() {
-            // Plaintext metadata and block indexes are checked against their
-            // committed hashes, not a content key. Owner authorization still
-            // belongs to signed archive opening. Avoid exposing protected key
-            // memory for an operation that cannot use it.
-            open(&[0; 32])
-        } else {
-            self.key.with_bytes(open)?
-        }
     }
 
     fn read_checked_frame_slice(
@@ -2028,7 +1669,6 @@ impl<State> Lockbox<State> {
                     ) =>
             {
                 // Four ordinary 2 MiB frames retain adjacent packed-file reuse.
-                // Native frames share the page cache and its separate 32 MiB target.
                 8 * 1024 * 1024
             }
             WorkloadProfile::ReadMostly | WorkloadProfile::ExtractMany => {
@@ -2058,38 +1698,11 @@ impl<State> Lockbox<State> {
         chunk: &FileChunk,
         range: &std::ops::Range<u64>,
     ) -> Result<Option<Vec<u8>>> {
-        #[cfg(any(test, feature = "native-block-layout"))]
-        if chunk.block_frame.is_some() {
-            return self
-                .native_cached_frame(chunk)?
-                .map(|entry| Self::cached_frame_slice(&entry, expected_total_len, chunk, range))
-                .transpose();
-        }
         let cache = self.compression_frame_cache.borrow();
         let Some(entry) = cache.entries.get(&chunk.compression_frame_id) else {
             return Ok(None);
         };
         Self::cached_frame_slice(entry, expected_total_len, chunk, range).map(Some)
-    }
-
-    #[cfg(any(test, feature = "native-block-layout"))]
-    fn native_cached_frame(
-        &self,
-        chunk: &FileChunk,
-    ) -> Result<Option<Arc<super::CachedCompressionFrame>>> {
-        let [segment] = chunk.segments.as_slice() else {
-            return Err(Error::CorruptRecord);
-        };
-        Ok(self
-            .page_manager
-            .borrow_mut()
-            .native_decoded_page(segment.page_offset, self.storage.write_revision()))
-    }
-
-    #[cfg(any(test, feature = "native-block-layout"))]
-    fn should_cache_native_decoded_frame(&self, len: usize) -> bool {
-        let limit = self.page_manager.borrow().stats().limit_bytes;
-        limit > 0 && len as u64 <= limit
     }
 
     fn cached_frame_slice(
@@ -2149,8 +1762,6 @@ impl<State> Lockbox<State> {
         drop(self.cache_decoded_compression_frame_at_revision(chunk, slices, decoded, 0));
     }
 
-    // Some supplies native-frame ownership, not a promise of cache admission.
-    // The caller may retain it through a write even if the cache evicts it.
     fn cache_decoded_compression_frame_at_revision(
         &self,
         chunk: &FileChunk,
@@ -2158,32 +1769,6 @@ impl<State> Lockbox<State> {
         mut decoded: Vec<u8>,
         _revision: u64,
     ) -> Option<Arc<super::CachedCompressionFrame>> {
-        #[cfg(any(test, feature = "native-block-layout"))]
-        if chunk.block_frame.is_some() {
-            let [segment] = chunk.segments.as_slice() else {
-                crate::page_buffer::zeroize_bytes(&mut decoded);
-                return None;
-            };
-            return Some(
-                self.page_manager.borrow_mut().insert_native_decoded_page(
-                    segment.page_offset,
-                    segment.page_len,
-                    super::CachedCompressionFrame {
-                        native_reference: chunk
-                            .block_frame
-                            .as_ref()
-                            .map(|reference| ((**reference).clone(), segment.clone())),
-                        compression: chunk.compression,
-                        compression_frame_len: chunk.compression_frame_len,
-                        compressed_len: chunk.compressed_len,
-                        compression_frame_digest: chunk.compression_frame_digest,
-                        slices,
-                        data: decoded,
-                    },
-                    _revision,
-                ),
-            );
-        }
         if !self.should_cache_decoded_compression_frame(decoded.len()) {
             crate::page_buffer::zeroize_bytes(&mut decoded);
             return None;
@@ -2220,8 +1805,6 @@ impl<State> Lockbox<State> {
         cache.entries.insert(
             chunk.compression_frame_id,
             super::CachedCompressionFrame {
-                #[cfg(any(test, feature = "native-block-layout"))]
-                native_reference: None,
                 compression: chunk.compression,
                 compression_frame_len: chunk.compression_frame_len,
                 compressed_len: chunk.compressed_len,
@@ -2236,7 +1819,6 @@ impl<State> Lockbox<State> {
     #[cfg(test)]
     pub(crate) fn decoded_compression_frame_cache_entries_for_tests(&self) -> usize {
         self.compression_frame_cache.borrow().entries.len()
-            + self.page_manager.borrow().native_decoded_entries()
     }
 
     /// Stream file content ranges without extracting files to the host filesystem.
@@ -2276,15 +1858,7 @@ impl<State> Lockbox<State> {
         // A sequential pass larger than the cache evicts single-file frames
         // before a later pass can reuse them. Packed frames still benefit
         // neighboring slices within this pass.
-        #[cfg(any(test, feature = "native-block-layout"))]
-        let stream_len = self
-            .toc_entries
-            .values()
-            .filter(|entry| !entry.deleted && entry.node_kind == NodeKind::File)
-            .fold(0u64, |total, entry| total.saturating_add(entry.len));
-        #[cfg(any(test, feature = "native-block-layout"))]
-        let cache_single_frames = stream_len <= self.decoded_compression_frame_cache_limit() as u64;
-        #[cfg(not(any(test, feature = "native-block-layout")))]
+
         let cache_single_frames = false;
         let mut stream_state = ContentStreamState::default();
         match options.order {
@@ -2397,73 +1971,7 @@ impl<State> Lockbox<State> {
             physical_offset: item.physical_offset,
             sparse: item.sparse,
         };
-        #[cfg(any(test, feature = "native-block-layout"))]
-        if let Some(reference) = item.chunk.as_ref().filter(|reference| {
-            !item.sparse
-                && reference.block_frame.is_some()
-                && reference.len < reference.compression_frame_len
-        }) {
-            use crate::file_format::indexed_frame::block_page::validate_chunk_reference;
-            validate_chunk_reference(self.lockbox_id, self.format_mode, item.total_len, reference)?;
-            if !_state.native.as_ref().is_some_and(|retained| {
-                retained.reference.block_frame == reference.block_frame
-                    && retained.reference.segments == reference.segments
-            }) {
-                // Drop and wipe the previous frame before allocating another.
-                _state.native = None;
-                let reader = self.open_native_block_chunk(item.total_len, reference)?;
-                let cached = {
-                    if let Some(entry) = self.native_cached_frame(reference)? {
-                        if entry.compression != reference.compression
-                            || entry.compression_frame_len != reference.compression_frame_len
-                            || entry.compressed_len != reference.compressed_len
-                            || entry.compression_frame_digest != reference.compression_frame_digest
-                            || entry.slices != reader.slices()
-                        {
-                            return Err(Error::CorruptRecord);
-                        }
-                        Some(ZeroizingBytes::new(entry.data.clone()))
-                    } else {
-                        None
-                    }
-                };
-                let was_cached = cached.is_some();
-                let data = match cached {
-                    Some(data) => data,
-                    None => ZeroizingBytes::new(reader.read(0..reference.compression_frame_len)?),
-                };
-                if !was_cached
-                    && self.should_cache_decoded_compression_frame(data.len())
-                    && self.should_cache_native_decoded_frame(data.len())
-                {
-                    let _ = self.cache_decoded_compression_frame_at_revision(
-                        reference,
-                        reader.slices().to_vec(),
-                        data.to_vec(),
-                        reader.write_revision(),
-                    );
-                }
-                _state.native = Some(NativeStreamFrame {
-                    reference: reference.clone(),
-                    reader,
-                    data,
-                });
-            }
-            let retained = _state.native.as_ref().ok_or(Error::CorruptRecord)?;
-            retained.reader.validate_slice(reference, item.total_len)?;
-            retained.reader.ensure_current()?;
-            let start = usize::try_from(reference.compression_frame_offset)
-                .map_err(|_| Error::CorruptRecord)?;
-            let end = start
-                .checked_add(usize::try_from(reference.len).map_err(|_| Error::CorruptRecord)?)
-                .ok_or(Error::CorruptRecord)?;
-            let bytes = retained.data.get(start..end).ok_or(Error::CorruptRecord)?;
-            return visitor(chunk, &mut Cursor::new(bytes));
-        }
-        #[cfg(any(test, feature = "native-block-layout"))]
-        {
-            _state.native = None;
-        }
+
         if item.sparse {
             let mut reader = ZeroReader {
                 remaining: item.len,
@@ -2471,14 +1979,6 @@ impl<State> Lockbox<State> {
             visitor(chunk, &mut reader)?;
         } else {
             let data = match item.chunk.as_ref() {
-                #[cfg(any(test, feature = "native-block-layout"))]
-                Some(chunk) if chunk.block_frame.is_some() => self
-                    .read_native_block_chunk_with_cache(
-                        item.total_len,
-                        chunk,
-                        0..chunk.len,
-                        _cache_single_frames,
-                    )?,
                 Some(chunk) => self.read_file_chunk_compression_frame(item.total_len, chunk)?,
                 None => self.read_file_range(&item.path, item.file_offset, item.len)?,
             };
@@ -2491,20 +1991,7 @@ impl<State> Lockbox<State> {
 
 #[derive(Default)]
 pub(super) struct ContentStreamState<'a> {
-    #[cfg(any(test, feature = "native-block-layout"))]
-    native: Option<NativeStreamFrame<'a>>,
-    #[cfg(not(any(test, feature = "native-block-layout")))]
     _lifetime: std::marker::PhantomData<&'a ()>,
-}
-
-#[cfg(any(test, feature = "native-block-layout"))]
-// One verified packed frame retained within a stream call. The reader checks
-// the source before each slice; dropping this state wipes data, including on
-// visitor error or unwind. It never retains a second frame during replacement.
-struct NativeStreamFrame<'a> {
-    reference: FileChunk,
-    reader: crate::file_format::indexed_frame::block_page::Reader<'a>,
-    data: ZeroizingBytes,
 }
 
 #[derive(Debug)]
@@ -2734,8 +2221,6 @@ struct PendingSegment {
 pub(super) struct FilePageWriter<'a, State> {
     lockbox: &'a mut Lockbox<State>,
     packer: PageObjectPacker<PendingSegment>,
-    #[cfg(any(test, feature = "native-block-layout"))]
-    native_blocks: bool,
 }
 
 struct SharedCompressionFrameSurvivor {
@@ -2754,21 +2239,9 @@ impl Drop for SharedCompressionFrameSurvivor {
 
 impl<'a, State> FilePageWriter<'a, State> {
     pub(super) fn new(lockbox: &'a mut Lockbox<State>) -> Self {
-        #[cfg(any(test, feature = "native-block-layout"))]
-        let native_blocks = cfg!(feature = "native-block-layout") && lockbox.format_mode.0 != 0;
         Self {
             lockbox,
             packer: PageObjectPacker::new(DEFAULT_PAGE_BYTES),
-            #[cfg(any(test, feature = "native-block-layout"))]
-            native_blocks,
-        }
-    }
-
-    #[cfg(test)]
-    pub(super) fn native(lockbox: &'a mut Lockbox<State>) -> Self {
-        Self {
-            native_blocks: true,
-            ..Self::new(lockbox)
         }
     }
 
@@ -2806,12 +2279,9 @@ impl<'a, State> FilePageWriter<'a, State> {
     }
 
     fn import_pipeline(&self, jobs: usize) -> FileImportPipeline {
-        let pipeline = FileImportPipeline::new(self.lockbox.compression_frame_zstd_level(), jobs)
+        FileImportPipeline::new(self.lockbox.compression_frame_zstd_level(), jobs)
             .with_sensitive(!self.lockbox.format_mode.plaintext())
-            .with_compression(self.lockbox.configured_compression());
-        #[cfg(any(test, feature = "native-block-layout"))]
-        let pipeline = pipeline.with_native_blocks(self.native_blocks);
-        pipeline
+            .with_compression(self.lockbox.configured_compression())
     }
 
     fn write_prepared_compression_frame(
@@ -2819,10 +2289,6 @@ impl<'a, State> FilePageWriter<'a, State> {
         prepared: PreparedCompressionFrame,
         chunks: &mut Vec<FileChunk>,
     ) -> Result<Vec<usize>> {
-        #[cfg(any(test, feature = "native-block-layout"))]
-        if self.native_blocks {
-            return self.write_prepared_native_frame(prepared, chunks);
-        }
         let compression_frame_digest = prepared.integrity.legacy_checksum()?;
         self.lockbox.add_frame_prepare_nanos(prepared.prepare_nanos);
         self.lockbox.sequence += 1;
@@ -2839,8 +2305,6 @@ impl<'a, State> FilePageWriter<'a, State> {
         for slice in &manifest.slices {
             let chunk_index = chunks.len();
             chunks.push(FileChunk {
-                #[cfg(any(test, feature = "native-block-layout"))]
-                block_frame: None,
                 stored_path: slice.path.clone(),
                 file_offset: slice.file_offset,
                 len: slice.len,
@@ -2873,79 +2337,6 @@ impl<'a, State> FilePageWriter<'a, State> {
             offset = end;
         }
         Ok(chunk_indices)
-    }
-
-    #[cfg(any(test, feature = "native-block-layout"))]
-    fn write_prepared_native_frame(
-        &mut self,
-        prepared: PreparedCompressionFrame,
-        chunks: &mut Vec<FileChunk>,
-    ) -> Result<Vec<usize>> {
-        use crate::file_chunk::BlockFrameReference;
-        use crate::file_format::indexed_frame::block_page::PageIdentity;
-        use crate::page_cache::PageWritePolicy;
-        self.flush(chunks)?;
-        self.lockbox.add_frame_prepare_nanos(prepared.prepare_nanos);
-        let started = Instant::now();
-        let frame_id = self
-            .lockbox
-            .sequence
-            .checked_add(1)
-            .ok_or(Error::CorruptRecord)?;
-        let page_id = frame_id.checked_add(1).ok_or(Error::CorruptRecord)?;
-        let identity = PageIdentity {
-            archive: self.lockbox.lockbox_id,
-            mode: self.lockbox.format_mode,
-            page_id,
-            sequence: page_id,
-        };
-        let page = std::sync::Arc::new(
-            self.lockbox
-                .key
-                .with_bytes(|key| prepared.encode_native_page(identity, frame_id, key))??,
-        );
-        self.lockbox.sequence = page_id;
-        let page_len = page.bytes().len() as u64;
-        let offset = self.lockbox.allocate_page_offset(page_len)?;
-        self.lockbox.page_manager.borrow_mut().stage_native_page(
-            offset,
-            self.lockbox.lockbox_id,
-            page.clone(),
-            PageWritePolicy::DiscardAfterFlush,
-        )?;
-        // The normal preparation protocol owns both reused and appended extents.
-        // Publish no chunk reference until those bytes have actually been written.
-        self.lockbox.flush_discardable_pages()?;
-        let reference = std::sync::Arc::new(BlockFrameReference {
-            descriptor: page.descriptor().clone(),
-            sequence: identity.sequence,
-        });
-        let mut indices = Vec::with_capacity(prepared.slices.len());
-        for slice in prepared.slices {
-            indices.push(chunks.len());
-            chunks.push(FileChunk {
-                block_frame: Some(reference.clone()),
-                stored_path: slice.path,
-                file_offset: slice.file_offset,
-                len: slice.len,
-                compression_frame_offset: slice.compression_frame_offset,
-                compression_frame_len: reference.descriptor.logical_len,
-                compressed_len: reference.descriptor.stored_len,
-                compression: reference.descriptor.compression,
-                compression_frame_id: frame_id,
-                compression_frame_digest: reference.descriptor.index_commitment,
-                segments: vec![CompressionFrameSegment {
-                    page_offset: offset,
-                    page_len,
-                    object_id: page_id,
-                    segment_offset: 0,
-                    segment_len: reference.descriptor.stored_len,
-                }],
-            });
-        }
-        self.lockbox
-            .add_page_write_nanos(started.elapsed().as_nanos());
-        Ok(indices)
     }
 
     fn add_segment(
