@@ -240,10 +240,13 @@ deduplication and test-profile improvements measured above. The production
 cleanup removes their implementations, dedicated tests, and benchmark targets.
 Historical evidence and frozen migration packages remain unchanged.
 
-The first inventory check, after removing C, compiled successfully and listed
-426 tests. Relative to the saved pre-separation binary, 333 absent tests belonged
-to experimental modules; three external-source tests were newly listed. This
-is an intermediate inventory, not the final test result or a runtime claim.
+After removing C, the compiled inventory listed 426 tests. A fresh compile of
+the exact preserved `d236d32e` source with the same `external-source` feature
+lists 759 tests. The final separated binary lists 393 tests: 366 experimental
+tests moved off the production branch, with the unrelated output-reservation
+test retained under its new module name. The comparison has 367 old names absent
+and precisely one new name (that rename). This source-matched inventory replaces
+the initial comparison against an older cached binary.
 
 During B separation, the unrelated output-reservation regression was moved into
 `lockbox::output_reservation_tests`. Production file-identity, relocation and
@@ -275,3 +278,17 @@ Local Windows test compilation stopped in the `alloca` dependency because
 `x86_64-w64-mingw32-gcc` is not installed. It did not reach project code and is
 not a Windows pass; Windows CI remains required. File-identity support used by
 non-Unix tests has been retained. Frozen migration package source was not changed.
+### Published-reader compatibility correction
+
+The pinned published CLI 0.5.0 rejects format 5 with its historical generic
+passphrase/damage error (exit 1), not the newer structured exit 14. This is the
+known diagnostic limitation documented by #340, not acceptance of format 5.
+The baseline test now verifies its exact version, first creates and lists its
+own Vault to prove the credential environment works, then checks refusal of the
+format-5 Unicode Vault and byte-for-byte non-mutation. The current CLI separately
+reopens the Unicode alias and reads the expected stored value.
+
+That focused test passed in 12.63 seconds. The separate current-reader
+future-Vault test was strengthened to require exit 14 and the supported version;
+it passed in 41.69 seconds with its existing upgrade guidance and unchanged-file
+checks. Neither result substitutes for Windows/macOS CI.

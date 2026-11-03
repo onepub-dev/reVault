@@ -1252,39 +1252,46 @@ fn format_four_reader_refuses_unicode_format_five_vault_without_mutation() {
     let Ok(baseline) = std::env::var("REVAULT_ALIAS_BASELINE_BIN") else {
         return;
     };
+    // Prove that the published reader works with this credential environment
+    // and a Vault it creates, rather than accepting any failed invocation.
+    let control = Fixture {
+        root: tempfile::tempdir().unwrap(),
+        raw_key: true,
+    };
+    let version = control.run(&baseline, &["--version"]);
+    assert!(version.status.success(), "{version:?}");
+    assert_eq!(
+        String::from_utf8_lossy(&version.stdout).trim(),
+        "lockbox 0.5.0"
+    );
+    for args in [
+        vec!["vault", "init"],
+        vec!["vault", "lockbox", "alias", "list"],
+    ] {
+        let output = control.run(&baseline, &args);
+        assert!(output.status.success(), "{args:?}: {output:?}");
+    }
+
     let f = Fixture::new();
     f.ok(&["vault", "lockbox", "alias", "set", "東京.dév", "dev.lbox"]);
     let vault_path = f.root.path().join("vault/local-vault.lbox");
     let before = std::fs::read(&vault_path).unwrap();
     let output = f.run(&baseline, &["vault", "lockbox", "alias", "list"]);
-    assert!(!output.status.success(), "{output:?}");
+    assert_eq!(std::fs::read(vault_path).unwrap(), before);
     let diagnostic = String::from_utf8_lossy(&output.stderr).to_lowercase();
-    assert_eq!(output.status.code(), Some(14), "{diagnostic}");
+    // Published 0.5.0 predates structured newer-format diagnostics (#340).
+    // Preserve its actual refusal contract; current-reader exit 14 and upgrade
+    // guidance are tested separately in migration_cli's future-Vault test.
+    assert_eq!(output.status.code(), Some(1), "{diagnostic}");
     assert!(
-        diagnostic.contains("unsupported") && diagnostic.contains("format"),
-        "{diagnostic}"
-    );
-    assert!(
-        diagnostic.contains(
-            "found lockbox container version 5; this revault build supports container version 4"
-        ),
-        "{diagnostic}"
-    );
-    assert!(
-        diagnostic.contains("use a revault build that supports this newer format"),
-        "{diagnostic}"
-    );
-    assert!(
-        diagnostic.contains("automatic downgrade is not supported"),
+        diagnostic.contains("vault open failed: check the vault passphrase"),
         "{diagnostic}"
     );
     assert!(!diagnostic.contains("migrate"), "{diagnostic}");
     assert!(!diagnostic.contains("invalid record name"), "{diagnostic}");
-    assert_eq!(std::fs::read(vault_path).unwrap(), before);
-    assert_eq!(
-        f.run(VALUE, &["a@東京.dév", "TOKEN"]).stdout,
-        b"synthetic-token"
-    );
+    let reopened = f.run(VALUE, &["a@東京.dév", "TOKEN"]);
+    assert!(reopened.status.success(), "{reopened:?}");
+    assert_eq!(reopened.stdout, b"synthetic-token");
 }
 
 #[test]

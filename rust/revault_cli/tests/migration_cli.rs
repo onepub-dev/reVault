@@ -2031,6 +2031,8 @@ fn doctor_reports_vault_versions_and_future_vault_errors_identify_the_path() {
         checksum_future_header(&mut future[slot..slot + 192]);
         std::fs::write(&container, &future).unwrap();
         let aliases = fixture.run(&["vault", "lockbox", "alias", "list"]);
+        assert_eq!(aliases.status.code(), Some(14), "{aliases:?}");
+        assert_failure_contains(&aliases, "this reVault build supports container version 5");
         assert_failure_contains(&aliases, path(&container));
         assert_failure_contains(
             &aliases,
