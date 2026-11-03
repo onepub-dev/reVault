@@ -219,3 +219,15 @@ mixes differ. The retained scope is test-profile optimization and duplicate
 fault removal across the seven form/variable tests. The full default-feature
 unit binary, integrations and platform checks are assigned to CI for one broad
 validation pass, rather than repeating them locally and in CI.
+
+### CI dependency maintenance
+
+The initial branch CI run found an existing stale path dependency in the
+independent fuzz workspace: `rust/fuzz/Cargo.lock` still recorded
+`revault_secure_memory 0.1.0` after the source package moved to `0.1.1` in #352.
+The harness compile job correctly refused to update it under `--locked`.
+Only that lock entry was synchronized; unrelated dependency versions did not
+change. Locked offline metadata and the exact CI command,
+`cargo +1.88.0 check --locked --manifest-path rust/fuzz/Cargo.toml`, then passed
+(7.75 seconds for the latter). The separate fuzz campaign had already passed;
+its unlocked invocation did not expose the stale checked-in lockfile.
