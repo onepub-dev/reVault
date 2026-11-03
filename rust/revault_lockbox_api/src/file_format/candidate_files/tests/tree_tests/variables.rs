@@ -523,8 +523,16 @@ fn typed_tree_variables_guarded_transaction_and_recovery_faults() {
             for at in 0..count {
                 for prefix in [0, 97, usize::MAX] {
                     for persist in [false, true] {
+                        if !observed
+                            .inner
+                            .distinct_standard_failure(at, prefix, persist)
+                        {
+                            continue;
+                        }
                         let mut failed = Guarded::new(
-                            CrashStore::new(seed.clone(), Some(at), prefix, persist),
+                            observed
+                                .inner
+                                .replay_failure(seed.clone(), at, prefix, persist),
                             ranges.clone(),
                         );
                         let _ = run(&mut failed);
@@ -567,10 +575,17 @@ fn typed_tree_variables_guarded_transaction_and_recovery_faults() {
                             .unwrap();
                             for recovery_at in 0..observed.inner.operations() {
                                 for recovery_prefix in [0, 97, usize::MAX] {
+                                    if !observed.inner.distinct_standard_failure(
+                                        recovery_at,
+                                        recovery_prefix,
+                                        true,
+                                    ) {
+                                        continue;
+                                    }
                                     let mut interrupted = Guarded::new(
-                                        CrashStore::new(
+                                        observed.inner.replay_failure(
                                             damaged.clone(),
-                                            Some(recovery_at),
+                                            recovery_at,
                                             recovery_prefix,
                                             true,
                                         ),

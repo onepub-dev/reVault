@@ -1047,8 +1047,16 @@ fn typed_form_field_upgrade_guarded_atomic_recovery_faults() {
         for at in 0..count {
             for prefix in [0, 97, usize::MAX] {
                 for persist in [false, true] {
+                    if !observed
+                        .inner
+                        .distinct_standard_failure(at, prefix, persist)
+                    {
+                        continue;
+                    }
                     let mut failed = Guarded::new(
-                        CrashStore::new(image.clone(), Some(at), prefix, persist),
+                        observed
+                            .inner
+                            .replay_failure(image.clone(), at, prefix, persist),
                         spans.clone(),
                     );
                     let _ = set_field(
@@ -1084,8 +1092,16 @@ fn typed_form_field_upgrade_guarded_atomic_recovery_faults() {
                             .unwrap();
                         for cut in 0..observed.inner.operations() {
                             for written in [0, 97, usize::MAX] {
+                                if !observed.inner.distinct_standard_failure(cut, written, true) {
+                                    continue;
+                                }
                                 let mut interrupted = Guarded::new(
-                                    CrashStore::new(damaged.clone(), Some(cut), written, true),
+                                    observed.inner.replay_failure(
+                                        damaged.clone(),
+                                        cut,
+                                        written,
+                                        true,
+                                    ),
                                     tracked.clone(),
                                 );
                                 let _ = tree_image::recover(

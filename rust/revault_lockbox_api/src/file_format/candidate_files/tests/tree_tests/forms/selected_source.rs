@@ -698,8 +698,19 @@ fn selected_source_replacement_guarded_atomic_recovery_faults() {
         for at in 0..count {
             for prefix in [0, 97, usize::MAX] {
                 for persist in [false, true] {
-                    let mut failed =
-                        guard_crash(CrashStore::new(bytes.clone(), Some(at), prefix, persist));
+                    if !observed
+                        .inner
+                        .inner
+                        .distinct_standard_failure(at, prefix, persist)
+                    {
+                        continue;
+                    }
+                    let mut failed = guard_crash(observed.inner.inner.replay_failure(
+                        bytes.clone(),
+                        at,
+                        prefix,
+                        persist,
+                    ));
                     let _ = replace_texts(&mut failed, mode, &authority, &owner);
                     let damaged = failed.inner.inner.durable();
                     let tracked = failed.inner.spans.borrow().clone();
@@ -735,9 +746,21 @@ fn selected_source_replacement_guarded_atomic_recovery_faults() {
                             .unwrap();
                         for cut in 0..observed.inner.inner.operations() {
                             for written in [0, 97, usize::MAX] {
+                                if !observed
+                                    .inner
+                                    .inner
+                                    .distinct_standard_failure(cut, written, true)
+                                {
+                                    continue;
+                                }
                                 let mut interrupted = CloneTrap {
                                     inner: Guarded::new(
-                                        CrashStore::new(damaged.clone(), Some(cut), written, true),
+                                        observed.inner.inner.replay_failure(
+                                            damaged.clone(),
+                                            cut,
+                                            written,
+                                            true,
+                                        ),
                                         tracked.clone(),
                                     ),
                                     reads: std::cell::Cell::new(0),

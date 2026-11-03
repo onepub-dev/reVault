@@ -357,8 +357,16 @@ fn typed_tree_variable_moves_atomic_guarded_recovery_faults() {
         for at in 0..count {
             for prefix in [0, 97, usize::MAX] {
                 for persist in [false, true] {
+                    if !observed
+                        .inner
+                        .distinct_standard_failure(at, prefix, persist)
+                    {
+                        continue;
+                    }
                     let mut failed = guard(
-                        CrashStore::new(bytes.clone(), Some(at), prefix, persist),
+                        observed
+                            .inner
+                            .replay_failure(bytes.clone(), at, prefix, persist),
                         &original,
                         mode,
                         &authority,
@@ -407,8 +415,16 @@ fn typed_tree_variable_moves_atomic_guarded_recovery_faults() {
                             .unwrap();
                         for cut in 0..observed.inner.operations() {
                             for written in [0, 97, usize::MAX] {
+                                if !observed.inner.distinct_standard_failure(cut, written, true) {
+                                    continue;
+                                }
                                 let mut interrupted = guard(
-                                    CrashStore::new(damaged.clone(), Some(cut), written, true),
+                                    observed.inner.replay_failure(
+                                        damaged.clone(),
+                                        cut,
+                                        written,
+                                        true,
+                                    ),
                                     &original,
                                     mode,
                                     &authority,

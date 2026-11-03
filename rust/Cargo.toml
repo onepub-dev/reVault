@@ -28,6 +28,15 @@ exclude = [
 ]
 resolver = "2"
 
+# Recovery matrices repeatedly exercise real crypto and storage code. Optimize
+# workspace code (including generic dependency instantiations), while retaining
+# the debug assertions and overflow checks that make the test profile useful.
+# This changes neither production profiles nor cryptographic parameters.
+[profile.test]
+opt-level = 2
+debug-assertions = true
+overflow-checks = true
+
 # CLI integration tests repeatedly derive real password keys. Optimize external
 # dependencies without changing KDF parameters or disabling debug assertions.
 [profile.test.package."*"]

@@ -530,11 +530,18 @@ fn large_interrupted_rollback_resumes_after_the_durable_cleanup_checkpoint() {
 // may have persisted all prior writes before reporting a failed sync.
 #[derive(Clone, Debug)]
 pub(crate) struct CrashStore(Arc<Mutex<CrashState>>);
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum CrashOperation {
+    Write { offset: usize, len: usize },
+    Truncate(u64),
+    Sync,
+}
 #[derive(Debug)]
 struct CrashState {
     volatile: Vec<u8>,
     durable: Vec<u8>,
-    operations: usize,
+    operations: Vec<CrashOperation>,
+    expected_trace: Option<Vec<CrashOperation>>,
     fail_at: Option<usize>,
     prefix: usize,
     persist_sync: bool,
@@ -549,27 +556,76 @@ impl CrashStore {
         Self(Arc::new(Mutex::new(CrashState {
             volatile: bytes.clone(),
             durable: bytes,
-            operations: 0,
+            operations: Vec::new(),
+            expected_trace: None,
             fail_at,
             prefix,
             persist_sync,
         })))
     }
     pub(crate) fn durable(&self) -> Vec<u8> {
-        self.0.lock().unwrap().durable.clone()
+        let state = self.0.lock().unwrap();
+        if state.expected_trace.is_some() {
+            assert!(
+                state.operations.len() > state.fail_at.unwrap(),
+                "fault was not reached"
+            );
+        }
+        state.durable.clone()
     }
     pub(crate) fn operations(&self) -> usize {
-        self.0.lock().unwrap().operations
+        self.0.lock().unwrap().operations.len()
+    }
+
+    // Representatives of the standard [0, 97, MAX] x [false, true]
+    // matrix. Writes ignore persist_sync; sync/truncate ignore prefix.
+    // Keep (97, true) so existing interrupted-recovery samples are unchanged.
+    // Deliberately retain short-write prefix aliases: sampling must not change.
+    pub(crate) fn distinct_standard_failure(
+        &self,
+        at: usize,
+        prefix: usize,
+        persist: bool,
+    ) -> bool {
+        assert!([0, 97, usize::MAX].contains(&prefix));
+        match self.0.lock().unwrap().operations[at] {
+            CrashOperation::Write { .. } => persist,
+            CrashOperation::Truncate(_) | CrashOperation::Sync => prefix == 97,
+        }
+    }
+
+    // Replay the successful operation trace through the chosen fault. A changed
+    // write offset/length, operation kind, or early exit must fail the test,
+    // rather than silently pruning a different fault or skipping it entirely.
+    pub(crate) fn replay_failure(
+        &self,
+        bytes: Vec<u8>,
+        at: usize,
+        prefix: usize,
+        persist: bool,
+    ) -> Self {
+        let trace = self.0.lock().unwrap().operations[..=at].to_vec();
+        let store = Self::new(bytes, Some(at), prefix, persist);
+        store.0.lock().unwrap().expected_trace = Some(trace);
+        store
     }
 }
 impl CrashState {
-    fn failure(&mut self) -> bool {
-        let fail = self.fail_at == Some(self.operations);
-        self.operations += 1;
+    fn failure(&mut self, operation: CrashOperation) -> bool {
+        let fail = self.fail_at == Some(self.operations.len());
+        self.operations.push(operation);
+        if fail {
+            if let Some(expected) = &self.expected_trace {
+                assert_eq!(&self.operations, expected, "fault operation trace changed");
+            }
+        }
         fail
     }
     fn write(&mut self, offset: usize, bytes: &[u8]) -> Result<()> {
-        let fail = self.failure();
+        let fail = self.failure(CrashOperation::Write {
+            offset,
+            len: bytes.len(),
+        });
         let len = if fail {
             bytes.len().min(self.prefix)
         } else {
@@ -631,7 +687,7 @@ impl Storage for CrashStore {
     }
     fn truncate(&mut self, len: u64) -> Result<()> {
         let mut state = self.0.lock().unwrap();
-        let fail = state.failure();
+        let fail = state.failure(CrashOperation::Truncate(len));
         if !fail || state.persist_sync {
             state.volatile.truncate(len as usize);
             if fail {
@@ -646,7 +702,7 @@ impl Storage for CrashStore {
     }
     fn sync(&self) -> Result<()> {
         let mut state = self.0.lock().unwrap();
-        let fail = state.failure();
+        let fail = state.failure(CrashOperation::Sync);
         if !fail || state.persist_sync {
             state.durable = state.volatile.clone();
         }
@@ -1372,4 +1428,93 @@ fn adjoining_reservations_coalesce_without_rechecking_written_bytes_or_admitting
         .iter()
         .all(|b| *b == 0));
     verify(&reopened, &f.anchor, OLD);
+}
+
+#[test]
+fn crash_store_standard_matrix_preserves_all_distinct_outcomes() {
+    fn perform(store: &mut CrashStore, op: &CrashOperation) -> Result<()> {
+        match op {
+            CrashOperation::Write { offset, len } => store.write_at(*offset as u64, &vec![2; *len]),
+            CrashOperation::Truncate(len) => store.truncate(*len),
+            CrashOperation::Sync => store.sync(),
+        }
+    }
+    fn snapshot(store: &CrashStore) -> (Vec<u8>, Vec<u8>) {
+        // durable() also verifies that a replayed fault was actually reached.
+        let durable = store.durable();
+        let volatile = store.0.lock().unwrap().volatile.clone();
+        (volatile, durable)
+    }
+    for op in [
+        CrashOperation::Write {
+            offset: 16,
+            len: 128,
+        },
+        CrashOperation::Write { offset: 16, len: 8 },
+        CrashOperation::Truncate(64),
+        CrashOperation::Sync,
+    ] {
+        let initial = vec![1; 256];
+        let mut observed = CrashStore::new(initial.clone(), None, 0, false);
+        observed.write_at(0, &[3; 8]).unwrap(); // Unsynced data before the fault.
+        perform(&mut observed, &op).unwrap();
+        let mut original = std::collections::BTreeSet::new();
+        let mut reduced = std::collections::BTreeSet::new();
+        let mut retained = 0;
+        for prefix in [0, 97, usize::MAX] {
+            for persist in [false, true] {
+                let selected = observed.distinct_standard_failure(1, prefix, persist);
+                let mut full = CrashStore::new(initial.clone(), Some(1), prefix, persist);
+                full.write_at(0, &[3; 8]).unwrap();
+                assert!(perform(&mut full, &op).is_err());
+                let before_cleanup = snapshot(&full);
+                full.sync().unwrap();
+                full.truncate(32).unwrap();
+                full.sync().unwrap();
+                let outcome = (before_cleanup, snapshot(&full));
+                original.insert(outcome.clone());
+                if selected {
+                    let mut replay = observed.replay_failure(initial.clone(), 1, prefix, persist);
+                    replay.write_at(0, &[3; 8]).unwrap();
+                    assert!(perform(&mut replay, &op).is_err());
+                    let before_cleanup = snapshot(&replay);
+                    replay.sync().unwrap();
+                    replay.truncate(32).unwrap();
+                    replay.sync().unwrap();
+                    let replay_outcome = (before_cleanup, snapshot(&replay));
+                    assert_eq!(replay_outcome, outcome);
+                    reduced.insert(replay_outcome);
+                    retained += 1;
+                }
+            }
+        }
+        assert_eq!(original, reduced, "lost an outcome for {op:?}");
+        assert_eq!(
+            retained,
+            if matches!(op, CrashOperation::Write { .. }) {
+                3
+            } else {
+                2
+            }
+        );
+        assert!(observed.distinct_standard_failure(1, 97, true));
+    }
+}
+
+#[test]
+#[should_panic(expected = "fault operation trace changed")]
+fn crash_store_replay_rejects_changed_operation_trace() {
+    let observed = CrashStore::new(vec![1; 256], None, 0, false);
+    observed.sync().unwrap();
+    let mut replay = observed.replay_failure(vec![1; 256], 0, 97, true);
+    let _ = replay.truncate(64);
+}
+
+#[test]
+#[should_panic(expected = "fault was not reached")]
+fn crash_store_replay_rejects_unreached_fault() {
+    let observed = CrashStore::new(vec![1; 256], None, 0, false);
+    observed.sync().unwrap();
+    let replay = observed.replay_failure(vec![1; 256], 0, 97, true);
+    replay.durable();
 }
