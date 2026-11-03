@@ -266,9 +266,11 @@ The retained library suite with `external-source` passed: **388 passed, zero
 failed, five ignored**. Test execution took **29.76 seconds** locally; the
 command including compilation took 81.25 seconds. This is not a matched-machine
 speedup claim against the earlier GitHub runner. The final binary lists 393 tests.
-All-targets Clippy passed with no new warnings; three existing dead-code warnings
-remain (`seal_prepared_content_secure`, `Storage::append_pair`, and
-`AtomicFileReplacement::existing_for_test`).
+All-targets Clippy initially passed without denying warnings. Review against the
+release gate identified three remaining experiment-only helpers
+(`seal_prepared_content_secure`, `Storage::append_pair`, and
+`AtomicFileReplacement::existing_for_test`); these were removed as well.
+They were not pre-existing production warnings: their callers were all in C.
 
 The six private-boundary guard tests passed. The actual read-only binding
 inventory check also passed, including 241 ABI declarations and 240 operations
@@ -292,3 +294,8 @@ That focused test passed in 12.63 seconds. The separate current-reader
 future-Vault test was strengthened to require exit 14 and the supported version;
 it passed in 41.69 seconds with its existing upgrade guidance and unchanged-file
 checks. Neither result substitutes for Windows/macOS CI.
+
+Final strict Clippy checks passed with `-D warnings`: core all-targets with
+default features, core all-targets with `external-source`, and tooling all-targets.
+No warnings remained. Removing the three unused test helpers does not change
+the retained test inventory or production code paths.

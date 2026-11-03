@@ -120,17 +120,6 @@ pub(crate) fn seal_with_content_key_secure(
     seal_secure_nonce(payload, content_key, aad, nonce)
 }
 
-// Test-only prepared-page reproduction. The caller must prove the complete
-// plaintext and seal context unchanged before reusing a previously fresh nonce.
-#[cfg(test)]
-pub(crate) fn seal_prepared_content_secure(
-    payload: &mut SecureVec,
-    content_key: &[u8; 32],
-    aad: &[u8],
-    nonce: [u8; 12],
-) -> Result<[u8; 12]> {
-    seal_secure_nonce(payload, content_key, aad, nonce)
-}
 fn seal_secure_nonce(
     payload: &mut SecureVec,
     content_key: &[u8; 32],
