@@ -145,6 +145,7 @@ pub(crate) fn make_app(store: Arc<PublishStore>) -> Router {
         .route("/v1/topology/register", post(topology_register_handler))
         .route("/v1/topology", get(topology_handler))
         .route("/v1/status", get(status_handler))
+        .route("/v2/exchange/status", get(exchange_status_handler))
         .route("/v1/verify", get(verify_handler))
         .layer(DefaultBodyLimit::max(body_limit))
         .with_state(AppState {
@@ -234,6 +235,39 @@ async fn status_handler(
         StatusCode::OK,
         status::encode_status(&state.store.status_document()),
     )
+}
+
+async fn exchange_status_handler(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+) -> Response {
+    if !state.allow_public_request(Some(addr.ip())) {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    }
+    let stats = match state.store.exchanges.stats() {
+        Ok(stats) => stats,
+        Err(_) => {
+            log_server_event("exchange statistics unavailable");
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "exchange statistics unavailable",
+            )
+                .into_response();
+        }
+    };
+    match serde_json::to_vec(&stats) {
+        Ok(body) => (
+            StatusCode::OK,
+            [(axum::http::header::CONTENT_TYPE, "application/json")],
+            body,
+        )
+            .into_response(),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "exchange statistics unavailable",
+        )
+            .into_response(),
+    }
 }
 
 #[derive(Deserialize)]

@@ -26,6 +26,131 @@ fn offer() -> (Offer, Acceptance) {
     (offer, response)
 }
 
+fn accepted_exchange(store: &ExchangeStore) -> (String, String, String) {
+    let (offer, acceptance) = offer();
+    let id = offer.id.clone();
+    let owner = random_token().unwrap();
+    let recipient = random_token().unwrap();
+    assert!(store
+        .handle(
+            Request::Create {
+                offer,
+                owner_token: owner.clone()
+            },
+            1000
+        )
+        .error
+        .is_none());
+    assert!(store
+        .handle(
+            Request::Accept {
+                id: id.clone(),
+                recipient_token: recipient.clone(),
+                acceptance,
+            },
+            1000
+        )
+        .error
+        .is_none());
+    (id, owner, recipient)
+}
+
+#[test]
+fn accounting_counts_both_ack_orders_once_and_excludes_replica_imports() {
+    let dir = tempfile::tempdir().unwrap();
+    let replica_dir = tempfile::tempdir().unwrap();
+    let store = ExchangeStore::open(dir.path(), ExchangeLimits::default(), 1000).unwrap();
+    let replica = ExchangeStore::open(replica_dir.path(), ExchangeLimits::default(), 1000).unwrap();
+    for reverse in [false, true] {
+        let (id, owner, recipient) = accepted_exchange(&store);
+        let tokens = if reverse {
+            [recipient, owner]
+        } else {
+            [owner, recipient]
+        };
+        let before = store.stats().unwrap().completed_exchanges;
+        assert!(
+            !store
+                .handle(
+                    Request::Complete {
+                        id: id.clone(),
+                        token: tokens[0].clone()
+                    },
+                    1000
+                )
+                .complete
+        );
+        assert_eq!(store.stats().unwrap().completed_exchanges, before);
+        let complete = Request::Complete {
+            id: id.clone(),
+            token: tokens[1].clone(),
+        };
+        for _ in 0..3 {
+            assert!(store.handle(complete.clone(), 1000).complete);
+            assert_eq!(store.stats().unwrap().completed_exchanges, before + 1);
+        }
+        let snapshot = store.snapshot(&id).unwrap();
+        for _ in 0..3 {
+            replica.apply_snapshot(&snapshot, 1000).unwrap();
+            assert!(replica.handle(complete.clone(), 1000).complete);
+            assert_eq!(replica.stats().unwrap().completed_exchanges, 0);
+        }
+    }
+    store.purge_expired(2000).unwrap();
+    assert!(store.snapshot_ids().unwrap().is_empty());
+    assert_eq!(store.stats().unwrap().completed_exchanges, 2);
+    drop(store);
+    let store = ExchangeStore::open(dir.path(), ExchangeLimits::default(), 3000).unwrap();
+    assert_eq!(store.stats().unwrap().completed_exchanges, 2);
+    assert_eq!(store.stats().unwrap().counting_since_unix_ms, 1000);
+}
+
+#[test]
+fn concurrent_completions_increment_once_and_cancellation_does_not_count() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = ExchangeStore::open(dir.path(), ExchangeLimits::default(), 1000).unwrap();
+    let (id, owner, recipient) = accepted_exchange(&store);
+    std::thread::scope(|scope| {
+        for token in [owner.clone(), recipient.clone(), owner, recipient] {
+            let store = &store;
+            let id = id.clone();
+            scope.spawn(move || {
+                assert!(store
+                    .handle(Request::Complete { id, token }, 1000)
+                    .error
+                    .is_none());
+            });
+        }
+    });
+    assert_eq!(store.stats().unwrap().completed_exchanges, 1);
+    let (offer, _) = offer();
+    let id = offer.id.clone();
+    let owner_token = random_token().unwrap();
+    assert!(store
+        .handle(
+            Request::Create {
+                offer,
+                owner_token: owner_token.clone()
+            },
+            1000
+        )
+        .error
+        .is_none());
+    let cancel = Request::Cancel { id, owner_token };
+    assert!(store.handle(cancel.clone(), 1000).complete);
+    assert!(store.handle(cancel, 1000).complete);
+    assert_eq!(store.stats().unwrap().completed_exchanges, 1);
+}
+
+#[test]
+fn exclusive_directory_open_is_released_when_store_drops() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = ExchangeStore::open(dir.path(), ExchangeLimits::default(), 1000).unwrap();
+    assert!(ExchangeStore::open(dir.path(), ExchangeLimits::default(), 1000).is_err());
+    drop(store);
+    assert!(ExchangeStore::open(dir.path(), ExchangeLimits::default(), 1000).is_ok());
+}
+
 #[test]
 fn durable_reciprocal_lifecycle_capabilities_retries_and_expiry() {
     let dir = tempfile::tempdir().unwrap();

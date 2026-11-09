@@ -128,6 +128,71 @@ settings.
 
 ## Verify and operate
 
+### Completed reciprocal exchanges
+
+`GET /v2/exchange/status` returns anonymous JSON statistics for reciprocal
+invitations:
+
+```json
+{
+  "schema_version": 1,
+  "scope": "local_state_directory",
+  "counting_since_unix_ms": 1794000000000,
+  "completed_exchanges": 12
+}
+```
+
+The total increases once when both participants have acknowledged durable
+delivery and this server commits the completed receipt. Creating or accepting
+an invitation, polling, a single acknowledgement, retries, cancellation and
+expiry do not increase it. A failed network response can follow a successful
+local commit, so count completion from this metric, not HTTP status codes.
+It measures delivery, not independent identity verification, distinct users,
+or non-test usage.
+
+Counting starts at zero when accounting is first enabled for a state directory.
+`counting_since_unix_ms` records that baseline, not the server launch date.
+Previously completed invitations are not backfilled. The aggregate and a
+bounded recovery journal preserve the count through restarts, interrupted
+writes, and invitation/receipt expiry. Keep the accounting files with the
+exchange state when backing up or moving a stopped server. Do not delete them
+to reset a running service.
+
+The files live in `state_dir/exchanges/accounting/`: `aggregate` contains only
+the anonymous count and baseline, and `pending` exists only while a completion
+transaction needs recovery. That bounded journal contains the hash-only receipt
+already used by exchange storage, not the public identity bundle. Startup
+recovers it before removing expired invitations. Missing or malformed established
+accounting fails closed instead of silently restarting from zero.
+Keep the adjacent `.exchange-accounting-initialized` marker too: it detects a
+missing accounting directory rather than treating lost history as a new baseline.
+
+The scope is local: imported replica receipts and resynchronization do not
+increase the count. Promoting a replica preserves its own count, not its former
+owner's total. This endpoint is not a cluster-wide total; do not add server
+counts to claim distinct exchanges across unfenced or divergent histories.
+Moving the complete state directory preserves its count and baseline.
+
+Successful local commits also emit an aggregate log message with the total and
+baseline only. Statistics and completion log messages contain no keys, email
+addresses, profile names, IP addresses, invitation identifiers, token values,
+or identity/transcript hashes. Log rotation and collector coverage do not
+affect the durable count. Configure a collector separately if historical
+aggregate charts are needed.
+
+The existing binary `/v1/status` remains unchanged and reports the older
+publish/receive flow. Public request limits also apply to the new endpoint.
+An unavailable accounting store returns HTTP 503 instead of a misleading zero.
+
+### Service operations
+
+Only one process may open an exchange state directory at a time. Stop the local
+service before running `resync-peer` against that same directory, then restart
+it after the command finishes. This also prevents two server processes from
+losing counts through concurrent writes. Do not remove the `.exchange-lock`
+file while a process holds it. Stop older server binaries before enabling
+accounting; older versions do not participate in this lock.
+
 ```bash
 sudo revault_key_server doctor
 sudo systemctl restart revault_key_server

@@ -36,6 +36,138 @@ fn axum_server_limits_topology_by_socket_peer() {
 }
 
 #[test]
+fn axum_exchange_status_limits_requests_by_socket_peer() {
+    let (_guard, mut config) = temp_server_config("exchange-status-rate-limit");
+    config.rate_limit_per_minute = 60;
+    config.rate_limit_burst = 1;
+    let addr = spawn_server(config);
+    assert!(get_request(addr, "/v2/exchange/status", "").starts_with(b"HTTP/1.1 200"));
+    assert!(get_request(addr, "/v2/exchange/status", "").starts_with(b"HTTP/1.1 429"));
+}
+
+#[test]
+fn axum_exchange_status_reports_unavailable_instead_of_resetting_corrupt_accounting() {
+    let (_guard, config) = temp_server_config("exchange-status-corrupt-accounting");
+    let aggregate = config.state_dir.join("exchanges/accounting/aggregate");
+    let server = spawn_server_with_store(config);
+    std::fs::write(&aggregate, b"invalid accounting").unwrap();
+    let response = get_request(server.addr, "/v2/exchange/status", "");
+    assert!(response.starts_with(b"HTTP/1.1 503"));
+    assert_eq!(http_body(&response), b"exchange statistics unavailable");
+    assert_eq!(std::fs::read(aggregate).unwrap(), b"invalid accounting");
+}
+
+#[test]
+fn axum_exchange_status_counts_delivery_not_attempts_and_preserves_legacy_status() {
+    use revault_key_server::exchange_store::ExchangeStats;
+    use revault_lockbox_api::{ContactKeyPair, OwnerSigningKeyPair};
+    use revault_publish_protocol::exchange::{
+        decode, encode, random_token, Acceptance, Bundle, Offer, Request, Response,
+    };
+
+    let (_guard, config) = temp_server_config("exchange-status-lifecycle");
+    let server = spawn_server_with_store(config);
+    let status = || {
+        let response = get_request(server.addr, "/v2/exchange/status", "");
+        assert!(response.starts_with(b"HTTP/1.1 200"));
+        assert!(String::from_utf8_lossy(&response).contains("application/json"));
+        serde_json::from_slice::<ExchangeStats>(http_body(&response)).unwrap()
+    };
+    let request = |request: &Request| {
+        let response = post_request(server.addr, "/v2/exchange", "", &encode(request).unwrap());
+        assert!(response.starts_with(b"HTTP/1.1 200"));
+        decode::<Response>(http_body(&response)).unwrap()
+    };
+    let initial = status();
+    assert_eq!(initial.schema_version, 1);
+    assert_eq!(initial.scope, "local_state_directory");
+    assert_eq!(initial.completed_exchanges, 0);
+    assert!(initial.counting_since_unix_ms > 0);
+
+    let alice = OwnerSigningKeyPair::generate().unwrap();
+    let bob = OwnerSigningKeyPair::generate().unwrap();
+    let bundle = |email: &str, key: &OwnerSigningKeyPair| Bundle {
+        profile: "default".to_owned(),
+        email: email.to_owned(),
+        generation: 0,
+        encryption_key: ContactKeyPair::generate().unwrap().public_key().to_bytes(),
+        signing_key: key.public_key().to_bytes(),
+    };
+    let now = unix_ms(SystemTime::now());
+    let mut offer = Offer {
+        version: 1,
+        id: random_token().unwrap(),
+        inviter: bundle("alice@example.test", &alice),
+        recipient_email: "bob@example.test".to_owned(),
+        created_ms: now,
+        expires_ms: now + 60_000,
+        signature: Vec::new(),
+    };
+    offer.sign(&alice).unwrap();
+    let owner_token = random_token().unwrap();
+    let recipient_token = random_token().unwrap();
+    assert!(request(&Request::Create {
+        offer: offer.clone(),
+        owner_token: owner_token.clone()
+    })
+    .error
+    .is_none());
+    let acceptance = Acceptance::new(&offer, bundle("bob@example.test", &bob), &bob).unwrap();
+    assert!(request(&Request::Accept {
+        id: offer.id.clone(),
+        recipient_token: recipient_token.clone(),
+        acceptance
+    })
+    .error
+    .is_none());
+    assert!(request(&Request::Complete {
+        id: offer.id.clone(),
+        token: random_token().unwrap()
+    })
+    .error
+    .is_some());
+    let first = Request::Complete {
+        id: offer.id.clone(),
+        token: owner_token.clone(),
+    };
+    let second = Request::Complete {
+        id: offer.id.clone(),
+        token: recipient_token.clone(),
+    };
+    assert!(!request(&first).complete);
+    assert_eq!(status().completed_exchanges, 0);
+    assert!(request(&second).complete);
+    assert!(request(&second).complete);
+    assert!(request(&first).complete);
+    let completed = status();
+    assert_eq!(completed.completed_exchanges, 1);
+    assert_eq!(
+        completed.counting_since_unix_ms,
+        initial.counting_since_unix_ms
+    );
+
+    let response = get_request(server.addr, "/v2/exchange/status", "");
+    let value: serde_json::Value = serde_json::from_slice(http_body(&response)).unwrap();
+    assert_eq!(value.as_object().unwrap().len(), 4);
+    let text = String::from_utf8_lossy(http_body(&response));
+    for sensitive in [
+        &offer.id,
+        &owner_token,
+        &recipient_token,
+        &offer.inviter.email,
+        &offer.recipient_email,
+    ] {
+        assert!(!text.contains(sensitive));
+    }
+    let legacy = get_request(server.addr, "/v1/status", "");
+    let legacy_body = http_body(&legacy);
+    assert_eq!(legacy_body.len(), 4 + 2 + 9 * 8);
+    let legacy_status = revault_publish_protocol::decode_status(legacy_body).unwrap();
+    assert_eq!(legacy_status.created, 0);
+    assert_eq!(legacy_status.received, 0);
+}
+
+#[test]
 fn axum_server_limits_publish_by_socket_peer() {
     let (_guard, mut config) = temp_server_config("axum-publish-proxy-rate-limit");
     config.topology_token = Some("server-token".to_string());

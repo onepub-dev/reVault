@@ -158,6 +158,12 @@ topology members and routes use TOML arrays of tables.
 
 ## `resync-peer`
 
+Stop the local key-server process before running this command against its state
+directory. Exchange storage is exclusively locked for the lifetime of the
+process to protect records and durable completion accounting. Restart the
+service after resynchronization completes. Never remove the `.exchange-lock`
+file to bypass an active lock.
+
 - `--peer-url URL`  
   Required. Target peer `/v1/replicate` endpoint.
 - Other options: pass `--config PATH` for server configuration. Direct

@@ -1,9 +1,11 @@
 //! Durable single-server invitations. Active records are never LRU-evicted.
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+
+mod accounting;
+pub use accounting::ExchangeStats;
 
 use revault_publish_protocol::exchange::{
     decode, encode, token_hash, valid_token, Record, Request, Response, MAX_MESSAGE_BYTES,
@@ -181,6 +183,8 @@ pub struct ExchangeStore {
     directory: PathBuf,
     limits: ExchangeLimits,
     index: Mutex<Index>,
+    accounting: accounting::Accounting,
+    _directory_lock: std::fs::File,
 }
 
 impl ExchangeStore {
@@ -190,12 +194,18 @@ impl ExchangeStore {
             return Err("invalid invitation ID".to_owned());
         }
         let _index = self.index.lock().map_err(|_| "storage unavailable")?;
+        self.accounting
+            .recover()
+            .map_err(|_| "exchange accounting unavailable")?;
         encode(&self.read(id)?).map_err(|_| "invalid invitation state".to_owned())
     }
 
     /// Returns a consistent inventory for explicit peer resynchronization.
     pub fn snapshot_ids(&self) -> std::result::Result<Vec<String>, String> {
         let index = self.index.lock().map_err(|_| "storage unavailable")?;
+        self.accounting
+            .recover()
+            .map_err(|_| "exchange accounting unavailable")?;
         Ok(index.records.keys().cloned().collect())
     }
 
@@ -253,6 +263,9 @@ impl ExchangeStore {
             }
         }
         let mut index = self.index.lock().map_err(|_| "storage unavailable")?;
+        self.accounting
+            .recover()
+            .map_err(|_| "exchange accounting unavailable")?;
         self.purge(&mut index, now)?;
         if index.contains_key(incoming.id()) {
             let previous = self.read(incoming.id())?;
@@ -322,6 +335,8 @@ impl ExchangeStore {
     /// Opens a store and checks all retained records. Corruption fails startup.
     pub fn open(directory: &Path, limits: ExchangeLimits, now: u64) -> std::io::Result<Self> {
         std::fs::create_dir_all(directory)?;
+        let directory_lock = accounting::lock_directory(directory)?;
+        let accounting = accounting::Accounting::open(directory, now)?;
         let mut index = Index::default();
         for item in std::fs::read_dir(directory)? {
             let item = item?;
@@ -362,7 +377,18 @@ impl ExchangeStore {
             directory: directory.to_owned(),
             limits,
             index: Mutex::new(index),
+            accounting,
+            _directory_lock: directory_lock,
         })
+    }
+
+    /// Returns anonymous durable local completions, excluding replica imports.
+    pub fn stats(&self) -> std::io::Result<ExchangeStats> {
+        let _index = self
+            .index
+            .lock()
+            .map_err(|_| std::io::Error::other("storage unavailable"))?;
+        self.accounting.stats()
     }
 
     fn path(&self, id: &str) -> PathBuf {
@@ -387,17 +413,8 @@ impl ExchangeStore {
 
     fn write_stored(&self, record: &Stored) -> std::result::Result<(), String> {
         let bytes = encode(record).map_err(|_| "invitation too large")?;
-        let mut file =
-            tempfile::NamedTempFile::new_in(&self.directory).map_err(|_| "storage unavailable")?;
-        file.write_all(&bytes)
-            .and_then(|()| file.as_file().sync_all())
-            .map_err(|_| "storage write failed")?;
-        file.persist(self.path(record.id()))
+        accounting::atomic_write(&self.path(record.id()), &bytes)
             .map_err(|_| "storage commit failed")?;
-        #[cfg(unix)]
-        std::fs::File::open(&self.directory)
-            .and_then(|dir| dir.sync_all())
-            .map_err(|_| "storage sync failed")?;
         Ok(())
     }
 
@@ -539,7 +556,9 @@ impl ExchangeStore {
                 }
                 if record.owner_done && record.recipient_done {
                     let receipt = Receipt::from_record(&record, false)?;
-                    self.write_stored(&Stored::Receipt(receipt))?;
+                    self.accounting
+                        .complete(receipt)
+                        .map_err(|_| "exchange accounting unavailable")?;
                     Ok(Response {
                         offer: None,
                         acceptance: None,
@@ -580,6 +599,9 @@ impl ExchangeStore {
     }
 
     fn purge(&self, index: &mut Index, now: u64) -> std::result::Result<(), String> {
+        self.accounting
+            .recover()
+            .map_err(|_| "exchange accounting unavailable")?;
         while let Some(((expiry, id), ())) = index.expiries.first_key_value() {
             if *expiry > now {
                 break;
